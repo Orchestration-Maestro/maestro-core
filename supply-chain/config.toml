@@ -24,7 +24,7 @@ url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/
 
 [policy.lbug]
 audit-as-crates-io = true
-notes = "S2 D8: lbug 0.20.4 combined fork 802abe2 (E01, E02, E03, E03b), reviewed fork PRs #1–#9"
+notes = "S2 D8: lbug 0.20.4 fork e0a1240 (E01–E03b, E01e strict rooted WAL replay), reviewed fork PRs #1–#9 and #17"
 
 [[exemptions.android_system_properties]]
 version = "0.1.6"
@@ -340,9 +340,9 @@ version = "0.3.106"
 criteria = "safe-to-deploy"
 
 [[exemptions.lbug]]
-version = "0.20.4@git:802abe2ab0fb55ceb72531caf9d0cae059670c4b"
+version = "0.20.4@git:e0a1240c5c11e944d3a03cf81664b45add931098"
 criteria = "safe-to-deploy"
-notes = "S2 D8: combined fork E01, E02, E03, E03b; reviewed fork PRs #1–#9"
+notes = "S2 D8: fork E01–E03b and E01e strict rooted WAL replay; reviewed fork PRs #1–#9 and #17"
 
 [[exemptions.libc]]
 version = "0.2.189"

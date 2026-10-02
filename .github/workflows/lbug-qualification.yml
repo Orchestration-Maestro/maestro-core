@@ -1,0 +1,96 @@
+name: Ladybug fork qualification
+# Required rust-central CI (rust-workflows v4.8.0) owns merged default/engine
+# coverage and native mutation policy on PR #71; this workflow adds host proof.
+"on":
+  push:
+    branches: [feat/s2-integration, test/s2-e07a-qualification]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: lbug-qualification-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  engine:
+    name: lbug engine (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      CARGO_BUILD_JOBS: 3
+      CARGO_INCREMENTAL: 0
+    steps:
+      - name: Check out the qualification pin
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use preinstalled rustup for the pinned toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/tested-sha.txt
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+      - name: Prove the default workspace has no native engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --workspace --locked --message-format=json > evidence/default-build.jsonl
+          python - <<'PY'
+          import json
+          import pathlib
+          messages = [json.loads(line) for line in pathlib.Path('evidence/default-build.jsonl').read_text().splitlines()]
+          compiled = [message['package_id'] for message in messages if message.get('reason') == 'compiler-artifact']
+          assert compiled, 'No build artifacts recorded'
+          assert not any('lbug?' in package or '#lbug@' in package for package in compiled), 'Default build acquired lbug'
+          print('DEFAULT_WORKSPACE_NO_LBUG')
+          PY
+      - name: Prove rooted native projection and feature forwarding
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test -p maestro-knowledge --features engine --locked graph::projection -- --nocapture 2>&1 | tee evidence/projection.txt
+          cargo test -p maestro --features engine --locked graph_operations 2>&1 | tee evidence/graph-operations.txt
+          cargo test -p lbug-spike --features engine --locked --timings 2>&1 | tee evidence/spike.txt
+          cargo test -p lbug-spike --features engine --locked --no-run --message-format=json > evidence/spike-build.jsonl
+      - name: Inspect native TLS linkage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee evidence/native-links.txt
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import sys
+          messages = [json.loads(line) for line in pathlib.Path('evidence/spike-build.jsonl').read_text().splitlines()]
+          binaries = [message['executable'] for message in messages
+                      if message.get('executable') and message['target']['name'] == 'it']
+          assert len(binaries) == 1, 'Expected exactly one spike test executable'
+          binary = pathlib.Path(binaries[0])
+          if os.name == 'nt':
+              command = ['objdump', '-p', str(binary)]
+          elif sys.platform == 'darwin':
+              command = ['otool', '-L', str(binary)]
+          else:
+              command = ['ldd', str(binary)]
+          result = subprocess.run(command, check=True, text=True, stdout=subprocess.PIPE)
+          print('COMMAND:', ' '.join(command))
+          print(result.stdout)
+          links = result.stdout.lower()
+          if sys.platform == 'darwin':
+              assert 'libc++' in links and 'libsystem' in links, 'Not the linked engine executable'
+          assert 'libssl' not in links and 'libcrypto' not in links, 'OpenSSL linked'
+          print('NO_OPENSSL_NATIVE_LINKS')
+          PY
+      - name: Upload SHA-bound native qualification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: lbug-qualification-${{ matrix.os }}-${{ github.sha }}
+          path: evidence/
+          if-no-files-found: error

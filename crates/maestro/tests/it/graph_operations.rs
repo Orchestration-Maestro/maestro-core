@@ -51,14 +51,14 @@ fn an_off_graph_is_reported_off_and_never_probed_or_created() {
 
 #[cfg(all(not(feature = "engine"), unix))]
 #[test]
-fn lbug_in_a_build_without_the_engine_is_named_and_nothing_is_created() {
+fn ladybug_in_a_build_without_the_engine_is_named_and_nothing_is_created() {
     let home = Home::bare();
-    let status = home.run(&["--set", "graph.engine=lbug", "--json", "status"]);
+    let status = home.run(&["--set", "graph.engine=ladybug", "--json", "status"]);
     assert_eq!(status.code, Some(0), "{status:?}");
     assert_eq!(graph(&status.json())["ready"], false);
     assert!(detail(&status).contains("built without the engine"));
 
-    let doctor = home.run(&["--set", "graph.engine=lbug", "--json", "doctor"]);
+    let doctor = home.run(&["--set", "graph.engine=ladybug", "--json", "doctor"]);
     assert_eq!(doctor.code, Some(1), "{doctor:?}");
     let next = graph(&doctor.json())["next_action"]
         .as_str()
@@ -68,7 +68,7 @@ fn lbug_in_a_build_without_the_engine_is_named_and_nothing_is_created() {
 
     let (setup, calls, stderr) = setup_offline(
         &home,
-        &["--set", "graph.engine=lbug", "--json", "setup", "--yes"],
+        &["--set", "graph.engine=ladybug", "--json", "setup", "--yes"],
     );
     assert_eq!(setup["graph"]["action"], "refused", "{setup}");
     assert!(
@@ -96,6 +96,22 @@ fn setup_refuses_a_settings_file_error_and_still_reports_qdrant() {
     assert!(setup.stdout.starts_with("Graph: refused:"), "{setup:?}");
     assert!(setup.stderr.contains("preferences.toml"), "{setup:?}");
     assert!(!home.data().join("qdrant").exists());
+}
+
+#[test]
+fn lbug_is_refused_with_an_explicit_migration_before_any_graph_call() {
+    let home = Home::bare();
+    for command in ["status", "doctor", "setup"] {
+        let refused = home.run(&["--set", "graph.engine=lbug", command]);
+        assert_eq!(refused.code, Some(2), "{command}: {refused:?}");
+        assert!(
+            refused
+                .stderr
+                .contains("replace graph.engine=lbug with graph.engine=ladybug"),
+            "{refused:?}"
+        );
+    }
+    assert!(!home.data().join("graph").exists());
 }
 
 #[test]
@@ -164,10 +180,10 @@ fn with_the_engine_setup_owns_the_directory_and_health_opens_nothing_yet() {
     use std::os::unix::fs::PermissionsExt as _;
     let home = Home::bare();
     let graph_directory = home.data().join("graph");
-    let missing = home.run(&["--set", "graph.engine=lbug", "--json", "doctor"]);
+    let missing = home.run(&["--set", "graph.engine=ladybug", "--json", "doctor"]);
     assert_eq!(detail(&missing), "the graph directory is missing");
 
-    let lbug = ["--set", "graph.engine=lbug", "--json", "setup"];
+    let lbug = ["--set", "graph.engine=ladybug", "--json", "setup"];
     let (preview, _, _) = setup_offline(&home, &lbug);
     assert_eq!(preview["graph"]["action"], "create_directory", "{preview}");
     assert!(!graph_directory.exists());
@@ -179,7 +195,7 @@ fn with_the_engine_setup_owns_the_directory_and_health_opens_nothing_yet() {
     assert_eq!(mode & 0o777, 0o700);
 
     fs::write(graph_directory.join("unpublished.lbug"), "kept").unwrap();
-    let doctor = home.run(&["--set", "graph.engine=lbug", "--json", "doctor"]);
+    let doctor = home.run(&["--set", "graph.engine=ladybug", "--json", "doctor"]);
     assert_eq!(
         detail(&doctor),
         "no graph is published yet, so no file was opened"
@@ -191,7 +207,7 @@ fn with_the_engine_setup_owns_the_directory_and_health_opens_nothing_yet() {
     );
 
     fs::set_permissions(&graph_directory, fs::Permissions::from_mode(0o755)).unwrap();
-    let shared = home.run(&["--set", "graph.engine=lbug", "--json", "status"]);
+    let shared = home.run(&["--set", "graph.engine=ladybug", "--json", "status"]);
     assert!(detail(&shared).contains("permissions"), "{shared:?}");
     let mode = fs::metadata(&graph_directory).unwrap().permissions().mode();
     assert_eq!(mode & 0o777, 0o755, "status changes nothing");

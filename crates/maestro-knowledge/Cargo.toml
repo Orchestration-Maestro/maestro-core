@@ -10,7 +10,12 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Native projection activation is opt-in; default builds never compile liblbug.
+engine = ["dep:lbug"]
+
 [dependencies]
+lbug = { workspace = true, optional = true }
 maestro-canonicalization.workspace = true
 maestro-kernel.workspace = true
 qdrant-client.workspace = true

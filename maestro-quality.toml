@@ -15,10 +15,16 @@ platforms = "macos windows"
 # Split mutation testing across remote runners, the count chosen from the
 # mutants of the change (maestro-rust-workflows v4.4.0).
 mutation-shards = 0
+coverage-features = ["maestro/engine", "maestro-knowledge/engine"]
 mutation-windows = [
   "crates/maestro-settings/src/file/windows.rs",
   "crates/maestro-canonicalization/src/filesystem/windows.rs",
 ]
+
+# Package-local native mutation ownership; no unrelated package gains lbug.
+[ci.mutation-engine]
+features = ["engine"]
+files = ["crates/maestro-knowledge/src/graph/projection/engine/open.rs"]
 
 # The seams of the canonicalization crate that keep one caller: each door is a
 # subsystem, and its one outside caller is the stage that composes it.

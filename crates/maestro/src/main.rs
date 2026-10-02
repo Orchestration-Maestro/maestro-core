@@ -158,7 +158,7 @@
 //!   reranking, without intent expansion, and ask, prepare and publish
 //!   refuse with `models_off` before the kernel opens. `cpu` is refused
 //!   until after M1.
-//! - `graph.engine`: `none`, no graph, or `lbug`, the embedded `LadybugDB`
+//! - `graph.engine`: `none`, no graph, or `ladybug`, the embedded `LadybugDB`
 //!   engine, which only a build with the `engine` feature holds. `setup`
 //!   prepares its directory; `status` and `doctor` check it read-only.
 //! - the search, evidence, ask and chunking knobs under `search.`,
@@ -382,11 +382,11 @@
 //!
 //! # `setup`
 //!
-//! First the local graph: with `graph.engine = "lbug"`, it creates the
+//! First the local graph: with `graph.engine = "ladybug"`, it creates the
 //! graph's directory, `graph` under the data directory, mode 0700 on Unix,
 //! or restores that mode; it downloads nothing, opens no graph and removes
 //! nothing, on every platform. A build without the `engine` feature refuses
-//! the graph part of setup for `lbug`, and a link or a file in the directory's
+//! the graph part of setup for `ladybug`, and a link or a file in the directory's
 //! place is refused. A graph
 //! refusal is reported but does not prevent the search-service part from
 //! running. It installs Qdrant 1.19.1, the search service, as the systemd user unit

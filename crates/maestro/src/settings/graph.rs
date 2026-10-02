@@ -10,7 +10,7 @@ pub(crate) enum GraphEngine {
     /// Graph reads are disabled and make no engine calls.
     None,
     /// The in-process `LadybugDB` engine.
-    Lbug,
+    Ladybug,
 }
 
 impl GraphEngine {
@@ -31,7 +31,7 @@ impl GraphEngine {
     pub(crate) fn read(session: &Session) -> Result<(Self, BTreeSet<String>), Failure> {
         let engine = match session.resolved().text(Self::KEY) {
             Some("none") => Self::None,
-            Some("lbug") => Self::Lbug,
+            Some("ladybug") => Self::Ladybug,
             _ => return Err(Failure::failed("graph.engine is missing or not a choice")),
         };
         Ok((engine, BTreeSet::from([Self::KEY.to_owned()])))

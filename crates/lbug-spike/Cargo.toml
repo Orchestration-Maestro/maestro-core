@@ -11,7 +11,7 @@ publish.workspace = true
 workspace = true
 
 [features]
-# Off by default: no workspace build compiles liblbug until G27 adopts it.
+# Off by default: the remaining dependency/installer probes never enable liblbug implicitly.
 engine = ["dep:lbug"]
 
 [dependencies]
@@ -24,8 +24,4 @@ required-features = ["engine"]
 
 [[example]]
 name = "open_query"
-required-features = ["engine"]
-
-[[example]]
-name = "open_reopen"
 required-features = ["engine"]

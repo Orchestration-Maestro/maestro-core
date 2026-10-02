@@ -381,10 +381,16 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
     ),
     free(
         "graph.engine",
-        choice(texts!["none", "lbug"]),
+        SettingKind::Choice {
+            values: texts!["none", "ladybug"],
+            reserved: Cow::Borrowed(&[ReservedValue {
+                value: Cow::Borrowed("lbug"),
+                reason: Cow::Borrowed("replace graph.engine=lbug with graph.engine=ladybug"),
+            }]),
+        },
         "none",
-        "The local knowledge graph: none, no graph; lbug, the embedded LadybugDB engine, in \
-         a maestro built with the engine feature. No graph server, port or download.",
+        "The local knowledge graph: none makes no graph calls; ladybug selects the embedded \
+         LadybugDB adapter in a build with the engine feature. No server or download.",
     ),
     free(
         "chunking.profile",

@@ -11,9 +11,8 @@ publish.workspace = true
 workspace = true
 
 [features]
-# The embedded graph engine, LadybugDB: `graph.engine = "lbug"` is accepted
-# only in a build with it. G27 adds the engine adapter behind it.
-engine = []
+# Forward native projection activation; ladybug selection requires this build.
+engine = ["maestro-knowledge/engine"]
 
 [dependencies]
 clap.workspace = true

@@ -145,10 +145,13 @@ The patch lives in the organization's repository
 [`Orchestration-Maestro/lbug`](https://github.com/Orchestration-Maestro/lbug):
 the crates.io 0.20.4 crate imported unmodified, then the patch commits.
 The workspace keeps `lbug = "=0.20.4"` with default features off, and
-`[patch.crates-io]` replaces it with the fork at commit `4301d51`
+`[patch.crates-io]` replaces it with the fork at commit `e0a1240`
 (`Cargo.lock` pins the full hash). Its DEP-001 exception in
 `maestro-quality.toml` allows that one git source, and `supply-chain`
-records its vet exemption.
+records its vet exemption. The current pin includes E01/E02 rooted
+filesystem operations, E03 external native-cache reuse, E03b source-only
+builds and E01e strict rooted WAL replay. Fresh three-OS qualification is
+recorded in [S2 research](../../specs/002-knowledge-graph/research.md#e07a-e01e-repin-qualification-e0a1240).
 
 - **OpenSSL-free** (`575d94f`): a default Cargo feature,
   `extension_installer`, keeps upstream's behaviour. Without it, the CMake
@@ -181,13 +184,23 @@ naming are off in every build type. The reused CMake build does not see that
 file: after editing it, delete `target/*/build/lbug-cmake-*` and CI's target
 cache.
 
-Until the organization's CI caches the C++ build, lbug stays opt-in: only
-`crates/lbug-spike` depends on it, behind its `engine` feature, off by
-default, so no default workspace build compiles the engine. G25 measured a
-clean debug build of it at 10-15 minutes on Linux and macOS runners and
-about 26 on Windows, and the gate builds it in four target directories
-(`specs/002-knowledge-graph/research.md`). Making lbug a default dependency
-(G27) waits for that CI change.
+E07a keeps native activation opt-in: `maestro-knowledge/engine` owns the
+rooted adapter and `maestro/engine` forwards it. The remaining spike
+installer/linkage probes also stay behind an off-by-default feature.
+Default workspace builds have no lbug dependency. Required rust-central CI
+at rust-workflows v4.8.0 consumes the exact native coverage/mutation policy;
+`lbug-qualification.yml` adds SHA-bound three-OS native and default proof.
+Root `clippy.toml` preserves the organization settings and forbids the old
+path-only constructor. Windows rooted writers still refuse; E07a's reader
+fixture alone uses one explicitly lint-expected legacy creation.
+
+Historical unrooted spike operation tests and the `open_reopen` example
+are retired in favor of product-rooted smoke; their measurements remain in
+S2 research. This first boundary is not complete projection activation:
+E07b/E08 own remaining operations, and frozen `graphdb.*` settings arrive
+through the S1 resolver after S2 and S3 share a branch. G25's paired
+cold/cache/coverage/mutation cost obligations still gate M2; no default
+engine adoption or timing waiver is granted.
 
 The fork's README says how to move to a new upstream version: import the new
 crate, cherry-pick the patch commits, update the pin. When an upstream release

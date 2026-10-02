@@ -612,7 +612,7 @@ already uses sub-slices); its range is not an oversized lane authorization.
 | E04 | rust-workflows policy/workflow/planner: exactly `coverage-features` and `mutation-engine`; unrelated-package and feature-only fixtures prove complete ownership, no extra unviable, default+feature coverage and required harvest. | E03 cache interface; supervisor release/re-pin before E07a | 4–8 h |
 | E05 | `P/writer.rs`, `P/content.rs`, shared contract tests: verify/publish/receipt-named open, canonical digest vectors, fixed-width basename, nonterminal verification. | None; landed contract evidence retained | 2–4 h |
 | E06 | `K/src/facts/projection.rs`, read-only store inventory, `P/receipts.rs`: old/missing authority never created/migrated; scoped current inventory and exact receipts. | E05 contract agreement; can overlap implementation | 2–4 h |
-| E07a | Core pin/lock/vet/ADR/research, feature manifests, engine-owned policy, `lbug-qualification.yml`, `P/engine/open.rs`: rooted smoke and forbidden old constructor lint; default no-lbug and required feature gates from this commit. Carry C47a's frozen backend settings/lock into native activation (+2 h). | C47a, G01, combined E01/E02/E03/E03b pin, fresh three-OS G25 qualification, released E04 | 5–8 h |
+| E07a | Core pin/lock/vet/ADR/research, feature manifests, engine-owned policy, `lbug-qualification.yml`, `P/engine/open.rs`: rooted smoke and forbidden old constructor lint; default no-lbug and required feature gates from this commit. The frozen `graphdb.*` activation handoff is deferred below (+2 h). | C47a, G01, combined E01/E02/E03/E03b pin, fresh three-OS G25 qualification, released E04 | 5–8 h |
 | E07b | `P/engine/{schema,transaction,rows}.rs`: bound full facts/edges, real post-write rollback, catalog access paths and independently frozen digest vectors. | E07a, E05 | 3–6 h |
 | E08a | `P/engine/{backend,reader}.rs`: shared fake/native contract, nonterminal verify and physical receipt-file binding. | E07b, E05 | 2–4 h |
 | E08b | `P/{lifecycle,access}.rs`, canonicalization safe graph-root facade, CLI setup: guarded no-overwrite publication, one native handle/path, setup-created permanent guards, process death/cancellation. Carry approved backend settings/lock through reader, writer and publication (+1 h). | E08a, E06 | 5–9 h |
@@ -620,7 +620,8 @@ already uses sub-slices); its range is not an oversized lane authorization.
 | E10 | `P/cleanup.rs`, canonicalization anchored removal, CLI cleanup/how-to: Retired/Failed-with-receipt preview/confirmation, guard before lookup, no live-reader/unowned deletion or recursive cleanup. | E06, E08b; parallel with E09 | 3–6 h |
 | E11 | `S2/research.md`, how-to and required-check receipts: three-OS engine behavior, source-only runtime, complete feature/default/Windows gates and G22 engine packaging. | E04, E07a/E07b/E08a/E08b, E09, E10 | 2–4 h |
 
-The pin moved to `802abe2` in the combined-pin qualification (2026-10-02). E07a wires the adapter and changes the pin only if the fork moves again.
+The pin moved to `802abe2` in the combined-pin qualification (2026-10-02), then to `e0a1240` in E07a after E01e. E07a wires the first rooted adapter boundary.
+Deferred E07a obligation: after S2 and S3 share a branch, native activation reads the frozen `graphdb.*` settings through the S1 resolver.
 
 Ranges are planning estimates, not observed future durations. Basis: the
 2026-09-30 ledger records E05 ruling at 01:10, push/review by 02:03, fix at
@@ -673,6 +674,9 @@ claim-first descriptor data under the existing Qdrant/model infrastructure.
   generation models and descriptor backups are never required for authority.
 
 ### G28 [US5] Load the frozen snapshot with one resumable batch loader
+
+G28 also consumes the named deferred E07a frozen `graphdb.*` activation
+obligation above after S2 and S3 share a branch; reuse the S1 resolver.
 
 **Time:** 4 h initial + 1 h cross-slice follow-up (5 h total).
 **After:** G26, G27, G35, C47a.

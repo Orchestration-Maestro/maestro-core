@@ -3,6 +3,8 @@
 pub mod port;
 
 mod content;
+#[cfg(feature = "engine")]
+mod engine;
 #[expect(
     dead_code,
     reason = "the E09 health adapter consumes this readiness port"

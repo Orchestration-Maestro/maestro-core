@@ -42,6 +42,7 @@ in place.
 │   │   ├── dependabot-auto-merge.yml                                        # Dependabot auto-merge
 │   │   ├── event-schemas.yml                                                # Released event schema compatibility
 │   │   ├── integration.yml                                                  # Qdrant integration: the projection's tests against a Qdrant 1.19 image pinned by digest
+│   │   ├── lbug-qualification.yml                                           # Ladybug fork qualification
 │   │   └── scorecard.yml                                                    # OpenSSF Scorecard
 │   ├── CODEOWNERS                                                           # Who reviews each path
 │   ├── copilot-instructions.md                                              # This guide, written by rust-gate guide at every commit
@@ -50,13 +51,11 @@ in place.
 ├── crates/                                                                  # The workspace's crates
 │   ├── lbug-spike/                                                          # Lbug spike
 │   │   ├── examples/                                                        # Worked examples
-│   │   │   ├── open_query.rs                                                # The smallest program that links LadybugDB: open an in-memory database
-│   │   │   └── open_reopen.rs                                               # G26's measurement of the embedded graph on disk: create a scratch
+│   │   │   └── open_query.rs                                                # The smallest program that links LadybugDB: open an in-memory database
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   └── lib.rs                                                       # Throwaway S2 G25 probe of the lbug crate (LadybugDB)
 │   │   ├── tests/                                                           # Integration tests
 │   │   │   └── it/                                                          # It
-│   │   │       ├── engine_qualification.rs                                  # G25: create, insert, query, close and reopen an on-disk LadybugDB, and
 │   │   │       ├── main.rs                                                  # G25's evidence on lbug (LadybugDB), one test crate: what the engine
 │   │   │       └── no_openssl.rs                                            # G25 route B: the patched lbug (Orchestration-Maestro/lbug, default
 │   │   └── Cargo.toml                                                       # Crate manifest: Throwaway S2 G25 probe: LadybugDB (lbug) builds, opens, writes, reads and reopens
@@ -512,6 +511,9 @@ in place.
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   └── lib.rs                                                       # Helpers for the repository's policy tests: the files the repository holds
 │   │   ├── tests/                                                           # Integration tests
+│   │   │   ├── graph_engine/                                                # Default/native graph ownership policies
+│   │   │   │   ├── feature_manifests.rs                                     # E07a's default/native feature and required-CI ownership contracts
+│   │   │   │   └── mod.rs                                                   # Default/native graph ownership policies
 │   │   │   ├── s1_traceability/                                             # MR-07: the owner-approved S1 row keys and their delivery map
 │   │   │   │   ├── keys.rs                                                  # The 08 row keys the owner approved for S1 on 2026-09-28 (MR-07)
 │   │   │   │   ├── mod.rs                                                   # MR-07: the owner-approved S1 row keys and their delivery map
@@ -994,6 +996,9 @@ in place.
 │   │   │   │   │   ├── run.rs                                               # Candidate extraction and source-only evidence construction
 │   │   │   │   │   └── windows.rs                                           # Versioned, source-byte-bounded windows and quote pointers
 │   │   │   │   ├── projection/                                              # Public typed-edge and literal-fact projection ports and unpublished build writer
+│   │   │   │   │   ├── engine/                                              # Native projection operations; only feature-enabled builds compile this door
+│   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
+│   │   │   │   │   │   └── open.rs                                          # The native adapter's single rooted construction boundary
 │   │   │   │   │   ├── tests/                                               # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── writer/                                          # Writer
 │   │   │   │   │   │   │   └── extra.rs                                     # Additional validation cases for the generic projection writer
@@ -1644,6 +1649,7 @@ in place.
 ├── Cargo.toml                                                               # Workspace manifest: its members and the lints every member inherits
 ├── LICENSE                                                                  # The licence this repository is distributed under
 ├── README.md                                                                # The local runtime of Maestro: knowledge kernel, retrieval, orchestration and the command-line tools
+├── clippy.toml                                                              # Product projection opens must retain the native root capability
 ├── justfile                                                                 # List every recipe and what it does; this is what just alone prints
 ├── maestro-quality.toml                                                     # The organization's quality rules as this repository shapes them: the inputs its CI caller passes, the seams that keep one caller
 ├── rust-toolchain.toml                                                      # The pinned Rust toolchain

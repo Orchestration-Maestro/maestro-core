@@ -1,6 +1,7 @@
 //! The repository's policies, checked on every pull request by `cargo test`.
 #![cfg(test)]
 
+mod graph_engine;
 mod s1_traceability;
 
 use maestro_conventions::{

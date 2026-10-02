@@ -5,6 +5,74 @@ embedded LadybugDB graph engine, against the six-row adoption bar of
 [plan.md](plan.md) A1. This file holds the verdict, the measurements behind it
 and the rulings that followed. ADR-0021 records the resulting design.
 
+## E07a E01e repin qualification (e0a1240)
+
+The fork moved to `e0a1240c5c11e944d3a03cf81664b45add931098`, adding
+strict rooted WAL replay on every platform (fork PR #17). The manifest,
+lock and revision-specific vet exemption now name that identical commit.
+No package was added, removed or upgraded: all 252 package identities and
+all non-lbug records remain unchanged; only lbug's source selector/commit moved.
+Locked vet passes: 32 fully audited, 8 partially audited, 202 exempted.
+
+Fresh three-OS qualification ran the unchanged historical spike through the
+permanent `lbug-qualification.yml` on signed snapshot `b53c5b0`:
+`cargo test -p lbug-spike --features engine --locked --timings` (exit 0).
+
+| OS | Build / job time | Tests passed | Run URL | No-OpenSSL result |
+| --- | --- | --- | --- | --- |
+| Linux | 12:18 / 12:33 | 6, 0 failed | [Linux job](https://github.com/Orchestration-Maestro/maestro-core/actions/runs/37061719478/job/111019694588) | `ldd` and loaded-library check: no libssl/libcrypto; installer refused |
+| macOS | 11:59 / 12:19 | 5, 0 failed | [macOS job](https://github.com/Orchestration-Maestro/maestro-core/actions/runs/37061719478/job/111019694299) | executable `otool -L`: libc++/libSystem only; installer refused |
+| Windows | 31:09 / 32:14 | 5, 0 failed | [Windows job](https://github.com/Orchestration-Maestro/maestro-core/actions/runs/37061719478/job/111019694394) | executable `objdump -p`: no OpenSSL DLL; installer refused |
+
+Local Linux: `capped cargo test -p lbug-spike --features engine --locked`,
+exit 0, 6 passed; command wall 1,163.73 s, peak RSS 1,132,116 KiB.
+These whole-build times are not paired cold-cost deltas. G25 row 3 and
+G11/G28's behavior obligations remain open; this is not M2 acceptance.
+The fork's E01e report retains strict-WAL red/green/fault evidence; this
+repin does not duplicate the fork's native safety tests.
+
+### Product-rooted E07a host proof
+
+The permanent workflow now builds the default workspace independently,
+asserts that Cargo's artifact inventory contains no lbug, then tests the
+feature-enabled product projection and CLI. Required rust-central CI at
+rust-workflows v4.8.0 consumes `coverage-features` and the exact
+`mutation-engine` ownership from this head; this workflow adds no second
+coverage selector or coverage run.
+
+Fresh run [37067803737](https://github.com/Orchestration-Maestro/maestro-core/actions/runs/37067803737)
+tested signed snapshot `04fe97fbbd75e97f56d47fd1ddd2c99a556a4f37` with
+fork `e0a1240`. Each OS uploaded its tested SHA, default build inventory,
+projection/CLI/spike logs and executable-native-link evidence. All commands
+exit 0: `cargo build --workspace --locked --message-format=json`,
+`cargo test -p maestro-knowledge --features engine --locked graph::projection`,
+`cargo test -p maestro --features engine --locked graph_operations`, and
+`cargo test -p lbug-spike --features engine --locked --timings`.
+
+| OS | Default build / native projection build / job | Projection / CLI / remaining spike tests | Job URL |
+| --- | --- | --- | --- |
+| Linux | 1:19 / 18:11 / 21:10 | 47 / 6 / 2; 0 failed | [Linux](https://github.com/Orchestration-Maestro/maestro-core/actions/runs/37067803737/job/111040319817) |
+| macOS | 2:47 / 14:31 / 19:08 | 47 / 6 / 1; 0 failed | [macOS](https://github.com/Orchestration-Maestro/maestro-core/actions/runs/37067803737/job/111040320166) |
+| Windows | 3:06 / 31:56 / 39:44 | 48 / 3 / 1; 0 failed | [Windows](https://github.com/Orchestration-Maestro/maestro-core/actions/runs/37067803737/job/111040320420) |
+
+Every host reports `DEFAULT_WORKSPACE_NO_LBUG` and `NO_OPENSSL_NATIVE_LINKS`;
+link inspection selects the spike executable from Cargo's JSON, not a glob
+that could select an object file or a non-native CLI binary. Linux/macOS
+exercise rooted create/query/close/read-only reopen; Windows exercises a
+successful rooted reader and the fork's explicit rooted-writer refusal.
+Only the Windows read-only fixture creation retains one narrowly lint-expected
+unrooted constructor. Historical unrooted operation tests and the
+`open_reopen` example are retired; their earlier measurements above/below
+remain historical evidence, not product-mode qualification.
+
+After that snapshot, local three-target feature Clippy changed only the
+Windows fixture parameter from `std::path::Path` to the identical imported
+`Path`; the final default suite also refreshed the settings registry test
+from old lbug acceptance to ladybug acceptance plus exact migration refusal.
+No native implementation, fixture operation or product behavior differs.
+The delivery additionally records these qualification receipts. These are
+whole-command times, not matched G25 cold-cost deltas or complete M2 evidence.
+
 ## Combined-pin qualification (802abe2)
 
 On 2026-10-02, the opt-in spike qualified the combined E01/E02/E03/E03b

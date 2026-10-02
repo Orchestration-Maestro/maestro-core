@@ -186,7 +186,7 @@ impl Home {
     fn check(&self, published: &dyn PublishedGraph) -> Check {
         check_with(
             &self.environment,
-            self.session(&["graph.engine=lbug"]),
+            self.session(&["graph.engine=ladybug"]),
             true,
             published,
         )
@@ -229,12 +229,12 @@ fn an_off_graph_reads_no_receipt_and_creates_nothing() {
 }
 
 #[test]
-fn lbug_in_a_build_without_the_engine_fails_before_any_probe() {
+fn ladybug_in_a_build_without_the_engine_fails_before_any_probe() {
     let home = Home::ready();
     let receipt = FakeReceipt::publishing(Vec::new());
     let check = check_with(
         &home.environment,
-        home.session(&["graph.engine=lbug"]),
+        home.session(&["graph.engine=ladybug"]),
         false,
         &receipt,
     );

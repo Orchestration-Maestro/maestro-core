@@ -294,11 +294,11 @@ fn each_setting_reaches_the_knowledge_operations() {
 }
 
 #[test]
-fn the_graph_engine_is_none_unless_lbug_is_selected() {
+fn the_graph_engine_is_none_unless_ladybug_is_selected() {
     let scratch = Scratch::new();
     let engine = |flags: &[&str]| GraphEngine::from_session(&scratch.session(flags)).unwrap();
     assert_eq!(engine(&[]), GraphEngine::None);
-    assert_eq!(engine(&["graph.engine=lbug"]), GraphEngine::Lbug);
+    assert_eq!(engine(&["graph.engine=ladybug"]), GraphEngine::Ladybug);
     assert_eq!(engine(&["graph.engine=none"]), GraphEngine::None);
 }
 

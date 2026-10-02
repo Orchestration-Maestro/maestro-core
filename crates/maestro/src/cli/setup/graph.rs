@@ -15,14 +15,14 @@ use std::{
 /// there, never in the kernel's database.
 pub(in crate::cli) const DIRECTORY: &str = "graph";
 
-/// Whether this build holds the embedded engine `graph.engine = "lbug"`
+/// Whether this build holds the embedded engine `graph.engine = "ladybug"`
 /// selects: only with the `engine` feature.
 pub(in crate::cli) const ENGINE_BUILT: bool = cfg!(feature = "engine");
 
 /// The graph's part of setup, in `maestro setup`'s document.
 #[derive(Debug, Serialize)]
 pub(super) struct GraphSetup {
-    /// The selected engine: `none` or `lbug`.
+    /// The selected engine: `none` or `ladybug`.
     pub(super) engine: &'static str,
     /// The graph's directory, or `null` while the graph is disabled.
     pub(super) directory: Option<String>,
@@ -40,7 +40,7 @@ pub(super) struct GraphSetup {
 ///
 /// # Errors
 ///
-/// [`Failure::Refused`] when `lbug` is selected in a build without the
+/// [`Failure::Refused`] when `ladybug` is selected in a build without the
 /// engine, or the graph's path is a link or not a directory;
 /// [`Failure::Failed`] when the data directory cannot be resolved or the
 /// directory cannot be created or secured.
@@ -60,7 +60,7 @@ pub(super) fn run(
     }
     if !ENGINE_BUILT {
         return Err(Failure::refused(
-            "graph.engine = \"lbug\" needs a maestro built with the `engine` feature; \
+            "graph.engine = \"ladybug\" needs a maestro built with the `engine` feature; \
              build it so, or set graph.engine to none",
         ));
     }
@@ -100,7 +100,7 @@ fn prepare(directory: &Path, yes: bool) -> Result<GraphSetup, Failure> {
         }
     }
     Ok(GraphSetup {
-        engine: "lbug",
+        engine: "ladybug",
         directory: Some(directory.display().to_string()),
         action,
         changed,
@@ -184,11 +184,11 @@ mod tests {
     }
 
     #[test]
-    fn lbug_is_refused_exactly_when_the_build_lacks_the_engine() {
+    fn ladybug_is_refused_exactly_when_the_build_lacks_the_engine() {
         let scratch = Scratch::new();
         let mut environment = Environment::default();
         environment.xdg_data_home = Some(scratch.0.clone().into_os_string());
-        let setup = run(&environment, GraphEngine::Lbug, false);
+        let setup = run(&environment, GraphEngine::Ladybug, false);
         assert_eq!(setup.is_err(), !ENGINE_BUILT, "{setup:?}");
         if let Err(error) = setup {
             assert!(error.to_string().contains("`engine` feature"), "{error}");
@@ -205,7 +205,7 @@ mod tests {
             (preview.action, preview.changed),
             ("create_directory", false)
         );
-        assert_eq!(preview.engine, "lbug");
+        assert_eq!(preview.engine, "ladybug");
         assert_eq!(preview.directory, Some(graph.display().to_string()));
         assert!(!scratch.graph().exists());
 

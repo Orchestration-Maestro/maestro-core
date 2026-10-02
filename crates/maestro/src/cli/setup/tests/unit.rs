@@ -53,7 +53,7 @@ fn graph_setup_text_covers_every_action_and_changed_state() {
         ),
     ] {
         let graph = GraphSetup {
-            engine: "lbug",
+            engine: "ladybug",
             directory: Some("/data/graph".to_owned()),
             action,
             changed,

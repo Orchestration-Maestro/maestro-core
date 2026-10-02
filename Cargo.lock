@@ -902,7 +902,7 @@ dependencies = [
 [[package]]
 name = "lbug"
 version = "0.20.4"
-source = "git+https://github.com/Orchestration-Maestro/lbug?rev=802abe2ab0fb55ceb72531caf9d0cae059670c4b#802abe2ab0fb55ceb72531caf9d0cae059670c4b"
+source = "git+https://github.com/Orchestration-Maestro/lbug?rev=e0a1240c5c11e944d3a03cf81664b45add931098#e0a1240c5c11e944d3a03cf81664b45add931098"
 dependencies = [
  "cc",
  "cmake",
@@ -1039,6 +1039,7 @@ dependencies = [
 name = "maestro-knowledge"
 version = "0.1.0"
 dependencies = [
+ "lbug",
  "maestro-canonicalization",
  "maestro-kernel",
  "maestro-test-clock",

@@ -129,7 +129,7 @@ pub(super) fn check_with(
         return Check::failed(
             NAME,
             &target,
-            "graph.engine = lbug, but this maestro was built without the engine",
+            "graph.engine = ladybug, but this maestro was built without the engine",
             "use a maestro built with the `engine` feature, or set graph.engine to none",
         );
     }

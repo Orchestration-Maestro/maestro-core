@@ -101,7 +101,14 @@ fn the_graph_engine_is_off_by_default_and_takes_no_path() {
         Some(&Value::Text("none".to_owned()))
     );
     let kind = &registry.get("graph.engine").unwrap().kind;
-    assert_eq!(kind.parse_text("lbug"), Ok(Value::Text("lbug".to_owned())));
+    assert_eq!(
+        kind.parse_text("ladybug"),
+        Ok(Value::Text("ladybug".to_owned()))
+    );
+    assert_eq!(
+        kind.parse_text("lbug").unwrap_err().to_string(),
+        "replace graph.engine=lbug with graph.engine=ladybug"
+    );
     assert!(kind.parse_text("/elsewhere/graph.lbug").is_err());
 }
 
