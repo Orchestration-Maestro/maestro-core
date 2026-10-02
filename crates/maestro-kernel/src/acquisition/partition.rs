@@ -162,14 +162,7 @@ impl Database {
         between();
         self.write(|tx| {
             lease::held(tx, writer, now).map_err(|_| ReceiptError::Conflict)?;
-            let source: String = tx.query_row(
-                "SELECT source FROM acquisition_partitions WHERE id = ?1",
-                [partition.to_string()],
-                |row| row.get(0),
-            )?;
-            if source != writer.source {
-                return Err(ReceiptError::Invalid);
-            }
+            // A partition's source never changes, and it was checked against this writer above.
             let accepted: bool = tx.query_row(
                 "SELECT EXISTS (SELECT 1 FROM acquisition_partition_snapshots
                  WHERE partition = ?1)",

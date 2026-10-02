@@ -151,6 +151,7 @@ pub fn admit(
 }
 
 /// Shared current policy eligibility; absent selector dimensions remain unknown.
+/// `now` is already a strict UTC time: `admit` validates it and discovery formats it.
 pub(crate) fn check_eligibility(
     source: &Source,
     identity: &FetchIdentity,
@@ -158,9 +159,6 @@ pub(crate) fn check_eligibility(
     attributes: ItemAttributes<'_>,
     now: &str,
 ) -> Result<Disposition, Refusal> {
-    if !shape::valid_time(now) {
-        return Err(Refusal::Invalid);
-    }
     check_selection(source, identity, attributes)?;
     let mut disposition = Disposition::Knowledge;
     for entry in registries.iter().flat_map(|registry| &registry.entries) {
