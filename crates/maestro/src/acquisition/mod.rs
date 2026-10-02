@@ -72,3 +72,9 @@ mod scale_port_tests;
 
 #[cfg(any(target_os = "linux", test))]
 mod sync_keys;
+
+#[cfg(all(test, target_os = "linux"))]
+mod n37_probe_tests;
+
+#[cfg(test)]
+mod n37_runtime_tests;

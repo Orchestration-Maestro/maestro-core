@@ -237,10 +237,6 @@ where
     let pending_before = report.pending.len();
     let mut depths = seeds(work, &writer, report)?;
     let checkpoints = recover(work, &mut depths)?;
-    let context = (
-        Digest::of(work.runtime.kernel_principal.as_bytes()),
-        work.source.acquisition_profile.digest.clone(),
-    );
     let (coverage_watermark, window, due_window) = verification(work, &checkpoints)?;
     let captured_children = captured_children(work)?;
     let bounds = [limits.clone()];
@@ -264,11 +260,6 @@ where
         due_window,
         window,
         depths,
-        prepared_handles: checkpoints
-            .iter()
-            .filter(|summary| summary.context.as_ref() == Some(&context))
-            .filter_map(|summary| summary.capture)
-            .collect(),
         captured_children,
         exhausted,
         reservation,

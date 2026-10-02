@@ -18,7 +18,7 @@ use crate::{
 };
 use rusqlite::{OptionalExtension as _, Transaction, params};
 use serde_json::json;
-use std::time::{Instant, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 use ulid::Ulid;
 
 /// Durable acquisition queue. Callers depend on this port, not a concrete store.
@@ -39,9 +39,11 @@ pub trait Frontier: Send + Sync {
     ) -> Result<Vec<WorkItem>, Error>;
     /// Begin a fenced refresh generation without modifying old capture evidence.
     /// # Errors
-    /// Lost ownership or an unknown, foreign or already-pending item refuses.
+    /// Lost ownership, unknown/foreign work, or pending work without prepared
+    /// evidence refuses. A live same-epoch pending dispatch cannot be refreshed.
     fn refresh(&self, writer: &SourceLease, item: Ulid, now: SystemTime) -> Result<(), Error>;
-    /// Expire only the exact current source writer, leaving its job/work unchanged.
+    /// Expire the exact source writer and its pending dispatch leases.
+    /// Items, fencing epochs, attempts and the source job remain durable.
     /// # Errors
     /// Expired or taken-over writers return Lost and cannot release a successor.
     fn release_source(&self, writer: &SourceLease, now: SystemTime) -> Result<(), Error>;
@@ -121,6 +123,16 @@ impl Frontier for Database {
     fn release_source(&self, writer: &SourceLease, now: SystemTime) -> Result<(), Error> {
         self.write(|tx| {
             lease::held(tx, writer, now)?;
+            let (at, _) = times(tx, now, Duration::ZERO)?;
+            tx.execute(
+                "UPDATE acquisition_frontier SET lease_expires = ?3
+                 WHERE source = ?1 AND writer_epoch = ?2 AND capture IS NULL",
+                params![
+                    writer.source,
+                    i64::try_from(writer.epoch).map_err(|_| Error::Lost)?,
+                    at
+                ],
+            )?;
             expire_source(tx, writer.token, now)?;
             Ok(())
         })

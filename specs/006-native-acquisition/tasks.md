@@ -726,7 +726,10 @@ Independent test: five lifecycle modes equal uninterrupted reference, and overla
 
 **After:** N36. **Approval blockers:** None for synthetic work.
 
-**Files:** `crates/maestro-acquisition/src/lifecycle/resume.rs`.
+**Files:** `crates/maestro-acquisition/src/lifecycle/resume.rs`,
+`crates/maestro-acquisition/src/capture/commit.rs` (existing receipt/fence
+composition owns cancellation), existing kernel capture/prerequisite checks
+and source release, and CLI retained-capture and owned-probe callers.
 
 **Requirements:** FR-S6-009, FR-S6-010, FR-S6-014, FR-S6-016, FR-S6-047; SC-S6-002, SC-S6-015.
 

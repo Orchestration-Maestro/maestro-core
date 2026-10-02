@@ -6,7 +6,7 @@ use super::{
 };
 use crate::failure::Failure;
 use maestro_acquisition::{
-    lifecycle::{full::Mode, incremental::window},
+    lifecycle::{full::Mode, incremental::window, resume::same_inputs},
     transport::budget::Usage,
 };
 use maestro_kernel::acquisition::{
@@ -260,12 +260,6 @@ fn recover_target<S: Receipts, T>(
     work: &SourceWork<'_, S, T>,
     watermark: Option<u64>,
 ) -> Result<Option<Window>, Failure> {
-    let current = work
-        .store
-        .read(work.runtime.kernel_principal, work.receipt.inputs)
-        .map_err(|_| storage())?
-        .ok_or_else(storage)?;
-    let current: Value = serde_json::from_slice(current.bytes()).map_err(|_| storage())?;
     let mut after = None;
     loop {
         let page = work
@@ -296,15 +290,13 @@ fn recover_target<S: Receipts, T>(
             let Ok(inputs) = serde_json::from_slice::<Value>(bytes.bytes()) else {
                 continue;
             };
-            if ![
-                "collection",
-                "resources",
-                "os_principal",
-                "kernel_principal",
-                "scope",
-            ]
-            .iter()
-            .all(|key| inputs.get(key).is_some() && inputs.get(key) == current.get(key))
+            if !same_inputs(
+                work.store,
+                work.runtime.kernel_principal,
+                receipt.inputs,
+                work.receipt.inputs,
+            )
+            .map_err(|_| storage())?
             {
                 continue;
             }

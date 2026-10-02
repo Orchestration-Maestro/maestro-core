@@ -110,3 +110,14 @@ mod n36_complete_full_and_incremental_lifecycle_windows;
 
 mod n36_link_evidence;
 mod n36_revision_edges;
+
+mod n37_resume_cancel_and_fence_failed_dependencies;
+
+mod n37_support;
+
+mod n37_crash;
+mod n37_prior;
+
+mod n37_fences;
+
+mod n37_dependencies;

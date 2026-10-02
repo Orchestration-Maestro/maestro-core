@@ -8,8 +8,8 @@ use super::{
 use crate::{
     artifact::Digest,
     document::{
-        self, Disposition, Document, Recorded, Revision, record_document_on,
-        record_with_disposition,
+        self, Disposition, Document, Outcome, Recorded, Revision, RevisionStatus,
+        record_document_on, record_with_disposition,
     },
     scope::{Scope, ScopeSet, source_path},
     store::{Database, artifacts::pin},
@@ -119,6 +119,45 @@ impl Database {
         revision: &str,
     ) -> Result<Vec<RevisionLink>, document::Error> {
         links(&*self.reader()?, scopes, "revision", revision)
+    }
+    /// Verify an explicitly selected S1 revision and its native lineage for historical use.
+    /// This is not a fresh acquisition-stage completion or a fallback selector.
+    /// # Errors
+    /// Failed/held revisions, stale capture generations or corrupt artifacts refuse.
+    pub fn verified_revision_links(
+        &self,
+        scopes: &ScopeSet,
+        revision: &str,
+    ) -> Result<Vec<RevisionLink>, document::Error> {
+        let invalid = || document::Error::RevisionConflict("invalid prior revision".into());
+        let Some(record) = self.revision(scopes, revision)? else {
+            return Ok(vec![]);
+        };
+        if record.status == RevisionStatus::Failed {
+            return Err(invalid());
+        }
+        let disposition = self.disposition(scopes, revision)?.ok_or_else(invalid)?;
+        match disposition.outcome {
+            Outcome::Accepted | Outcome::AcceptedWithWarnings => {}
+            Outcome::NeedsReextraction | Outcome::Quarantined | Outcome::Excluded => {
+                return Err(invalid());
+            }
+        }
+        self.get(&record.original_digest)?;
+        self.get(&record.canonical_digest)?;
+        let links = self.revision_links(scopes, revision)?;
+        for link in &links {
+            let reader = self.reader()?;
+            let scope: String = reader.query_row(
+                "SELECT scope FROM acquisition_evidence WHERE id = ?1",
+                [link.capture.to_string()],
+                |row| row.get(0),
+            )?;
+            verify_capture(self, &scope.parse().map_err(|_| invalid())?, link.capture)?;
+            self.get(&evidence_digest(&reader, link.fidelity)?)?;
+            self.get(&link.inventory)?;
+        }
+        Ok(links)
     }
     /// Reverse lookup for withdrawal/repair; denied captures return no revision identities.
     ///

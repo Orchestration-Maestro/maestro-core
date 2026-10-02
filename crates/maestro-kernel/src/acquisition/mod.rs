@@ -17,6 +17,7 @@ pub use receipt::{
 pub use record::{Item, NewItem};
 
 mod capture;
+mod capture_integrity;
 mod capture_page;
 pub use capture_page::{CaptureLookup, CapturePage};
 mod envelope;

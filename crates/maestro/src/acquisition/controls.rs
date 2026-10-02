@@ -168,7 +168,7 @@ pub(crate) fn request<'a>(source: &'a str, url: &'a str, now: &'a str) -> Reques
 }
 /// Separate current policy eligibility from robots readiness, never used for fetching.
 #[derive(Debug)]
-struct Readiness<'a>(&'a Controls<'a>);
+pub(crate) struct Readiness<'a>(pub(crate) &'a Controls<'a>);
 impl AdmissionControls for Readiness<'_> {
     fn caller(&self, source: &Source, request: &Request<'_>) -> Result<(), Refusal> {
         self.0.caller(source, request)
@@ -244,8 +244,6 @@ pub(crate) struct CaptureWork<'a, 'b, S, T> {
     pub(crate) previous: Option<&'a CaptureEnvelope>,
     /// Current page's verified immutable linkage, before refresh.
     pub(crate) observed: Option<&'a CaptureLookup>,
-    /// Precomputed checkpoint-backed parent handles.
-    pub(crate) prepared_handles: &'a BTreeSet<Handle>,
     /// Captured child markers maintained once per traversal.
     pub(crate) captured_children: &'a mut BTreeSet<String>,
     /// Already validated keys carried into Verification coverage.

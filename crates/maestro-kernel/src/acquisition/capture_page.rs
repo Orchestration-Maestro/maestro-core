@@ -1,5 +1,6 @@
 //! One bounded capture-link query, with the same immutable artifact verification.
 use super::{
+    capture_integrity::validate_parent,
     envelope::CaptureEnvelope,
     privacy::{Handle, ReceiptError},
     record::Item,
@@ -65,6 +66,7 @@ pub(super) fn lookup(
         let item = indexed.get(&id).ok_or(ReceiptError::Invalid)?;
         let verified = verify(
             db,
+            scope,
             item,
             (&handle, &artifact, &body, acknowledged.as_deref()),
         );
@@ -83,6 +85,7 @@ pub(super) fn lookup(
 /// Rehash both immutable artifacts; no nested SQL lookup for each page row.
 fn verify(
     db: &Database,
+    scope: &Scope,
     item: &Item,
     row: (&str, &str, &str, Option<&str>),
 ) -> Result<CaptureLookup, ReceiptError> {
@@ -91,6 +94,7 @@ fn verify(
     let envelope: CaptureEnvelope = serde_json::from_slice(&db.get(&artifact)?)?;
     let body = Digest::parse(body).map_err(|_| ReceiptError::Storage)?;
     db.get_bounded(&body, envelope.length)?;
+    validate_parent(db, &envelope, scope)?;
     Ok(CaptureLookup {
         handle: handle.parse()?,
         acknowledged: acknowledged == Some(artifact.as_str())

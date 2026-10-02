@@ -67,6 +67,8 @@ in place.
 │   │   │   │   ├── history_tests.rs                                                     # Cursor paging and the frozen OS-to-kernel mapping use the real durable ports
 │   │   │   │   ├── inspect.rs                                                           # Inspect reads authorized durable records only; no policy, authority or transport
 │   │   │   │   ├── mod.rs                                                               # Native acquisition's local authority boundary
+│   │   │   │   ├── n37_probe_tests.rs                                                   # The real qualifier launcher must reap a hostile long-running owned probe
+│   │   │   │   ├── n37_runtime_tests.rs                                                 # Production retained-capture paths cannot bypass current authority on resume
 │   │   │   │   ├── oa3.json                                                             # JSON data: oa3
 │   │   │   │   ├── output.rs                                                            # Content-free run summaries; only the owner's offline public preview includes URLs
 │   │   │   │   ├── record_tests.rs                                                      # Read-only inspection and bounded pre-start inventory regression checks
@@ -371,7 +373,8 @@ in place.
 │   │   │   │   ├── full.rs                                                              # Full revalidation compares source evidence, never visible text alone
 │   │   │   │   ├── incremental.rs                                                       # Local verification windows do not claim a remote change index or snapshot
 │   │   │   │   ├── mod.rs                                                               # Process-local acquisition lifecycle accounting
-│   │   │   │   └── resources.rs                                                         # Shared owned reservations, with fresh measurements at every checkpoint
+│   │   │   │   ├── resources.rs                                                         # Shared owned reservations, with fresh measurements at every checkpoint
+│   │   │   │   └── resume.rs                                                            # Resume composes current admission with kernel-owned captures, receipts and fences
 │   │   │   ├── policy/                                                                  # Strict policy schemas and the single immutable baseline validator
 │   │   │   │   ├── acquisition.rs                                                       # Strict version-one source-policy wire contracts
 │   │   │   │   ├── authority.rs                                                         # Read-only acquisition authority; manifests and registry evidence grant no access
@@ -519,6 +522,12 @@ in place.
 │   │   │       ├── n36_complete_full_and_incremental_lifecycle_windows.rs               # N36 local verification windows and append-only source revalidation
 │   │   │       ├── n36_link_evidence.rs                                                 # Unknown link evidence is not a sentinel or proof that a child is unchanged
 │   │   │       ├── n36_revision_edges.rs                                                # N36 observation provenance and finite durable integer bounds
+│   │   │       ├── n37_crash.rs                                                         # Kill a real capture writer between durable preparation and acknowledgement
+│   │   │       ├── n37_dependencies.rs                                                  # Corrupt, pending and incompatible dependencies cannot be reused as completed
+│   │   │       ├── n37_fences.rs                                                        # Cancellation ordering and prepared/item epoch fences
+│   │   │       ├── n37_prior.rs                                                         # Explicit S1 prior revision selection never becomes implicit stage completion
+│   │   │       ├── n37_resume_cancel_and_fence_failed_dependencies.rs                   # Durable resume never promotes derivatives of a failed prerequisite
+│   │   │       ├── n37_support.rs                                                       # N37 uses N12 durable fixtures and the real N05/N07 contracts
 │   │   │       ├── n57_canonical_artifacts.rs                                           # N57 canonical bytes require explicit nulls without changing S1 card parsing
 │   │   │       ├── n57_decisions.rs                                                     # New exclusions use N03's exact singleton artifact, not a parallel schema
 │   │   │       ├── n57_decode_bounds.rs                                                 # Decoder ceilings are independent of later capability admission
@@ -739,6 +748,7 @@ in place.
 │   │   ├── src/                                                                         # The crate's sources
 │   │   │   ├── acquisition/                                                             # Kernel-owned acquisition work, exposed through a replaceable frontier port
 │   │   │   │   ├── capture.rs                                                           # Verified immutable capture preparation before fenced stage acknowledgment
+│   │   │   │   ├── capture_integrity.rs                                                 # Shared immutable capture and prerequisite checks, including batched resume reads
 │   │   │   │   ├── capture_page.rs                                                      # One bounded capture-link query, with the same immutable artifact verification
 │   │   │   │   ├── derivations.json                                                     # JSON data: derivations
 │   │   │   │   ├── envelope.rs                                                          # One immutable capture contract shared by admitted transports and the kernel

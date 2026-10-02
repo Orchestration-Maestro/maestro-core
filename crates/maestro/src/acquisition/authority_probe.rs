@@ -1,6 +1,9 @@
 //! One-shot qualification evidence authenticated by Linux peer credentials.
 use crate::failure::Failure;
-use maestro_acquisition::policy::authority_socket::{frame_timeout, read_frame_with_clock};
+use maestro_acquisition::{
+    lifecycle::resume::stop_owned,
+    policy::authority_socket::{frame_timeout, read_frame_with_clock},
+};
 use maestro_kernel::retrieval::Clock;
 use rustix::{
     event::{PollFd, PollFlags, Timespec, poll},
@@ -55,11 +58,27 @@ impl Drop for Endpoint {
     }
 }
 /// Kill and reap even when authentication, framing or the deadline refuses.
-struct Launcher(Child);
-impl Drop for Launcher {
+struct Launcher<'a> {
+    /// Only the child spawned by this invocation.
+    child: Child,
+    /// The qualifier's trusted clock also bounds cancellation acknowledgement.
+    clock: &'a dyn Clock,
+}
+impl Launcher<'_> {
+    /// Cancellation never treats a client timeout as a successful child exit.
+    fn stop(&mut self) -> Result<(), Failure> {
+        stop_owned(
+            &mut self.child,
+            self.clock.now() + Duration::from_secs(2),
+            self.clock,
+        )
+        .map(|_| ())
+        .map_err(|_| refused())
+    }
+}
+impl Drop for Launcher<'_> {
     fn drop(&mut self) {
-        drop(self.0.kill());
-        drop(self.0.wait());
+        drop(self.stop());
     }
 }
 /// Fixed refusal, without launcher or source content.
@@ -89,8 +108,8 @@ pub(super) fn qualify(
         .as_fd()
         .try_clone_to_owned()
         .map_err(|_| refused())?;
-    let mut child = Launcher(
-        Command::new(probe.launcher)
+    let mut child = Launcher {
+        child: Command::new(probe.launcher)
             .arg(probe.uid.to_string())
             .arg(probe.binary)
             .args(["authority", "probe-store", "--store"])
@@ -100,11 +119,25 @@ pub(super) fn qualify(
             .stdout(Stdio::from(diagnostics))
             .spawn()
             .map_err(|_| refused())?,
-    );
-    let pid = Pid::from_raw(child.0.id().try_into().map_err(|_| refused())?).ok_or_else(refused)?;
+        clock,
+    };
+    let result = completion(probe, &listener, &mut child, deadline, clock);
+    child.stop()?;
+    result
+}
+/// Authenticate the launched process completion while retaining cleanup ownership.
+fn completion(
+    probe: &Probe<'_>,
+    listener: &UnixListener,
+    child: &mut Launcher<'_>,
+    deadline: Instant,
+    clock: &dyn Clock,
+) -> Result<(), Failure> {
+    let pid =
+        Pid::from_raw(child.child.id().try_into().map_err(|_| refused())?).ok_or_else(refused)?;
     let pidfd = pidfd_open(pid, PidfdFlags::empty()).map_err(|_| refused())?;
     let mut pending = [
-        PollFd::new(&listener, PollFlags::IN),
+        PollFd::new(listener, PollFlags::IN),
         PollFd::new(&pidfd, PollFlags::IN),
     ];
     poll(&mut pending, Some(&timeout(deadline, clock)?)).map_err(|_| refused())?;
@@ -119,12 +152,12 @@ pub(super) fn qualify(
     poll(&mut exit, Some(&timeout(deadline, clock)?)).map_err(|_| refused())?;
     timeout(deadline, clock)?;
     if !exit[0].revents().contains(PollFlags::IN)
-        || !child.0.wait().map_err(|_| refused())?.success()
+        || !child.child.wait().map_err(|_| refused())?.success()
     {
         return Err(refused());
     }
     // A second completion is never ignored, including one queued with child exit.
-    let mut extra = [PollFd::new(&listener, PollFlags::IN)];
+    let mut extra = [PollFd::new(listener, PollFlags::IN)];
     if poll(&mut extra, Some(&Timespec::default())).map_err(|_| refused())? != 0 {
         return Err(refused());
     }

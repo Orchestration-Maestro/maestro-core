@@ -7,11 +7,12 @@ use crate::{
 };
 use maestro_kernel::{
     acquisition::{
-        CaptureContext, CaptureEnvelope, Captures, Handle, InventoryPage, Item, Receipt,
-        ReceiptError, Receipts, Status,
+        CaptureContext, CaptureEnvelope, Captures, Frontier, Handle, InventoryPage, Item, Receipt,
+        ReceiptError, Receipts, SourceLease, Status,
     },
     scope::Scope,
 };
+use std::time::SystemTime;
 
 /// Owned run accounting carried across capture writes and replay.
 #[derive(Debug)]
@@ -141,4 +142,47 @@ pub fn prepare_receipt(
         .map(|page| receipts.retain_inventory(scope, page))
         .collect::<Result<_, _>>()?;
     Ok((terminal, outcome))
+}
+
+/// Existing inventory and receipt to finalize after all owned processes are reaped.
+#[derive(Debug)]
+pub struct Cancellation<'a> {
+    /// Exact source ownership, never a successor's lease.
+    pub writer: &'a SourceLease,
+    /// Current trusted authority clock.
+    pub now: SystemTime,
+    /// Scoped existing run receipt.
+    pub scope: &'a Scope,
+    /// Unique pending attempt, with its frozen inputs unchanged.
+    pub receipt: &'a Receipt,
+    /// Truthful existing stage inventories, preserving pending children.
+    pub pages: &'a [InventoryPage],
+    /// Durable frontier snapshot for distinct-item reconciliation.
+    pub frontier: &'a [Item],
+}
+/// Cancel only this source epoch and finalize its existing receipt without losing work.
+/// Owned process reaping must precede this call; client timeout is not cancellation.
+/// # Errors
+/// Stale ownership, invalid reconciliation or already finalized receipts refuse.
+pub fn cancel_run(
+    store: &(impl Frontier + Captures + Receipts),
+    cancellation: &Cancellation<'_>,
+) -> Result<Outcome, ReceiptError> {
+    if cancellation.writer.holder != cancellation.receipt.attempt.to_string() {
+        return Err(ReceiptError::Conflict);
+    }
+    let mut terminal = cancellation.receipt.clone();
+    terminal.status = Status::Cancelled;
+    let (terminal, outcome) = prepare_receipt(
+        store,
+        cancellation.scope,
+        &terminal,
+        cancellation.pages,
+        cancellation.frontier,
+    )?;
+    store
+        .release_source(cancellation.writer, cancellation.now)
+        .map_err(|_| ReceiptError::Conflict)?;
+    store.finish(&terminal)?;
+    Ok(outcome)
 }

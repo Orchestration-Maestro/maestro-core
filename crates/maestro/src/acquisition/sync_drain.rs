@@ -7,7 +7,7 @@ use super::{
 };
 use crate::failure::Failure;
 use maestro_acquisition::{
-    lifecycle::{incremental::due, resources::Reservation},
+    lifecycle::{incremental::due, resources::Reservation, resume::same_inputs},
     policy::limits::Limits,
     transport::{budget::Usage, connect::PinnedTransport, stream::Accounting},
 };
@@ -37,8 +37,6 @@ pub(super) struct Drain<'a> {
     pub(super) carried_staging: u64,
     /// Full aggregate allocation envelope, independent of source-local bounds.
     pub(super) aggregate_bounds: &'a [Limits],
-    /// Existing scoped checkpoint provenance, including prepared parent evidence.
-    pub(super) prepared_handles: BTreeSet<Handle>,
     /// Captured child markers, scanned once and maintained through refresh/acknowledgment.
     pub(super) captured_children: BTreeSet<String>,
     /// Provenance-validated change keys, never reread during coverage.
@@ -158,16 +156,15 @@ where
         state.inventory.insert(original.id, excluded);
         return Ok(());
     }
-    let (refreshed, previous) = refresh(work, writer, (row, observed), state)?;
+    let (refreshed, previous, advanced) = refresh(work, writer, (row, observed), state)?;
     let item = &refreshed;
-    let observed = if previous.is_some() {
+    let observed = if advanced {
         state.captured_children.remove(&item.request.fetch_identity);
         None
     } else {
         observed
     };
-    let reusable = item.capture.is_some()
-        || observed.is_some_and(|capture| state.prepared_handles.contains(&capture.handle));
+    let reusable = item.capture.is_some() || observed.is_some();
     let reference = Digest::of(item.request.fetch_identity.as_bytes());
     let depth = state.depths.get(&reference).copied();
     let previous_partitions = state.partitions.len();
@@ -201,7 +198,6 @@ where
             previous: previous.as_ref(),
             source: work,
             observed,
-            prepared_handles: &state.prepared_handles,
             captured_children: &mut state.captured_children,
             keys: &mut state.keys,
             writer,
@@ -248,7 +244,7 @@ fn refresh<S: Captures + Frontier + Receipts, T>(
     writer: &SourceLease,
     current: (&WorkItem, Option<&CaptureLookup>),
     state: &Drain<'_>,
-) -> Result<(Item, Option<CaptureEnvelope>), Failure> {
+) -> Result<(Item, Option<CaptureEnvelope>, bool), Failure> {
     let (row, observed) = current;
     let original = &row.item;
     let revalidate = due(
@@ -257,6 +253,22 @@ fn refresh<S: Captures + Frontier + Receipts, T>(
         original.capture.as_ref().map(|_| row.cursor.observed_ms),
         &state.due_window,
     );
+    let pending_changed = if let Some(capture) = observed.filter(|_| original.capture.is_none()) {
+        !same_inputs(
+            work.store,
+            work.runtime.kernel_principal,
+            capture.envelope.inputs,
+            work.receipt.inputs,
+        )
+        .map_err(|_| storage())?
+    } else {
+        false
+    };
+    if pending_changed {
+        work.store
+            .refresh(writer, original.id, SystemTime::now())
+            .map_err(|_| storage())?;
+    }
     let previous = if original.capture.is_some() && revalidate {
         let envelope = observed
             .filter(|capture| capture.acknowledged)
@@ -275,5 +287,6 @@ fn refresh<S: Captures + Frontier + Receipts, T>(
     if previous.is_some() {
         refreshed.capture = None;
     }
-    Ok((refreshed, previous))
+    let advanced = pending_changed || previous.is_some();
+    Ok((refreshed, previous, advanced))
 }

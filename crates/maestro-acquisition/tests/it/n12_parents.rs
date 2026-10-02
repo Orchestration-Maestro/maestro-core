@@ -206,7 +206,7 @@ fn n12_legacy_body_ack_is_not_an_envelope_parent_ack() {
     assert_eq!(fixture.prepare(), Err(ReceiptError::Invalid));
 }
 /// A distinct synthetic derived item; no network request or HTML/API interpretation.
-fn derive(fixture: &mut Fixture, parent: Handle, kind: Representation) {
+pub(super) fn derive(fixture: &mut Fixture, parent: Handle, kind: Representation) {
     let identity = format!("https://garden.example/docs/child/{parent}");
     let item = fixture
         .db

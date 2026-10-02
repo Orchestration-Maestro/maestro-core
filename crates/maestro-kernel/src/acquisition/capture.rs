@@ -1,5 +1,6 @@
 //! Verified immutable capture preparation before fenced stage acknowledgment.
 use super::{
+    capture_integrity::{validate_parent, verify},
     capture_page::{self, CaptureLookup},
     envelope::{CaptureEnvelope, Representation, SafeIdentity, Transport},
     frontier::Frontier,
@@ -150,11 +151,12 @@ impl Captures for Database {
         {
             return Err(ReceiptError::Invalid);
         }
-        let (_, stored) =
+        let (scope, stored) =
             self.write(|tx| existing(tx, context, &envelope, &envelope.identity()?))?;
         if stored != Some(capture) {
             return Err(ReceiptError::Invalid);
         }
+        validate_parent(self, &envelope, &scope)?;
         if envelope.length > max_bytes {
             return Ok((envelope, None));
         }
@@ -335,7 +337,8 @@ fn verify_capture_on(
         .query_row(
             "SELECT e.scope, e.artifact, l.item, f.capture FROM acquisition_capture_links l
              JOIN acquisition_evidence e ON e.id = l.envelope
-             JOIN acquisition_frontier f ON f.id = l.item WHERE l.envelope = ?1",
+             JOIN acquisition_frontier f ON f.id = l.item WHERE l.envelope = ?1
+             AND l.generation = f.capture_generation",
             [evidence.to_string()],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
@@ -349,7 +352,7 @@ fn verify_capture_on(
     {
         return Err(ReceiptError::Invalid);
     }
-    Ok(())
+    validate_parent(db, &envelope, scope)
 }
 /// Validate content and exact representation before admitting any durable bytes.
 fn validate(
@@ -437,82 +440,6 @@ fn existing(
         None => Ok((scope, None)),
     }
 }
-/// Verify both artifact bodies and their immutable scoped linkage on every replay.
-fn verify(
-    db: &Database,
-    reader: &Connection,
-    capture: Handle,
-) -> Result<CaptureEnvelope, ReceiptError> {
-    let body: String = reader.query_row(
-        "SELECT e.artifact FROM acquisition_capture_links l
-         JOIN acquisition_evidence e ON e.id = l.body WHERE l.envelope = ?1",
-        [capture.to_string()],
-        |row| row.get(0),
-    )?;
-    let envelope: CaptureEnvelope =
-        serde_json::from_slice(&privacy::snapshot_on(db, reader, &capture.to_string())?)?;
-    // Preparation checked digest and length before retaining these immutable
-    // edges. The artifact store rehashes both payloads here; repeating those
-    // field comparisons cannot detect any additional substitution.
-    let digest = Digest::parse(&body).map_err(|_| ReceiptError::Storage)?;
-    db.get_bounded(&digest, envelope.length)
-        .map_err(|error| match error {
-            store::Error::Artifact(artifact::Error::TooLarge) => ReceiptError::Invalid,
-            _ => ReceiptError::Storage,
-        })?;
-    Ok(envelope)
-}
-
-/// Exact derivation edges are data; an unlisted pair is never inferred.
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Derivation {
-    /// Exact derived representation.
-    child: Representation,
-    /// Closed admitted parent kinds.
-    parents: Vec<Representation>,
-}
-/// A derived payload cannot consume a pending, differently scoped or corrupt parent.
-fn validate_parent(
-    db: &Database,
-    child: &CaptureEnvelope,
-    scope: &Scope,
-) -> Result<(), ReceiptError> {
-    let Some(parent) = child.parent else {
-        return Ok(());
-    };
-    let row: Option<(String, String, Option<String>, String)> = db
-        .reader()?
-        .query_row(
-            "SELECT e.scope, f.source, f.capture, e.artifact
-         FROM acquisition_capture_links l
-         JOIN acquisition_evidence e ON e.id = l.envelope
-         JOIN acquisition_frontier f ON f.id = l.item
-         WHERE l.envelope = ?1",
-            [parent.to_string()],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-        )
-        .optional()?;
-    let (parent_scope, source, accepted, artifact) = row.ok_or(ReceiptError::Invalid)?;
-    if parent_scope != scope.as_str() {
-        return Err(ReceiptError::Invalid);
-    }
-    if source != child.source {
-        return Err(ReceiptError::Invalid);
-    }
-    if accepted.as_deref() != Some(artifact.as_str()) {
-        return Err(ReceiptError::Invalid);
-    }
-    let envelope = verify(db, &*db.reader()?, parent)?;
-    let rules: Vec<Derivation> = serde_json::from_str(include_str!("derivations.json"))?;
-    if !rules.iter().any(|rule| {
-        rule.child == child.representation && rule.parents.contains(&envelope.representation)
-    }) {
-        return Err(ReceiptError::Invalid);
-    }
-    Ok(())
-}
-
 /// Unique immutable payloads, so identical body/envelope digests are charged once.
 fn payloads(envelope: &CaptureEnvelope) -> Result<BTreeMap<Digest, u64>, ReceiptError> {
     let encoded = serde_json::to_vec(envelope)?;

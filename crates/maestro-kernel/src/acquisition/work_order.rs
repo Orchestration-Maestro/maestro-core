@@ -91,8 +91,18 @@ pub(super) fn refresh(
         let changed = tx.execute(
             "UPDATE acquisition_frontier SET capture = NULL,
              capture_generation = capture_generation + 1, lease_expires = ?3
-             WHERE id = ?1 AND source = ?2 AND capture IS NOT NULL",
-            params![item.to_string(), writer.source, at],
+             WHERE id = ?1 AND source = ?2 AND
+             (capture IS NOT NULL OR (
+                (lease_expires <= ?3 OR writer_epoch <> ?4) AND EXISTS (
+                    SELECT 1 FROM acquisition_capture_links l
+                    WHERE l.item = acquisition_frontier.id
+                    AND l.generation = acquisition_frontier.capture_generation)))",
+            params![
+                item.to_string(),
+                writer.source,
+                at,
+                i64::try_from(writer.epoch).map_err(|_| Error::Lost)?
+            ],
         )?;
         if changed != 1 {
             return Err(Error::Unavailable);

@@ -41,17 +41,22 @@ impl Fixture {
         Self::with_policy(n09_support::policy())
     }
     pub(super) fn with_policy(policy: CheckedPolicy) -> Self {
+        Self::with_scope(
+            policy,
+            &"workspace/default/collection/garden".parse().unwrap(),
+        )
+    }
+    pub(super) fn with_scope(policy: CheckedPolicy, scope: &Scope) -> Self {
         let root = Scratch::new();
         let db = Database::open_in(&root).unwrap();
-        let scope: Scope = "workspace/default/collection/garden".parse().unwrap();
-        db.grant("reader", &scope, Right::Read, "owner").unwrap();
+        db.grant("reader", scope, Right::Read, "owner").unwrap();
         let now = now();
         let lease = LeaseRequest {
             holder: "worker",
             now,
             term: Duration::from_secs(30),
         };
-        let writer = db.lease_source("notes", &scope, lease).unwrap();
+        let writer = db.lease_source("notes", scope, lease).unwrap();
         let profile = policy.policy().sources[0]
             .acquisition_profile
             .digest
@@ -78,7 +83,7 @@ impl Fixture {
                 },
             )
             .unwrap();
-        let inputs = db.retain(&scope, b"frozen inputs", &[]).unwrap();
+        let inputs = db.retain(scope, b"frozen inputs", &[]).unwrap();
         let envelope = CaptureEnvelope {
             schema: "maestro-capture/1".into(),
             source: "notes".into(),
