@@ -114,7 +114,7 @@ impl Directory {
                 self.read_regular(quarantine)? == expected
             };
             if !matches {
-                return Err(io::Error::other("created file bytes changed"));
+                return Err(io::Error::other("created file changed; bytes differ"));
             }
             Ok(())
         })

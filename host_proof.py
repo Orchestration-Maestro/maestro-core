@@ -16,14 +16,14 @@ cases=[
  ('source-identity',V,'fn publish_verified_inner','source.read_to_end(&mut bytes)?; (checks.before_link)()?; self.verify_created(from, &source)?;','source.read_to_end(&mut bytes)?; (checks.before_link)()?; /* skip */','maestro-catalog',F+'publication_refuses_regular_source_swap_after_held_read_before_link'),
  ('source-symlink-identity',V,'fn publish_verified_inner','source.read_to_end(&mut bytes)?; (checks.before_link)()?; self.verify_created(from, &source)?;','source.read_to_end(&mut bytes)?; (checks.before_link)()?; /* skip */','maestro-catalog',F+'publication_refuses_symlink_source_swap_after_held_read_before_link'),
  ('published-replacement-identity',V,'fn publish_verified_inner','(checks.after_link)().and_then(|()| self.verify_created(to, &source))','(checks.after_link)()','maestro-catalog',F+'publication_post_compare_preserves_a_replacement_of_the_published_link'),
- ('mkdir-post-floor',P,'fn create_directory_with','.check_current_policy()','.parent.verify_named()','maestro-catalog',F+'deny_alias_rebinding_on_both_sides_of_mkdir_and_write_leaves_no_new_entries'),
- ('write-post-floor',P,'fn write_new_with','result .and_then(|()| self.check_current_policy())','result','maestro-catalog',F+'deny_alias_rebinding_on_both_sides_of_mkdir_and_write_leaves_no_new_entries'),
+ ('mkdir-post-floor',P,'fn create_directory_with','.check_current_policy()','.parent.verify_named()','maestro-catalog',F+'deny_rebind_between_check_and_mkdir_reaches_native_directory_rollback'),
+ ('write-post-floor',P,'fn write_new_with','result .and_then(|()| self.check_current_policy())','result','maestro-catalog',F+'deny_rebind_between_check_and_mkdir_reaches_native_directory_rollback'),
  ('removal-post-floor',P,'fn remove_verified_with','self.check_current_policy()','Ok(())','maestro-catalog',F+'removal_restores_quarantined_bytes_when_post_effect_policy_refuses'),
 ]
 if platform=='win32':
  cases += [
- ('native-directory-disposition',S,'fn remove_created_directory','DeleteFile: true','DeleteFile: false','maestro-catalog',F+'deny_alias_rebinding_on_both_sides_of_mkdir_and_write_leaves_no_new_entries'),
- ('directory-delete-share-leak',P,'fn create_directory_with','Ok(hardened) => Ok(hardened)','Ok(_hardened) => Ok(child)','maestro-catalog',F+'newly_created_parent_handles_block_rename_before_reuse'),
+ ('native-directory-disposition',S,'fn remove_created_directory','DeleteFile: true','DeleteFile: false','maestro-catalog',F+'deny_rebind_between_check_and_mkdir_reaches_native_directory_rollback'),
+ ('directory-delete-share-leak',P,'fn create_directory_with','Ok(hardened) => Ok(hardened)','Ok(_hardened) => Ok(child)','maestro-catalog',F+'new_directory_is_hardened_against_rename_before_later_file_effects'),
  ('hardened-directory-identity',W,'pub fn harden_created_child','self.verify_created(name, held)?;','/* skip */','maestro-catalog',F+'directory_hardening_refuses_replacement_before_returning_a_parent_grant'),
  ('rollback-full-identity',S,'fn remove_created_directory','if !same_file(&file, created)? {','if false {','maestro-catalog',F+'directory_rollback_restores_a_replacement_instead_of_deleting_it'),
  ('created-full-identity',W,'pub fn verify_created','if !same_file(created, &named)? {','if false {','maestro-catalog',F+'written_bytes_are_not_owned_when_the_created_name_is_replaced'),
@@ -46,10 +46,8 @@ for name,path,anchor,before,after,package,test in cases:
  if match is None: raise RuntimeError(f'{name}: mutation not found: {before}')
  changed=original[:begin]+tail[:match.start()]+after+tail[match.end():]
  (output/(name+'.diff')).write_text(''.join(difflib.unified_diff(original.splitlines(True),changed.splitlines(True),fromfile=path,tofile=path)))
- command=['cargo','test','--locked','-p',package,test.split('::')[-1],'--','--exact' ]
+ command=['cargo','test','--locked','-p',package,test.split('::')[-1] ]
  # Full source-qualified test name avoids zero-test success, including module hierarchy.
- if package=='maestro-catalog': command[5]=test
- else: command[5]='created_identity_tests::'+test
  file.write_text(changed)
  try:
   result=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)

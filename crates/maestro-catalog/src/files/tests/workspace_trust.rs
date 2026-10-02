@@ -269,3 +269,6 @@ fn declined_config_capability_refuses_symlinked_parent_with_intact_target() {
 
 #[path = "workspace_trust_effects.rs"]
 mod effects;
+
+#[path = "workspace_trust_publication.rs"]
+mod publication;

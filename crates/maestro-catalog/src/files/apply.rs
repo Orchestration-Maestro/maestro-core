@@ -132,9 +132,9 @@ pub(crate) fn apply_with_failure(
             }
             Err(error) if error.kind() == ErrorKind::NotFound => {
                 fail_if_requested(fail_after, index * 2 + 1)?;
-                let metadata = effects::write(root, &file.path, &file.bytes, trust)?;
+                let _metadata = effects::write(root, &file.path, &file.bytes, trust)?;
                 #[cfg(unix)]
-                let identity = Some(file_identity(&metadata));
+                let identity = Some(file_identity(&_metadata));
                 #[cfg(windows)]
                 let identity = None;
                 owned_files.push(OwnedFile {
