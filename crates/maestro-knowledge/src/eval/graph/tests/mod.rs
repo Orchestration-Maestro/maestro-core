@@ -9,3 +9,10 @@ mod support;
 mod draft;
 
 mod draft_replay;
+
+mod gates_support;
+mod golden;
+
+mod completeness;
+
+mod diagnostics;

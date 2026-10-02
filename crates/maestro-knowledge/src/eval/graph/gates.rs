@@ -1,5 +1,7 @@
 //! Frozen evaluation run gates over construction, proof, retrieval and latency evidence.
 
+use super::answers::{QuestionAnswer, credited, golden_non_regression};
+use super::completeness::{RequestCompleteness, request_completeness};
 use super::score::{FamilyProof, ScoreConstruction, proof_gain};
 use crate::eval::bootstrap::estimates;
 use crate::{search::SearchConfiguration, suite::Suite};
@@ -58,6 +60,10 @@ pub struct RungEvidence {
     pub proofs: Vec<FamilyProof>,
     /// Graph retrieval results.
     pub graph_retrieval: Vec<QuestionRetrieval>,
+    /// Answer attempts on all 220 graph items.
+    pub graph_answers: Vec<QuestionAnswer>,
+    /// Answer attempts on all Golden entries.
+    pub golden_answers: Vec<QuestionAnswer>,
     /// Supported answers.
     pub supported_answers: usize,
     /// Paired ctm retrieval comparator.
@@ -72,6 +78,8 @@ pub struct RunEvidence {
     pub run: u32,
     /// Required passage-only rung.
     pub passage_only: RungEvidence,
+    /// Required graph-only rung.
+    pub graph_only: RungEvidence,
     /// Required graph-plus-passage rung.
     pub pairing: RungEvidence,
     /// Reviewed construction metrics.
@@ -140,6 +148,12 @@ pub enum Gate {
     CtmRetrieval,
     /// Warm p95 limits failed.
     Latency,
+    /// Golden supported answers regressed on 84 answerable entries.
+    GoldenSupport,
+    /// Golden correct refusals regressed on all 16 unanswerable entries.
+    GoldenRefusal,
+    /// Required answered requests are absent, duplicated or unknown.
+    Completeness,
 }
 /// Metrics and deterministic gate verdict for one run.
 #[derive(Debug, Clone, PartialEq)]
@@ -148,6 +162,8 @@ pub struct RunVerdict {
     pub run: u32,
     /// Paired ctm recall diagnostic interval.
     pub ctm_recall_interval: Option<[f64; 2]>,
+    /// Answered-request completeness for this repeat.
+    pub requests: RequestCompleteness,
     /// Gate list.
     pub passed: bool,
     /// Gates that failed.
@@ -170,18 +186,25 @@ impl RunVerdict {
 pub struct RunsVerdict {
     /// Every independently judged run.
     pub runs: Vec<RunVerdict>,
+    /// Answered-request completeness over all three repeats (2,880 required).
+    pub requests: RequestCompleteness,
     /// Exactly three distinct passing runs.
     pub passed: bool,
 }
 /// Apply the frozen run gates against the answerable IDs of each frozen suite.
 /// Every repeat must pass independently; unanswerables belong only to refusals.
 #[must_use]
-pub fn judge_runs(evidence: &[RunEvidence], graph_suite: &Suite, ctm_suite: &Suite) -> RunsVerdict {
+pub fn judge_runs(
+    evidence: &[RunEvidence],
+    graph_suite: &Suite,
+    ctm_suite: &Suite,
+    golden_suite: &Suite,
+) -> RunsVerdict {
     let graph_ids = answerable_ids(graph_suite);
     let ctm_ids = answerable_ids(ctm_suite);
     let runs: Vec<_> = evidence
         .iter()
-        .map(|run| judge_run(run, &graph_ids, &ctm_ids))
+        .map(|run| judge_run(run, &graph_ids, &ctm_ids, graph_suite, golden_suite))
         .collect();
     let unique = runs
         .iter()
@@ -189,9 +212,16 @@ pub fn judge_runs(evidence: &[RunEvidence], graph_suite: &Suite, ctm_suite: &Sui
         .collect::<BTreeSet<_>>()
         .len()
         == 3;
+    let arms: Vec<_> = evidence.iter().flat_map(arms).collect();
+    let mut requests = request_completeness(graph_suite, golden_suite, &arms);
+    requests.required = 2_880;
+    requests.passed &= requests.observed == 2_880 && unique;
+    let passed =
+        requests.passed && runs.len() == 3 && unique && runs.iter().all(|result| result.passed);
     RunsVerdict {
-        passed: runs.len() == 3 && unique && runs.iter().all(|result| result.passed),
         runs,
+        requests,
+        passed,
     }
 }
 /// Judge one repeat independently.
@@ -199,9 +229,18 @@ fn judge_run(
     evidence: &RunEvidence,
     graph_ids: &BTreeSet<&str>,
     ctm_ids: &BTreeSet<&str>,
+    graph_suite: &Suite,
+    golden_suite: &Suite,
 ) -> RunVerdict {
     let mut failed = Vec::new();
-    if evidence.passage_only.run != evidence.run || evidence.pairing.run != evidence.run {
+    let requests = request_completeness(graph_suite, golden_suite, &arms(evidence));
+    if !requests.passed {
+        failed.push(Gate::Completeness);
+    }
+    if evidence.graph_only.run != evidence.run
+        || evidence.passage_only.run != evidence.run
+        || evidence.pairing.run != evidence.run
+    {
         failed.push(Gate::SameRunComparator);
     }
     let defaults = SearchConfiguration::default();
@@ -215,7 +254,7 @@ fn judge_run(
         failed.push(Gate::PassageDefinition);
     }
     match proof_gain(&evidence.passage_only.proofs, &evidence.pairing.proofs, 0) {
-        Ok(gain) if gain.passed && gain.pairs == 80 => {}
+        Ok(gain) if gain.passed && gain.pairs == 200 => {}
         _ => failed.push(Gate::ProofGain),
     }
     if !evidence.construction.precision_passed {
@@ -224,7 +263,8 @@ fn judge_run(
     if !evidence.construction.exact || evidence.inexact_commands > 0 {
         failed.push(Gate::Exactness);
     }
-    if evidence.pairing.refusals.len() != 20
+    if credited(graph_suite, &evidence.pairing.graph_answers, false) < 16
+        || evidence.pairing.refusals.len() != 20
         || evidence
             .pairing
             .refusals
@@ -239,7 +279,9 @@ fn judge_run(
         graph_ids,
         &evidence.passage_only.graph_retrieval,
         &evidence.pairing.graph_retrieval,
-    ) || evidence.pairing.supported_answers < evidence.passage_only.supported_answers
+    ) || credited(graph_suite, &evidence.pairing.graph_answers, true)
+        < credited(graph_suite, &evidence.passage_only.graph_answers, true)
+        || evidence.pairing.supported_answers < evidence.passage_only.supported_answers
     {
         failed.push(Gate::GraphRetrieval);
     }
@@ -258,12 +300,50 @@ fn judge_run(
     if !latency_pass(&evidence.latency) {
         failed.push(Gate::Latency);
     }
+    failed.extend(golden_gates(evidence, golden_suite));
     RunVerdict {
+        requests,
         run: evidence.run,
         ctm_recall_interval: interval,
         passed: failed.is_empty(),
         failed,
     }
+}
+/// The three required arms, each carrying both answered suites.
+fn arms(evidence: &RunEvidence) -> [(&[QuestionAnswer], &[QuestionAnswer]); 3] {
+    [
+        &evidence.passage_only,
+        &evidence.graph_only,
+        &evidence.pairing,
+    ]
+    .map(|rung| {
+        (
+            rung.graph_answers.as_slice(),
+            rung.golden_answers.as_slice(),
+        )
+    })
+}
+/// Both enabled rungs compare Golden answer and refusal estimates separately.
+fn golden_gates(evidence: &RunEvidence, suite: &Suite) -> Vec<Gate> {
+    let mut support = true;
+    let mut refusal = true;
+    for rung in [&evidence.graph_only, &evidence.pairing] {
+        let [supported, refused] = golden_non_regression(
+            suite,
+            &evidence.passage_only.golden_answers,
+            &rung.golden_answers,
+        );
+        support &= supported;
+        refusal &= refused;
+    }
+    let mut failed = Vec::new();
+    if !support {
+        failed.push(Gate::GoldenSupport);
+    }
+    if !refusal {
+        failed.push(Gate::GoldenRefusal);
+    }
+    failed
 }
 /// Frozen retrieval metrics include every answerable question and no refusals.
 fn answerable_ids(suite: &Suite) -> BTreeSet<&str> {

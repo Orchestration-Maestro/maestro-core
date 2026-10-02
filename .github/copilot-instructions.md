@@ -897,13 +897,20 @@ in place.
 │   │   │   ├── eval/                                                        # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
 │   │   │   │   ├── graph/                                                   # Digest-bound graph evaluation labels and construction/proof scoring
 │   │   │   │   │   ├── tests/                                               # Tests of graph evaluation: the strict proof labels and their checker, the
+│   │   │   │   │   │   ├── completeness.rs                                  # Every suite, rung, repeat and item needs exactly one answered request
+│   │   │   │   │   │   ├── diagnostics.rs                                   # Observed proof losses and citation presence are distinct from support
 │   │   │   │   │   │   ├── draft.rs                                         # Draft candidates stay unreviewed and bounded by approved source windows
 │   │   │   │   │   │   ├── draft_replay.rs                                  # Durable reservations prevent duplicate calls and budget resets after interruption
 │   │   │   │   │   │   ├── gates.rs                                         # The gate rules of the spec's table: pairing against same-run
+│   │   │   │   │   │   ├── gates_support.rs                                 # Synthetic frozen acceptance fixtures shared by the gate tests
+│   │   │   │   │   │   ├── golden.rs                                        # Golden support and refusal gates never substitute retrieval credit
 │   │   │   │   │   │   ├── labels.rs                                        # The label checker: a frozen set passes with only aggregates, IDs and
 │   │   │   │   │   │   ├── mod.rs                                           # Tests of graph evaluation: the strict proof labels and their checker, the
 │   │   │   │   │   │   ├── score.rs                                         # The scores: a proof counts only when every anchor of one allowed proof is
 │   │   │   │   │   │   └── support.rs                                       # What the graph evaluation tests share: a synthetic source, a suite of its
+│   │   │   │   │   ├── answers.rs                                           # Per-item answer attempts, separate from retrieval evidence
+│   │   │   │   │   ├── completeness.rs                                      # Exact answered-request populations; diagnostics contain counts and safe IDs only
+│   │   │   │   │   ├── diagnostics.rs                                       # Observed-only proof attrition and conclusion support in the graph scorer
 │   │   │   │   │   ├── draft.rs                                             # One bounded local drafting call; model text never grants evidence authority
 │   │   │   │   │   ├── draft_progress.rs                                    # Durable per-window reservations: an interrupted model call is never silently repeated
 │   │   │   │   │   ├── gates.rs                                             # Frozen evaluation run gates over construction, proof, retrieval and latency evidence

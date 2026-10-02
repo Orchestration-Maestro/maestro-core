@@ -1,5 +1,8 @@
 //! Digest-bound graph evaluation labels and construction/proof scoring.
 
+mod answers;
+mod completeness;
+mod diagnostics;
 pub mod draft;
 pub mod draft_progress;
 mod gates;
@@ -12,6 +15,12 @@ mod score;
 #[cfg(test)]
 mod tests;
 
+pub use answers::{AnswerOutcome, QuestionAnswer};
+pub use completeness::RequestCompleteness;
+pub use diagnostics::{
+    ConclusionObservation, ConclusionScore, DiagnosticError, DiagnosticRatio, GraphScore,
+    ProofObservation, ProofStageScore, score_graph,
+};
 pub use gates::{
     Cohort, Gate, GraphRoute, LatencySample, Operation, QuestionRetrieval, RefusalOutcome,
     RunEvidence, RunVerdict, RungDefinition, RungEvidence, RunsVerdict, judge_runs,

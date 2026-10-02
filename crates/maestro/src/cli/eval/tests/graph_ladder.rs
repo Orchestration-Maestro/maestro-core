@@ -48,13 +48,29 @@ fn graph_eval_ladder_scores_delivered_proofs_and_excludes_failed_attempts() {
         diagnostic.delivered = vec![anchor.clone()];
     }
     assert_eq!(
-        (score_run(run, &labels).complete, score_run(run, &labels).of),
+        (
+            score_run(run, &labels).unwrap().final_wire.complete,
+            score_run(run, &labels).unwrap().final_wire.of
+        ),
         (2, 2)
     );
+    let score = score_run(run, &labels).unwrap();
+    assert_eq!(
+        (score.stages[3].complete.count, score.stages[3].complete.of),
+        (2, 2)
+    );
+    assert_eq!(
+        (
+            score.stages[0].complete.of,
+            score.stages[0].complete.unobserved
+        ),
+        (0, 2)
+    );
+    assert_eq!(score.conclusions.unobserved_items, 2);
     run.diagnostics[0].delivered.clear();
-    assert_eq!(score_run(run, &labels).complete, 1);
+    assert_eq!(score_run(run, &labels).unwrap().final_wire.complete, 1);
     run.rows[1].search.outcome = SearchOutcome::TimedOut;
-    assert_eq!(score_run(run, &labels).complete, 0);
+    assert_eq!(score_run(run, &labels).unwrap().final_wire.complete, 0);
     assert_eq!(run.diagnostics[1].delivered, [anchor]);
 }
 
@@ -87,7 +103,7 @@ fn graph_eval_private_ladder_counts_unreviewed_unanswerable_and_failed_asks() {
         0,
         &[rung("first"), rung("second")],
         |run| {
-            record_counts(&mut counts, run, &labels);
+            record_counts(&mut counts, run, &labels)?;
             Ok(())
         },
     )

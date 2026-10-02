@@ -217,3 +217,32 @@ fn only_the_second_distinct_alternative_is_delivered() {
         &[second]
     ));
 }
+
+#[test]
+fn ten_wins_among_200_pass_and_nine_fail_with_seed_zero_bounds() {
+    let (baseline, candidate) = paired(200, 10, 0);
+    let gain = proof_gain(&baseline, &candidate, GAIN_SEED).unwrap();
+    assert_eq!((gain.pairs, gain.wins, gain.losses), (200, 10, 0));
+    assert!((gain.observed - 0.05).abs() < 1e-12);
+    assert_eq!((gain.low, gain.high), (5.0 / 200.0, 16.0 / 200.0));
+    assert!(gain.passed);
+    let (baseline, candidate) = paired(200, 9, 0);
+    let gain = proof_gain(&baseline, &candidate, GAIN_SEED).unwrap();
+    assert!((gain.observed - 0.045).abs() < 1e-12);
+    assert!(!gain.passed);
+}
+
+#[test]
+fn historical_80_pair_losses_fail_at_five_points_with_exact_bounds() {
+    for (wins, losses, low, high) in [
+        (5, 1, 0.0, 0.1125),
+        (6, 2, -0.0125, 0.125),
+        (8, 4, -0.0375, 0.1375),
+    ] {
+        let (baseline, candidate) = paired(80, wins, losses);
+        let gain = proof_gain(&baseline, &candidate, GAIN_SEED).unwrap();
+        assert_eq!((gain.low, gain.high), (low, high));
+        assert!((gain.observed - 0.05).abs() < 1e-12);
+        assert!(!gain.passed);
+    }
+}

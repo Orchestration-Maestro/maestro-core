@@ -13,9 +13,11 @@ use super::{
 };
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
-use maestro_knowledge::eval::{AskOutcome, CheckedLabels, ProofScore, SearchOutcome, score_proofs};
+use maestro_knowledge::eval::{
+    AskOutcome, CheckedLabels, GraphScore, ProofObservation, SearchOutcome, score_graph,
+};
 use serde_json::json;
-use std::{collections::BTreeMap, fs, process::ExitCode};
+use std::{fs, process::ExitCode};
 
 /// Every private failure is retained only under the checked private root.
 pub(super) fn run(
@@ -56,12 +58,15 @@ fn execute(manifest: &Manifest, inputs: &Inputs) -> Result<Counts, Failure> {
         |run| {
             let report = RungReport::new(run, &manifest.collection, &inputs.suite.digest, binary);
             write_rung(&manifest.output, run, &report)?;
-            let score = score_run(run, &labels);
-            record_counts(&mut counts, run, &labels);
+            let score = score_run(run, &labels)?;
+            record_counts(&mut counts, run, &labels)?;
             let receipt = json!({"schema":"maestro-graph-proof-score/1", "rung":run.rung.name,
             "labels_digest":inputs.digest.as_str(), "suite_digest":inputs.suite.digest.as_str(),
-            "complete":score.complete,"of":score.of,
-            "families":score.families.iter()
+            "complete":score.final_wire.complete,"of":score.final_wire.of,
+            "proof_attrition":{"candidate":score.stages[0], "pre_fusion":score.stages[1],
+                "post_packing":score.stages[2], "final_wire":score.stages[3]},
+            "conclusions":score.conclusions,
+            "families":score.final_wire.families.iter()
             .map(|family|json!({"id":family.family,
             "complete":family.complete})).collect::<Vec<_>>()});
             inputs
@@ -82,27 +87,49 @@ fn execute(manifest: &Manifest, inputs: &Inputs) -> Result<Counts, Failure> {
 }
 
 /// Failed searches cannot retain credit from a partially populated diagnostic.
-pub(super) fn score_run(run: &RungRun, labels: &CheckedLabels) -> ProofScore {
-    let delivered: BTreeMap<_, _> = run
+pub(super) fn score_run(run: &RungRun, labels: &CheckedLabels) -> Result<GraphScore, Failure> {
+    let observations: Vec<_> = run
         .rows
         .iter()
         .zip(&run.diagnostics)
-        .filter(|(row, _)| matches!(row.search.outcome, SearchOutcome::Ranked(_)))
-        .map(|(row, diagnostic)| (row.id.clone(), diagnostic.delivered.clone()))
+        .map(|(row, diagnostic)| ProofObservation {
+            id: row.id.clone(),
+            stages: [
+                None,
+                None,
+                None,
+                Some(if matches!(row.search.outcome, SearchOutcome::Ranked(_)) {
+                    diagnostic.delivered.clone()
+                } else {
+                    Vec::new()
+                }),
+            ],
+            // G13/G16 supply earlier stages and conclusion validation later.
+            conclusions: None,
+        })
         .collect();
-    score_proofs(&labels.items, &delivered)
+    score_graph(&labels.items, &observations).map_err(|error| {
+        Failure::refused(error.item.map_or_else(
+            || error.code.to_owned(),
+            |id| format!("{} item={id}", error.code),
+        ))
+    })
 }
 
 /// Accumulates per-rung label and attempted-row totals.
-pub(super) fn record_counts(counts: &mut Counts, run: &RungRun, labels: &CheckedLabels) {
-    let score = score_run(run, labels);
+pub(super) fn record_counts(
+    counts: &mut Counts,
+    run: &RungRun,
+    labels: &CheckedLabels,
+) -> Result<(), Failure> {
+    let score = score_run(run, labels)?;
     counts.items += run.rows.len();
     counts.unreviewed += labels.summary.unreviewed;
     counts.unanswerable += labels.summary.unanswerable;
     counts.links += labels.summary.links;
     counts.anchors += labels.summary.anchors;
-    counts.complete += score.complete;
-    counts.answerable += score.of;
+    counts.complete += score.final_wire.complete;
+    counts.answerable += score.final_wire.of;
     counts.failed += run
         .rows
         .iter()
@@ -111,4 +138,5 @@ pub(super) fn record_counts(counts: &mut Counts, run: &RungRun, labels: &Checked
                 || matches!(row.ask.outcome, AskOutcome::Failed | AskOutcome::TimedOut)
         })
         .count();
+    Ok(())
 }

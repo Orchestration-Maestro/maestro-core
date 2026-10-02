@@ -2,142 +2,59 @@
 //! passage-only, every gate in each of three runs, the refusal denominator,
 //! point-estimate non-regression and warm latency cohorts.
 
-use crate::{
-    eval::graph::{
-        ClaimReview, ClaimVerdict, Cohort, FamilyProof, Gate, GraphRoute, LatencySample, Operation,
-        QuestionRetrieval, RefusalOutcome, RunEvidence, RungDefinition, RungEvidence, judge_runs,
-        score_construction,
-    },
-    search::SearchConfiguration,
-    suite::Suite,
+use crate::eval::graph::{
+    ClaimReview, ClaimVerdict, Cohort, Gate, GraphRoute, LatencySample, Operation, RefusalOutcome,
+    judge_runs, score_construction,
 };
 use maestro_kernel::artifact::Digest;
-use serde_json::json;
 use std::time::Duration;
 
-/// Frozen suite includes answerable retrieval items and a separate refusal item.
-fn retrieval_suite(count: usize) -> Suite {
-    let mut rows: Vec<_> = (0..count)
-        .map(|index| {
-            json!({
-                "schema": "maestro-suite/1", "id": format!("q-{index:03}"), "language": "en",
-                "question": "Which source?", "answerable": true,
-                "expected": [{"source_ref": "synthetic.md", "heading_path": []}]
-            })
-            .to_string()
-        })
-        .collect();
-    rows.push(
-        json!({"schema": "maestro-suite/1", "id": "unanswerable", "language": "en",
-        "question": "Unsupported?", "answerable": false, "expected": []})
-        .to_string(),
-    );
-    rows.join("\n").parse().unwrap()
-}
-
-/// `pairs` families, the first `complete` complete.
-fn proofs(pairs: usize, complete: usize) -> Vec<FamilyProof> {
-    (0..pairs)
-        .map(|index| FamilyProof {
-            family: format!("f-{index:03}"),
-            complete: index < complete,
-        })
-        .collect()
-}
-
-/// `count` questions, the first `hits` found at rank 1, the others missed.
-fn retrieval(count: usize, hits: usize) -> Vec<QuestionRetrieval> {
-    (0..count)
-        .map(|index| QuestionRetrieval {
-            id: format!("q-{index:03}"),
-            hit_at_10: index < hits,
-            reciprocal_rank: if index < hits { 1.0 } else { 0.0 },
-        })
-        .collect()
-}
-
-/// A rung of `run` with `graph`, S1's default configuration and `found`
-/// complete proofs among 80.
-fn rung(run: u32, graph: GraphRoute, found: usize) -> RungEvidence {
-    RungEvidence {
-        run,
-        definition: RungDefinition {
-            configuration: SearchConfiguration::default(),
-            reranker: Some(Digest::of(b"reranker")),
-            graph,
-        },
-        proofs: proofs(80, found),
-        graph_retrieval: retrieval(80, 60),
-        supported_answers: 60,
-        ctm_retrieval: retrieval(50, 40),
-        refusals: vec![RefusalOutcome::Refused; 20],
-    }
-}
-
-/// Warm samples of `operation`, every one ending in `elapsed`.
-fn warm(operation: Operation, elapsed: Duration) -> Vec<LatencySample> {
-    (0..20)
-        .map(|_| LatencySample {
-            cohort: Cohort::Warm,
-            operation,
-            elapsed: Some(elapsed),
-        })
-        .collect()
-}
-
-/// A run that passes every gate: pairing finds four more complete proofs.
-fn passing(run: u32) -> RunEvidence {
-    let reviews: Vec<ClaimReview> = (0..20)
-        .map(|index| ClaimReview {
-            claim_id: format!("claim-{index}"),
-            verdict: ClaimVerdict::Correct,
-            quote_exact: true,
-        })
-        .collect();
-    let mut latency = warm(Operation::Graph, Duration::from_millis(400));
-    for operation in [
-        Operation::Neighbors,
-        Operation::Path,
-        Operation::EntityResolve,
-        Operation::EvidenceTrace,
-    ] {
-        latency.extend(warm(operation, Duration::from_millis(400)));
-    }
-    latency.extend(warm(Operation::Search, Duration::from_millis(2_000)));
-    latency.extend(warm(Operation::Ask, Duration::from_secs(9)));
-    RunEvidence {
-        run,
-        passage_only: rung(run, GraphRoute::None, 40),
-        pairing: rung(run, GraphRoute::Enabled, 44),
-        construction: score_construction(&reviews, &[], &[]).unwrap(),
-        inexact_commands: 0,
-        latency,
-    }
-}
-
-/// The gates `evidence` fails in its one run.
-fn failed(evidence: RunEvidence) -> Vec<Gate> {
-    let verdict = judge_runs(&[evidence], &retrieval_suite(80), &retrieval_suite(50));
-    verdict.runs[0].failed_gates()
-}
+use super::gates_support::{
+    failed, golden_suite, passing, proofs, retrieval, retrieval_suite, warm,
+};
 
 #[test]
 fn three_passing_runs_pass_and_fewer_or_a_failing_one_do_not() {
     let runs = [passing(1), passing(2), passing(3)];
-    assert!(judge_runs(&runs, &retrieval_suite(80), &retrieval_suite(50)).passed);
     assert!(
-        !judge_runs(&runs[..2], &retrieval_suite(80), &retrieval_suite(50)).passed,
+        judge_runs(
+            &runs,
+            &retrieval_suite(200),
+            &retrieval_suite(50),
+            &golden_suite()
+        )
+        .passed
+    );
+    assert!(
+        !judge_runs(
+            &runs[..2],
+            &retrieval_suite(200),
+            &retrieval_suite(50),
+            &golden_suite()
+        )
+        .passed,
         "two runs are missing evidence"
     );
     let mut one_fails = runs.clone();
-    one_fails[1].pairing.proofs = proofs(80, 43);
-    let verdict = judge_runs(&one_fails, &retrieval_suite(80), &retrieval_suite(50));
+    one_fails[1].pairing.proofs = proofs(200, 49);
+    let verdict = judge_runs(
+        &one_fails,
+        &retrieval_suite(200),
+        &retrieval_suite(50),
+        &golden_suite(),
+    );
     assert!(!verdict.passed);
     assert_eq!(verdict.runs[1].failed_gates(), vec![Gate::ProofGain]);
     assert!(verdict.runs[0].passed && verdict.runs[2].passed);
     let repeated = [passing(1), passing(1), passing(2)];
     assert!(
-        !judge_runs(&repeated, &retrieval_suite(80), &retrieval_suite(50)).passed,
+        !judge_runs(
+            &repeated,
+            &retrieval_suite(200),
+            &retrieval_suite(50),
+            &golden_suite()
+        )
+        .passed,
         "a run counted twice"
     );
 }
@@ -211,7 +128,7 @@ fn refusal_counts_every_unanswerable_question_and_errors_earn_no_credit() {
 #[test]
 fn pairing_must_not_lose_ctm_graph_retrieval_or_supported_answers() {
     let mut recall = passing(1);
-    recall.pairing.graph_retrieval = retrieval(80, 59);
+    recall.pairing.graph_retrieval = retrieval(200, 59);
     assert_eq!(failed(recall), vec![Gate::GraphRetrieval]);
     let mut supported = passing(1);
     supported.pairing.supported_answers = 59;
@@ -236,7 +153,12 @@ fn a_negative_ctm_retrieval_delta_fails_and_a_nonnegative_one_passes_whatever_it
     swapped.pairing.ctm_retrieval[0].reciprocal_rank = 0.0;
     swapped.pairing.ctm_retrieval[45].hit_at_10 = true;
     swapped.pairing.ctm_retrieval[45].reciprocal_rank = 1.0;
-    let verdict = judge_runs(&[swapped], &retrieval_suite(80), &retrieval_suite(50));
+    let verdict = judge_runs(
+        &[swapped],
+        &retrieval_suite(200),
+        &retrieval_suite(50),
+        &golden_suite(),
+    );
     assert!(verdict.runs[0].failed_gates().is_empty());
     let interval = verdict.runs[0].ctm_recall_interval.unwrap();
     assert!(interval[0] < 0.0 && interval[1] > 0.0, "{interval:?}");
@@ -288,8 +210,8 @@ fn only_warm_samples_count_against_the_latency_limits() {
 #[test]
 fn missing_answerable_families_and_duplicate_retrieval_items_block_acceptance() {
     let mut short = passing(1);
-    short.passage_only.proofs = proofs(79, 39);
-    short.pairing.proofs = proofs(79, 43);
+    short.passage_only.proofs = proofs(199, 39);
+    short.pairing.proofs = proofs(199, 49);
     assert_eq!(failed(short), vec![Gate::ProofGain]);
     let mut duplicate = passing(1);
     duplicate.passage_only.ctm_retrieval[1].id = "q-000".to_owned();
