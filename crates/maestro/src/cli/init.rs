@@ -139,15 +139,15 @@ fn preference_draft(
     choices: &[String],
     checked: &CheckedTrust<'_>,
 ) -> Result<Option<PreferencesDraft>, Failure> {
-    if choices.is_empty() {
-        match checked
+    // Any other read failure falls through: the preferences port already refuses an
+    // unreadable, foreign or linked config before init gets here.
+    let existing = choices.is_empty()
+        && checked
             .authorize(root, Path::new(".maestro/config.toml"), Access::Read)
             .and_then(|path| path.open_read())
-        {
-            Ok(_) => return Ok(None),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(error) => return Err(Failure::refused_by(&error)),
-        }
+            .is_ok();
+    if existing {
+        return Ok(None);
     }
     draft_preferences(root, source, choices, &Limits::PRODUCTION, checked)
         .map(Some)
