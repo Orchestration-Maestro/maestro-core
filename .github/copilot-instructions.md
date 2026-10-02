@@ -600,6 +600,7 @@ in place.
 │   │   │   │   │   ├── rulings.rs                                           # The C03 round-two rulings: skill metadata reads only maestro
 │   │   │   │   │   ├── scan.rs                                              # Aggregate snapshot trust-boundary neighbours, independent of content guards
 │   │   │   │   │   ├── schema.rs                                            # Each file's strict schema: duplicate and unknown keys, wrong types
+│   │   │   │   │   ├── secrets.rs                                           # Descriptor-driven secret fields share one strict reference shape, never a resolver
 │   │   │   │   │   ├── selection.rs                                         # C34 selection admission, distinct from partial source checking
 │   │   │   │   │   ├── standards.rs                                         # C81a mandatory standards and inert registered machine checks
 │   │   │   │   │   ├── support.rs                                           # An in-memory [SourceTree] adapter holding the valid synthetic catalog
@@ -620,6 +621,7 @@ in place.
 │   │   │   │   ├── registry.rs                                              # The kinds a checker knows: each a validated [KindDescriptor] and, when
 │   │   │   │   ├── rules.rs                                                 # A kind's rules beyond its descriptor: a hook, which a descriptor selects
 │   │   │   │   ├── scan.rs                                                  # One bounded snapshot of every folder/file/link in the source tree
+│   │   │   │   ├── secrets.rs                                               # Typed secret bindings for registered settings, backend and extension fields
 │   │   │   │   ├── selection.rs                                             # Checked selection admission, separate from partial source validation
 │   │   │   │   ├── tree.rs                                                  # The port through which the checker reads a catalog's files, and its
 │   │   │   │   ├── types.rs                                                 # The catalog's authoring schema, maestro-source/1, as typed data

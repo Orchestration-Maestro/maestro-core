@@ -1464,6 +1464,8 @@ visible, and a locally invalidated in-flight consult does not return a candidate
 
 ### C18 Explicit lock and explanations [US3] (3 h)
 
+Explain renders `SecretReference` fields as references and never resolves them; extend C60's sentinel test.
+
 **Phase:** P1/M3
 
 **After:** C14, C17, C05b, C03a; S1 settings registry/config-explain API integrated.
@@ -2526,6 +2528,8 @@ carry no second task or budget. Physical order does not change Phase/After.
 
 ### C45a Strict backend base descriptors [US1, US5] (4 h)
 
+Secret-bearing fields use `FieldType::SecretReference`. URL-typed fields refuse embedded credentials through one shared check: make the kernel's credential-free URL check (`gateway/card_v2/validation.rs:114`) reachable instead of a second parser.
+
 **Phase:** P1/M3
 **After:** C44, C39.
 **Files:** crates/maestro-catalog/src/source/{backends.rs,kinds/backend.rs,tests/backends.rs}; tests/fixtures/catalog/backends/.
@@ -2579,6 +2583,8 @@ carry no second task or budget. Physical order does not change Phase/After.
 **Acceptance:** Catalog defaults feed S1 once; graph descriptor sync. Four layers, masked invalid input, locked fields and missing defaults/compiled adapters tested.
 
 ### C47a Frozen defaults and complete non-resource locks [US1, US5] (4 h)
+
+The defaults producer refuses secret values through C60's guard.
 
 **Phase:** P1/M3
 **After:** C46, C37.
@@ -2898,6 +2904,8 @@ No invented pin, duplicate server registry or extra seed charge; estimate stays 
 
 ### C58 Any-language extension descriptor [US1, US5] (4 h)
 
+Secret-bearing fields use `FieldType::SecretReference`.
+
 **Phase:** P2/X1
 **After:** C32, C53a, C28.
 **Files:** crates/maestro-catalog/src/source/kinds/{builtin.rs,extension.rs}; crates/maestro-catalog/src/source/tests/extension_contract.rs; tests/fixtures/catalog/extensions/.
@@ -2941,10 +2949,10 @@ No invented pin, duplicate server registry or extra seed charge; estimate stays 
 **Design coverage:** MD02, MD06 (approved design §8.4).
 **Named tests:** `secret_reference_oneof_accepts`, `secret_literal_channels_refuse`, `check_install_explain_never_resolve_secrets`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Shared typed secret references across settings/backends/extensions. Literal secrets/URL credentials/argument channels refuse; explain never resolves a secret.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Shared typed secret references across settings/backends/extensions. Literal secrets/URL credentials/argument channels refuse; explain never resolves a secret.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

@@ -211,6 +211,8 @@ impl Field {
 pub enum FieldType {
     /// A nonempty string.
     Text,
+    /// A typed environment-variable or keychain reference, never a literal secret.
+    SecretReference,
     /// An integer.
     Integer,
     /// A number: an integer or a finite fraction.

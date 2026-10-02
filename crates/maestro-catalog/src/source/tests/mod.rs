@@ -27,6 +27,7 @@ mod root_boundaries;
 mod rulings;
 mod scan;
 mod schema;
+mod secrets;
 mod selection;
 mod standards;
 pub(crate) mod support;

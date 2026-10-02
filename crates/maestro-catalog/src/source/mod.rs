@@ -18,6 +18,7 @@ mod placements;
 mod registry;
 mod rules;
 mod scan;
+mod secrets;
 mod selection;
 #[cfg(test)]
 pub(crate) mod tests;
@@ -31,6 +32,7 @@ pub use descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataP
 pub use kinds::{builtin, builtin_hooks};
 pub use ownership::{CODEOWNERS_PATH, Ownership, ReviewPath, ReviewRole, ReviewRule};
 pub use registry::{Registration, RegistrationError, Registry};
+pub use secrets::{KeychainReference, SecretReference};
 pub use tree::{Directory, Entry, EntryKind, SourceTree};
 pub use types::{
     Catalog, Cause, Diagnostic, Float, Known, KnownRows, KnownSettings, Maturity, Metadata,
