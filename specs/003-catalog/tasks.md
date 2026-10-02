@@ -775,7 +775,7 @@ do not build another language/tone setting or redo already-landed S1 wiring.
 `specs/001-knowledge-kernel/spec.md`.
 **Requirements:** FR-S3-029, SC-S3-010.
 
-- [ ] **Step 1: Red.** Use controlled gateway responses to inspect actual trusted
+- [x] **Step 1: Red.** Use controlled gateway responses to inspect actual trusted
   prompt inputs for accepted canonical tags (including one without UI translations)
   and three tones. Test no-layer French question fallback, explicit en over a
   French question, canonical `lang`, en/fr/es refusal text and English fallback.
@@ -783,13 +783,13 @@ do not build another language/tone setting or redo already-landed S1 wiring.
   ignores conflicting user/workspace/flag language and tone on the real ask path.
   Keep English artifact instructions, citations/quotes and prompt identity;
   question text cannot override explicit language. Use the real evidence validator.
-- [ ] **Step 2: Green.** Pass optional validated presentation inputs from CLI/MCP
+- [x] **Step 2: Green.** Pass optional validated presentation inputs from CLI/MCP
   to the answer port. Update response_language and host-owned refusal text in
   generate.rs, carry the canonical tag in lang, and preserve question-language
   default and evaluation's pinned prompt/profile. Record checked/unchecked language
   honestly, retaining all evidence controls and token ceilings. Changed explicit
   prompts stay uncalibrated until measured; no catalog dependency in knowledge.
-- [ ] **Step 3: Check.** Run capped nextest `answer::tests::prompts` and
+- [x] **Step 3: Check.** Run capped nextest `answer::tests::prompts` and
   `answer::tests::prompt_text` in maestro-knowledge, plus
   `catalog_answer_preferences` in maestro; retain existing denial neighbours.
 

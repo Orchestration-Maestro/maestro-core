@@ -282,6 +282,7 @@ in place.
 │   │   │       │   └── wipe_safety.rs                                       # Ownership checks for the destructive kernel and Qdrant portions
 │   │   │       ├── backup_restore.rs                                        # Backup and restore: online copies keep the database, artifacts and leased
 │   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
+│   │   │       ├── catalog_answer_preferences.rs                            # Real CLI/MCP/evaluation asks inspect trusted prompts through a controlled router
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
 │   │   │       ├── catalog_codeowners.rs                                    # Read-only CODEOWNERS rendering and comparison against committed rules
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
