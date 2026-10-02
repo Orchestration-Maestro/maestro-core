@@ -620,6 +620,8 @@ already uses sub-slices); its range is not an oversized lane authorization.
 | E10 | `P/cleanup.rs`, canonicalization anchored removal, CLI cleanup/how-to: Retired/Failed-with-receipt preview/confirmation, guard before lookup, no live-reader/unowned deletion or recursive cleanup. | E06, E08b; parallel with E09 | 3–6 h |
 | E11 | `S2/research.md`, how-to and required-check receipts: three-OS engine behavior, source-only runtime, complete feature/default/Windows gates and G22 engine packaging. | E04, E07a/E07b/E08a/E08b, E09, E10 | 2–4 h |
 
+The pin moved to `802abe2` in the combined-pin qualification (2026-10-02). E07a wires the adapter and changes the pin only if the fork moves again.
+
 Ranges are planning estimates, not observed future durations. Basis: the
 2026-09-30 ledger records E05 ruling at 01:10, push/review by 02:03, fix at
 02:40 and landing at 03:12; E06 dispatched at 02:03, pushed 02:27 and reviewed

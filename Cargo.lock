@@ -479,6 +479,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
+name = "fastrand"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -896,14 +902,19 @@ dependencies = [
 [[package]]
 name = "lbug"
 version = "0.20.4"
-source = "git+https://github.com/Orchestration-Maestro/lbug?rev=4301d51c13f00f0917653ed753375d5ad37999d1#4301d51c13f00f0917653ed753375d5ad37999d1"
+source = "git+https://github.com/Orchestration-Maestro/lbug?rev=802abe2ab0fb55ceb72531caf9d0cae059670c4b#802abe2ab0fb55ceb72531caf9d0cae059670c4b"
 dependencies = [
+ "cc",
  "cmake",
  "cxx",
  "cxx-build",
+ "libc",
  "rust_decimal",
  "rustversion",
  "serde_json",
+ "sha2",
+ "shlex",
+ "tempfile",
  "time",
  "uuid",
  "vcpkg",
@@ -1756,6 +1767,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bf256ce5efdfa370213c1dabab5935a12e49f2c58d15e9eac2870d3b4f27263"
 dependencies = [
  "futures-core",
+]
+
+[[package]]
+name = "tempfile"
+version = "3.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
+dependencies = [
+ "fastrand",
+ "getrandom 0.4.3",
+ "once_cell",
+ "rustix",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

@@ -5,7 +5,59 @@ embedded LadybugDB graph engine, against the six-row adoption bar of
 [plan.md](plan.md) A1. This file holds the verdict, the measurements behind it
 and the rulings that followed. ADR-0021 records the resulting design.
 
-## Verdict
+## Combined-pin qualification (802abe2)
+
+On 2026-10-02, the opt-in spike qualified the combined E01/E02/E03/E03b
+fork at `802abe2ab0fb55ceb72531caf9d0cae059670c4b`. `Cargo.toml` and
+`Cargo.lock` name that identical immutable revision. This moves the pin
+before E07a; it does not wire or qualify the product adapter, complete G25's
+remaining cost measurements, or close the historical row-3 verdict below.
+
+The hosted command was `cargo test -p lbug-spike --features engine --locked
+--timings`. Build times are Cargo's complete test-profile build (including
+native source compilation and Rust), not isolated C++ timings. Job times
+include checkout, toolchain setup, tests and native-link inspection.
+
+| OS | Build time / job time | Tests passed | Run URL | No-OpenSSL result |
+| --- | --- | --- | --- | --- |
+| Linux (`ubuntu-latest`) | 17:59 / 18:12 | 6; 0 failed | [three-OS run, Linux job](https://github.com/Orchestration-Maestro/maestro-core/actions/runs/36978566307/job/110747691004) | `ldd`: no `libssl` or `libcrypto`; loaded-library and disabled-installer tests pass |
+| macOS (`macos-latest`) | 11:29 / 11:55; link-proof rerun 15:11 / 15:45 | 5; 0 failed in each run | [three-OS run, macOS job](https://github.com/Orchestration-Maestro/maestro-core/actions/runs/36978566307/job/110747691024); [executable-link proof](https://github.com/Orchestration-Maestro/maestro-core/actions/runs/36982260107/job/110759181992) | Corrected `otool -L` executable inspection: only `libc++` and `libSystem`; disabled-installer test passes |
+| Windows (`windows-latest`) | 32:05 / 33:01 | 5; 0 failed | [three-OS run, Windows job](https://github.com/Orchestration-Maestro/maestro-core/actions/runs/36978566307/job/110747690783) | `objdump -p`: no OpenSSL DLL; disabled-installer test passes |
+
+The first macOS link-inspection selector picked an object file, so its TLS
+claim is discarded; the supplemental run inspected the executable and
+asserted the expected system-library links. Both disposable pushes used
+`test/s2-lbug-repin`; that branch and its workflow were deleted afterwards.
+Neither workflow enters the integration branch.
+
+Local Linux: `capped cargo test -p lbug-spike --features engine --locked`
+built in 21:06 (1,267.49 s command wall time), with 6 passed and 0 failed.
+Both examples build with `--examples`; the reopen test covers on-disk
+create/query/read-only reopen. `ldd` reports no OpenSSL, and CMake records
+`LBUG_EXTENSION_INSTALLER:BOOL=OFF` without an `OPENSSL_*` entry.
+
+`cargo tree -e normal -i lbug` exits 101 with the following output, proving
+that the default build remains lbug-free:
+
+```text
+error: package ID specification `lbug` did not match any packages
+```
+
+The locked feature-on tree includes lbug. Conservative re-locking
+preserves every existing package record except lbug: its new build dependency
+edges are `cc`, `libc`, `sha2`, `shlex` and `tempfile`. Only `tempfile` 3.27.0
+and its transitive `fastrand` 2.5.0 are new packages; no existing version or
+unrelated dependency edge changes.
+
+The organization licence gate passes (advisories, bans, licences, sources).
+Imported audits did not cover the two new versions. The qualification ruling
+moves the existing revision-specific lbug exemption and adds build-only
+`safe-to-deploy` exemptions for those two versions; `imports.lock` is
+unchanged. `cargo vet --locked` passes: 32 fully audited, 8 partially audited,
+202 exempted. These are exemptions, not new source audits. E07a still waits
+for C47a and owns native adapter activation; this spike is not M2 acceptance.
+
+## Original G25 verdict (4301d51)
 
 **Not adopted yet: row 3 (build and cache cost) fails, and stays open until
 the organization's CI caches the C++ build.** The other five rows pass.
