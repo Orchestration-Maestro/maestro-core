@@ -278,14 +278,15 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
             "standard-exception",
             "preset",
             "bootstrap-inventory",
-            "model-card"
+            "model-card",
+            "backend"
         ]
     );
     let versions = registry.registrations().map(|kind| kind.descriptor.version);
     for ((kind, actual), expected) in kinds
         .iter()
         .zip(versions)
-        .zip([3, 3, 4, 3, 3, 4, 1, 1, 3, 1, 3])
+        .zip([3, 3, 4, 3, 3, 4, 1, 1, 3, 1, 3, 1])
     {
         assert_eq!(actual, expected, "{kind}");
     }

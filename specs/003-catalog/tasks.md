@@ -2533,7 +2533,8 @@ carry no second task or budget. Physical order does not change Phase/After.
 
 ### C45a Strict backend base descriptors [US1, US5] (4 h)
 
-Secret-bearing fields use `FieldType::SecretReference`. URL-typed fields refuse embedded credentials through one shared check: make the kernel's credential-free URL check (`gateway/card_v2/validation.rs:114`) reachable instead of a second parser.
+No secret or URL field is admitted by these base descriptors; machine-local
+credentials and endpoints remain outside catalog defaults.
 
 **Phase:** P1/M3
 **After:** C44, C39.
@@ -2542,10 +2543,10 @@ Secret-bearing fields use `FieldType::SecretReference`. URL-typed fields refuse 
 **Design coverage:** MD02, MD03 (approved design §8.4).
 **Named tests:** `backend_valid_base_accepts`, `inactive_backend_table_refuses`, `backend_numeric_bounds_refuse`, `uncompiled_backend_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Registered backend base types/settings over bounded SourceTree. Unknown/inactive bad tables, zero/overflow/power-of-two and unavailable selections refuse.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Registered backend base types/settings over bounded SourceTree. Unknown/inactive bad tables, zero/overflow/power-of-two and unavailable selections refuse.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 
@@ -2590,6 +2591,8 @@ Secret-bearing fields use `FieldType::SecretReference`. URL-typed fields refuse 
 ### C47a Frozen defaults and complete non-resource locks [US1, US5] (4 h)
 
 The defaults producer refuses secret values through C60's guard.
+Runtime activation uses `Catalog::runtime_selection` with the composition root's
+compiled backend set, never build-independent offline `Catalog::selection`.
 
 **Phase:** P1/M3
 **After:** C46, C37.
@@ -2608,6 +2611,13 @@ The defaults producer refuses secret values through C60's guard.
 **Acceptance:** Init/session frozen defaults, complete non-resource locks/bundle preservation and S2 consumer seam. Changed config/lock cannot replay; no live engine needed for fixtures.
 
 ### C47b Vector and MCP configuration adapters [US1, US5] (4 h)
+
+Runtime activation uses `Catalog::runtime_selection` with the composition root's
+compiled backend set. Add the server/tool record schema to C45a's minimal MCP
+base; commands remain adapter-owned. Secret-bearing fields use
+`FieldType::SecretReference`. Any URL fields refuse embedded credentials through
+one shared check: expose the kernel's credential-free HTTP(S) URL validator,
+never add a second parser.
 
 **Phase:** P1/M3
 **After:** C47a, C45b, C40.

@@ -1,0 +1,9 @@
+type = "knowledge"
+
+[mcp]
+
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 models"]
+workflows = ["knowledge"]

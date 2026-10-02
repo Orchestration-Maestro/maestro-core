@@ -583,6 +583,7 @@ in place.
 │   │   │   ├── source/                                                      # The strict checker of a catalog's authoring sources: a registry of
 │   │   │   │   ├── kinds/                                                   # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── agent.rs                                             # agent: a Copilot custom agent profile and its <name>.maestro.toml
+│   │   │   │   │   ├── backend.rs                                           # One declarative backend kind with strict role tables checked by its hook
 │   │   │   │   │   ├── bootstrap_inventory.rs                               # Strict owner-local inventories and their exact inert payload claims
 │   │   │   │   │   ├── builtin.rs                                           # The registry of the built-in kinds and the fixed table of hooks their
 │   │   │   │   │   ├── instructions.rs                                      # instructions: a Copilot .instructions.md file and its
@@ -600,6 +601,7 @@ in place.
 │   │   │   │   │   ├── area_packages.rs                                     # C31 scoped builtin placement and kernel-role neighbours
 │   │   │   │   │   ├── area_regressions.rs                                  # Regression neighbours for area-scoped descriptors and shared package rules
 │   │   │   │   │   ├── area_support.rs                                      # Data-only v4 fixtures; builtin migration belongs to C31/C32
+│   │   │   │   │   ├── backends.rs                                          # Strict core backend declarations and build-aware activation refusals
 │   │   │   │   │   ├── bounds.rs                                            # D2's source limits at small injected values: each exact boundary passes
 │   │   │   │   │   ├── codeowners.rs                                        # C35 rendering, exact drift comparison and protected last-match neighbours
 │   │   │   │   │   ├── coverage.rs                                          # Refusals each guard owns alone: tool names and lists, agent sections
@@ -628,6 +630,7 @@ in place.
 │   │   │   │   │   ├── support.rs                                           # An in-memory [SourceTree] adapter holding the valid synthetic catalog
 │   │   │   │   │   └── yaml.rs                                              # YAML read node by node at injected limits: the exact node budget and
 │   │   │   │   ├── area_walk.rs                                             # Scoped discovery over the bounded snapshot
+│   │   │   │   ├── backends.rs                                              # Registered backend contracts, independent of the adapters linked by a caller
 │   │   │   │   ├── bootstrap_inventory.rs                                   # Shared strict schema owned by the registered bootstrap inventory kind
 │   │   │   │   ├── check.rs                                                 # The checker: discovery, each resource read by its kind, then the checks
 │   │   │   │   ├── closure.rs                                               # The shared exact-ID forward traversal for topology and selection admission
@@ -1625,6 +1628,11 @@ in place.
 ├── tests/                                                                   # Test data shared by the workspace's crates
 │   └── fixtures/                                                            # Test fixtures
 │       ├── catalog/                                                         # Catalog
+│       │   ├── backends/                                                    # Backends
+│       │   │   ├── graphdb.toml                                             # TOML settings: graphdb
+│       │   │   ├── inactive-invalid.toml                                    # TOML settings: inactive invalid
+│       │   │   ├── mcp.toml                                                 # TOML settings: mcp
+│       │   │   └── vectordb.toml                                            # TOML settings: vectordb
 │       │   ├── bootstrap/                                                   # Bootstrap
 │       │   │   └── owner-local/                                             # Owner local
 │       │   │       ├── bootstrap/                                           # Bootstrap

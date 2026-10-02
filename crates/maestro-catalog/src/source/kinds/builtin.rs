@@ -3,7 +3,7 @@
 
 use super::{
     agent::{self, AgentRules},
-    bootstrap_inventory, instructions, model_card, package,
+    backend, bootstrap_inventory, instructions, model_card, package,
     preset::{self, PresetRules},
     skill, standard, standard_check, standard_exception,
 };
@@ -12,7 +12,12 @@ use crate::source::{descriptor::Scope, registry::Registry, rules::KindRules};
 
 /// The hooks a descriptor may select, by name. Content never supplies code:
 /// a new hook is reviewed code added here.
-const HOOKS: [(&str, &dyn KindRules, &[&str]); 9] = [
+const HOOKS: [(&str, &dyn KindRules, &[&str]); 10] = [
+    (
+        "backend-base",
+        &backend::BackendRules,
+        &["graphdb", "vectordb", "mcp"],
+    ),
     (
         "bootstrap-inventory",
         &bootstrap_inventory::InventoryRules,
@@ -69,6 +74,7 @@ pub fn builtin() -> Result<Registry, String> {
         preset::descriptor(),
         bootstrap_inventory::descriptor(),
         model_card::descriptor(),
+        backend::descriptor(),
     ] {
         registry
             .register(descriptor)

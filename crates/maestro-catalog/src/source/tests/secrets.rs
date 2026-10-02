@@ -28,7 +28,7 @@ fn registry() -> Registry {
     let mut registry = builtin().unwrap();
     for kind in ["settings", "backend", "extension"] {
         let mut descriptor = glossary();
-        descriptor.kind = kind.to_owned();
+        descriptor.kind = format!("secret-{kind}");
         descriptor.directory = format!("synthetic-{kind}");
         descriptor.name_field = None;
         descriptor.fields = vec![Field::required(
@@ -60,7 +60,7 @@ fn secret_reference_oneof_accepts() {
             let resource = catalog
                 .resources
                 .iter()
-                .find(|resource| resource.id.kind == kind)
+                .find(|resource| resource.id.kind == format!("secret-{kind}"))
                 .unwrap();
             let encoded = serde_json::to_string(&resource.fields["credential"]).unwrap();
             let typed = resource.fields["credential"]
@@ -165,7 +165,7 @@ fn check_install_explain_never_resolve_secrets() {
         let resource = checked
             .resources
             .iter()
-            .find(|resource| resource.id.kind == kind)
+            .find(|resource| resource.id.kind == format!("secret-{kind}"))
             .unwrap();
         let bytes = serde_json::to_vec(&resource.fields).unwrap();
         assert!(!String::from_utf8_lossy(&bytes).contains(SENTINEL));

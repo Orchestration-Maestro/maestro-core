@@ -3,6 +3,7 @@
 //! then the checks across resources.
 
 mod area_walk;
+mod backends;
 pub(crate) mod bootstrap_inventory;
 mod check;
 pub(crate) mod closure;
@@ -29,6 +30,7 @@ mod types;
 mod walk;
 mod yaml;
 
+pub use backends::{BACKENDS, BackendBound, BackendDescriptor};
 pub use check::{build, check};
 pub use descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope};
 pub use kinds::{builtin, builtin_hooks};

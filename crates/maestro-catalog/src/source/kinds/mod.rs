@@ -2,6 +2,7 @@
 //! special, the hook it selects.
 
 mod agent;
+mod backend;
 mod bootstrap_inventory;
 mod builtin;
 mod instructions;
