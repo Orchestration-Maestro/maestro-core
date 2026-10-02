@@ -127,24 +127,13 @@ pub fn admit(
         return Err(Refusal::Invalid);
     }
     let identity = FetchIdentity::parse(source, request.url)?;
-    check_selection(source, &identity, request.attributes)?;
-    let mut disposition = Disposition::Knowledge;
-    for registry in &policy.decisions {
-        for entry in &registry.entries {
-            if time_key(&entry.effective_at) > time_key(request.now) {
-                continue;
-            }
-            if !matches_selector(&entry.selector, &identity, request.attributes)? {
-                continue;
-            }
-            // Expired exclusions hold; expiry is never automatic re-admission.
-            disposition = match entry.action {
-                Action::DenyFetch => return Err(Refusal::Access),
-                Action::ExcludeFromKnowledge => Disposition::Excluded,
-                Action::AssetOnly => Disposition::AssetOnly,
-            };
-        }
-    }
+    let mut disposition = check_eligibility(
+        source,
+        &identity,
+        &policy.decisions,
+        request.attributes,
+        request.now,
+    )?;
     controls.network(&identity)?;
     controls.robots(&identity)?;
     for promotion in policy.promotions.get(&source.id).into_iter().flatten() {
@@ -159,6 +148,35 @@ pub fn admit(
         disposition,
         cache_bypass: request.cache_bypass,
     })
+}
+
+/// Shared current policy eligibility; absent selector dimensions remain unknown.
+pub(crate) fn check_eligibility(
+    source: &Source,
+    identity: &FetchIdentity,
+    registries: &[Decisions],
+    attributes: ItemAttributes<'_>,
+    now: &str,
+) -> Result<Disposition, Refusal> {
+    if !shape::valid_time(now) {
+        return Err(Refusal::Invalid);
+    }
+    check_selection(source, identity, attributes)?;
+    let mut disposition = Disposition::Knowledge;
+    for entry in registries.iter().flat_map(|registry| &registry.entries) {
+        if time_key(&entry.effective_at) > time_key(now)
+            || !matches_selector(&entry.selector, identity, attributes)?
+        {
+            continue;
+        }
+        // Expired exclusions hold; expiry is never automatic re-admission.
+        disposition = match entry.action {
+            Action::DenyFetch => return Err(Refusal::Access),
+            Action::ExcludeFromKnowledge => Disposition::Excluded,
+            Action::AssetOnly => Disposition::AssetOnly,
+        };
+    }
+    Ok(disposition)
 }
 
 /// Fresh policy-only target checks also apply to migration replacement URLs.
@@ -210,15 +228,19 @@ fn check_selection(
     identity: &FetchIdentity,
     attributes: ItemAttributes<'_>,
 ) -> Result<(), Refusal> {
-    if source
-        .selectors
-        .iter()
-        .any(|selector| matches_selector(selector, identity, attributes).unwrap_or(false))
-    {
-        Ok(())
-    } else {
-        Err(Refusal::Access)
+    let mut unknown = false;
+    for selector in &source.selectors {
+        match matches_selector(selector, identity, attributes) {
+            Ok(true) => return Ok(()),
+            Ok(false) => {}
+            Err(_) => unknown = true,
+        }
     }
+    Err(if unknown {
+        Refusal::Missing
+    } else {
+        Refusal::Access
+    })
 }
 /// Exact conjunction of present fields, disjunction within each value list.
 fn matches_selector(
@@ -255,7 +277,7 @@ fn matches_selector(
         .iter()
         .any(|(values, actual)| !values.is_empty() && actual.is_none())
     {
-        return Err(Refusal::Access);
+        return Err(Refusal::Missing);
     }
     Ok(true)
 }

@@ -2,7 +2,13 @@
 use super::links::LinkExtractor;
 use crate::{
     CheckedPolicy, Refusal,
-    policy::{decision::check_target, identity::FetchIdentity},
+    policy::{
+        decision::{ItemAttributes, check_eligibility},
+        decisions::Decisions,
+        identity::FetchIdentity,
+        source::Source,
+        utc,
+    },
     transport::budget::compose,
 };
 use maestro_kernel::{
@@ -12,7 +18,8 @@ use maestro_kernel::{
     },
     artifact::Digest,
 };
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use url::Url;
 
 /// Enumerate a current leased capture, checkpoint every eligible item, then acknowledge.
 /// No transport starts here: N09 fetched the bytes, N12 captured them, and N09
@@ -49,6 +56,7 @@ pub async fn discover(
         .decode
         .expanded_bytes
         .get()
+        .min(limits.decode.memory_bytes.get())
         .min(limits.dom_bytes.get())
         .min(limits.memory_bytes.get());
     let (envelope, bytes) = store.read_capture(context, handle, max_bytes)?;
@@ -84,22 +92,8 @@ pub async fn discover(
         links.sort_unstable();
         links.dedup();
         let keys = keys(&envelope, &links)?;
-        let mut eligible = BTreeMap::new();
-        for url in links {
-            let identity = FetchIdentity::parse(source, &url).and_then(|identity| {
-                check_target(source, &identity, &policy.decisions)?;
-                Ok(identity)
-            });
-            match identity {
-                Ok(identity) => {
-                    eligible.insert(identity.as_str().to_owned(), keys.clone());
-                }
-                Err(refusal) => {
-                    batch.stable &= refusal == Refusal::Access;
-                    batch.denied.push(Digest::of(url.as_bytes()));
-                }
-            }
-        }
+        let now = utc::format(context.now).map_err(|_| ReceiptError::Invalid)?;
+        let eligible = select_links(source, &policy.decisions, &links, &now, &mut batch);
         batch.expected = u16::try_from(eligible.len()).ok();
         batch.truncated = output.limit_hit
             || eligible.len() > usize::from(batch.partition.max_items)
@@ -108,13 +102,13 @@ pub async fn discover(
         batch.items = eligible
             .into_iter()
             .take(usize::from(batch.partition.max_items))
-            .map(|(fetch_identity, keys)| DiscoveredItem {
+            .map(|fetch_identity| DiscoveredItem {
                 request: NewItem {
                     fetch_identity,
                     authorization_context: envelope.authorization_context.clone(),
                     representation_profile: envelope.profile.clone(),
                 },
-                keys,
+                keys: keys.clone(),
             })
             .collect();
     }
@@ -124,6 +118,50 @@ pub async fn discover(
     }
     Ok(batch)
 }
+/// Inventory unknown candidates as pending; only proven exclusions leave coverage stable.
+fn select_links(
+    source: &Source,
+    registries: &[Decisions],
+    links: &[String],
+    now: &str,
+    batch: &mut Batch,
+) -> BTreeSet<String> {
+    let mut eligible = BTreeSet::new();
+    for url in links {
+        if non_fetch_scheme(url) {
+            // Excluded references: proven policy denials and non-fetch schemes.
+            batch.denied.push(Digest::of(url.as_bytes()));
+            continue;
+        }
+        match FetchIdentity::parse(source, url) {
+            Ok(identity) => match check_eligibility(
+                source,
+                &identity,
+                registries,
+                ItemAttributes::default(),
+                now,
+            ) {
+                Ok(_) => {
+                    eligible.insert(identity.as_str().to_owned());
+                }
+                Err(Refusal::Access) => batch.denied.push(Digest::of(url.as_bytes())),
+                Err(_) => {
+                    batch.stable = false;
+                    eligible.insert(identity.as_str().to_owned());
+                }
+            },
+            Err(Refusal::Access) => batch.denied.push(Digest::of(url.as_bytes())),
+            Err(_) => batch.stable = false,
+        }
+    }
+    eligible
+}
+
+/// Well-formed references outside acquisition's HTTPS fetch scheme are exclusions.
+fn non_fetch_scheme(reference: &str) -> bool {
+    Url::parse(reference).is_ok_and(|url| url.scheme() != "https")
+}
+
 /// Independent representation, metadata, permission, validator and canonical link keys.
 fn keys(envelope: &CaptureEnvelope, links: &[String]) -> Result<ChangeKeys, ReceiptError> {
     Ok(ChangeKeys {
