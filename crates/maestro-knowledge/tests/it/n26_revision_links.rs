@@ -1,8 +1,8 @@
 //! N26 kernel relation guards and parity with the existing S1 write.
 #![cfg(test)]
-use crate::n26_support::Fixture;
+use crate::n26_support::{DOCUMENT_ID, Fixture};
 use maestro_kernel::{
-    acquisition::{Handle, Receipts, RevisionLink},
+    acquisition::{Handle, MappedRevision, Receipts, RevisionLink},
     document::{Disposition, Outcome},
     scope::{Right, Scope},
 };
@@ -26,6 +26,14 @@ fn n26_link_visibility_immutability_and_failed_insert_rollback() {
     assert!(
         fixture.revisions().is_empty(),
         "link and revision share a transaction"
+    );
+    assert!(
+        fixture
+            .db
+            .document(&fixture.scopes, DOCUMENT_ID)
+            .unwrap()
+            .is_none(),
+        "failed native ingestion must not reserve document identity"
     );
     let sql = fixture.sql();
     assert_eq!(
@@ -90,50 +98,17 @@ fn n26_link_visibility_immutability_and_failed_insert_rollback() {
         sql.execute("DELETE FROM acquisition_revision_links", [])
             .is_err()
     );
-}
-
-#[test]
-fn n26_link_insert_failure_rolls_back_revision_disposition_journal_and_pins() {
-    let fixture = Fixture::new();
-    let mut input = fixture.input();
-    input.assets = vec![fixture.available(b"inventory-only bytes")];
-    let digest = input.assets[0].digest.clone().unwrap();
-    input.disposition = Some(Disposition {
-        revision_id: String::new(),
-        outcome: Outcome::Quarantined,
-        reasons: vec!["synthetic hold".into()],
-        rule_ids: vec!["test.hold".into()],
-        decided_by: "test".into(),
-    });
-    let sql = fixture.sql();
-    let events: i64 = sql
-        .query_row("SELECT count(*) FROM events", [], |row| row.get(0))
-        .unwrap();
-    sql.execute_batch(
-        "CREATE TRIGGER test_link_refusal BEFORE INSERT ON acquisition_revision_links
-         BEGIN SELECT RAISE(ABORT, 'synthetic insert failure'); END;",
-    )
-    .unwrap();
-    assert!(ingest_mapped(&fixture.target(), input).is_err());
     assert!(
-        fixture.revisions().is_empty(),
-        "failed link insert must roll back the revision"
+        sql.execute_batch(
+            "PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=OFF;
+             INSERT OR REPLACE INTO acquisition_revision_links
+                 (revision, scope, capture, fidelity, inventory)
+             SELECT revision, scope, capture, capture, inventory
+             FROM acquisition_revision_links;"
+        )
+        .is_err(),
+        "a replacement must not overwrite immutable fidelity"
     );
-    assert_eq!(
-        sql.query_row("SELECT count(*) FROM quality_dispositions", [], |row| row
-            .get::<_, i64>(
-            0
-        ))
-        .unwrap(),
-        0
-    );
-    assert_eq!(
-        sql.query_row("SELECT count(*) FROM events", [], |row| row
-            .get::<_, i64>(0))
-            .unwrap(),
-        events
-    );
-    assert_eq!(fixture.db.artifact(&digest).unwrap().unwrap().pins, 0);
 }
 
 #[test]
@@ -276,7 +251,15 @@ fn n26_link_replay_conflicts_and_unknown_inventory_domain_refuse() {
     assert!(
         fixture
             .db
-            .record_mapped_revision(&other, None, &scope, &link)
+            .record_mapped_revision(
+                MappedRevision {
+                    revision: &other,
+                    disposition: None,
+                    document: None,
+                    link: &link
+                },
+                &scope,
+            )
             .is_err(),
         "unknown inventory domain refuses before write"
     );
@@ -297,7 +280,15 @@ fn n26_link_replay_conflicts_and_unknown_inventory_domain_refuse() {
     assert!(
         fixture
             .db
-            .record_mapped_revision(&other, None, &scope, &link)
+            .record_mapped_revision(
+                MappedRevision {
+                    revision: &other,
+                    disposition: None,
+                    document: None,
+                    link: &link
+                },
+                &scope,
+            )
             .is_err(),
         "unknown asset status refuses"
     );
@@ -311,7 +302,15 @@ fn n26_link_replay_conflicts_and_unknown_inventory_domain_refuse() {
     assert!(
         fixture
             .db
-            .record_mapped_revision(&other, None, &scope, &link)
+            .record_mapped_revision(
+                MappedRevision {
+                    revision: &other,
+                    disposition: None,
+                    document: None,
+                    link: &link
+                },
+                &scope,
+            )
             .is_err(),
         "non-tuple payload refuses"
     );
@@ -338,7 +337,15 @@ fn n26_link_revision_and_document_source_scope_must_match() {
     assert!(
         fixture
             .db
-            .record_mapped_revision(&other, None, &scope, &link)
+            .record_mapped_revision(
+                MappedRevision {
+                    revision: &other,
+                    disposition: None,
+                    document: None,
+                    link: &link
+                },
+                &scope,
+            )
             .is_err(),
         "link must name the exact revision"
     );
@@ -373,7 +380,15 @@ fn n26_link_revision_and_document_source_scope_must_match() {
     assert!(
         fixture
             .db
-            .record_mapped_revision(&other, None, &scope, &link)
+            .record_mapped_revision(
+                MappedRevision {
+                    revision: &other,
+                    disposition: None,
+                    document: None,
+                    link: &link
+                },
+                &scope,
+            )
             .is_err(),
         "capture scope must equal revision document scope"
     );

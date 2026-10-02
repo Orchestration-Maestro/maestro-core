@@ -8,7 +8,7 @@ use maestro_canonicalization::{
     ValidationStatus, canonicalize,
 };
 use maestro_kernel::{
-    acquisition::{Handle, RevisionLink},
+    acquisition::{Handle, MappedRevision, RevisionLink},
     artifact::Digest,
     document::{self, Disposition, Document, Outcome, Recorded, Revision, RevisionStatus},
     scope::{ScopeSet, source_path},
@@ -292,16 +292,19 @@ pub(super) fn ingest(target: &Target<'_>, input: IngestInput<'_>) -> Result<Impo
         {
             return Err(document::Error::DocumentConflict(document_id).into());
         }
-        record(target, &revision, disposition.as_ref(), input.link)?
+        record(target, &revision, disposition.as_ref(), input.link, None)?
     } else {
         let original_digest = db.put(markdown.as_bytes(), "text/markdown")?;
         let canonical_digest = db.put(&encoded(&canonical)?, "application/json")?;
-        db.record_document(&Document {
+        let document = Document {
             id: document_id.clone(),
             collection_id: target.collection.into(),
             source_id: target.source.into(),
             source_ref: source_ref.into(),
-        })?;
+        };
+        if input.link.is_none() {
+            db.record_document(&document)?;
+        }
         let revision = Revision {
             id: canonical.revision_id,
             document_id,
@@ -311,7 +314,13 @@ pub(super) fn ingest(target: &Target<'_>, input: IngestInput<'_>) -> Result<Impo
             captured_at: input.captured_at,
             metadata: input.metadata,
         };
-        record(target, &revision, disposition.as_ref(), input.link)?
+        record(
+            target,
+            &revision,
+            disposition.as_ref(),
+            input.link,
+            Some(&document),
+        )?
     };
     Ok(match (recorded, disposition) {
         (Recorded::Unchanged, _) => Imported::Unchanged,
@@ -350,6 +359,7 @@ fn record(
     revision: &Revision,
     disposition: Option<&Disposition>,
     link: Option<RevisionLink>,
+    document: Option<&Document>,
 ) -> Result<Recorded, NotImported> {
     let db = target.database;
     Ok(match link {
@@ -358,13 +368,16 @@ fn record(
                 .parse()
                 .map_err(|_| invalid("invalid mapped source scope"))?;
             db.record_mapped_revision(
-                revision,
-                disposition,
-                &scope,
-                &RevisionLink {
-                    revision: revision.id.clone(),
-                    ..link
+                MappedRevision {
+                    revision,
+                    disposition,
+                    document,
+                    link: &RevisionLink {
+                        revision: revision.id.clone(),
+                        ..link
+                    },
                 },
+                &scope,
             )?
         }
         None => match disposition {

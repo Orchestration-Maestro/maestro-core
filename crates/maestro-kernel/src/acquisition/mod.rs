@@ -36,4 +36,4 @@ pub use partition_record::{
 };
 
 mod link;
-pub use link::RevisionLink;
+pub use link::{MappedRevision, RevisionLink};

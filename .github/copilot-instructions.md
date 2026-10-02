@@ -1498,6 +1498,7 @@ in place.
 │   │   │       ├── main.rs                                                              # The crate's integration tests, built as one test crate: each module proves
 │   │   │       ├── n26_factor_s1_mapped_ingestion_without_changing_corpus_1.rs          # N26 mapped ingestion: immutable assets, preserved mappings and corpus/1 parity
 │   │   │       ├── n26_revision_links.rs                                                # N26 kernel relation guards and parity with the existing S1 write
+│   │   │       ├── n26_revision_rollback.rs                                             # N26 failed mapped writes leave no document, revision or transaction effects
 │   │   │       ├── n26_support.rs                                                       # N26 shared synthetic capture and stored-canonical fixtures
 │   │   │       ├── prepare_live.rs                                                      # knowledge prepare on this machine's kernel as a leased job, live: the chunk count, wall time and router calls
 │   │   │       ├── publish_live.rs                                                      # A chunk set of this machine's kernel published into Qdrant as a leased job, live: the embed and upsert rates

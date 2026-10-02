@@ -379,3 +379,15 @@ rule = "ARC-005"
 path = "crates/maestro-kernel/src/document/mod.rs"
 item = "record_with_disposition"
 reason = "document owns the single S1 revision-plus-disposition composition; acquisition's link write reuses it so it cannot drift, and moving it to its one external caller would reverse the dependency"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/document/mod.rs"
+item = "Document"
+reason = "document owns the S1 identity contract consumed across crates; acquisition borrows it to register the document atomically, without reversing the dependency"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/document/mod.rs"
+item = "record_document_on"
+reason = "document owns idempotent identity registration; acquisition reuses it in the mapped revision write so refusal rolls back the document without a document-to-acquisition dependency"

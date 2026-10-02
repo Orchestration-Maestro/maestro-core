@@ -201,10 +201,13 @@ impl Captures for Database {
     }
     fn capture_bytes(&self, envelope: &CaptureEnvelope) -> Result<u64, ReceiptError> {
         let mut retained = 0;
-        for digest in payloads(envelope)?.keys() {
-            match self.get(digest) {
+        for (digest, length) in payloads(envelope)? {
+            match self.get_bounded(&digest, length) {
                 Ok(bytes) => retained += bytes.len() as u64,
                 Err(store::Error::Artifact(artifact::Error::Missing(_))) => {}
+                Err(store::Error::Artifact(artifact::Error::TooLarge)) => {
+                    return Err(ReceiptError::Invalid);
+                }
                 Err(error) => return Err(error.into()),
             }
         }
@@ -350,7 +353,8 @@ fn existing(
 /// Verify both artifact bodies and their immutable scoped linkage on every replay.
 fn verify(db: &Database, capture: Handle) -> Result<CaptureEnvelope, ReceiptError> {
     let body: String = db.reader()?.query_row(
-        "SELECT body FROM acquisition_capture_links WHERE envelope = ?1",
+        "SELECT e.artifact FROM acquisition_capture_links l
+         JOIN acquisition_evidence e ON e.id = l.body WHERE l.envelope = ?1",
         [capture.to_string()],
         |row| row.get(0),
     )?;
@@ -359,7 +363,12 @@ fn verify(db: &Database, capture: Handle) -> Result<CaptureEnvelope, ReceiptErro
     // Preparation checked digest and length before retaining these immutable
     // edges. The artifact store rehashes both payloads here; repeating those
     // field comparisons cannot detect any additional substitution.
-    privacy::snapshot(db, &body)?;
+    let digest = Digest::parse(&body).map_err(|_| ReceiptError::Storage)?;
+    db.get_bounded(&digest, envelope.length)
+        .map_err(|error| match error {
+            store::Error::Artifact(artifact::Error::TooLarge) => ReceiptError::Invalid,
+            _ => ReceiptError::Storage,
+        })?;
     Ok(envelope)
 }
 

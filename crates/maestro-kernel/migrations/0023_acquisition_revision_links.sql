@@ -18,3 +18,11 @@ BEFORE DELETE ON acquisition_revision_links
 BEGIN
     SELECT RAISE(ABORT, 'revision link is immutable');
 END;
+-- REPLACE can delete conflicting rows without firing the delete guard.
+CREATE TRIGGER acquisition_revision_links_never_replace
+BEFORE INSERT ON acquisition_revision_links
+WHEN EXISTS (SELECT 1 FROM acquisition_revision_links
+    WHERE revision = NEW.revision AND capture = NEW.capture)
+BEGIN
+    SELECT RAISE(ABORT, 'revision link is immutable');
+END;

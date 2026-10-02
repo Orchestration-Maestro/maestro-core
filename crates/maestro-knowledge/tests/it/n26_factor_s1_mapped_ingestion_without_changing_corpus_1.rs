@@ -339,7 +339,7 @@ fn n26_corrupted_raw_capture_and_available_asset_bytes_refuse_even_on_replay() {
     fixture.corrupt(&raw);
     assert!(
         ingest_mapped(&fixture.target(), fixture.input()).is_err(),
-        "corrupt raw capture refuses a new revision"
+        "oversized corrupt raw capture refuses a new revision"
     );
     assert_eq!(fixture.revisions().len(), 1);
 }

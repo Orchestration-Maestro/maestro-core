@@ -7,7 +7,10 @@ use super::{
 };
 use crate::{
     artifact::Digest,
-    document::{self, Disposition, Recorded, Revision, record_with_disposition},
+    document::{
+        self, Disposition, Document, Recorded, Revision, record_document_on,
+        record_with_disposition,
+    },
     scope::{Scope, ScopeSet, source_path},
     store::{Database, artifacts::pin},
 };
@@ -26,6 +29,18 @@ pub struct RevisionLink {
     pub fidelity: Handle,
     /// Exact compact semantic inventory bytes whose digest enters revision identity.
     pub inventory: Digest,
+}
+/// Borrowed records committed together by the native mapped write.
+#[derive(Debug, Clone, Copy)]
+pub struct MappedRevision<'a> {
+    /// Immutable canonical revision.
+    pub revision: &'a Revision,
+    /// Optional first quality disposition and hold event.
+    pub disposition: Option<&'a Disposition>,
+    /// Document identity to register atomically for a new revision.
+    pub document: Option<&'a Document>,
+    /// Exact capture, fidelity and inventory relation.
+    pub link: &'a RevisionLink,
 }
 /// Strict versioned inventory preimage: ordered destination/status/digest/length tuples.
 #[derive(Deserialize)]
@@ -58,19 +73,24 @@ enum AssetState {
     OutsideRoot,
 }
 impl Database {
-    /// Records the S1 revision, optional disposition/hold journal and native evidence in one write.
+    /// Records the optional document, S1 revision, disposition/hold journal
+    /// and native evidence in one write.
     /// A replay may add another capture but cannot replace old evidence or add pins twice.
     ///
     /// # Errors
     /// Missing/corrupt raw evidence, scope mismatch, conflicting replay or a store failure;
-    /// a failed insert leaves no new revision, disposition, journal event or pins.
+    /// a failed insert leaves no new document, revision, disposition, journal event or pins.
     pub fn record_mapped_revision(
         &self,
-        revision: &Revision,
-        disposition: Option<&Disposition>,
+        request: MappedRevision<'_>,
         scope: &Scope,
-        link: &RevisionLink,
     ) -> Result<Recorded, document::Error> {
+        let MappedRevision {
+            revision,
+            disposition,
+            document,
+            link,
+        } = request;
         verify_capture(self, scope, link.capture)?;
         self.get(&evidence_digest(&self.reader()?, link.fidelity)?)?;
         let inventory: Inventory =
@@ -81,6 +101,9 @@ impl Database {
             .filter_map(|(_, _, digest, _)| digest)
             .collect();
         self.write(|tx| {
+            if let Some(document) = document {
+                record_document_on(tx, document)?;
+            }
             let recorded = record_with_disposition(tx, revision, disposition)?;
             insert(tx, revision, scope, link, &digests)?;
             Ok(recorded)
@@ -124,8 +147,6 @@ fn verify_capture(db: &Database, scope: &Scope, capture: Handle) -> Result<(), d
     db.verify_capture(scope, &item, capture)
         .map_err(|_| invalid())?;
     db.capture_bytes(&envelope).map_err(|_| invalid())?;
-    // N12 preparation binds length to the immutable digest; its verifier rehashes the bytes.
-    db.get_bounded(&envelope.artifact, envelope.length)?;
     Ok(())
 }
 /// Revision conflict refuses invalid or substituted evidence without exposing private payloads.

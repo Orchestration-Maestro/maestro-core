@@ -8,6 +8,59 @@ use maestro_kernel::{
     artifact::Digest,
     store::Database,
 };
+use std::fs;
+
+#[test]
+fn n12_verification_refuses_oversized_raw_before_digest_mismatch() {
+    let fixture = Fixture::new();
+    let capture = fixture.prepare().unwrap();
+    fixture
+        .db
+        .acknowledge_capture(&fixture.context, capture)
+        .unwrap();
+    let scopes = fixture.db.visible("reader").unwrap();
+    let item = Frontier::page(&fixture.db, &scopes, "notes", None, 10)
+        .unwrap()
+        .remove(0);
+    let scope = "workspace/default/collection/garden".parse().unwrap();
+    let hex = fixture.envelope.artifact.as_str();
+    let path = fixture
+        .root
+        .join("artifacts/sha256")
+        .join(hex.get(..2).unwrap())
+        .join(hex.get(2..4).unwrap())
+        .join(hex);
+    for (bytes, expected) in [
+        (b"xxxx".as_slice(), ReceiptError::Storage),
+        (b"oversized".as_slice(), ReceiptError::Invalid),
+    ] {
+        fs::write(&path, bytes).unwrap();
+        assert_eq!(
+            fixture.db.verify_capture(&scope, &item, capture),
+            Err(expected)
+        );
+    }
+}
+
+#[test]
+fn n12_capture_readback_refuses_oversized_raw_before_digest_mismatch() {
+    let fixture = Fixture::new();
+    fixture.prepare().unwrap();
+    let hex = fixture.envelope.artifact.as_str();
+    let path = fixture
+        .root
+        .join("artifacts/sha256")
+        .join(hex.get(..2).unwrap())
+        .join(hex.get(2..4).unwrap())
+        .join(hex);
+    for (bytes, expected) in [
+        (b"xxxx".as_slice(), ReceiptError::Storage),
+        (b"oversized".as_slice(), ReceiptError::Invalid),
+    ] {
+        fs::write(&path, bytes).unwrap();
+        assert_eq!(fixture.db.capture_bytes(&fixture.envelope), Err(expected));
+    }
+}
 
 #[test]
 fn n12_digest_substitution_refuses_before_persistence() {

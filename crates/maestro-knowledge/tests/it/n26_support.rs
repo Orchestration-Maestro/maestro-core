@@ -23,7 +23,8 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     fs,
-    path::PathBuf,
+    ops::Deref,
+    path::{Path, PathBuf},
     time::{Duration, SystemTime},
 };
 
@@ -41,9 +42,23 @@ pub(super) const CORPUS_REVISION: &str =
 /// The core's reserved identity binding.
 pub(super) const ASSETS: &str = "maestro.native_assets/1";
 
+/// Scratch owner drops after the database closes all connections.
+pub(super) struct Scratch(PathBuf);
+impl Deref for Scratch {
+    type Target = Path;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        fs::remove_dir_all(&self.0).unwrap();
+    }
+}
+
 /// Independent kernel and manifest storage for each test.
 pub(super) struct Fixture {
-    /// Database drops before its directory.
+    /// Database closes before the last-field scratch owner removes its directory.
     pub(super) db: Database,
     /// Current read grants.
     pub(super) scopes: ScopeSet,
@@ -51,8 +66,8 @@ pub(super) struct Fixture {
     pub(super) evidence: MappedEvidence,
     /// Current N12 lease used only for an equal recapture fixture.
     capture_context: CaptureContext,
-    /// Owned scratch directory.
-    pub(super) root: PathBuf,
+    /// Last field: cleanup runs after the database has dropped.
+    pub(super) root: Scratch,
 }
 impl Fixture {
     /// Declares a source and retains synthetic raw PDF and fidelity evidence.
@@ -144,7 +159,7 @@ impl Fixture {
             scopes,
             evidence: MappedEvidence { capture, fidelity },
             capture_context,
-            root,
+            root: Scratch(root),
         }
     }
     /// The same declared collection/source for both ingestion routes.
@@ -307,7 +322,7 @@ impl Fixture {
             .join(&hex[..2])
             .join(&hex[2..4])
             .join(hex);
-        fs::write(path, b"corrupted bytes").unwrap();
+        fs::write(path, [b'x'; 128]).unwrap();
     }
     /// Runs the unchanged corpus/1 route with this same exact Markdown and reference.
     pub(super) fn corpus(&self, lines: &[Value]) -> import::Report {
@@ -324,11 +339,6 @@ impl Fixture {
             .parse()
             .unwrap();
         import::import(&self.db, &self.scopes, &declaration(), &bindings).unwrap()
-    }
-}
-impl Drop for Fixture {
-    fn drop(&mut self) {
-        fs::remove_dir_all(&self.root).unwrap();
     }
 }
 /// A public synthetic collection using the legacy import declaration contract.

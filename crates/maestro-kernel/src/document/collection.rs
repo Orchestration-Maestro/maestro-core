@@ -205,13 +205,7 @@ impl Database {
     /// reference, and [`Error::Store`] when its source is not recorded or the
     /// database cannot record it.
     pub fn record_document(&self, document: &Document) -> Result<(), Error> {
-        self.write(
-            |transaction| match find_document(transaction, None, &document.id)? {
-                Some(recorded) if recorded == *document => Ok(()),
-                Some(_) => Err(Error::DocumentConflict(document.id.clone())),
-                None => insert_document(transaction, document),
-            },
-        )
+        self.write(|transaction| record_document_on(transaction, document))
     }
 
     /// The document `id`, if it is recorded and `scopes` covers the scope of
@@ -222,6 +216,18 @@ impl Database {
     /// [`Error::Store`] when the database cannot be read.
     pub fn document(&self, scopes: &ScopeSet, id: &str) -> Result<Option<Document>, Error> {
         Ok(find_document(&self.reader()?, Some(scopes), id)?)
+    }
+}
+
+/// Reuses an exact document identity or inserts it inside the caller's write.
+pub(crate) fn record_document_on(
+    transaction: &Transaction<'_>,
+    document: &Document,
+) -> Result<(), Error> {
+    match find_document(transaction, None, &document.id)? {
+        Some(recorded) if recorded == *document => Ok(()),
+        Some(_) => Err(Error::DocumentConflict(document.id.clone())),
+        None => insert_document(transaction, document),
     }
 }
 

@@ -16,6 +16,7 @@ mod live_router;
 mod local_collection;
 mod n26_factor_s1_mapped_ingestion_without_changing_corpus_1;
 mod n26_revision_links;
+mod n26_revision_rollback;
 mod n26_support;
 mod prepare_live;
 mod publish_live;

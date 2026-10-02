@@ -184,7 +184,7 @@ fn n12_corrupt_parent_is_not_repaired_or_consumed_by_child_prepare() {
         .join(hex.get(..2).unwrap())
         .join(hex.get(2..4).unwrap())
         .join(hex);
-    fs::write(path, b"corrupt").unwrap();
+    fs::write(path, b"xxxx").unwrap(); // Same-size corruption still tests digest refusal.
     derive(&mut fixture, parent, Representation::SelectedHtml);
     assert_eq!(fixture.prepare(), Err(ReceiptError::Storage));
     assert!(fixture.db.get(&digest).is_err());
