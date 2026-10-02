@@ -307,14 +307,14 @@ G31, not this historical task, adds the closed kinds and entity-valued claims.
 Quote checks live in `facts/quote.rs`; moving them under evidence would create
 an import cycle. G04 reuses these authority reads, not a graph query in SQLite.
 
-- [ ] **Red.** Reject missing/empty anchors, wrong revision/digest, out-of-range
+- [x] **Red.** Reject missing/empty anchors, wrong revision/digest, out-of-range
   or split-UTF-8 spans, denied grants and replacement writes. Force rollback
   after a support failure; replay the same admitted claim idempotently.
-- [ ] **Green.** Add the forward migration and one scoped write path that
+- [x] **Green.** Add the forward migration and one scoped write path that
   checks original bytes/eligibility independently of knowledge. Persist frozen
   membership and provenance; expose typed claim/support records for G03, not
   unscoped SQL or canonicalization types.
-- [ ] **Check.** Run the Test command plus
+- [x] **Check.** Run the Test command plus
   `capped cargo nextest run -p maestro-kernel store::tests::migrations`.
   Failed writes leave no accepted relation, fresh/reopened stores agree, and
   valid quotes never automatically promote semantic truth/review state.
@@ -336,12 +336,12 @@ port; its `resolve` groups subjects across documents and reports spelling/kind
 collisions.
 G10 preserves and extends that resolver; it does not introduce a second one.
 
-- [ ] **Red.** Refuse duplicate/unknown keys, changed digests, executable
+- [x] **Red.** Refuse duplicate/unknown keys, changed digests, executable
   fields, misleading headings and invalid/ambiguous quotes. Keep G03's existing
   cross-document identity/collision tests as the baseline G10 extends. Assert
   `DEFAULTS_TO` has a typed literal object and creates no literal/Document/
   Section nodes.
-- [ ] **Green.** Parse the standalone closed `rule` object defined in plan A0:
+- [x] **Green.** Parse the standalone closed `rule` object defined in plan A0:
   `id`, its bound `source_sha256` and explicit subject/type/lexeme columns;
   never accept the test envelope or its `expected` oracle as rule input. Build
   the temporary import declaration/manifest from A0's fixed metadata, not S1's
@@ -349,7 +349,7 @@ G10 preserves and extends that resolver; it does not introduce a second one.
   Preserve literal types and source lexemes, not floating-point rewrites or
   invented entities. Carry source references without projecting structural
   nodes; retain rejections.
-- [ ] **Check.** Run both Test commands; valid Unicode source slices agree
+- [x] **Check.** Run both Test commands; valid Unicode source slices agree
   byte-for-byte with the original. A rule/profile change changes the frozen
   inputs. The build runs without a model, script or graph service.
 
@@ -421,17 +421,17 @@ runner. Add only `eval graph check`; runs/comparisons use `eval ladder`.
 **Acceptance:** FR-S2-018, FR-S2-021; locally drafted, source-anchored private
 questions remain unreviewed until the independent reviewer and owner act.
 
-- [ ] **Red.** Refuse missing/expired scope, overlapping scratch bindings,
+- [x] **Red.** Refuse missing/expired scope, overlapping scratch bindings,
   nonlocal/unpinned cards, insufficient room, invented anchors, budget/output
   overflow and duplicate families. Question/label/quote text and nested errors
   never reach stdout/stderr; replay does not duplicate draft items.
-- [ ] **Green.** Add `maestro eval graph draft --manifest` over the existing
+- [x] **Green.** Add `maestro eval graph draft --manifest` over the existing
   local gateway with `Room::Free`, pinned card/prompt/input digests and bounded
   per-window/token work. Read only the approved acceptance inventory/windows;
   write draft labels, provenance and every failed attempt directly under
   PRIVATE, without treating model text as verified source evidence. Reuse
   G06's label checker and safe aggregate/ID/digest output; add no second ladder.
-- [ ] **Check.** Run both Test commands with synthetic sources and fake local
+- [x] **Check.** Run both Test commands with synthetic sources and fake local
   inference. Revalidate anchors against the approved inputs before saving a
   candidate; keep its unreviewed state. G07 executes this runner; G08 reviews
   all its outputs with G32 and obtains flagged rulings through G33.
@@ -448,7 +448,7 @@ questions remain unreviewed until the independent reviewer and owner act.
 **Acceptance:** FR-S2-002, FR-S2-003, FR-S2-024; closed subject/object kinds and
 predicates, entity or literal endpoints with exact existing support checks.
 
-- [ ] **Red.** Reject kinds/predicates outside architecture 02 §8.2, `ALIAS_OF`
+- [x] **Red.** Reject kinds/predicates outside architecture 02 §8.2, `ALIAS_OF`
   claims, `DEFAULTS_TO` with an entity object and entity predicates with a
   literal object. Reject unauthorized object endpoints. Upgrade a populated
   0012 database; valid rows, claim/set digests, supports and history survive.
@@ -456,13 +456,13 @@ predicates, entity or literal endpoints with exact existing support checks.
   ID-only diagnostic and no database change; invent no mapping or new claim.
   Test documentary job types/events without an instance `Job` kind; event
   satisfaction must not be coerced into a dependency. C27a remains separate.
-- [ ] **Green.** Add typed subject/object kinds and entity-to-entity predicates
+- [x] **Green.** Add typed subject/object kinds and entity-to-entity predicates
   through the existing authoritative write/read paths. Rebuild the claims
   table in the next-free forward migration, preserving immutability, scope,
   frozen membership and old valid literal identities. Adapt G03's literal
   construction to the typed API without changing its source bytes or digests.
   SQLite remains authority only, never a neighbor/path implementation.
-- [ ] **Check.** Run both Test commands and
+- [x] **Check.** Run both Test commands and
   `capped cargo nextest run -p maestro-knowledge graph`. Reopen upgraded stores,
   verify identical valid legacy records and round-trip supported entity claims.
   G11, G19 and G27 cannot start before this contract lands.
@@ -480,13 +480,13 @@ predicates, entity or literal endpoints with exact existing support checks.
 **Acceptance:** FR-S2-005; one frozen claim/profile attachment per generation,
 leased checkpoints and bounded durable acceptance/rejection receipts.
 
-- [ ] **Red.** Kill before/after checkpoint commit, expire/take over a lease,
+- [x] **Red.** Kill before/after checkpoint commit, expire/take over a lease,
   race two workers, change a profile and retry an accepted batch. Partial
   builds stay invisible and old pins cannot observe new claims.
-- [ ] **Green.** Reuse kernel jobs/resources and journal progress. Separate
+- [x] **Green.** Reuse kernel jobs/resources and journal progress. Separate
   extraction/verification I/O from transactional receipt writes. Attach only a
   verified frozen claim set, once; new inputs require a new generation.
-- [ ] **Check.** Run Test plus `capped cargo nextest run -p maestro-kernel facts`
+- [x] **Check.** Run Test plus `capped cargo nextest run -p maestro-kernel facts`
   and `capped cargo nextest run -p maestro-kernel store::tests::migrations`.
   Resume produces the same claims/rejections as a clean build and rejects late
   writes by an expired worker. Limits survive restart rather than resetting.
@@ -1072,13 +1072,13 @@ card/settings frozen for acceptance runs, uncalibrated scores and at most one re
 **Acceptance:** FR-S2-016; distinct Extractor registration, evaluation and
 selection while existing role histories, pinned cards and guards survive.
 
-- [ ] **Red.** Upgrade a populated S1 database; test cards/evaluations/
+- [x] **Red.** Upgrade a populated S1 database; test cards/evaluations/
   selections for the new role, old roles, wrong-role card selection and
   synthetic-as-real refusal. Reopen and verify unchanged card digests/pins.
-- [ ] **Green.** Forward-migrate all three role CHECK constraints, preserving
+- [x] **Green.** Forward-migrate all three role CHECK constraints, preserving
   immutable records, foreign keys and real eligible evaluation guards. Extend role/card
   validation without treating Answerer qualification as Extractor qualification.
-- [ ] **Check.** Run Test and `capped cargo nextest run -p maestro-kernel model`.
+- [x] **Check.** Run Test and `capped cargo nextest run -p maestro-kernel model`.
   A failing upgrade rolls back, old cards still read unchanged, and only a
   real qualified extractor evaluation permits production selection.
 
