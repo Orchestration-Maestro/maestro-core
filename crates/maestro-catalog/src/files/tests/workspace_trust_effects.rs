@@ -1,5 +1,5 @@
 //! Scheduling proofs for the shared owned-effect port and native rollback identities.
-use super::{Access, Fixture, Path, apply, directory_link, fs, recover, remove};
+use super::{Access, Cell, Fixture, Path, apply, directory_link, fs, recover, remove};
 
 #[test]
 fn new_parents_and_written_bytes_roll_back_on_post_effect_revocation() {
