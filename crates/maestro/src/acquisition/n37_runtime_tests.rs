@@ -83,6 +83,7 @@ fn prepared_crash(changed: bool) {
         .unwrap();
     assert_eq!(interrupted.status, Status::Failed);
     sql.execute_batch("DROP TRIGGER n37_crash;").unwrap();
+    drop(sql);
     let before = fixture
         .site
         .requests
