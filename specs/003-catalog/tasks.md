@@ -171,10 +171,10 @@ policy changes; anything broader needs fresh approval.
 `specs/003-catalog/research/hosts.md`.
 **Requirements:** FR-S3-002, FR-S3-006, SC-S3-001.
 
-- [ ] **Step 1: Red.** Build a synthetic profile probe requiring metadata
+- [x] **Step 1: Red.** Build a synthetic profile probe requiring metadata
   preservation, exact tool exposure, a real MCP call and a detected same-name
   shadow. Run it with the provider absent to demonstrate the failure boundary.
-- [ ] **Step 2: Green.** Test both Copilot metadata/sidecar shapes on the pinned
+- [x] **Step 2: Green.** Test both Copilot metadata/sidecar shapes on the pinned
   real parser in isolated temporary homes. Record exact installed versions as
   pins for Copilot CLI, Pi, Claude Code, Codex and adapters used, plus host
   digests, lookup/reload and Pi's explicit tool/provider/
@@ -183,7 +183,7 @@ policy changes; anything broader needs fresh approval.
   skill `metadata:` rests on the Agent Skills specification, not parser silence.
   A host warning on skill metadata reopens the ADR-0005 sidecar decision.
   Record in-session reload as not run until measured; re-probe changed pins.
-- [ ] **Step 3: Check.** Run the explicit live `catalog_host_probe` cases:
+- [x] **Step 3: Check.** Run the explicit live `catalog_host_probe` cases:
 
   ```sh
   ~/.local/bin/capped cargo test -p maestro --test it catalog_host_probe -- \
@@ -216,7 +216,7 @@ workspace/CLI registration files from the shared list.
 **Requirements:** FR-S3-001, FR-S3-002, FR-S3-003, FR-S3-014, FR-S3-037,
 SC-S3-005, SC-S3-013.
 
-- [ ] **Step 1: Red.** Add passing-neighbour and refusal fixtures for duplicate
+- [x] **Step 1: Red.** Add passing-neighbour and refusal fixtures for duplicate
   IDs/keys, unknown keys/types, oversized/deep input, missing body sections,
   dangling references, dependency cycles and placeholder/authored/retired
   closure members, with a declared reviewed/named-owner neighbour per D7.
@@ -233,7 +233,7 @@ SC-S3-005, SC-S3-013.
   sampling fields; a named test hook must receive the complete subtree. Non-finite
   TOML floats and unknown hook names refuse. Register deserialized descriptors
   and retain the built-ins' semantic refusals, not only a data round-trip.
-- [ ] **Step 2: Green.** Agent `name:` must equal its file stem (before
+- [x] **Step 2: Green.** Agent `name:` must equal its file stem (before
   `.agent.md`), so `<stem>.maestro.toml` pairs with exactly one agent. Skills
   use specification-backed `metadata:`; a host warning reopens ADR-0005's
   sidecar decision rather than silently dropping a field. Agent sidecars follow
@@ -252,7 +252,7 @@ SC-S3-005, SC-S3-013.
   Validate declared stage/owner; do not invent completed-review evidence from
   a label. OA1/C15 enforce protected-branch CODEOWNERS review. Unimplemented graph/policy
   features are unsupported, never silently accepted as fully checked.
-- [ ] **Step 3: Check.** Run
+- [x] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-catalog source::tests` and
   `~/.local/bin/capped cargo nextest run -p maestro catalog_check`.
 
@@ -276,7 +276,7 @@ extraction only, explicitly an S1 kernel edit); necessary module registration,
 no kernel schema/role migration or public artifact-digest query.
 **Requirements:** FR-S3-001, FR-S3-002, FR-S3-038, FR-S3-039, SC-S3-014.
 
-- [ ] **Step 1: Red.** Use public synthetic v2 identities to assert declaration
+- [x] **Step 1: Red.** Use public synthetic v2 identities to assert declaration
   round-trip and the existing kernel canonical digest, including sampling/output/
   template and measured/unavailable qualification fields. Refuse unknown/duplicate
   keys, invalid identity, secrets/paths, missing local evidence and unauthorized
@@ -285,7 +285,7 @@ no kernel schema/role migration or public artifact-digest query.
   Same-card registration is a no-op; identity mutations produce different
   fingerprints. Assert zero selection calls; do not duplicate S1's synthetic
   evaluation-cannot-select guard test.
-- [ ] **Step 2: Green.** Add the `model-card` descriptor and thin D12 adapter over
+- [x] **Step 2: Green.** Add the `model-card` descriptor and thin D12 adapter over
   `CardIdentity`, not copied field types or validation. Declare `version` as a
   model-card field, not a common metadata key. Share a pure
   `ModelCard::from_identity(&CardIdentity) -> Result<ModelCard, CardError>` with
@@ -297,7 +297,7 @@ no kernel schema/role migration or public artifact-digest query.
   configure a model. Each machine qualifies its own backend/runtime/hardware-bound
   card. Preserve D12's latest-registration and earlier-card re-registration caveats.
   Keep this internal until C16h supplies admitted installed input; no unsigned CLI shortcut.
-- [ ] **Step 3: Check.** Run capped nextest `model_cards::tests` in maestro-catalog
+- [x] **Step 3: Check.** Run capped nextest `model_cards::tests` in maestro-catalog
   and `gateway::tests` plus `model::tests` in maestro-kernel. Retain unchanged v1
   reads and v2 golden identities; assert zero selection calls and no edits to
   generic checker/compiler/reader/installer logic. Unsupported roles use the
@@ -391,11 +391,11 @@ only the two filesystem ARC-005 exceptions that become stale at the crate root);
 workspace manifest/lock and guide registration from the shared list.
 **Requirements:** FR-S3-005, SC-S3-004.
 
-- [ ] **Step 1: Red.** Run the existing filesystem/store/tokenizer tests as a
+- [x] **Step 1: Red.** Run the existing filesystem/store/tokenizer tests as a
   baseline; change consumer imports to the intended shared crate and capture
   the missing-crate failure before moving implementation. Keep existing
   assertions and fixture bytes unchanged.
-- [ ] **Step 2: Green.** Move the module and its tests to `maestro-filesystem`,
+- [x] **Step 2: Green.** Move the module and its tests to `maestro-filesystem`,
   adapting only imports, visibility and workspace wiring. Pure-rename the 17
   exclusions at `.cargo/mutants.toml:10, 12-25, 29, 32`; leave :62 (the kernel's
   `filesystem.rs`) unchanged. Preserve mutant identities/lines, reasons and
@@ -405,7 +405,7 @@ workspace manifest/lock and guide registration from the shared list.
   or exception. Move existing target-specific dependencies, not new libraries.
   Preserve store/tokenizer
   integration regressions and all ADR-0018 behavior; no catalog logic here.
-- [ ] **Step 3: Check.** Run
+- [x] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-filesystem` and
   `~/.local/bin/capped cargo nextest run -p maestro-canonicalization`;
   compare test assertions/fixtures, the 17 path-only exclusions and both deleted
@@ -424,14 +424,14 @@ regression assertions; canonicalization no longer owns a private copy.
 `crates/maestro-catalog/src/files/tests/{mod.rs,crashes.rs,races.rs,removal.rs}`.
 **Requirements:** FR-S3-005, SC-S3-004.
 
-- [ ] **Step 1: Red.** Inject failure before/after each write and ownership
+- [x] **Step 1: Red.** Inject failure before/after each write and ownership
   commit; test traversal, links, ancestor swaps, racing creates, stale previews,
   hard-linked targets and user edits before recovery/removal.
-- [ ] **Step 2: Green.** Build digest-bound plans, removal and crash recovery
+- [x] **Step 2: Green.** Build digest-bound plans, removal and crash recovery
   on C04a's held-handle operations; never duplicate platform safety code.
   Journal progress locally, publish ownership last and refuse changed files.
   Shared JSON entry semantics belong to C06, not this task.
-- [ ] **Step 3: Check.** Run
+- [x] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-catalog files::tests`;
   run the same cases on the three CI platforms and cross-target Clippy locally.
 
@@ -455,7 +455,7 @@ keys (supervisor binds its exact path at dispatch; this is an S1-owned edit),
 `tests/fixtures/catalog/settings/{classes.toml,overrides.toml}`.
 **Requirements:** FR-S3-014, FR-S3-027, FR-S3-033, SC-S3-005.
 
-- [ ] **Step 1: Red.** Test unknown/unclassified/doubly classified keys, all
+- [x] **Step 1: Red.** Test unknown/unclassified/doubly classified keys, all
   four precedence layers, explicit flags versus parser defaults, locked mutation,
   permission widening, dropped checks, larger budgets, secret literals and
   role-to-role leakage, each with a neighbour. Cover language/tone as free,
@@ -466,7 +466,7 @@ keys (supervisor binds its exact path at dispatch; this is an S1-owned edit),
   only in kernel authority, never preferences. Add a synthetic S1 descriptor:
   preset checking must recognize it and class validation must require exactly
   one class. Fail a stale key list or both overlapping spellings being accepted.
-- [ ] **Step 2: Green.** Replace `KNOWN_SETTINGS` with S1 registry keys through
+- [x] **Step 2: Green.** Replace `KNOWN_SETTINGS` with S1 registry keys through
   C03's known-settings port, like `KnownRows`. Under **supervisor ruling, 21:02:
   S1 registry names are canonical**, use `ask.output_tokens`, not a second
   `max_output_tokens` key; add only missing 03 §1.6 catalog descriptors to S1.
@@ -477,7 +477,7 @@ keys (supervisor binds its exact path at dispatch; this is an S1-owned edit),
   explaining ignored widenings. Presets are init seeds only; permissions
   intersect, checks accumulate and values stay role-local. Reject unsupported
   profile effort. The small resolver consumes typed layers, not storage or UI.
-- [ ] **Step 3: Check.** Run
+- [x] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-catalog settings::tests`.
 
 **Acceptance:** every effective value has one class/source/requester; ordering
@@ -501,14 +501,14 @@ these are target fixture paths, migrated in C36/C37, not a second charge to C05;
 CLI registration files from the shared list.
 **Requirements:** FR-S3-004, FR-S3-005, SC-S3-004.
 
-- [ ] **Step 1: Red.** Test core and core-plus-Rust composed outputs, every
+- [x] **Step 1: Red.** Test core and core-plus-Rust composed outputs, every
   dotfile, strict generated JSON, collisions, changed preview, rerun and
   interrupted apply. Plant a repository script that records any invocation.
-- [ ] **Step 2: Green.** Inspect without running scripts; resolve explicit
+- [x] **Step 2: Green.** Inspect without running scripts; resolve explicit
   presets, preview by default, apply only with `--apply`, write the small
   descriptor and digest-bound authoring lock through C04. Keep recipes/workflows
   inert and name missing prerequisites rather than invoking installers.
-- [ ] **Step 3: Check.** Run
+- [x] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-catalog bootstrap::tests` and
   `~/.local/bin/capped cargo nextest run -p maestro catalog_init`.
 
@@ -1063,7 +1063,7 @@ use scratch manifests only. C10/C19/C22b own DEP-001 exceptions and vet edits
 when each measured dependency is adopted, never stale pre-adoption entries.
 **Requirements:** FR-S3-008, FR-S3-010, FR-S3-011, FR-S3-016.
 
-- [ ] **Step 1: Red.** Specify a real valid/wrong-signer attestation probe and
+- [x] **Step 1: Red.** Specify a real valid/wrong-signer attestation probe and
   explicit feature/licence/native-link checks. Demonstrate wrong identity is
   refused; a fabricated verifier response cannot satisfy the real probe.
 - [ ] **Step 2: Green.** Measure `tar`, a selected JSON Schema 2020-12 crate
@@ -2519,10 +2519,10 @@ carry no second task or budget. Physical order does not change Phase/After.
 **Design coverage:** MD01, MD12 (approved design §8.4).
 **Named tests:** `c44_contract_reconciliation`, `catalog_traceability_inventory_matches_exact_rows_and_dispositions`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Amend the four S3 documents, architecture/README and ADR-0012/0013/0022. Reconcile exact requirement links, phases, task totals and acyclic dependencies; retain the frozen 85 architecture keys and six exclusions. Refuse stale source/scope claims or invented delivered evidence.
-- [ ] **Step 3: Check.** Run `prek run --from-ref 815ff33 --to-ref HEAD`, the
+- [x] **Step 2: Green.** Amend the four S3 documents, architecture/README and ADR-0012/0013/0022. Reconcile exact requirement links, phases, task totals and acyclic dependencies; retain the frozen 85 architecture keys and six exclusions. Refuse stale source/scope claims or invented delivered evidence.
+- [x] **Step 3: Check.** Run `prek run --from-ref 815ff33 --to-ref HEAD`, the
   conventions `catalog_traceability` suite and the C44 reconciliation of every
   task/requirement/gap/phase/edge. Record commands, exits and pushed hash in the
   ledger report. No implementation or runtime test result is claimed.
