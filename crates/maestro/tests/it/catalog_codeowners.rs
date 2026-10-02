@@ -204,7 +204,13 @@ fn catalog_codeowners_stdout_matches_fixture_golden() {
         ("languages/rust/package.toml", "language", "rust"),
         ("standards/security/package.toml", "standard", "security"),
     ] {
+        let inventory = if kind == "standard" {
+            "rules = [\"SEC-001\"]\n"
+        } else {
+            ""
+        };
         let text = source
+            .replace("[metadata]", &format!("{inventory}[metadata]"))
             .replace("kind = \"package\"", &format!("kind = \"{kind}\""))
             .replace("name = \"core\"", &format!("name = \"{name}\""))
             .replace("@synthetic/knowledge", &format!("{name}-owner"))

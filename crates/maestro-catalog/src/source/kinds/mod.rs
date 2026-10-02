@@ -8,5 +8,7 @@ mod model_card;
 mod package;
 mod preset;
 mod skill;
+mod standard;
+mod standard_check;
 
 pub use builtin::{builtin, builtin_hooks};

@@ -28,5 +28,6 @@ mod rulings;
 mod scan;
 mod schema;
 mod selection;
+mod standards;
 pub(crate) mod support;
 mod yaml;

@@ -3491,10 +3491,10 @@ seed work and no C76a → C02 prerequisite cycle.
 **Design coverage:** MD02, MD14 (approved design §8.4).
 **Named tests:** `every_standard_is_pinned_once`, `missing_or_optional_standard_refuses`, `standard_removal_refuses`, `duplicate_rule_identity_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Standard/check descriptors and always-selected standard closure. Missing standard, opt-out/removal and duplicate rule identity refuse.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Standard/check descriptors and always-selected standard closure. Missing standard, opt-out/removal and duplicate rule identity refuse.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

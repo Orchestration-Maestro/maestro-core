@@ -570,7 +570,9 @@ in place.
 │   │   │   │   │   ├── model_card.rs                                        # model-card: a strict catalog declaration of the kernel's v2 identity
 │   │   │   │   │   ├── package.rs                                           # Area closure roots; ownership and layer semantics are checked by later tasks
 │   │   │   │   │   ├── preset.rs                                            # preset: a project preset, the root of a declared closure, and the
-│   │   │   │   │   └── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
+│   │   │   │   │   ├── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
+│   │   │   │   │   ├── standard.rs                                          # Mandatory standard area roots and their normative rule inventories
+│   │   │   │   │   └── standard_check.rs                                    # Inert standard-local machine checks: identities, registered adapters and inputs
 │   │   │   │   ├── tests/                                                   # The source checker's tests: the valid synthetic catalog and each of its
 │   │   │   │   │   ├── accepted.rs                                          # The valid catalog passes, and its typed resources hold exactly what the
 │   │   │   │   │   ├── area_ownership.rs                                    # Ownership admission for data-only Area registrations without a package hook
@@ -599,6 +601,7 @@ in place.
 │   │   │   │   │   ├── scan.rs                                              # Aggregate snapshot trust-boundary neighbours, independent of content guards
 │   │   │   │   │   ├── schema.rs                                            # Each file's strict schema: duplicate and unknown keys, wrong types
 │   │   │   │   │   ├── selection.rs                                         # C34 selection admission, distinct from partial source checking
+│   │   │   │   │   ├── standards.rs                                         # C81a mandatory standards and inert registered machine checks
 │   │   │   │   │   ├── support.rs                                           # An in-memory [SourceTree] adapter holding the valid synthetic catalog
 │   │   │   │   │   └── yaml.rs                                              # YAML read node by node at injected limits: the exact node budget and
 │   │   │   │   ├── area_walk.rs                                             # Scoped discovery over the bounded snapshot

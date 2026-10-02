@@ -115,10 +115,15 @@ fn unsupported_nonempty_kinds_and_configs_refuse() {
 
 /// A checked area root using the /2 source envelope.
 pub(super) fn package_source(kind: &str, name: &str) -> String {
+    let inventory = if kind == "standard" {
+        format!("rules = [\"{name}-001\"]\n")
+    } else {
+        String::new()
+    };
     format!(
         "kind = \"{kind}\"\nname = \"{name}\"\nversion = \"1.2.3\"\n\
          owners = [\"@synthetic/knowledge\"]\ndescription = \"Synthetic area\"\n\
-         status = \"active\"\n\n[metadata]\nschema = \"maestro-source/2\"\n\
+         status = \"active\"\n{inventory}\n[metadata]\nschema = \"maestro-source/2\"\n\
          maturity = \"reviewed\"\n\
          rows = [\"chat.M036 objects\"]\nworkflows = [\"ctm-question\"]\nrequires = []\n"
     )
