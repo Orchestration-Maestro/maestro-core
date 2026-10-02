@@ -2,14 +2,7 @@
 
 ## Start here
 
-The local runtime of Maestro: a knowledge kernel, retrieval and a command-line
-application. The workspace contains `maestro-canonicalization`,
-`maestro-conventions`, `maestro-kernel`, `maestro-knowledge`,
-[`maestro-acquisition`](../crates/maestro-acquisition/README.md) and `maestro`.
-[`maestro-canonicalization`](../crates/maestro-canonicalization/README.md) turns
-Markdown into provenance-bearing canonical documents, groups duplicates and cuts
-them into token-budgeted chunks; later capabilities arrive slice by slice
-([roadmap](../docs/architecture/06-roadmap.md)).
+Install from source with [rustup](https://rustup.rs) installed:
 
 Paths below are relative to this repository. Before editing, read
 [AGENTS.md](../AGENTS.md) for the rules that bind every change,
@@ -39,6 +32,10 @@ in place.
 ├── .cargo/                                                                              # Cargo settings for this workspace
 │   └── mutants.toml                                                                     # Mutants no test can kill, each with its reason: none changes behaviour a test can observe
 ├── .github/                                                                             # GitHub metadata, templates and workflows
+│   ├── assets/                                                                          # Images and other assets
+│   │   ├── CREDITS.md                                                                   # Banner credits
+│   │   ├── how-it-works.svg                                                             # A Markdown collection passes through import and quality, then chunking and embedding with the embedder's tokenizer
+│   │   └── maestro-core.jpg                                                             # Maestro Core: ask anything, cite everything
 │   ├── workflows/                                                                       # GitHub Actions workflows
 │   │   ├── dependabot-auto-merge.yml                                                    # Dependabot auto-merge
 │   │   ├── event-schemas.yml                                                            # Released event schema compatibility
@@ -367,7 +364,7 @@ in place.
 │   │   │   │   ├── detect.rs                                                            # Bounded deterministic evidence matching; no parser, network or model starts
 │   │   │   │   ├── fidelity.rs                                                          # Content and correspondence receipts converted to the existing S1 outcomes
 │   │   │   │   ├── mod.rs                                                               # Immutable extraction profiles and bounded pure selection
-│   │   │   │   ├── model.rs                                                             # Strict immutable profile definitions; field order is part of digest version one
+│   │   │   │   ├── model.rs                                                             # Strict immutable profile definitions; field order is part of digest version two
 │   │   │   │   ├── outcome.rs                                                           # Immutable checked handles and content-free registry outcomes
 │   │   │   │   └── registry.rs                                                          # Pure replaceable registry adapter and core revalidation boundaries
 │   │   │   ├── lifecycle/                                                               # Process-local acquisition lifecycle accounting
@@ -393,7 +390,7 @@ in place.
 │   │   │   │   ├── source.rs                                                            # Strict version-one source-policy wire contracts
 │   │   │   │   ├── utc.rs                                                               # One strict Gregorian UTC implementation for grants and transport times
 │   │   │   │   └── wiki.rs                                                              # Strict version-one source-policy wire contracts
-│   │   │   ├── transport/                                                               # Transport
+│   │   │   ├── transport/                                                               # Shared address admission, pinned TLS, robots, origin pacing and resource budgets
 │   │   │   │   ├── accounting.rs                                                        # One core-owned cumulative accounting ledger shared by HTTP and parser IPC
 │   │   │   │   ├── address.rs                                                           # Deny-only address resources plus a non-removable special-purpose floor
 │   │   │   │   ├── budget.rs                                                            # Field-kind composition and typed resource-induced pending work
@@ -404,7 +401,7 @@ in place.
 │   │   │   │   ├── http.rs                                                              # Bounded HTTP/1 over one freshly admitted pinned connection per hop
 │   │   │   │   ├── http_history_tests.rs                                                # Hop metadata refuses before the history grows, including empty bodies
 │   │   │   │   ├── http_protocol.rs                                                     # Bounded response parser, transient metadata and manual redirect spelling
-│   │   │   │   ├── mod.rs                                                               # Rust source: mod
+│   │   │   │   ├── mod.rs                                                               # Shared address admission, pinned TLS, robots, origin pacing and resource budgets
 │   │   │   │   ├── pacing.rs                                                            # One injected atomic origin ledger shared by HTTP, browser and resumed runs
 │   │   │   │   ├── robots.rs                                                            # RFC 9309 rules over N07's canonical fetch identity, without network effects
 │   │   │   │   ├── robots_store.rs                                                      # Bounded robots entries; different policy digests on one origin coexist

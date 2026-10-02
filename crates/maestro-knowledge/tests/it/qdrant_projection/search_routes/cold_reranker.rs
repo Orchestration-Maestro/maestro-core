@@ -17,7 +17,7 @@ use maestro_knowledge::search::{
     search,
 };
 use std::{future, time::Duration};
-use tokio::time::Instant;
+use tokio::time::{self, Instant};
 
 /// The search deadline of these tests: evidence assembly keeps two
 /// assembly windows of 250 ms and the 50 ms reserve, 550 ms.
@@ -58,11 +58,18 @@ async fn search_with_slow_reranker(slow: SlowReranker) -> (RouteStatus, usize, D
         assert!(started.elapsed() < DEADLINE, "{:?}", started.elapsed());
         (left, bundle)
     };
-    // The clock stands still until fusion ended, when the search waits on
-    // the reranker and its cutoff alone; it then moves only to that cutoff,
-    // so what a loaded host takes costs the search no time.
     let fused = StageEnd::watch("retrieval.fuse");
-    let (left, bundle) = on_stopped_clock(fused.ended(), searched).await;
+    let advance = async {
+        match slow {
+            SlowReranker::Loading => fused.ended().await,
+            SlowReranker::Hanging => fixture.port.wait_for_rerank().await,
+        }
+        // Setup ends at 450 ms; Tokio rounds its timer up by 1 ms.
+        // Keep the clock held afterwards, including through assembly.
+        time::advance(Duration::from_millis(451)).await;
+        future::pending::<()>().await;
+    };
+    let (left, bundle) = on_stopped_clock(advance, searched).await;
     let outcome = (
         bundle.routes["rerank"].clone(),
         fixture.port.rerank_calls(),
@@ -75,13 +82,14 @@ async fn search_with_slow_reranker(slow: SlowReranker) -> (RouteStatus, usize, D
 
 #[tokio::test]
 async fn a_reranker_still_loading_is_skipped_and_the_search_keeps_its_deadline() {
-    let (rerank, calls, _, passages) = search_with_slow_reranker(SlowReranker::Loading).await;
+    let (rerank, calls, left, passages) = search_with_slow_reranker(SlowReranker::Loading).await;
 
     assert_eq!(
         rerank,
         RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned())
     );
     assert_eq!(calls, 0);
+    assert_eq!(left, Duration::from_millis(549));
     assert!(passages > 0);
 }
 
@@ -116,8 +124,25 @@ async fn search_with_cold_models(slow: SlowModels) -> (RouteStatus, RouteStatus,
         assert!(started.elapsed() < COLD_DEADLINE, "{:?}", started.elapsed());
         (left, bundle)
     };
-    let routes = StageEnd::watch_all(&["retrieval.route.lexical", "retrieval.route.identifier"]);
-    let (left, bundle) = on_stopped_clock(routes.ended(), searched).await;
+    let stages: &[&str] = match slow {
+        SlowModels::Reranker => &["retrieval.fuse"],
+        SlowModels::Embedder | SlowModels::Both => {
+            &["retrieval.route.lexical", "retrieval.route.identifier"]
+        }
+    };
+    let routes = StageEnd::watch_all(stages);
+    let advance = async {
+        routes.ended().await;
+        // Routes end at 23.95 s; reranker setup ends at 26.95 s.
+        // Advance only past the needed cutoff, never through assembly.
+        let cutoff = match slow {
+            SlowModels::Embedder => Duration::from_millis(23_951),
+            SlowModels::Reranker | SlowModels::Both => Duration::from_millis(26_951),
+        };
+        time::advance(cutoff).await;
+        future::pending::<()>().await;
+    };
+    let (left, bundle) = on_stopped_clock(advance, searched).await;
     let outcome = (
         bundle.routes["dense"].clone(),
         bundle.routes["rerank"].clone(),
