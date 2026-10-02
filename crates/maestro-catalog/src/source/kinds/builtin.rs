@@ -5,18 +5,29 @@ use super::{
     agent::{self, AgentRules},
     instructions, model_card, package,
     preset::{self, PresetRules},
-    skill, standard, standard_check,
+    skill, standard, standard_check, standard_exception,
 };
+use crate::source::standards::SettingsRules;
 use crate::source::{descriptor::Scope, registry::Registry, rules::KindRules};
 
 /// The hooks a descriptor may select, by name. Content never supplies code:
 /// a new hook is reviewed code added here.
-const HOOKS: [(&str, &dyn KindRules, &[&str]); 6] = [
-    ("area-package", &package::PackageRules, &[]),
+const HOOKS: [(&str, &dyn KindRules, &[&str]); 8] = [
+    ("area-package", &package::PackageRules, &["settings"]),
+    ("standard-settings", &SettingsRules, &["settings"]),
+    (
+        "standard-exception",
+        &standard_exception::ExceptionRules,
+        &[],
+    ),
     ("agent-profile", &AgentRules, &[]),
     ("preset-settings", &PresetRules, &[]),
     ("model-card", &model_card::ModelCardRules, &["identity"]),
-    ("standard-inventory", &standard::StandardRules, &[]),
+    (
+        "standard-inventory",
+        &standard::StandardRules,
+        &["settings"],
+    ),
     (
         "standard-check",
         &standard_check::StandardCheckRules {
@@ -53,6 +64,7 @@ pub fn builtin() -> Result<Registry, String> {
         package::descriptor("language", vec![Scope::Language]),
         standard::descriptor(),
         standard_check::descriptor(),
+        standard_exception::descriptor(),
         preset::descriptor(),
         model_card::descriptor(),
     ] {

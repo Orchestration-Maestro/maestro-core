@@ -26,6 +26,7 @@ const fn setting(
         default: Cow::Borrowed(default),
         description: Cow::Borrowed(description),
         class,
+        standard_only: false,
     }
 }
 

@@ -246,7 +246,8 @@ fn builtin_scoped_shapes_preserve_native_metadata_and_hooks() {
             .to_string()
             .contains("expected the sections")
     );
-    for kind in ["agent", "skill", "instructions", "preset", "model-card"] {
+    assert_eq!(registry.kind("instructions").unwrap().descriptor.version, 4);
+    for kind in ["agent", "skill", "preset", "model-card"] {
         assert_eq!(registry.kind(kind).unwrap().descriptor.version, 3);
     }
 }

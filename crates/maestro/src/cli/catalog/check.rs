@@ -10,7 +10,11 @@ use maestro_catalog::{
     source::{Catalog, Directory, Known, Refusal, builtin, check, frozen_rows},
 };
 use serde::Serialize;
-use std::{path::Path, process::ExitCode};
+use std::{
+    path::Path,
+    process::ExitCode,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 /// The schema of the document `catalog check` prints under `--json`.
 const SCHEMA: &str = "maestro-cli/catalog-check/2";
@@ -116,6 +120,7 @@ pub(in crate::cli) fn run(output: Output, catalog_dir: &Path) -> Result<ExitCode
     let known = Known {
         rows: &rows,
         settings: &settings,
+        today: today()?,
     };
     match check(
         &Directory::new(catalog_dir),
@@ -136,4 +141,12 @@ pub(in crate::cli) fn run(output: Output, catalog_dir: &Path) -> Result<ExitCode
             Ok(ExitCode::from(if refusal.unreadable() { 1 } else { 2 }))
         }
     }
+}
+
+/// Supply UTC epoch days at the CLI composition root, never inside catalog checking.
+pub(super) fn today() -> Result<i64, Failure> {
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(Failure::failed)?;
+    i64::try_from(duration.as_secs() / 86_400).map_err(Failure::failed)
 }

@@ -126,4 +126,7 @@ pub struct SettingDescriptor {
     pub description: Text,
     /// How its layers combine.
     pub class: SettingClass,
+    /// Only central standards may declare this setting in catalog sources.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub standard_only: bool,
 }

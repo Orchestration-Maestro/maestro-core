@@ -20,6 +20,7 @@ mod rules;
 mod scan;
 mod secrets;
 mod selection;
+mod standards;
 #[cfg(test)]
 pub(crate) mod tests;
 pub(crate) mod tree;

@@ -555,12 +555,15 @@ in place.
 │   │   │   │   │   ├── discovery_windows.rs                                 # Real Windows ACL, unreadability and reparse-point probes, run on the CI host
 │   │   │   │   │   ├── mod.rs                                               # Settings contracts over shared S1 descriptors and preference adapters
 │   │   │   │   │   ├── preferences.rs                                       # Strict init drafts use the same S1 file/parser API as all preference consumers
-│   │   │   │   │   └── resolution.rs                                        # Rust source: resolution
+│   │   │   │   │   ├── resolution.rs                                        # Rust source: resolution
+│   │   │   │   │   └── standards.rs                                         # Standard values override every C17 preference layer without duplicating resolution
 │   │   │   │   ├── discovery.rs                                             # Safe session snapshots over S1's bounded parser and discovery walk
 │   │   │   │   ├── mod.rs                                                   # Typed restrictive resolution over the canonical S1 settings descriptors
 │   │   │   │   ├── preferences.rs                                           # Side-effect-free init preferences over S1's registry, parser and file adapter
 │   │   │   │   ├── resolve.rs                                               # Typed restrictive resolution over four preference layers; storage and parsing stay in S1
-│   │   │   │   └── resolve_round2.rs                                        # Rust source: resolve round2
+│   │   │   │   ├── resolve_round2.rs                                        # Rust source: resolve round2
+│   │   │   │   ├── standards.rs                                             # Standard values constrain the existing C17 resolver, never ordinary precedence
+│   │   │   │   └── types.rs                                                 # Resolution values and provenance shared by the single C17 resolver
 │   │   │   ├── source/                                                      # The strict checker of a catalog's authoring sources: a registry of
 │   │   │   │   ├── kinds/                                                   # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── agent.rs                                             # agent: a Copilot custom agent profile and its <name>.maestro.toml
@@ -572,7 +575,8 @@ in place.
 │   │   │   │   │   ├── preset.rs                                            # preset: a project preset, the root of a declared closure, and the
 │   │   │   │   │   ├── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
 │   │   │   │   │   ├── standard.rs                                          # Mandatory standard area roots and their normative rule inventories
-│   │   │   │   │   └── standard_check.rs                                    # Inert standard-local machine checks: identities, registered adapters and inputs
+│   │   │   │   │   ├── standard_check.rs                                    # Inert standard-local machine checks: identities, registered adapters and inputs
+│   │   │   │   │   └── standard_exception.rs                                # Central records live only in root or standard-owned exception placements
 │   │   │   │   ├── tests/                                                   # The source checker's tests: the valid synthetic catalog and each of its
 │   │   │   │   │   ├── accepted.rs                                          # The valid catalog passes, and its typed resources hold exactly what the
 │   │   │   │   │   ├── area_ownership.rs                                    # Ownership admission for data-only Area registrations without a package hook
@@ -596,6 +600,7 @@ in place.
 │   │   │   │   │   ├── qualified.rs                                         # C32 qualified identities and the single source schema cutover
 │   │   │   │   │   ├── references.rs                                        # References across resources: dangling names and tools, dependency
 │   │   │   │   │   ├── registry.rs                                          # The kind registry: registrations stay distinct, each descriptor is
+│   │   │   │   │   ├── restrictive_standards.rs                             # Restrictive standards and scoped, centrally declared exceptions
 │   │   │   │   │   ├── root_boundaries.rs                                   # Root occupancy and public filesystem spelling neighbours
 │   │   │   │   │   ├── rulings.rs                                           # The C03 round-two rulings: skill metadata reads only maestro
 │   │   │   │   │   ├── scan.rs                                              # Aggregate snapshot trust-boundary neighbours, independent of content guards
@@ -623,6 +628,7 @@ in place.
 │   │   │   │   ├── scan.rs                                                  # One bounded snapshot of every folder/file/link in the source tree
 │   │   │   │   ├── secrets.rs                                               # Typed secret bindings for registered settings, backend and extension fields
 │   │   │   │   ├── selection.rs                                             # Checked selection admission, separate from partial source validation
+│   │   │   │   ├── standards.rs                                             # Standard settings use the S1 descriptors and the single C17 resolver
 │   │   │   │   ├── tree.rs                                                  # The port through which the checker reads a catalog's files, and its
 │   │   │   │   ├── types.rs                                                 # The catalog's authoring schema, maestro-source/1, as typed data
 │   │   │   │   ├── walk.rs                                                  # Discovery: the catalog's top level, then each registered kind's

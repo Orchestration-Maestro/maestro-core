@@ -3,6 +3,7 @@
 //! kind's catalog rules, dependency cycles and declared closures. A refusal
 //! lists at most [`DIAGNOSTICS`] diagnostics, then a count of the rest.
 
+use super::standards::check_references;
 use super::{
     descriptor::{Layout, Scope},
     graph,
@@ -75,7 +76,7 @@ pub fn build(
         }
     }
     if diagnostics.is_empty() {
-        diagnostics = across(&loaded, registry);
+        diagnostics = across(&loaded, registry, known);
     }
     if diagnostics.is_empty() {
         let mut resources: Vec<Resource> =
@@ -134,7 +135,7 @@ impl Catalog {
 }
 
 /// The problems across the resources `loaded`.
-fn across(loaded: &[Loaded], registry: &Registry) -> Vec<Diagnostic> {
+fn across(loaded: &[Loaded], registry: &Registry, known: Known<'_>) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut catalog: BTreeMap<ResourceId, &Loaded> = BTreeMap::new();
     for resource in loaded {
@@ -155,6 +156,10 @@ fn across(loaded: &[Loaded], registry: &Registry) -> Vec<Diagnostic> {
         .iter()
         .map(|(id, loaded)| (id.clone(), &loaded.resource))
         .collect();
+    diagnostics.extend(super::standards::check(
+        &resources.values().copied().collect::<Vec<_>>(),
+        known,
+    ));
     let area_paths: BTreeSet<&str> = resources
         .values()
         .filter(|resource| {
@@ -364,6 +369,13 @@ fn rules(
     registry: &Registry,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    let mut problems = Vec::new();
+    check_references(&loaded.resource, resources, &mut problems);
+    diagnostics.extend(
+        problems
+            .into_iter()
+            .map(|(key, message)| Diagnostic::new(&loaded.resource.path, key, message)),
+    );
     let Some(rules) = registry
         .kind(&loaded.resource.id.kind)
         .and_then(|registration| registration.rules)

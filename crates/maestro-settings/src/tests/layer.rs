@@ -181,6 +181,7 @@ fn parse_refuses_a_locked_setting_in_any_file() {
         default: Cow::Borrowed("false"),
         description: Cow::Borrowed("Locked."),
         class: SettingClass::Locked,
+        standard_only: false,
     }];
     let registry = Registry::new(&descriptors).unwrap();
     assert_eq!(

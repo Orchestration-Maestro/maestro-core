@@ -154,6 +154,7 @@ fn check_install_explain_never_resolve_secrets() {
             Known {
                 rows: &rows,
                 settings: &settings,
+                today: 20_727,
             },
         )
         .unwrap();

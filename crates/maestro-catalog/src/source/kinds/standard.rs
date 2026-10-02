@@ -2,6 +2,7 @@
 //! References use the shared typed `metadata.requires` envelope.
 
 use super::package::{self, PackageRules};
+use crate::source::standards;
 use crate::source::{
     descriptor::{Field, FieldType, KindDescriptor, Scope},
     rules::KindRules,
@@ -12,7 +13,16 @@ use std::collections::BTreeMap;
 /// A standard is mandatory by kind; no optional/disable field is admitted.
 pub(super) fn descriptor() -> KindDescriptor {
     let mut descriptor = package::descriptor("standard", vec![Scope::Standard]);
-    descriptor.version = 3;
+    descriptor.version = 4;
+    descriptor
+        .fields
+        .retain(|field| field.key != "settings" && field.key != "exceptions");
+    descriptor
+        .fields
+        .extend(standards::fields("standard-inventory"));
+    descriptor
+        .fields
+        .push(Field::optional("non_negotiable", FieldType::TextList));
     descriptor
         .fields
         .push(Field::required("rules", FieldType::TextList));
@@ -34,6 +44,24 @@ impl KindRules for StandardRules {
     ) {
         PackageRules.check_resource(resource, body, known, problems);
         nonempty(resource, "rules", problems);
+        let rules = resource
+            .fields
+            .get("rules")
+            .and_then(Value::texts)
+            .unwrap_or_default();
+        for rule in resource
+            .fields
+            .get("non_negotiable")
+            .and_then(Value::texts)
+            .unwrap_or_default()
+        {
+            if !rules.contains(&rule) {
+                problems.push((
+                    "non_negotiable".to_owned(),
+                    format!("{rule} not in rule inventory"),
+                ));
+            }
+        }
     }
 
     fn check_catalog(

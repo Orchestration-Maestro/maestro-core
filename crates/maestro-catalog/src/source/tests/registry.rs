@@ -275,6 +275,7 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
             "language",
             "standard",
             "standard-check",
+            "standard-exception",
             "preset",
             "model-card"
         ]

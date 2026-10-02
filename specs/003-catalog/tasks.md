@@ -3472,6 +3472,8 @@ seed work and no C76a → C02 prerequisite cycle.
 
 ### C80b Trusted identity and base-owner approval CI [US1, US5] (4 h)
 
+Central standard-exception evidence is shape-checked by C81b; trusted CI must verify standard and central owner approval.
+
 **Phase:** P1/M3
 **After:** C80a, C35.
 **Files:** crates/maestro-catalog/src/source/{owners.rs,tests/owners.rs}; crates/maestro/src/cli/catalog/owners.rs; MAN .github/workflows/check-owners.yml.
@@ -3512,21 +3514,24 @@ seed work and no C76a → C02 prerequisite cycle.
 
 **Phase:** P1/M3
 **After:** C81a, C19, C17.
-**Files:** crates/maestro-catalog/src/source/{standards.rs,tests/standards.rs}; crates/maestro-catalog/src/policy/standards.rs.
+**Files:** crates/maestro-catalog/src/source/{standards.rs,kinds/standard_exception.rs,tests/restrictive_standards.rs}; crates/maestro-catalog/src/settings/{resolve.rs,standards.rs,types.rs,tests/standards.rs}; crates/maestro-settings/src/descriptor.rs; crates/maestro/src/cli/catalog/{check.rs,codeowners.rs}.
 **Requirements:** FR-S3-014, FR-S3-016, FR-S3-043, FR-S3-057, SC-S3-005, SC-S3-018.
 **Design coverage:** MD04, MD14 (approved design §8.4).
 **Named tests:** `standard_constraints_only_narrow`, `local_expired_or_wider_exception_refuses`, `nonnegotiable_exception_refuses`, `secret_scan_weakening_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Add-or-narrow standard constraints and central exceptions. Local/expired/wider exception, non-negotiable exception and weaker secret-scan settings refuse.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Add-or-narrow standard constraints and central exceptions. Local/expired/wider exception, non-negotiable exception and weaker secret-scan settings refuse.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 
 **Acceptance:** Add-or-narrow standard constraints and central exceptions. Local/expired/wider exception, non-negotiable exception and weaker secret-scan settings refuse.
 
 ### C82a Pinned import of canonical organization rules [US1, US5] (4 h)
+
+Register real secret-scan descriptors: additive enabled and bounded intersecting allow-list with `standard_only = true`.
+Rule-to-setting exception waiver semantics remain deferred; C81b validates references, not waivers.
 
 **Phase:** P1/M3
 **After:** C02, C81b, C35.

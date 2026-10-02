@@ -446,6 +446,10 @@ impl KnownRows for BTreeSet<String> {
 pub trait KnownSettings {
     /// Every known setting key, sorted.
     fn keys(&self) -> Vec<&str>;
+    /// Typed descriptors, absent for a names-only adapter.
+    fn registry(&self) -> Option<&maestro_settings::Registry> {
+        None
+    }
 }
 
 impl KnownSettings for BTreeSet<String> {
@@ -455,6 +459,9 @@ impl KnownSettings for BTreeSet<String> {
 }
 
 impl KnownSettings for maestro_settings::Registry {
+    fn registry(&self) -> Option<&maestro_settings::Registry> {
+        Some(self)
+    }
     fn keys(&self) -> Vec<&str> {
         let mut keys: Vec<_> = self
             .descriptors()
@@ -472,6 +479,8 @@ pub struct Known<'a> {
     pub rows: &'a dyn KnownRows,
     /// The known settings.
     pub settings: &'a dyn KnownSettings,
+    /// UTC epoch day supplied by the composition root; expiry is exclusive.
+    pub today: i64,
 }
 
 impl fmt::Debug for Known<'_> {

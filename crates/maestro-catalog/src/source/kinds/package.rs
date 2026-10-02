@@ -1,6 +1,7 @@
 //! Area closure roots; the shared checker enforces dependency layers and
 //! preset membership. Selection admission checks the mandatory root closure.
 
+use crate::source::standards;
 use crate::source::{
     descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
     rules::KindRules,
@@ -11,9 +12,9 @@ use serde::Deserialize;
 
 /// One area kind and its registered roots, never a language/standard package alias.
 pub(super) fn descriptor(kind: &str, scopes: Vec<Scope>) -> KindDescriptor {
-    KindDescriptor {
+    let mut descriptor = KindDescriptor {
         kind: kind.to_owned(),
-        version: 2,
+        version: 3,
         directory: String::new(),
         scopes,
         layout: Layout::Area {
@@ -39,7 +40,9 @@ pub(super) fn descriptor(kind: &str, scopes: Vec<Scope>) -> KindDescriptor {
         closure_root: true,
         required: None,
         hook: Some("area-package".to_owned()),
-    }
+    };
+    descriptor.fields.extend(standards::fields("area-package"));
+    descriptor
 }
 
 /// Lifecycle status is distinct from the evidence maturity in the envelope.

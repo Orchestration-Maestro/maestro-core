@@ -10,5 +10,6 @@ mod preset;
 mod skill;
 mod standard;
 mod standard_check;
+mod standard_exception;
 
 pub use builtin::{builtin, builtin_hooks};

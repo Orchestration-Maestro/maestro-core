@@ -151,7 +151,7 @@ fn scope_problem(descriptor: &KindDescriptor) -> Option<String> {
     for scope in &descriptor.scopes {
         if *scope == Scope::Root {
             let first = descriptor.directory.split('/').next().unwrap_or_default();
-            if !Scope::SUPPORT_ROOTS.contains(&first) {
+            if !Scope::SUPPORT_ROOTS.contains(&first) && descriptor.directory != Scope::EXCEPTIONS {
                 return Some("unregistered root support placement".to_owned());
             }
         } else if relative.iter().any(|path| nested(path)) {

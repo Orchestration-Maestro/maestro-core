@@ -4,5 +4,6 @@ mod discovery;
 mod discovery_windows;
 mod preferences;
 mod resolution;
+mod standards;
 
 pub(super) use resolution::{TestLayers, registry, resolve, value};

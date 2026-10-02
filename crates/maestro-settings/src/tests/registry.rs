@@ -14,6 +14,7 @@ const fn flag(key: &'static str) -> SettingDescriptor {
         default: Cow::Borrowed("true"),
         description: Cow::Borrowed("A flag."),
         class: SettingClass::Free,
+        standard_only: false,
     }
 }
 
@@ -118,6 +119,14 @@ fn descriptors_round_trip_through_serde() {
     let json = serde_json::to_string(BUILT_IN).unwrap();
     let read: Vec<SettingDescriptor> = serde_json::from_str(&json).unwrap();
     assert_eq!(read, BUILT_IN);
+    let mut central = flag("synthetic.central");
+    central.standard_only = true;
+    let encoded = serde_json::to_string(&central).unwrap();
+    assert_eq!(
+        serde_json::from_str::<SettingDescriptor>(&encoded).unwrap(),
+        central
+    );
+    assert!(encoded.contains("\"standard_only\":true"));
     let tone = serde_json::to_value(&BUILT_IN[1]).unwrap();
     assert_eq!(
         tone,

@@ -19,6 +19,7 @@ fn synthetic_ordered_choice_uses_its_declared_value_order() {
         default: Cow::Borrowed("normal"),
         description: Cow::Borrowed("A synthetic ordered choice."),
         class: maestro_settings::SettingClass::Bounded,
+        standard_only: false,
     });
     let registry = Registry::new(&descriptors).unwrap();
     let layers = TestLayers {

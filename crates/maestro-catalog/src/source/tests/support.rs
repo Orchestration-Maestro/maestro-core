@@ -191,6 +191,7 @@ pub(super) fn check_by(
     let known = Known {
         rows: &rows,
         settings: &settings,
+        today: 20_727,
     };
     check(tree, registry, limits, known)
 }

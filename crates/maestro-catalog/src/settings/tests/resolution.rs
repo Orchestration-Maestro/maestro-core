@@ -79,6 +79,7 @@ fn a_synthetic_s1_class_is_catalog_visible_and_drives_resolution() {
         default: Cow::Borrowed("false"),
         description: Cow::Borrowed("A synthetic bounded setting."),
         class: maestro_settings::SettingClass::Bounded,
+        standard_only: false,
     });
     let registry = Registry::new(&descriptors).unwrap();
     assert!(KnownSettings::keys(&registry).contains(&"synthetic.permission"));
@@ -378,6 +379,7 @@ fn additive_checks_accumulate_without_dropping_the_default() {
         default: Cow::Borrowed("lint"),
         description: Cow::Borrowed("Synthetic additive checks."),
         class: maestro_settings::SettingClass::Additive,
+        standard_only: false,
     });
     let registry = Registry::new(&descriptors).unwrap();
     let mut layers = TestLayers::default();

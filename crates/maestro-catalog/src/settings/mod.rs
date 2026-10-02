@@ -2,13 +2,16 @@
 
 mod discovery;
 mod preferences;
-mod resolve;
+pub(crate) mod resolve;
+mod standards;
+mod types;
 
 pub use discovery::{NoWorkspaceTrust, SessionPreferences, WorkspaceTrust};
 
 pub use preferences::{FilePreferences, PreferencesDraft, WorkspacePreferences, draft_preferences};
 
-pub use resolve::{Layer, ResolveDiagnostic, ResolvedSettings, ResolvedValue, resolve};
+pub use resolve::resolve;
+pub use types::{Layer, ResolveDiagnostic, ResolvedSettings, ResolvedValue};
 
 #[cfg(test)]
 mod resolve_round2;

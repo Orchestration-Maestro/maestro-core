@@ -32,3 +32,5 @@ mod selection;
 mod standards;
 pub(crate) mod support;
 mod yaml;
+
+mod restrictive_standards;

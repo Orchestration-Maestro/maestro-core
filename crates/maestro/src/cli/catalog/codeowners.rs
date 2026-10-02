@@ -1,5 +1,6 @@
 //! Read-only CODEOWNERS rendering to stdout and exact committed-file comparison.
 
+use super::check::today;
 use crate::{cli::output::Output, failure::Failure};
 use maestro_catalog::{
     limits::Limits,
@@ -59,6 +60,7 @@ pub(in crate::cli) fn run(
         Known {
             rows: &rows,
             settings: &settings,
+            today: today()?,
         },
     )
     .map_err(failure)?;
