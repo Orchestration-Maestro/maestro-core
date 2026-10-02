@@ -29,6 +29,7 @@ use tokio::{
 
 mod call_deadlines;
 mod search_workers;
+mod stale_grants;
 
 /// A bound that only stops a hung test; it is generous so a loaded
 /// machine cannot fail a correct run.

@@ -231,7 +231,11 @@ fn validate_acyclic(groups: &BTreeMap<&str, &Group>) -> Result<(), Error> {
         let mut path = BTreeSet::new();
         let mut cursor = Some(*id);
         while let Some(current) = cursor {
-            require(path.insert(current), "ancestry cycle")?;
+            // Terminate here, not through `require`: a cycle must end the walk
+            // even if validation is ever bypassed.
+            if !path.insert(current) {
+                return Err(Error::Invalid("ancestry cycle"));
+            }
             cursor = groups
                 .get(current)
                 .and_then(|group| group.parent.as_deref());

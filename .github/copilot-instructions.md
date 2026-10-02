@@ -158,6 +158,7 @@ in place.
 │   │   │   │   │   ├── mod.rs                                                           # The unit tests' door: declarations only
 │   │   │   │   │   ├── model_failures.rs                                                # Registration constraint failures are refused; other database errors fail.
 │   │   │   │   │   ├── publication_resume.rs                                            # A new publication attempt resumes from the last step of its predecessor
+│   │   │   │   │   ├── stale_grants.rs                                                  # CLI paths must not deliver content admitted by delayed stale reconciliation
 │   │   │   │   │   ├── supersessions.rs                                                 # An import supersedes its resource's holder once no live lease holds it, and leaves a live one alone
 │   │   │   │   │   ├── support.rs                                                       # What the unit tests share: a scratch kernel and a job leased in it, held or lost
 │   │   │   │   │   └── verify_outcome.rs                                                # Verification findings make the verify job fail without dropping its report
@@ -206,7 +207,8 @@ in place.
 │   │   │   │   │   │   └── tests.rs                                                     # Rust source: tests
 │   │   │   │   │   ├── tests/                                                           # Integration tests
 │   │   │   │   │   │   ├── call_deadlines.rs                                            # The MCP call caps against the search and chat caps they wrap
-│   │   │   │   │   │   └── search_workers.rs                                            # Rust source: search workers
+│   │   │   │   │   │   ├── search_workers.rs                                            # Rust source: search workers
+│   │   │   │   │   │   └── stale_grants.rs                                              # Delayed startup reconciliation must not deliver revoked content
 │   │   │   │   │   ├── warmup/                                                          # Background startup warming for visible published embedder cards
 │   │   │   │   │   │   └── tests.rs                                                     # Rust source: tests
 │   │   │   │   │   ├── handler.rs                                                       # MCP protocol handler and advertised knowledge tool schemas
@@ -928,6 +930,7 @@ in place.
 │   │   │   ├── scope/                                                                   # Scopes and grants: who may see what (docs/architecture/04 §3, building
 │   │   │   │   ├── tests/                                                               # Tests of scopes: their paths and names, what a grant covers, the grants
 │   │   │   │   │   ├── config.rs                                                        # config.toml: the local principal's grants, checked whole when read, and
+│   │   │   │   │   ├── config_refresh.rs                                                # The config load and its resulting scope snapshot share one writer transaction
 │   │   │   │   │   ├── grants.rs                                                        # Grants: a principal sees only what it was granted and what lies below it
 │   │   │   │   │   ├── inventory.rs                                                     # There is no read function without a ScopeSet: every public method of
 │   │   │   │   │   ├── known.rs                                                         # The scopes a set was granted, and the known scopes it covers: the workspace, collections and sources
@@ -1543,6 +1546,8 @@ in place.
 │   │   │   ├── lib.rs                                                                   # Clock and stage signals used only by the workspace's tests
 │   │   │   ├── stage_end.rs                                                             # Watches the outcome fields of tracing stages for a held-clock release
 │   │   │   └── stopped.rs                                                               # Holds Tokio time still while ordinary test work runs
+│   │   ├── tests/                                                                       # Integration tests
+│   │   │   └── stage_end.rs                                                             # Stage completion must wait for the watched span's outcome
 │   │   └── Cargo.toml                                                                   # Crate manifest: Stopped Tokio time and stage completion signals for workspace tests
 │   └── maestro-test-scratch/                                                            # Maestro test scratch
 │       ├── src/                                                                         # The crate's sources

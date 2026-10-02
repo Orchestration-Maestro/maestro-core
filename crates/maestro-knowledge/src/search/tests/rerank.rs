@@ -17,7 +17,7 @@ use std::{
     sync::Mutex,
     time::Duration,
 };
-use tokio::{task::yield_now, time::sleep};
+use tokio::time::sleep;
 
 pub(super) struct FakePort {
     reply: Reply,
@@ -118,9 +118,9 @@ impl ModelPort for FakePort {
             .iter()
             .find(|(known_text, _)| known_text == text)
             .map_or_else(|| text.chars().count(), |(_, count)| *count);
-        // Yield as a router call does, so the rerank deadline can stop a split that never ends.
+        // A timer lets paused Tokio time advance, so a non-progressing split hits its deadline.
         async move {
-            yield_now().await;
+            sleep(Duration::from_millis(1)).await;
             Ok(vec![0; count])
         }
     }
