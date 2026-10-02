@@ -1119,16 +1119,17 @@ pass, denied/error neighbours deny, and model text cannot supply trusted facts.
 **Phase:** P1/M3
 
 **After:** C03, C17, C19.
-**Files:** `crates/maestro-catalog/src/graph/{mod.rs,types.rs,topology.rs}`,
-`crates/maestro-catalog/src/graph/tests/{mod.rs,topology.rs}`,
+**Files:** `crates/maestro-catalog/src/source/workflow/{mod.rs,types.rs,topology.rs}`,
+`crates/maestro-catalog/src/source/workflow/tests/{mod.rs,topology.rs}`,
 `tests/fixtures/catalog/graphs/{topology-valid.md,topology-invalid.md}`.
 **Requirements:** FR-S3-003, FR-S3-019, FR-S3-042, SC-S3-005.
 
 - [x] **Step 1: Red.** Cover missing/ineligible references, unreachable nodes,
   paths without terminals, unbounded cycles/maps/subgraph depth and impossible
   reviewer independence, including a mandatory reviewer omitted from closure.
-  Reviewed-evidence members compile; placeholder/authored/retired members refuse,
-  and compilation alone never creates route-eligible S4 qualification.
+  Reviewed declarations with checked area ownership across the full closure
+  compile for authoring; placeholder/authored/retired or missing-owner members
+  refuse. This proves no protected remote review or route-eligible S4 qualification.
   Add `owner_first_example_references_accept`: copy architecture 03 §2.2's
   owner-relative workflow location and qualified agent/skill `requires` and
   references into the otherwise valid topology fixture. Pair it with
@@ -1142,45 +1143,120 @@ pass, denied/error neighbours deny, and model text cannot supply trusted facts.
 - [x] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-catalog graph::tests::topology`.
 
+**Placement/admission correction:** C22b moves the workflow modules/tests under
+`source/workflow/`, called only by `source/check`; `source/graph.rs` stays
+unchanged. Rename/adjust the unwired `ReviewEvidence` seam to authoring
+eligibility using the checker's existing declaration/ownership state, preserving
+every closure/maturity refusal. The current topology test filter becomes
+`source::workflow::tests::topology`; the checked step above records its historical
+command, not a rerun under the new path.
+
 **Acceptance:** each covered rule has a valid/invalid pair; bounded repair
-loops and independent reviewers pass without treating source labels as evidence.
+loops and statically satisfiable reviewer bindings pass without treating source
+labels as remote-review or observed-execution evidence.
 
 ### C22b Graph contracts [US5] (4 h)
 
 **Phase:** P1/M3
 
 **After:** C22a, C19; C09's measured JSON Schema validator approval.
-**Files:** `crates/maestro-catalog/src/graph/{contracts.rs,conditions.rs,state.rs}`,
-`crates/maestro-catalog/src/graph/tests/contracts.rs`,
-`tests/fixtures/catalog/graphs/{contracts-valid.md,contracts-invalid.md}`;
-wire full checks into `source/check.rs`; adopting the measured schema validator
-owns its `maestro-quality.toml`/`supply-chain/audits.toml` entries.
-**Requirements:** FR-S3-016, FR-S3-019, FR-S3-042, SC-S3-005.
+**Files:** `crates/maestro-catalog/src/source/workflow/{contracts.rs,conditions.rs,state.rs}`,
+`crates/maestro-catalog/src/source/workflow/tests/contracts.rs`, plus C22a's
+`source/workflow/{types.rs,topology.rs}` admission correction;
+`crates/maestro-catalog/src/source/{descriptor.rs,registry.rs,load.rs,metadata.rs,parse.rs,yaml.rs,types.rs,check.rs}`;
+necessary `source/{discovered.rs,area_walk.rs,scan.rs}` discovery seams only;
+`source/kinds/` workflow, contract, session-profile, policy, policy-schema and
+policy-case registrations/semantic adapters with their `source/tests/` fixtures;
+`crates/maestro-settings/src/builtin.rs` and its descriptor boundary tests;
+effect-free Cedar adapter reuse in `crates/maestro-catalog/src/policy/` without
+its old source-directory loader; `crates/maestro/tests/it/catalog_check.rs`;
+`tests/fixtures/catalog/graphs/{contracts-valid.md,contracts-invalid.md}` plus
+paired native JSON/Cedar/TOML admission fixtures. Paths abbreviated `source/`
+are under `crates/maestro-catalog/src/`. No new walker or top-level graph facade;
+`source/graph.rs` remains unchanged. Adopting C09's measured schema validator
+owns its `maestro-quality.toml`/`supply-chain/audits.toml` entries; no new library
+approval is implied.
+**Requirements:** FR-S3-002, FR-S3-003, FR-S3-014, FR-S3-016, FR-S3-018,
+FR-S3-019, FR-S3-037, FR-S3-042, SC-S3-005.
 
-- [ ] **Step 1: Red.** Test condition types, exact router edges, tool-policy
-  coverage, required sandbox, budgets, read-before-write and a successful path
-  missing its output, plus valid neighbours and hostile condition text. Rule 10
-  refuses a budget above a Bounded range in the shared S1 setting descriptor,
-  never a catalog `settings/classes.toml` authority.
-  Add `owner_first_example_references_accept` in this suite: copy architecture
-  03 §2.2's qualified output/state contracts, policies and matching `requires`
-  into the otherwise valid contract fixture. Pair it with
-  `legacy_example_references_refuse`: independently restore
-  `contracts/delivery.schema.json`, a basename contract/policy, or an undeclared
-  qualified reference. Refuse each mutation; restoring the declared qualified
-  IDs passes. The reference excerpt alone is not a complete valid workflow;
-  the fixtures must still satisfy all twelve rules, including initial-state and
-  successful-path output production.
-- [ ] **Step 2: Green.** Implement rules 4, 5, 7, 8, 10, 11 and 12 with real
-  JSON Schema validation. Accept only the specified small condition language;
-  check all successful paths, not merely one convenient traversal.
+- [ ] **Step 1: Red.** Pair every D7/D13 source-contract refusal below with a
+  valid neighbour through the real source checker, not topology structs alone:
+  - **Budgets:** accept 600000/60m/400 and each exact maximum under D7's
+    2026-10-02 Pi-default decision; independently refuse `tokens: 2147483648`,
+    `wall: 2147483648ms`, `tool_calls: 2147483648`, missing fields, wrong types,
+    malformed/overflowing wall strings, source `wall_ms`, empty node budgets
+    and widened node limits. Check token/call defaults `2147483647` and wall
+    default `1800000` ms (thirty minutes). Prove zero tokens/calls is not unlimited,
+    effective ceilings cannot widen and ask calls remain capped at 40.
+    `workflow_cost_budget_is_unsupported_in_phase1` names both `cost` and
+    `cost_units` refusals; it does not close the cost obligation below.
+  - **Envelope/admission/bindings:** accept flat source/2 metadata with exactly
+    one checked `requires`; refuse nested/sidecar alternatives, duplicate or
+    conflicting requirements, descriptor/envelope collisions, mismatched IDs,
+    missing owners and placeholder/authored/retired closure members. Add
+    `authoring_check_does_not_claim_remote_review`: synthetic reviewed/owned
+    source yields authoring-only output with no remote-review, verified-install
+    or qualification receipt and cannot enter verified installation. Refuse
+    absent/unsupported bindings and identical-model/profile aliases; accept
+    genuinely distinct declared profiles/providers without claiming S4 proof.
+  - **State/terminals:** refuse unmarked sinks, outgoing terminal edges,
+    unknown outcomes, non-success output and all-failure vacuous graphs. Keep a
+    blocked branch non-success. Check first-iteration/self-read-before-write,
+    wrong initial types, forged literal artifacts, alternative missing writes,
+    any/quorum missing contributions and empty review evidence. A real all join
+    combines separate guaranteed writes; every success has a current-invocation
+    output producer with the exact contract, not initialization alone.
+  - **Conditions/constructs:** test boolean and any/all positives, mistyped/
+    missing/ambiguous fields, hostile calls, bad predicates, output on failure,
+    and extra/missing/duplicate router choices. Normalize mixed edge shapes;
+    refuse each malformed D7 shape, duplicate normalized edges and unsupported
+    outcomes with source/field diagnostics. Preserve bounded self-loops and
+    unbounded-subcycle refusals. Pair sandbox escape/absence, unknown parser/
+    check, excess quorum, missing/zero map/depth bounds, wrong item/callee types,
+    nested-depth overrun and mutual recursion with valid bounded constructs.
+    No parsing test launches the declared command.
+  - **Native/policy closure:** accept the five D13 native shapes and exact
+    sidecars. Refuse duplicate JSON keys, wrong dialect/ID, external/undeclared/
+    missing references, orphan metadata and changed pinned contract bytes.
+    A mutating `SourceTree` proves one original read per file and retained
+    semantic inputs. Real Cedar rejects invalid policies/schemas, mismatched
+    IDs, missing case neighbours, undeclared schemas and fabricated host facts.
+    Missing trusted tool/binding/schema action or policy coverage refuses;
+    forbid-covered static success can still deny at runtime, with zero executor
+    calls. Native schema/case files cannot pass as inert inventory assets.
+  Retain `owner_first_example_references_accept`: copy architecture 03 §2.2's
+  qualified output/state/profile/policy IDs and matching requirements into a
+  complete fixture. `legacy_example_references_refuse` independently restores
+  a contract path, basename contract/policy or undeclared qualified ID; every
+  mutation refuses and restoring declared IDs passes. The annotated excerpt
+  alone is not a complete valid workflow or qualification fixture.
+- [ ] **Step 2: Green.** Implement rules 4, 5, 7, 8, 10, 11 and 12 with the real
+  JSON Schema validator and D7's exact language/joins/outcome-aware state flow.
+  Extend C22a's source adapter for D7's terminals, profile bindings, depth and
+  authoring eligibility, preserving its closure/maturity guards. Register the
+  shared budget descriptors, generic root envelope, native JSON/Cedar and
+  descriptor-scoped sidecars; reuse one admitted snapshot and its closure lock.
+  Feed static policy coverage from real Cedar AST/schema and trusted tool
+  registrations, never the old `core/policies` walker or invented runtime facts.
+  Increment changed descriptor versions and regenerate schema/fixture inventory,
+  keeping the unpublished source/2 cutover. No graph execution or new registry.
 - [ ] **Step 3: Check.** Run
-  `~/.local/bin/capped cargo nextest run -p maestro-catalog graph::tests` and
-  the `catalog_check` process suite after connecting graph validation.
+  `~/.local/bin/capped cargo nextest run -p maestro-catalog source::workflow`,
+  the affected source registration/admission and S1 descriptor tests, and the
+  `catalog_check` process suite after connecting full graph validation.
+- [ ] **cost budget dimension: define unit, range, default and the pricing source before the M3 exit**
 
-**Acceptance:** all twelve 03 §2.3 rules have a check and positive/negative
-fixture; graph checking performs no effect and missing S4 capability stays
-unsupported. A smaller language needs an approved 08 disposition, not omission.
+**Acceptance:** all twelve 03 §2.3 rules have checks and positive/refusal
+fixtures, subject to the explicitly open cost design/implementation obligation
+above. The interim three-dimension check may land but cannot claim all budget
+dimensions delivered or M3 complete; unsupported-cost refusal never closes it.
+`authoring_check_does_not_claim_remote_review` proves the real checker's local
+boundary, not protected release review (C15/signed admission), verified install
+or S4 qualification. Declared profile satisfiability is not observed independent
+execution; S4 owns actual fresh sessions, accounting and containment. Checks
+perform no effect and missing S4 capability stays unsupported. A smaller language
+needs an approved 08 disposition, not omission. These are required checks, not
+reported executions; any extra effort/split remains the supervisor's accounting.
 
 ### C21 Knowledge workflow and shared policies [US3, US5] (3 h)
 
@@ -1205,18 +1281,30 @@ requires core, never the reverse. No private collection ID enters this preset.
 
 - [ ] **Step 1: Red.** Write missing knowledge-skill/answer-contract/metadata-pair
   cases and all five production policies' allowed/denied neighbours; require
-  real checker and evaluator refusals before completing the content.
+  real checker and evaluator refusals before completing the content. Include
+  D13's wrong contract dialect/qualified `$id`, missing shared policy-schema,
+  mismatched stable policy IDs, absent/empty policy cases and incomplete session
+  bindings; an inert inventoried file cannot substitute for a checked input.
 - [ ] **Step 2: Green.** Author `workload-question`, its answer contract and shared
-  policies/hook. Declare Maestro fast/balanced/deep profiles for `copilot` and
-  `llamacpp`;
-  retain unsupported/unqualified status without S4 evidence. Reuse C02's skill,
+  policies/hook under D7/D13. Use draft 2020-12 typed-object contracts with exact
+  qualified IDs; paired policy sidecars declare `[policy]` IDs, shared
+  `policy-schema:security/schema` and owner-relative
+  `checks/policy-neighbours.json`. Register its C19 `Case` shape/metadata and
+  nonempty allow/deny selections, with synthetic facts separate from `HostFacts`.
+  Declare `session-profile:core/maestro` with `agent`, metadata requirements and
+  exact fast/balanced/deep provider/model bindings for `copilot` and `llamacpp`;
+  model identities remain owner inputs, statuses unsupported/unqualified without
+  S4 evidence. Workflow nodes select explicit profiles/bindings. Reuse C02's skill,
   instructions and checked `core/backends/mcp/config.toml` binding through
   `package:core` rather than duplicating them or adding a retired `mcp:` edge.
 - [ ] **Step 3: Check.** Run `"$MAESTRO_BIN" catalog check --catalog-dir "$MANIFESTS"`
   and `"$MAESTRO_BIN" policy test --catalog-dir "$MANIFESTS"` on production content.
 
 **Acceptance:** the knowledge workflow's exact references, ownership/08 rows,
-policy neighbours and graph checks pass; no invented qualification or vendor text.
+policy neighbours and graph checks pass through the single admitted snapshot,
+not C19's old source-directory walker. Contracts, session profiles, policies,
+policy-schema and policy-case pairs are checked native shapes, not inert assets;
+no invented qualification or vendor text.
 
 ### C21b Feature-delivery workflow [US3, US5] (3 h)
 
@@ -1240,20 +1328,30 @@ sidecar decision.
 
 - [ ] **Step 1: Red.** Require refusal for a missing role/contract/metadata pair,
   removed mandatory reviewer, self-review, missing approval gate and invented role
-  qualification, with a valid complete feature-delivery neighbour.
+  qualification, with a valid complete feature-delivery neighbour. Include
+  same-model/profile aliases, unsupported selected bindings, wrong contract
+  dialect/ID, first-iteration reads and a success without current-run delivery.
 - [ ] **Step 2: Green.** Author the baseline required role definitions, two skills,
-  contracts and declarative workflow; builder is a deterministic step. Declare
-  fast/balanced/deep for `copilot` and `llamacpp`, marking absent S4 support
-  unsupported.
-  Require C21's standard policy IDs explicitly and preserve approval obligations.
+  D13 native contract/sidecar pairs and D7's flat-envelope workflow; builder is a
+  deterministic step with registered parser and `sandbox: required`. Supply
+  start, explicit successful terminal/output producer and valid initial state.
+  Session profiles at the listed TOML paths declare exact agents, metadata
+  requirements and fast/balanced/deep provider/model bindings for `copilot` and
+  `llamacpp`; owner-supplied identities remain unqualified/unsupported without
+  S4 evidence. Nodes explicitly select a checked profile/binding, with distinct
+  resolved configurations/providers for independence, not just different names.
+  Require C21's standard policy IDs explicitly and preserve approval obligations;
+  their registered shared schema/cases and metadata stay in the checked closure.
   Framework declarations belong to mandatory core and every preset closure;
   knowledge-only native projection remains thin. C70 adapts recovered reviewer
   content into this same definition, never creates a duplicate persona.
 - [ ] **Step 3: Check.** Run `"$MAESTRO_BIN" catalog check --catalog-dir "$MANIFESTS"`
   and the feature-delivery scenarios through its graph/contract checks.
 
-**Acceptance:** both v1 workflows have exact complete closures, required
-independent reviews and honest qualification states; no unused role is added.
+**Acceptance:** both v1 workflows have exact complete closures, statically
+satisfiable required independent reviews and honest qualification states. D7/D13
+native schemas, profile bindings and policy inputs are checked without claiming
+remote review, observed independence or S4 execution; no unused role is added.
 
 ## Workstream 3: Trusted distribution and explanation [US2, US3]
 
@@ -2099,7 +2197,7 @@ this M3 exit; a bounded in-memory fallback requires its own explicit approval.
 `specs/003-catalog/research/m3-evidence.md`, `docs/standards/security.md`;
 verify MAN's rule map without editing another lane's checkout. Private receipts
 remain private.
-**Requirements:** FR-S3-017, FR-S3-026, FR-S3-051, FR-S3-056, FR-S3-057, FR-S3-058, FR-S3-061, FR-S3-064, FR-S3-065, SC-S3-001, SC-S3-002, SC-S3-003, SC-S3-004, SC-S3-005, SC-S3-006, SC-S3-007, SC-S3-008, SC-S3-009, SC-S3-010, SC-S3-011, SC-S3-012, SC-S3-013, SC-S3-014, SC-S3-015, SC-S3-016, SC-S3-018, SC-S3-019, SC-S3-021, SC-S3-022, FR-S3-068, SC-S3-025.
+**Requirements:** FR-S3-017, FR-S3-019, FR-S3-026, FR-S3-051, FR-S3-056, FR-S3-057, FR-S3-058, FR-S3-061, FR-S3-064, FR-S3-065, SC-S3-001, SC-S3-002, SC-S3-003, SC-S3-004, SC-S3-005, SC-S3-006, SC-S3-007, SC-S3-008, SC-S3-009, SC-S3-010, SC-S3-011, SC-S3-012, SC-S3-013, SC-S3-014, SC-S3-015, SC-S3-016, SC-S3-018, SC-S3-019, SC-S3-021, SC-S3-022, FR-S3-068, SC-S3-025.
 
 - [ ] **Step 1: Red.** Write the shell acceptance harness; fail its preflight
   if `command -v cargo`, `command -v rustc` or `command -v python3` succeeds,
@@ -2116,7 +2214,10 @@ remain private.
   A/B/A known-gap test, C03a/C11/C16 unknown-role refusals and owner-approved
   manifest winner changes. Each machine needs its qualified card and local
   evidence; detached install is not a cross-machine evidence-import proof.
-  A model card is not S4 agent qualification.
+  A model card is not S4 agent qualification. **M3 gate:** fail preflight while
+  C22b's **cost budget dimension: define unit, range, default and the pricing
+  source before the M3 exit** obligation is open. Require its recorded decision
+  and implementation evidence; rejecting unsupported cost input is not closure.
 - [ ] **Step 2: Green.** Copy only the script into OA5's disposable clean WSL
   user/container with released binaries, basic shell utilities and approved
   read authentication. Provision roots and the gh pin with C13a's exact
@@ -2151,8 +2252,11 @@ fixtures and published schema drift evidence; N07 type synchronization must be
 complete. No live S6 catalog adapter or private-package publication is an M3 gate.
 
 **Acceptance:** every M3 criterion has current observed evidence; no skipped
-live test or pending owner/S2/CI action is called passed. Only the owner accepts
-M3 and authorizes publication; lanes neither release nor integrate themselves.
+live test or pending owner/S2/CI action is called passed. **M3 gate:** C22b's open
+cost budget dimension must have its unit, range, default and pricing-source
+decision plus implementation evidence; the interim unsupported-cost refusal
+cannot satisfy this gate. Only the owner accepts M3 and authorizes publication;
+lanes neither release nor integrate themselves.
 
 ### C29 Pre-M3 legacy disposition and provenance audit [US1, US5] (3 h)
 
@@ -2792,7 +2896,16 @@ No invented pin, duplicate server registry or extra seed charge; estimate stays 
 
 **URL-rule amendment (+0 h):** Export core-derived source-policy/decision/promotion/migration JSON Schemas alongside the registry schemas; do not hand-maintain them.
 
-**Acceptance:** Registry/settings schema export and editor association index; drift and unsupported descriptor versions refuse.
+**C22b shape coverage:** Export D7/D13's flat workflow envelope, native contract,
+`session-profile`, policy sidecar, `policy-schema` and checked policy-case input
+shapes/associations from their registered owners. Retain JSON/Cedar primary
+formats and exact metadata pairing, refresh changed descriptor versions and
+inventories, and keep source/2. Cedar and cross-resource semantics remain real
+checker obligations; editor schema success grants no admission or qualification.
+
+**Acceptance:** Registry/settings schema export and editor association index,
+including C22b's native registrations; drift and unsupported descriptor versions
+refuse. No new schema library or handwritten parallel validator.
 
 ### C52b Delegated schemas and every-shape fixtures [US1, US5] (4 h)
 
@@ -2812,7 +2925,17 @@ No invented pin, duplicate server registry or extra seed charge; estimate stays 
 
 **URL-rule amendment (+0 h):** Include C66's four source-rule JSON families in schema/fixture inventory and editor associations, with actual core-type export and drift refusal.
 
-**Acceptance:** Semantic-hook schema export and every-kind fixture inventory; delegated fields stay exact, missing/zero refusal neighbours fail.
+**C22b shape coverage:** Inventory valid/refusal neighbours for draft 2020-12
+contracts and digest-locked references, strict session-profile bindings,
+policy `[policy]` sidecars, real Cedar policy-schema and C19-shaped policy cases,
+plus flat workflow metadata. Include missing/orphan pairs, malformed native
+payloads, stale descriptors, changed referenced bytes and missing/zero cases.
+Schema/case inputs must reach semantic checks, not pass as inert assets. Export
+from the same owning validators; no new library, loader or source/3 cutover.
+
+**Acceptance:** Semantic-hook schema export and every-kind fixture inventory,
+including C22b's native shapes; delegated fields stay exact and missing/zero
+refusal neighbours fail. No authored fixture claims runtime qualification.
 
 ### C52c Authoring templates and package-new [US1, US5] (3 h)
 
@@ -4144,8 +4267,8 @@ are not all M3 gates: Phase 2/S6/S4 evidence stays at its named checkpoint.
 | Requirement | Tasks |
 | --- | --- |
 | FR-S3-001 | C00, C03, C03a, C02, C02a, C21, C21b, C29, C70, C71, C72, C73, C82a |
-| FR-S3-002 | C01, C03, C03a, C02, C32, C45a, C52a, C52b, C58, C60, C62, C64, C66 |
-| FR-S3-003 | C03, C02, C02a, C22a, C21, C21b, C15, C80b |
+| FR-S3-002 | C01, C03, C03a, C02, C22b, C32, C45a, C52a, C52b, C58, C60, C62, C64, C66 |
+| FR-S3-003 | C03, C02, C02a, C22a, C22b, C21, C21b, C15, C80b |
 | FR-S3-004 | C05, C36, C50, C77a, C77b, C77c, C77d, C79b |
 | FR-S3-005 | C04a, C04, C05, C05j, C50, C52c, C55, C77a |
 | FR-S3-006 | C01, C06, C07, C40, C47b, C63 |
@@ -4156,12 +4279,12 @@ are not all M3 gates: Phase 2/S6/S4 evidence stays at its named checkpoint.
 | FR-S3-011 | C09, C14, C18, C16, C16h, C16b, C24a, C24, C27, C49a, C49b, C54, C59, C69 |
 | FR-S3-012 | C12, C16, C16b, C49b, C54, C55, C59, C69, C86 |
 | FR-S3-013 | C13, C13a, C15, C54, C67, C68, C69, C80b, C92 |
-| FR-S3-014 | C03, C17, C05b, C46, C47a, C48, C57, C60, C65, C81b |
+| FR-S3-014 | C03, C17, C05b, C22b, C46, C47a, C48, C57, C60, C65, C81b |
 | FR-S3-015 | C18, C16h, C46, C47a, C49a, C54, C57 |
 | FR-S3-016 | C09, C19, C22b, C21, C20, C61, C64, C74a, C74b, C81b |
 | FR-S3-017 | C20, C28, C62, C63, C75, C94 |
-| FR-S3-018 | C21, C21b, C70, C72, C78 |
-| FR-S3-019 | C00, C22a, C22b, C21, C21b, C72, C88b, C88c |
+| FR-S3-018 | C22b, C21, C21b, C70, C72, C78 |
+| FR-S3-019 | C00, C22a, C22b, C21, C21b, C28, C72, C88b, C88c |
 | FR-S3-020 | C23, C24 |
 | FR-S3-021 | C24a, C24 |
 | FR-S3-022 | C14, C24a, C24, C26 |
@@ -4179,7 +4302,7 @@ are not all M3 gates: Phase 2/S6/S4 evidence stays at its named checkpoint.
 | FR-S3-034 | C16d, C16e, C16f, C54, C86 |
 | FR-S3-035 | C05h, C05j, C05g, C08, C91 |
 | FR-S3-036 | C05h, C05i, C05j, C05e, C06, C07, C08, C16d, C16f, C20, C91 |
-| FR-S3-037 | C03, C10, C11, C12, C16, C45a, C52a, C52b, C58, C64, C65, C66, C81a |
+| FR-S3-037 | C03, C22b, C10, C11, C12, C16, C45a, C52a, C52b, C58, C64, C65, C66, C81a |
 | FR-S3-038 | C03a, C02a, C18, C52b |
 | FR-S3-039 | C03a, C02a, C18, C16h |
 | FR-S3-040 | C02, C38, C30, C31, C41, C44, C79a, C81a |

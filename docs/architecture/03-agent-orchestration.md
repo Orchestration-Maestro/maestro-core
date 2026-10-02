@@ -508,7 +508,7 @@ never release-note text or install commands in instructions.
 | Maximum output | 4,096 tokens where the profile allows | Bounded |
 | Concurrent inference / workspace writers | 1 / 1 | Bounded |
 | Delegation depth | 2 | Bounded |
-| Tool calls per run | 40 | Bounded |
+| Tool calls per ask run (`tool_calls`, inclusive 0–40) | 40 | Bounded |
 | Contract repair attempts | 2 | Bounded |
 | Routing candidates | 3 | Bounded |
 | MCP call timeout | 30 s, within the server profile | Bounded |
@@ -522,6 +522,30 @@ S1 knowledge answers are an exception: each generated attempt is capped at
 2,048 tokens, with smaller card-specific limits honored; the default is `off`,
 so the registered card supplies its limit.
 
+Workflow ceilings are separate shared S1 Bounded integer descriptors:
+
+| Key | Unit | Inclusive range | Default |
+| --- | --- | --- | --- |
+| `workflow.budgets.tokens` | Aggregate input plus output tokens | 0–2147483647 | 2147483647 |
+| `workflow.budgets.wall_ms` | Elapsed milliseconds, including waits | 1–2147483647 | 1800000 |
+| `workflow.budgets.tool_calls` | Aggregate calls, including children | 0–2147483647 | 2147483647 |
+
+**Owner decision, 2026-10-02:** mirror Pi's defaults: a thirty-minute run timeout
+and optional token/tool-call caps, with no cap by default represented by the
+registry maximum `2147483647`. These compatibility values are not measured
+optima; every declaration still obeys the inclusive range. §2.2's 60m example
+remains source-valid without granting more than the effective session ceiling.
+No `off`, automatic sizing or zero-as-unlimited sentinel: zero tokens/calls
+permits none, and wall is positive. Source checks use descriptor ranges
+and admitted standard/package/parent constraints, never the developer's current
+preferences. C17/C46 resolve narrower effective user/default, workspace, flag
+and package ceilings; intersect those with the workflow declaration at runtime.
+Compilation grants no larger allowance. Common defaults use C46's existing
+single producer; no second registry/resolver or `settings/classes.toml` authority.
+
+`tool_calls` stays 0–40/default 40 **per ask**, including asks inside a workflow;
+its output limit remains separate from workflow input-plus-output accounting.
+Workflow calls never use the ask descriptor, nor tokens `ask.output_tokens`.
 Budgets never cancel prohibitions: 39 remaining tool calls grant nothing.
 
 ### 1.7 Project bootstrap (`maestro init`)
@@ -605,30 +629,64 @@ and installs execute none of it. Maestro implementation stays Rust.
 | Concept | Definition |
 | --- | --- |
 | **Node** | `agent` (a model session in a role), `step` (a deterministic command in the sandbox), `gate` (human approval or automated check), `router` (chooses one declared edge; its choice is validated output), `map` (bounded fan-out over a list), `join` (fan-in: `all`, `any`, `quorum:n`), `subgraph` (calls another workflow) |
-| **Edge** | `from → to`, optionally `when` a typed condition over `from`'s outcome and contract fields holds |
-| **Loop** | A back-edge must declare `max_iterations`; the engine counts and stops |
-| **State** | Typed slots holding artifact references (digest + contract) or scalars, each with a reducer: `set`, `append`, `merge` |
-| **Budgets** | Tokens, wall time, tool calls and cost units per run and per node |
-| **Policies** | Cedar policy sets; a node may narrow them, never widen them |
+| **Edge** | `from -> to` string or one-key mapping with strict `when`, positive `max_iterations` and unique outcome `on`; default `[success]`, no duplicate normalized edges |
+| **Loop** | Back-edge limits count traversals over the whole invocation; deleting all positively bounded edges must leave an acyclic graph |
+| **State** | Exactly one scalar `type` or qualified `contract`, plus reducer; scalars use `set`, contracts use `set`, `append`, `merge`; assignment and current-run production are distinct |
+| **Terminal** | Explicit `start`; every sink has `terminal: { outcome: ... }`, success also names its output slot; terminals have no outgoing edges and at least one success is required |
+| **Budgets** | Aggregate tokens, elapsed wall and tool calls use §1.6's shared ranges; optional node limits inherit/narrow. Cost remains a required target with an open M3 gate, not a defined unit yet |
+| **Policies** | Cedar policy sets; a node may narrow them, never widen them; structural coverage does not prove a future permit |
+
+Source requires all of `tokens` (integer), `wall` (duration string) and
+`tool_calls` (integer); defaults never supply a missing declaration. `wall` is
+an unsigned decimal integer plus exactly `ms`, `s`, `m` or `h`, without sign,
+fraction, whitespace, compound duration or leading zeroes except integer `0`.
+Checked multiplication produces milliseconds (`60m` = `3600000`); integer wall,
+source `wall_ms`, overflow and unknown fields refuse. Optional node budgets are
+a nonempty subset with omitted fields inherited; explicit widening refuses.
+Every value needs the shared Bounded integer descriptor, with no fallback for
+an absent descriptor or wrong class/kind.
+
+Workflow counters include every node, retry, repair, map item and child; a node
+limit bounds that invocation, while the run bounds all invocations. Input plus
+output tokens count cached input once. Wall runs from workflow start, including
+waits/pauses, never summing parallel node time. S4 owns accounting, enforcement
+and unavailable-usage refusal. Interim `cost`/`cost_units` refuse as unsupported
+in Phase 1; C22b's unit/range/default/pricing-source obligation blocks C28's final
+M3 exit. The three-dimension check may land without claiming cost delivered.
 
 ### 2.2 Example
 
-Reference-focused frontmatter excerpt, not an executable seed. C22a/C22b copy
-these exact owner-relative paths and resource references into otherwise valid
-fixtures; production graphs also need complete metadata, initial-state handling
-and output production on every successful path under §2.3. Node/state names,
-tool names and the parser below are graph-local or host vocabulary, not catalog
-resource aliases. Every catalog reference is a qualified ID declared in `requires`.
+Annotated source/2 frontmatter excerpt, not an executable seed or qualification
+receipt. C22a/C22b copy these owner-relative paths and qualified references into
+complete fixtures. Metadata is flat, with one checked `requires`; no nested
+`metadata` table or workflow sidecar. The descriptor's generic root placement
+splits common metadata once. Path-derived `id`/`name`, explicit `version` and
+`requires` are checked; ownership comes from the area, never an authored owner.
+
+This excerpt adds start, profile selections, sandbox, initial state and a
+current-run delivery producer. Actual registered profiles, owner-supplied model
+identities, native contracts, schema/case pairs, host tools/parser and complete
+policy coverage still need checked closure fixtures. Different profile names
+alone do not prove independence. Node/state names and host vocabulary are not
+catalog aliases; every catalog reference is a qualified declared requirement.
 
 ```yaml
 # core/workflows/feature-delivery/workflow.md
+---
+schema: maestro-source/2
 id: workflow:core/feature-delivery
 name: feature-delivery
 version: 1.2.0
+maturity: reviewed
+rows: [architecture.L11]
+workflows: [feature-delivery]
 requires:
   - agent:core/planner
   - agent:core/worker
   - agent:core/reviewer
+  - session-profile:core/planner
+  - session-profile:core/worker
+  - session-profile:core/reviewer
   - skill:core/spec-compliance
   - skill:core/security-review
   - contract:core/delivery
@@ -639,25 +697,39 @@ requires:
   - policy:security/destructive-operations
   - policy:security/protected-paths
   - policy:security/egress-deny-by-default
-inputs:  { task: string, repository: repo-ref }
+start: plan
+inputs:
+  task: string
+  repository: repo-ref
+  prior-tests: { contract: contract:core/test-report }
 outputs: contract:core/delivery
 state:
   plan:     { contract: "contract:core/plan",        reducer: set }
   patch:    { contract: "contract:core/patch",       reducer: set }
-  tests:    { contract: "contract:core/test-report", reducer: set }
-  reviews:  { contract: "contract:core/review",      reducer: append }
+  tests:    { contract: "contract:core/test-report", reducer: set,
+              initial: { input: prior-tests } }
+  reviews:  { contract: "contract:core/review",      reducer: append, initial: [] }
+  delivery: { contract: "contract:core/delivery",    reducer: set }
 nodes:
-  plan:     { kind: agent, agent: "agent:core/planner", writes: plan }
+  plan:     { kind: agent, agent: "agent:core/planner", writes: plan,
+              profile: "session-profile:core/planner", model_profile: balanced, provider: copilot }
   code:     { kind: agent, agent: "agent:core/worker", reads: [plan, tests, reviews], writes: patch,
+              profile: "session-profile:core/worker", model_profile: balanced, provider: copilot,
               tools: [edit, shell] }
-  test:     { kind: step,  run: "cargo nextest run --message-format libtest-json",
-              parser: nextest-json, writes: tests }
+  test:     { kind: step, run: "cargo nextest run --message-format libtest-json",
+              parser: nextest-json, sandbox: required, writes: tests }
   spec:     { kind: agent, agent: "agent:core/reviewer", skill: "skill:core/spec-compliance",
+              profile: "session-profile:core/reviewer", model_profile: balanced, provider: llamacpp,
               reads: [plan, patch], writes: reviews, independent_of: [code] }
   security: { kind: agent, agent: "agent:core/reviewer", skill: "skill:core/security-review",
+              profile: "session-profile:core/reviewer", model_profile: balanced, provider: llamacpp,
               reads: [patch], writes: reviews, independent_of: [code] }
-  reviewed: { kind: join, policy: all }
-  approve:  { kind: gate, human: true, shows: [patch, tests, reviews] }
+  reviewed: { kind: join, policy: all, reads: [reviews] }
+  deliver:  { kind: agent, agent: "agent:core/worker", writes: delivery,
+              profile: "session-profile:core/worker", model_profile: balanced, provider: copilot,
+              reads: [plan, patch, tests, reviews] }
+  approve:  { kind: gate, human: true, shows: [patch, tests, reviews, delivery],
+              terminal: { outcome: success, output: delivery } }
 edges:
   - plan -> code
   - code -> test
@@ -668,10 +740,23 @@ edges:
   - security -> reviewed
   - reviewed -> code: { when: "any(reviews, r => r.verdict == 'changes_requested')",
                         max_iterations: 2 }
-  - reviewed -> approve: { when: "all(reviews, r => r.verdict == 'approved')" }
+  - reviewed -> deliver: { when: "all(reviews, r => r.verdict == 'approved')" }
+  - deliver -> approve
 budgets: { tokens: 600000, wall: 60m, tool_calls: 400 }
 policies: ["policy:security/destructive-operations", "policy:security/protected-paths", "policy:security/egress-deny-by-default"]
+---
 ```
+
+`prior-tests` is a required runtime input of the exact contract, not an authored
+artifact. Empty `reviews` permits the first read but is not review evidence.
+Only accepted node writes publish payloads; the approval gate does not produce
+delivery. Compiler-derived session requirements are symbolic; S4 creates fresh
+sessions on every invocation. The explicit provider selections are declarations,
+not live support/qualification. See [D7](../../specs/003-catalog/plan.md#d7-settings-policies-and-graph-checks)
+for exact terminal outcomes, profile/state types, join guarantees, condition
+syntax, edge normalization and bounded call semantics, and
+[D13](../../specs/003-catalog/plan.md#d13-manifest-v4-source-contract) for native
+admission and policy coverage. No command above runs during checking.
 
 ### 2.3 Compile-time validation
 
@@ -680,24 +765,45 @@ that fails a rule is not part of a bundle; unsupported constructs are rejected,
 never silently omitted. S4 executes validated graphs and enforces these
 requirements at runtime; static success supplies no execution qualification.
 
-1. Every referenced agent, skill, contract, policy and subgraph is a typed
-   qualified ID in the workflow's declared `requires` and resolves in the bundle
-   with reviewed evidence for S3 compilation; paths, basename aliases and
-   undeclared edges refuse. S4 execution raises the threshold to qualified (§1.2).
-2. Every node is reachable from the start and can reach a terminal node.
-3. Every cycle contains a back-edge with `max_iterations`.
-4. Every condition parses and type-checks against the source node's contract
-   (the expression language is small: comparisons, `&&`, `||`, `!`, `any`/`all`
-   over arrays; no calls, no side effects).
-5. A `router` node's choices are exactly its declared outgoing edges.
-6. `independent_of` is satisfiable: a distinct session and a different model
-   profile (or provider) from the named nodes.
-7. Every tool a node may use is covered by the Cedar schema and policies.
-8. Every `step` runs sandboxed; none requests an unsandboxed escape.
-9. `map` fan-out and subgraph depth are bounded.
-10. Budgets are present and within the organization's ceilings.
-11. State slots are written by at least one node before any node reads them.
-12. The workflow's output contract is produced on every successful path.
+1. Every referenced agent, skill, session profile, contract, policy and subgraph
+   is a typed qualified ID in the single checked `requires` and admitted closure.
+   All members need reviewed declarations and checked area ownership; paths,
+   aliases, undeclared references and placeholder/authored/retired members refuse.
+   Local authoring is not protected review: C15/signed admission supplies that
+   assurance. S4 executable admission requires qualification (§1.2).
+2. Every node is reachable from explicit `start` and can reach a declared
+   terminal. Sinks require outcomes, terminals have no outgoing edges, and at
+   least one success terminal is required; non-success remains non-success.
+3. Removing all positively bounded edges leaves an acyclic graph. Back-edge
+   `max_iterations` counts traversals over the whole invocation.
+4. Conditions type-check the source's outcome, present payload and declared
+   readable/accepted written slots. Comparisons, `&&`, `||`, `!`, parentheses,
+   scalar literals, fields and typed `any`/`all` are the whole language; no
+   arbitrary call, arithmetic, interpolation, I/O or side effect.
+5. A router's required string `choice` enum, unique `choices` and outgoing
+   targets are exact equal sets. Router edges have no separate `when`.
+6. `independent_of` requires symbolic fresh sessions and distinct canonical
+   resolved model profile configuration or provider, not renamed aliases. Each
+   agent selects exactly one checked binding, never an unsupported one; S4
+   proves actual independence.
+7. Every tool, including deterministic sandbox execution, resolves through trusted
+   registrations and has real Cedar schema/AST policy coverage. A forbid may
+   cover an action; static coverage grants no runtime permit or fabricated facts.
+8. Every `step` declares a registered parser and `sandbox: required`; escape or
+   missing containment refuses, with S4 responsible for actual sandbox execution.
+9. Maps have typed selectors/callee inputs and positive item/depth bounds;
+   subgraphs bind required inputs and positive depth. Check every enclosing call
+   ceiling without resets or limit-sized allocation; resource recursion refuses.
+10. All three root budgets use §1.6's inclusive descriptor ranges, with strict
+    wall normalization and node inheritance/narrowing under §2.1. Effective
+    preference ceilings can only narrow; ask limits remain separate. Cost's open
+    unit/range/default/pricing obligation gates M3; unsupported input is no closure.
+11. Definite assignment precedes every read, including first loop iterations and
+    all alternatives. Same-activation all/any/quorum joins use D7's guarantees;
+    initialization supplies assignment, never current-run production.
+12. Every success terminal names a definitely assigned output slot of exactly the
+    workflow's contract, with an accepted producer in the current invocation on
+    every successful path. Human approval or initialized state alone is no output.
 
 ### 2.4 The engine: durable, event-sourced execution
 

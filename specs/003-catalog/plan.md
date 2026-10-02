@@ -929,16 +929,72 @@ Carry the architecture 03 defaults as declarations, not an S3 run engine:
 | Model profile; reasoning | `balanced`; model default, diagnose unsupported effort | Bounded |
 | Maximum output | 4,096 tokens where the profile permits | Bounded |
 | Inference/workspace writers; delegation depth | 1/1; 2 | Bounded |
-| Tool calls; repair attempts; routing candidates | 40; 2; 3 | Bounded |
+| Tool calls per ask run; repair attempts; routing candidates | 40; 2; 3 | Bounded |
 | MCP call timeout | 30 s within the server profile; long knowledge calls need an explicit supported profile, not silent truncation | Bounded |
 | Cross-project memory; apps/extensions/schedules | Off until qualified/activated | Bounded |
 | Raw prompt/reasoning logging; provider fallback | Off; none | Locked |
 | Evidence/result validation; discovered executable hooks | On; off | Locked |
 
-Rule 10's organization ceilings come from the Bounded ranges in the shared S1
-setting descriptors, not a catalog `settings/classes.toml` or the defaults above;
-C22b refuses an exceeded ceiling. `settings/README.md` documents the registry; v4 `settings/defaults.toml` feeds
-its single lowest defaults slot through C46, never a second key/type registry.
+#### Workflow budget declarations
+
+Rule 10 uses exactly three new Bounded integer descriptors in S1's existing
+`BUILT_IN`, not a catalog registry or `settings/classes.toml`. **Owner decision,
+2026-10-02:** mirror Pi's defaults: a thirty-minute run timeout and optional
+token/tool-call caps, with no cap by default. The latter defaults use the
+registry maximum `2147483647`; declarations still obey these inclusive ranges.
+These compatibility values are not measured optima:
+
+| Shared key | Unit | Inclusive range | Default |
+| --- | --- | --- | --- |
+| `workflow.budgets.tokens` | Aggregate input plus output tokens | 0–2147483647 | 2147483647 |
+| `workflow.budgets.wall_ms` | Elapsed milliseconds, including waits | 1–2147483647 | 1800000 |
+| `workflow.budgets.tool_calls` | Aggregate tool calls, including children | 0–2147483647 | 2147483647 |
+
+The existing `tool_calls` descriptor remains 0–40, default 40; clarify its
+meaning as **per ask run**. Do not map workflow tokens to `ask.output_tokens`
+or workflow calls to that ask descriptor. Each ask keeps both existing limits,
+even inside a workflow allowed 400 aggregate calls.
+
+Source `budgets` requires all three fields: integer `tokens`, duration-string
+`wall`, integer `tool_calls`. Keep
+`budgets: { tokens: 600000, wall: 60m, tool_calls: 400 }` valid. `wall` is exactly
+an unsigned decimal integer followed by `ms`, `s`, `m` or `h`: no sign, fraction,
+whitespace, compound duration or leading zeroes except the integer `0`. Checked
+integer multiplication normalizes `60m` to `3600000` milliseconds before S1
+validation. Integer `wall`, source `wall_ms`, overflow, unknown fields and
+missing root fields refuse; registry preferences use the canonical `_ms`
+integer key. Defaults never fill an absent workflow declaration.
+
+Optional node `budgets` has the same shape with any nonempty subset, inherits
+omitted fields from the workflow and cannot exceed its limits. Every declared
+value requires its shared Bounded integer descriptor; absent descriptors, wrong
+classes/kinds and exceeded ranges refuse. No `off`, automatic sizing or
+zero-means-unlimited sentinel: zero tokens/calls permits no use of that resource,
+and wall time stays positive.
+
+Portable source checks use descriptor ranges and admitted standard/package/
+parent constraints, never current developer preferences. C17/C46 separately
+resolve narrower user/default, workspace, flag and package ceilings; their
+intersection with the declaration is the effective session/run budget. Source
+compilation grants none of the larger declared amount. `settings/README.md`
+documents the registry; common `settings/defaults.toml` may supply canonical
+keys through C46's single lowest defaults producer, changing neither bounds nor
+classes. Duplicate producers refuse; no second resolver is introduced.
+
+Counters span all nodes, retries, repairs, map items and nested subgraphs;
+delegation never resets them. Tokens sum each model request's input and output;
+cached input is included once. Wall is elapsed time from run start, including
+waits/pauses, not summed node durations. A node limit bounds one invocation;
+the enclosing run still bounds repeated invocations. S4 owns accounting,
+enforcement and unavailable-usage refusal, not C22b.
+
+For now `cost` and `cost_units` refuse as **unsupported in Phase 1**. The full
+cost target remains open: define its unit, range, default and pricing source
+before M3. C22b records the unchecked obligation and C28 gates M3 on closure;
+refusing cost input does not close it or prove all dimensions delivered. Do not
+invent a currency, pricing source, zero-cost assumption or integer-max ceiling.
+
+#### Policy and admission boundaries
 
 Cedar evaluates normalized requests against the real schema/policy set. Trusted
 actor, allowed operation, target and approval facts come from the host adapter,
@@ -949,28 +1005,253 @@ allowed neighbour, a denied case and a spy proving zero executor calls on
 denial. A native hook is defence in depth, explicitly unprotected when absent;
 it is not a sandbox or S4's authoritative broker.
 
-S3 `reviewed` means the declared stage plus a named resource owner on content
-admitted through OA1's protected-branch CODEOWNERS review. C03 checks the stage
-and nonempty owner; C15's protected publication provides the review assurance.
-A local authoring check or synthetic fixture proves the declaration's shape,
-not that a remote review happened. No new evidence field or fake review receipt
-is implied. Every compiled closure member must meet this threshold; record/show
-maturity and owner in bundle, lock, preview and explain. Placeholder, authored
-and retired members refuse. S4 raises execution admission to `qualified`;
-S3 never fabricates that evidence. C22a tests the two thresholds independently.
+Local authoring eligibility is a reviewed declaration plus checked area
+ownership over the full closure. C22b corrects C22a's unwired `ReviewEvidence`
+seam to these terms, for example `AuthoringEligibility::reviewed_with_owner`,
+reusing the source checker's admitted declaration/ownership state. Keep every
+closure/maturity refusal: placeholder, authored, retired or missing-owner
+members refuse. Record/show maturity and owner in bundle, lock, preview and
+explain. No second source read, receipt service or fake remote-review adapter.
+C15's protected publication and signed-release admission alone assure actual
+OA1 protected owner/maintainer review. A local check proves neither that review
+nor a verified install. S4 raises executable admission to `qualified`; static
+profile satisfiability is not observed independent execution.
 
-Split graph checking into topology (C22a) and contracts (C22b). Together they
-cover all twelve architecture 03 §2.3 rules, including conditions with only the
-specified comparisons/boolean/array predicates, exact router choices,
-reviewer independence, bounded maps and subgraphs, policy/sandbox requirements,
-budgets, state flow and outputs on all successful paths. No condition executes
-code, no graph runs and no qualification card is fabricated.
+#### Graph source envelope and terminals
+
+C22a/C22b live together in `crates/maestro-catalog/src/source/workflow/`, called
+only by `source/check`. The existing `source/graph.rs` SCC helper stays put; no
+top-level graph facade, import-cycle exception or new crate. One-consumer helpers
+stay beside that consumer. Split topology (C22a) from contracts (C22b), together
+checking all twelve architecture 03 §2.3 rules without executing a graph.
+
+Workflow `maestro-source/2` metadata is flat YAML frontmatter at
+`<owner>/workflows/<name>/workflow.md`, not a nested table or sidecar. Add a
+generic descriptor placement such as `MetadataPlace::Root`, not a workflow-name
+branch in the loader. The existing parser splits `schema`, `maturity`, `rows`,
+`workflows`, `requires` and `version` exactly once; `id`, `name` and graph fields
+go through the workflow hook. Require `version` and one explicit `requires`
+list. `id`/`name` equal the path-derived identity; area ownership remains derived,
+with no `owner` field. The normalized graph takes requirements from checked
+metadata, never a second authoritative copy. Refuse nested/sidecar metadata,
+duplicate keys, descriptor fields colliding with envelope keys and undeclared
+graph references. Agent sidecars and TOML `[metadata]` stay unchanged.
+
+Require top-level `start: <node-name>` and `terminal` on every sink. A terminal
+has no outgoing edges and a strict mapping with `outcome`; only `success` has a
+required `output: <state-slot>`. Outcomes are `success`, `failed`, `blocked`,
+`partial`, `read_only_findings` and `cancelled`. Refuse unknown outcomes, output
+on a non-success terminal, outgoing terminal edges and a graph with no declared
+successful terminal. Being a sink does not imply success.
+
+A successful path is a possible execution ending at a `success` terminal. Its
+output slot must be definitely assigned, have exactly the workflow's `outputs`
+contract and have an accepted node producer in the current invocation on every
+such path. Initialization permits reads but does not produce that output; a
+terminal label or human gate alone produces no artifact. Preserve non-success
+branches; exhaustion/failure never becomes success because no edge was taken.
+
+#### Agent bindings and independence
+
+Register `session-profile:<namespace>/<name>` at owner-relative
+`profiles/models/<name>.toml`. Its required strict fields are `name`, qualified
+`agent`, nonempty `bindings` and the existing `[metadata]` envelope;
+metadata `requires` declares its agent. Each binding has `model_profile`
+(`fast`, `balanced`, `deep`), registered adapter `provider`, that adapter's exact
+`model` identity, and `status` (`unqualified` or `unsupported`). Duplicate
+`(model_profile, provider)` pairs refuse. Optional `settings` contain only
+applicable descriptor-checked S1 values with the same narrowing, never SDK
+passthrough. Actual model identities remain owner inputs.
+
+Every agent node explicitly selects `agent`, `profile`, `model_profile` and
+`provider`, for example:
+
+```yaml
+code:
+  kind: agent
+  agent: agent:core/worker
+  profile: session-profile:core/worker
+  model_profile: balanced
+  provider: copilot
+```
+
+Both IDs belong in workflow `requires`; check exact role binding and select
+exactly one checked binding. Quality profiles, kernel cards, role names and
+arbitrary strings are not session profiles. Selected absent/unsupported bindings
+refuse; fully declared unqualified bindings can establish static satisfiability,
+not live qualification. Adapter-owned canonical identity normalization supplies
+comparison, with no fallback or model loading. Compare resolved model profile
+configuration or provider identity, not filenames or `fast`/`balanced` labels;
+renaming identical bindings cannot manufacture independence. Unresolvable
+identities fail closed.
+
+The compiler derives a symbolic fresh-session requirement from workflow/node
+identity; an authored `session` ID is not evidence. S4 must create a real fresh
+session on every execution, including loops/maps, and prove observed
+independence. `authoring_check_does_not_claim_remote_review` must pass reviewed,
+owned synthetic input through the real checker, assert authoring-only output
+with no remote-review/verified-install/qualification receipt, and show that it
+cannot enter verified installation. Pair missing-owner and
+placeholder/authored/retired closure refusals with a genuinely distinct declared
+profile/provider neighbour, without claiming S4 proof.
+
+#### State, initialization and joins
+
+Each state slot has exactly one of `type` or qualified declared `contract`, plus
+`reducer`. Scalars are `string`, `integer`, `number`, `boolean` with `set` only;
+contract slots allow `set`, `append`, `merge`.
+
+```yaml
+inputs:
+  prior-tests: { contract: contract:core/test-report }
+state:
+  attempts: { type: integer, reducer: set, initial: 0 }
+  tests:
+    contract: contract:core/test-report
+    reducer: set
+    initial: { input: prior-tests }
+  reviews:
+    contract: contract:core/review
+    reducer: append
+    initial: []
+```
+
+Inputs retain scalar shorthand (`task: string`) and add the contract mapping
+above. `repo-ref` stays an opaque host-bound reference, not path authority.
+Arrays come from schema-typed input-contract properties or append slots, not
+new untyped list inputs. Scalar initial values must have the exact type;
+integers may satisfy `number`, but booleans/numeric strings do not. A `set` or
+`merge` contract slot admits only `initial: { input: <name> }` with the exact
+matching input contract: a required runtime input, not a fabricated handle.
+An append slot admits only `initial: []`, an empty artifact collection, never
+successful review evidence. Absent initial means unassigned for every reducer;
+null is no missing/default marker. Raw contract objects and authored digests/
+receipts refuse.
+
+`set` holds one artifact reference; `append` holds a sequence of references;
+`merge` requires an object contract and produces a newly validated artifact.
+Conflicting merge fields refuse rather than depending on writer order. S3
+checks schemas/producers; S4 validates runtime artifacts/input bindings and
+provenance. Source initial data never satisfies current-run production.
+
+Use definite assignment and distinct current-run production facts:
+
+1. Initialization establishes entry assignment only. Reads precede that
+   invocation's writes; outgoing conditions see accepted writes afterward.
+2. Alternative-path merges intersect incoming facts. Preserve the initial entry
+   alternative in loop fixed points: a later write cannot justify a first read.
+3. Joins combine completed contributions from the same activation, never from
+   different loop iterations. `all` combines guaranteed facts; `any` intersects
+   all possible completing predecessors; `quorum:q` keeps only facts guaranteed
+   in every possible set of q completers. For k possible contributors and a fact
+   on c of them, the guarantee is exactly `k - c < q`. Apply only to contributors
+   established for that activation, not as a shortcut around loop entry.
+4. Check node `reads`, condition accesses, gate `shows`, map selectors, subgraph
+   bindings and terminal outputs. All conditional branches remain possible;
+   never assume condition feasibility or unroll authored iteration limits.
+
+#### Payloads, conditions and router choices
+
+`writes: <slot>` names one slot and derives the payload type; append uses the
+item contract, not the accumulated array. A payload without a write declares
+`output_contract: <qualified-contract-id>`. If both are present, they must name
+the same exact contract; scalar writers derive their scalar type instead.
+Control nodes have no implicit artifact; subgraph/map types derive from callees.
+
+The trusted result envelope has `outcome` from the terminal enum and `output`
+when its declared payload exists. This is an engine protocol, not a catalog
+contract or authored success fact. Only accepted payloads publish writes;
+failed/rejected results establish none. Edges default to successful completion;
+explicit non-success paths cannot access absent output or establish a write.
+Condition analysis tracks that outcome distinction.
+
+Conditions see `outcome`, typed `output.<field>` and the source node's declared
+readable slots or accepted written slot. `tests.failed > 0` is valid for a tests
+writer; a join using `any(reviews, r => ...)` declares `reads: [reviews]`. Other
+known slots are not ambient state. Artifact references expose schema-typed
+read-only payload views, not digest strings or arbitrary file loads.
+
+The grammar is typed `==`, `!=`, `<`, `<=`, `>`, `>=`, boolean `&&`, `||`, `!`,
+parentheses, scalar literals, field selection, `any(array, item => predicate)`
+and `all(array, item => predicate)`. Array predicates bind one local variable.
+No assignment, arithmetic, indexing, interpolation, I/O or arbitrary call.
+Comparisons need compatible scalars; ordering is numeric, never implicit
+string/number conversion. Predicates/operators require booleans. Resolve local
+schema references before typing fields; ambiguous/potentially absent fields
+are not known scalars. Use the approved real JSON Schema validator for schemas
+and concrete values, not an expression evaluator or second schema engine.
+Transfers require exact contract identity, not general schema subsumption.
+
+A router declares `output_contract` and unique `choices: [<target-node>, ...]`.
+Its object contract requires a string `choice` property with a finite nonempty
+`enum`. That enum, choices and outgoing-edge targets must be exactly equal sets
+without duplicates. Router edges have no `when`: the checked choice selects
+one edge. An optional write needs a matching slot; arbitrary strings cannot
+invent targets. Terminal output checking includes all successful branches,
+initialization provenance and outcome-dependent writes.
+
+#### Edges and kind-specific fields
+
+Normalize both existing edge forms once from the strict YAML parse:
+
+```yaml
+edges:
+  - plan -> code
+  - "test -> code": { when: "tests.failed > 0", max_iterations: 3 }
+```
+
+A string has exactly one `->` and two existing graph-local names, trimmed at
+their edges. A mapping has exactly one such key and strict options: optional
+nonempty `when`, positive integer `max_iterations`, nonempty unique `on` list
+of declared outcomes. `on` defaults to `[success]` for both forms; empty options
+mean an unconditional success edge. `on: [failed]` may route execution/budget
+failure but invents no artifact. Refuse unknown/duplicate keys, wrong options
+types, absent endpoints, extra arrows, zero/fractional/overflowing bounds,
+unsupported outcomes and duplicate normalized `(from, to)` edges. Authors can
+combine predicates with `||`; diagnostics name original source and edge/field.
+
+Iteration bounds count traversals of that back-edge over the whole invocation,
+never resetting per traversal. Deleting all positively bounded edges must leave
+an acyclic graph; one bounded edge somewhere in an SCC is insufficient. Keep
+C22a's bounded self-loop and unbounded subcycle checks.
+
+Common fields above accompany these strict kind-specific fields; unknown fields
+for a kind refuse:
+
+| Kind | Authored contract |
+| --- | --- |
+| `step` | Nonempty command `run`, registered output `parser`, and exactly `sandbox: required`; all inert in S3 |
+| `gate` | Exactly one of `human: true` or `check: <qualified standard-check ID>`; optional `shows` lists readable slots; unavailable checks stay unsupported |
+| `join` | `policy: all`, `policy: any` or `policy: "quorum:N"`; no separate quorum field; positive decimal N ≤ distinct incoming predecessors |
+| `subgraph` | Qualified `workflow`, positive integer `max_depth`, `inputs` binding every required callee input from typed caller input/slot selectors; no executable include/path |
+| `map` | Typed array `over`, qualified `workflow`, callee `item_input`, positive `max_items` and `max_depth`; `inputs` binds other callee inputs; optional `writes` appends matching callee outputs |
+
+Selectors are data paths rooted at `inputs.<name>` or `state.<slot>` followed
+by schema-checked object fields, not expressions. Map items must fit the named
+callee input, which cannot also occur in `inputs`. Too many items refuse rather
+than truncate; empty input yields an empty append result, not an invocation
+receipt. A subgraph write has exactly its callee's output contract.
+
+A workflow with calls declares positive top-level `max_depth`: nested calls
+below that invocation, with root depth zero. Each call node also has its local
+bound. Check the longest call path, including maps, against every enclosing
+limit; callee declarations do not reset ancestor depth. S4 entering a child
+consumes one remaining level and intersects remaining allowance with node and
+callee ceilings. No invented global or magic unbounded integer. Resource
+`requires` remains acyclic: direct/mutual recursion refuses even with depth
+bounds. Repetition uses graph back-edges. Each map item counts one depth level,
+not `max_items` levels. Static checks allocate no `max_items` copies; shared
+budget counters never sum parallel elapsed time.
+
+Joins await all, one or N distinct completed predecessors of the same
+activation. An untaken branch is not completed. Static topology proves no
+runtime progress, sandbox availability or human approval; S4 fails closed on
+missing containment.
 
 C21 adds team `workload-question` and standard-owned policy checks; C21b adds
-core `feature-delivery` with planner/worker/tester/reviewer and their contracts.
-Profiles for `copilot` and `llamacpp` may be authored/reviewed without being
-live-qualified; routing excludes unsupported combinations. Synthetic
-eligibility records test the compiler/router, never qualify live execution.
+core `feature-delivery` and its roles/contracts. D13 defines native admission,
+policy coverage and snapshot locks shared by these checks. No condition runs
+code and no synthetic eligibility record qualifies live execution.
 
 ### D8 Impact and approved recovery
 
@@ -1471,11 +1752,16 @@ necessary; no file-loaded executable validator is admitted.
 | Shape | Required contract beyond common metadata |
 | --- | --- |
 | Agent/skill/instruction | Existing native fields and fixed agent sections; specification-backed skill metadata and explicit inert assets; instruction applicability plus sidecar |
-| Prompt/handoff/contract | Bounded nonempty prompt plus input/output contract IDs; sender/recipient and Inputs/Context/Deliverables/Acceptance sections for handoff; JSON Schema 2020-12 typed object, local `$id` and declared digest-locked local references only; JSON/Cedar metadata sidecars |
-| Workflow | Existing typed graph, entry/nodes/edges, roles/steps, conditions, bounded maps/loops, budgets/state/outputs; all twelve C22 checks |
-| Policy/check/exception | Real Cedar/shared schema; stable rule IDs and allow/deny neighbours; check names registered validator/applicability/typed inputs/evidence/refusals, never an executable; exception names rule/scope/rationale/expiry/evidence |
+| Prompt/handoff | Bounded nonempty prompt plus input/output contract IDs; sender/recipient and Inputs/Context/Deliverables/Acceptance sections for handoff |
+| Contract | `contract:<namespace>/<name>` at `contracts/<name>.schema.json` plus `<name>.maestro.toml`; strict native JSON, draft 2020-12 typed object, `$id` exactly the qualified ID, checked local references below |
+| Workflow | Flat source/2 frontmatter, generic root metadata placement and one `requires`; D7's exact start/terminal, bindings, edges, state, budgets and twelve-rule checks |
+| Policy | `policy:<namespace>/<name>` at `policies/<name>.cedar` plus `<name>.maestro.toml`; real Cedar, stable `@id` annotations and strict sidecar `[policy]` below; universal policies are standard-owned |
+| Policy schema | Registered `policy-schema:<namespace>/<name>` at `policies/<name>.cedarschema.json` plus `<name>.maestro.toml`; real shared Cedar schema, not a JSON Schema contract or inert asset |
+| Policy cases | Registered checked input at owner-relative `checks/<name>.json` plus `<name>.maestro.toml`; C19 `Case` shape, unique nonzero synthetic cases and declared tested policy requirements, not a Phase 2 eval runner |
+| Standard check/exception | Check names registered validator/applicability/typed inputs/evidence/refusals, never an executable; exception names rule/scope/rationale/expiry/evidence |
 | Language/quality profile | Language/technology value, required profile/instruction/starter references; gates, applicability, failure conditions, evidence formats, thresholds and manager/tool default/alternatives; missing required bindings unresolved |
-| Session profile/model card | Existing fast/balanced/deep provider/role settings and qualification states, separate from quality; exact kernel card identity/version at `llm/models/<role>/`, role matches path and kernel validator owns canonical bytes |
+| Session profile | Registered `session-profile:<namespace>/<name>` at `profiles/models/<name>.toml`; `name`, qualified `agent`, nonempty strict `bindings`, optional S1 `settings`, `[metadata]`; D7's fast/balanced/deep provider/model identities and unqualified/unsupported states |
+| Model card | Exact kernel card identity/version at `llm/models/<role>/`, separate from session/quality profiles; role matches path and kernel validator owns canonical bytes |
 | Knowledge source | `knowledge/sources/<name>/source.toml` plus explicitly inventoried strict JSON URL policy, decisions/promotions/expiry and identity migrations; immutable pins/provenance/classification and local credential/storage references; signed-review rule admission below, never an ingested collection |
 | Hook/host | `hooks/<point>/<name>.toml`: point, target/action/tool, timeout/budget/failure behavior; host config has type/version/adapter/native aliases and explicit evidence state for all ten points; implicit engine event protocol, not a resource dependency |
 | Eval | Registered driver, subject IDs, explicit synthetic JSON inputs/cases, expected outputs/statuses, limits and required checks; fixtures now, generic driver execution Phase 2/E1 |
@@ -1489,9 +1775,110 @@ complete gate categories and honest unresolved runtime bindings. C76a extends
 that same file/identity after C82a; C02 never waits for its own recovery consumer.
 C21/C21b list paired `.maestro.toml` metadata for their JSON/Cedar contracts,
 policies and supporting inputs explicitly; a native-format file alone is not a
-complete resource. C85a supplies `capabilities/practice/project-creation/package.toml`
-and its `requires` reference to `extension:project-creation/starter-renderer`,
-rather than installing an extension without an owning area.
+complete resource. C22b owns their missing registrations/admission seams;
+C52a/b export the shapes and refresh fixture inventories. C09's measured-library
+prerequisite still gates JSON Schema adoption; no additional library is approved.
+C85a supplies `capabilities/practice/project-creation/package.toml` and its
+`requires` reference to `extension:project-creation/starter-renderer`, rather
+than installing an extension without an owning area.
+
+#### Native admission and snapshot locks
+
+Extend generic format/metadata support in source descriptors, loading,
+discovery/registration and checking, not compiler/installer kind branches.
+`source/walk.rs` is only a forwarding seam; change actual discovery helpers
+where needed rather than add another walker. Register JSON and Cedar primary
+formats. Strictly parse JSON once with duplicate-key refusal, bounded nesting
+and exact native scalar types; retain JSON as JSON, not a TOML conversion that
+loses null/numeric semantics. Real Cedar parses once and retains policies for
+validation and coverage. Descriptor-declared sidecar fields stay separate from
+the common metadata parser and are not allowed on unrelated kinds. D7's generic
+root placement never admits two workflow envelopes.
+
+Retain parsed native payloads and exact bounded bytes/digests in the checked
+compilation context. Graph, contract and policy consumers use that one snapshot:
+no file reopening, second YAML parse or call to C19's old `core/policies`
+directory loader. Reuse its effect-free Cedar adapter separately from loading,
+without a reverse loader dependency. A mutating `SourceTree` test must show one
+original read per file and unchanged semantic input after snapshot capture.
+
+Contract schemas require
+`$schema: "https://json-schema.org/draft/2020-12/schema"` and `$id` exactly the
+qualified contract ID. The dialect URI never permits network retrieval. Accept
+same-document fragment `$ref`, or a qualified `contract:` ID with an optional
+fragment. Another contract must belong to that resource's declared `requires`,
+checked closure and exact snapshot; fragments within the same document create
+no self-dependency. Resolve through the in-memory checked map with remote
+retrieval disabled. Refuse paths, basename aliases, HTTP/external retrieval,
+missing fragments, undeclared targets and mutable fallback. Cross-resource
+reference cycles obey the dependency-cycle rule; same-document recursive
+schemas go through the real validator, not unbounded manual typing expansion.
+
+Reuse the source closure lock's `{ path, id, revision, sha256 }` input rows.
+Digests cover exact captured bytes of primary files, metadata pairs and
+registered schema/case inputs. No authored `digests` field or second lock format.
+Ephemeral checks resolve one snapshot without claiming signing/installation;
+compilation and authoring/installed-lock consumers persist/recheck the complete
+closure. Changed referenced bytes invalidate a pin. Increment changed kind
+descriptor versions and regenerate schema/fixture inventories, preserving the
+unpublished `maestro-source/2` cutover, not inventing `/3`. A changed persisted
+output structure still needs its own version bump. Existing aggregate limits
+and missing/orphan pair, overlapping ownership, extra file, unknown key,
+link/traversal refusals remain.
+
+#### Policy sidecars and static tool coverage
+
+The common envelope remains at the sidecar root; only policy descriptors add:
+
+```toml
+[policy]
+policy_ids = ["protected-paths"]
+cedar_schema = "policy-schema:security/schema"
+cases = "checks/policy-neighbours.json"
+allow_cases = ["ordinary-path"]
+deny_cases = ["protected-path"]
+```
+
+`policy_ids` is nonempty/unique and equals the IDs parsed from that file. Each
+Cedar policy has exactly one stable `@id("...")`; assembling a policy set uses
+those IDs, never concatenation order. Duplicate IDs across the selected closure
+refuse. `cedar_schema` is a qualified declared requirement; all selected policies
+resolve the same exact shared schema resource/digest. Other contract dependencies
+stay ordinary qualified metadata requirements.
+
+`cases` is one explicit owner-area-relative input path, not policy-directory
+relative or a resource alias. C21 resolves it to
+`standards/security/checks/policy-neighbours.json` with paired
+`policy-neighbours.maestro.toml`. The registered checked input reuses C19's
+`Case`: `name`, `operation`, optional synthetic `facts`, `expected`; names are
+unique and zero cases refuse. Its metadata declares the tested policy set's
+requirements. Nonempty `allow_cases`/`deny_cases` select existing names with those
+exact expected outcomes. Include schema/cases and metadata in the same snapshot
+and digest closure. Fixture facts never enter production `HostFacts` or grant
+approval; this is no Phase 2 eval runner.
+
+Rule 7 proves structural coverage, not a future permit:
+
+1. Resolve tools through registered host-tool metadata or checked namespaced MCP
+   bindings, never source-authored unknown-tool/action mappings. Steps also need
+   the registered sandbox execution action; omitting `tools` cannot hide it.
+2. The normalized action belongs to the shared Cedar schema. Real Cedar validates
+   the entire selected set without errors or warnings; node restrictions add to
+   mandatory inherited policies rather than replace them.
+3. At least one parsed policy action constraint covers the action: equality,
+   action-group membership or unconstrained scope. Derive it from real Cedar AST
+   and schema, never grep, sidecar assertions or a second policy interpreter.
+   A covering forbid counts as coverage, not a promise of permission.
+4. Generic `mcp.call` cannot authorize arbitrary server/tools: exact checked
+   binding/closure remains required. Missing bindings, unknown actions, absent
+   coverage or validation diagnostics refuse.
+
+Compilation invents no actor, target, approval or egress facts to obtain Allow.
+The runtime broker stays default-deny with trusted facts and every diagnostic
+inspected. Real C19 allow/deny fixtures remain required but authorize nothing.
+Test a forbid-covered tool passing static coverage while its real runtime
+request denies, with zero executor calls. Invalid Cedar/schema, mismatched IDs,
+missing case neighbours, undeclared schemas and fabricated host facts refuse.
 
 Every registered kind/config shape needs an authored valid and refusal fixture
 with expected diagnostic and allowed neighbour. Registry inventory rejects

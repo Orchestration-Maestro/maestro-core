@@ -775,7 +775,27 @@ invalid graph rule and policy fixture through the real checks.
   closure/maturity, reachability, bounded cycles, typed conditions, exact router
   edges, reviewer independence, tool policy coverage, sandbox requirements,
   bounded maps/depth, budgets, state flow and outputs on every successful path.
-  S3 MUST NOT execute a graph or invent S4 qualification.
+  S3 MUST NOT execute a graph or invent S4 qualification. Rule 10 uses S1's
+  shared Bounded integer descriptors, with inclusive ranges/defaults:
+  `workflow.budgets.tokens` 0–2147483647/default 2147483647 aggregate input plus
+  output tokens; `workflow.budgets.wall_ms` 1–2147483647/default 1800000 elapsed
+  milliseconds; `workflow.budgets.tool_calls` 0–2147483647/default 2147483647
+  aggregate calls. **Owner decision, 2026-10-02:** mirror Pi's defaults: a
+  thirty-minute run timeout and optional token/tool-call caps, with no cap by
+  default represented by the registry maximum. These are compatibility values,
+  not measured optima. Source requires all three `budgets` fields; `wall` is a
+  duration string: unsigned integer followed by `ms`, `s`, `m` or `h`, checked
+  for overflow and normalized to milliseconds. D7 defines exact syntax and node
+  inheritance; `budgets: { tokens: 600000, wall: 60m, tool_calls: 400 }` remains
+  valid. No missing-field defaults, `off` or zero-as-unlimited; wall is positive.
+  Portable checks use descriptor ranges and admitted standard/package/parent
+  constraints, not developer preferences. C17/C46's effective session ceilings
+  intersect declarations and can only narrow them. Counters cover retries,
+  repairs, maps and children; S4 owns actual accounting/enforcement. Each ask
+  still uses `tool_calls` 0–40/default 40 and its existing output limit, never
+  these aggregate descriptors. Interim `cost`/`cost_units` input refuses as
+  unsupported in Phase 1; defining cost unit/range/default/pricing remains an
+  open C22b obligation and explicit C28 M3 gate, not a removed dimension.
 - **FR-S3-020**: Freeze at least 100 independently reviewed public/synthetic
   intents before routing comparisons, including valid alternatives, no-match,
   clarification and adversarial cases. Record suite, synthetic eligibility
