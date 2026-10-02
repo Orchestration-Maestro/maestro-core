@@ -4,10 +4,7 @@ use super::{
     output::{Entry, Report},
 };
 use crate::failure::Failure;
-use maestro_acquisition::{
-    Refusal,
-    policy::{format_time, identity::FetchIdentity},
-};
+use maestro_acquisition::policy::{format_time, identity::FetchIdentity};
 use maestro_kernel::acquisition::{Item, ItemDisposition, Receipts, StageItem};
 use std::time::SystemTime;
 
@@ -25,7 +22,7 @@ pub(crate) fn exclusion<S: Receipts, T>(
         work.runtime.controls,
     );
     let parsed = FetchIdentity::parse(work.source, url);
-    let reason = if reason == "policy_denial" || parsed == Err(Refusal::Access) {
+    let reason = if reason == "policy_denial" {
         "policy_denial"
     } else if parsed.is_err() {
         "unresolved_identity"
