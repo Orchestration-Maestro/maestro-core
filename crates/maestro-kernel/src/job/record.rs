@@ -206,7 +206,7 @@ impl Database {
     /// [`Error::Store`] when the database cannot be read, or holds a job it
     /// cannot read back.
     pub fn job(&self, scopes: &ScopeSet, id: Ulid) -> Result<Option<Job>, Error> {
-        Ok(find(&self.reader()?, Some(scopes), id)?)
+        Ok(find(&*self.reader()?, Some(scopes), id)?)
     }
 }
 

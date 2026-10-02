@@ -81,7 +81,7 @@ pub(super) fn source(
     source_id(name)?;
     let deadline = bounds(request)?;
     // Check authority time before submitting a durable job.
-    times(&db.reader()?, request.now, request.term)?;
+    times(&*db.reader()?, request.now, request.term)?;
     let resource = format!("acquisition/source/{name}");
     let job = db.submit_job(
         &NewJob {

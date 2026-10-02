@@ -12,7 +12,7 @@ impl Database {
     ///
     /// [`Error::Store`] when the database cannot be read.
     pub fn cursor(&self, consumer: &str, stream: &str) -> Result<u64, Error> {
-        Ok(stored_position(&self.reader()?, consumer, stream)?)
+        Ok(stored_position(&*self.reader()?, consumer, stream)?)
     }
 
     /// Moves the cursor of `consumer` on `stream` to `position`, the

@@ -18,6 +18,8 @@ mod history_tests;
 mod record_tests;
 #[cfg(test)]
 mod resume_tests;
+#[cfg(test)]
+mod sync_reader_tests;
 
 mod bindings;
 pub(crate) mod cli;

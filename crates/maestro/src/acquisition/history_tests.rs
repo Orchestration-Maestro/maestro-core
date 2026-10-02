@@ -17,7 +17,7 @@ use std::{
 };
 
 /// Independently authored historical rows, never a network or permission bypass.
-fn historical(fixture: &Fixture, count: usize, captured: bool, kernel_principal: &str) {
+pub(super) fn historical(fixture: &Fixture, count: usize, captured: bool, kernel_principal: &str) {
     let now = SystemTime::now();
     let scope = "workspace/default/collection/garden".parse().unwrap();
     let lease = LeaseRequest {

@@ -76,6 +76,7 @@ in place.
 │   │   │   │   ├── sync_capture.rs                                                      # Public HTTP, immutable capture and offline discovery under one current writer
 │   │   │   │   ├── sync_discovery.rs                                                    # Full declared inventories are independent of this run's remaining HTTP slots
 │   │   │   │   ├── sync_disposition.rs                                                  # Definitive historical exclusions precede readiness, allocation and dispatch holds
+│   │   │   │   ├── sync_reader_tests.rs                                                 # Deterministic reader costs and the opt-in N14 large-history profile
 │   │   │   │   └── sync_source.rs                                                       # One source writer; frontier pages, never a second authoritative queue
 │   │   │   ├── cli/                                                                     # The commands, a module each, and what they share
 │   │   │   │   ├── backup/                                                              # Back up and restore the kernel
@@ -982,12 +983,14 @@ in place.
 │   │   │   │   │   ├── graph_migrations.rs                                              # Graph migrations upgrade populated legacy stores and roll back failed DDL
 │   │   │   │   │   ├── migrations.rs                                                    # Migrations: applied in number order, each once, recorded by name, and a
 │   │   │   │   │   ├── mod.rs                                                           # Tests of the kernel database: its migrations, its connections, the
+│   │   │   │   │   ├── readers.rs                                                       # Pool reuse, concurrent units, transaction cleanup and fresh authorization
 │   │   │   │   │   └── support.rs                                                       # What the database tests share: scratch directories, the digests of their
 │   │   │   │   ├── artifacts.rs                                                         # The artifacts table: what the artifact store holds, the pins that keep
 │   │   │   │   ├── database.rs                                                          # The database: its file, one writer connection behind a mutex, and readers
 │   │   │   │   ├── error.rs                                                             # Why the kernel's database refused an operation
 │   │   │   │   ├── migration.rs                                                         # The migrations: the SQL files of migrations/, embedded in the binary
-│   │   │   │   └── mod.rs                                                               # The kernel's database: one SQLite file beside the artifact store, holding
+│   │   │   │   ├── mod.rs                                                               # The kernel's database: one SQLite file beside the artifact store, holding
+│   │   │   │   └── reader.rs                                                            # Short read units borrow configured connections without serializing their queries
 │   │   │   ├── telemetry/                                                               # Telemetry: pinned span names and component health (building block B11)
 │   │   │   │   ├── tests/                                                               # Tests of telemetry: component health, and the stages and their spans
 │   │   │   │   │   ├── health.rs                                                        # Tests of component health

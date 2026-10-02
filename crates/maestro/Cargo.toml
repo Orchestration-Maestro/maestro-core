@@ -33,6 +33,7 @@ tokio = { workspace = true, features = [
 ulid.workspace = true
 
 [dev-dependencies]
+maestro-kernel = { workspace = true, features = ["test"] }
 maestro-test-clock.workspace = true
 maestro-test-scratch.workspace = true
 qdrant-client.workspace = true

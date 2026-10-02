@@ -12,7 +12,7 @@ use crate::{
     scope::Scope,
     store::{self, Database},
 };
-use rusqlite::{OptionalExtension as _, Transaction, params};
+use rusqlite::{Connection, OptionalExtension as _, Transaction, params};
 use std::{collections::BTreeMap, time::SystemTime};
 
 /// Current trusted source/dispatch ownership, never a staging path from a source.
@@ -95,21 +95,7 @@ pub trait Captures: Send + Sync {
 }
 impl Captures for Database {
     fn capture_for(&self, scope: &Scope, item: &Item) -> Result<Option<Handle>, ReceiptError> {
-        let capture: Option<String> = self
-            .reader()?
-            .query_row(
-                "SELECT envelope FROM acquisition_capture_links WHERE item = ?1",
-                [item.id.to_string()],
-                |row| row.get(0),
-            )
-            .optional()?;
-        let Some(handle) = capture.and_then(|text| text.parse().ok()) else {
-            return Ok(None);
-        };
-        if self.verify_capture(scope, item, handle).is_err() {
-            return Ok(None);
-        }
-        Ok(Some(handle))
+        capture_for_on(self, &*self.reader()?, scope, item)
     }
     fn read_capture(
         &self,
@@ -161,7 +147,7 @@ impl Captures for Database {
         let encoded = serde_json::to_vec(envelope)?;
         let (_, previous) = self.write(|tx| existing(tx, context, envelope, &identity))?;
         if let Some(handle) = previous {
-            verify(self, handle)?;
+            verify(self, &*self.reader()?, handle)?;
             return Ok(PreparedCapture {
                 handle,
                 retained_bytes: 0,
@@ -215,7 +201,7 @@ impl Captures for Database {
         privacy::validate(&scope, &encoded, &[])?;
         validate_parent(self, envelope, &scope)?;
         if let Some(handle) = previous {
-            verify(self, handle)?;
+            verify(self, &*self.reader()?, handle)?;
             return Ok(0);
         }
         let total = payloads(envelope)?.values().sum::<u64>();
@@ -241,35 +227,14 @@ impl Captures for Database {
         item: &Item,
         evidence: Handle,
     ) -> Result<(), ReceiptError> {
-        let envelope = verify(self, evidence)?;
-        let row: Option<(String, String, String, Option<String>)> = self
-            .reader()?
-            .query_row(
-                "SELECT e.scope, e.artifact, l.item, f.capture FROM acquisition_capture_links l
-             JOIN acquisition_evidence e ON e.id = l.envelope
-             JOIN acquisition_frontier f ON f.id = l.item WHERE l.envelope = ?1",
-                [evidence.to_string()],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-            )
-            .optional()?;
-        let (stored_scope, artifact, linked_item, acknowledged) =
-            row.ok_or(ReceiptError::Invalid)?;
-        if stored_scope != scope.as_str()
-            || linked_item != item.id.to_string()
-            || envelope.item.to_string() != linked_item
-            || acknowledged.as_deref() != Some(artifact.as_str())
-            || item.capture.as_ref().map(Digest::as_str) != Some(artifact.as_str())
-        {
-            return Err(ReceiptError::Invalid);
-        }
-        Ok(())
+        verify_capture_on(self, &*self.reader()?, scope, item, evidence)
     }
     fn acknowledge_capture(
         &self,
         context: &CaptureContext,
         capture: Handle,
     ) -> Result<(), ReceiptError> {
-        let envelope = verify(self, capture)?;
+        let envelope = verify(self, &*self.reader()?, capture)?;
         if envelope.item.to_string() != context.item.item.to_string() {
             return Err(ReceiptError::Invalid);
         }
@@ -287,6 +252,57 @@ impl Captures for Database {
         self.acknowledge(&context.writer, &context.item, &artifact, context.now)
             .map_err(|_| ReceiptError::Conflict)
     }
+}
+/// Scoped lookup and every artifact/link check share this read unit.
+fn capture_for_on(
+    db: &Database,
+    reader: &Connection,
+    scope: &Scope,
+    item: &Item,
+) -> Result<Option<Handle>, ReceiptError> {
+    let capture: Option<String> = reader
+        .query_row(
+            "SELECT envelope FROM acquisition_capture_links WHERE item = ?1",
+            [item.id.to_string()],
+            |row| row.get(0),
+        )
+        .optional()?;
+    let Some(handle) = capture.and_then(|text| text.parse().ok()) else {
+        return Ok(None);
+    };
+    if verify_capture_on(db, reader, scope, item, handle).is_err() {
+        return Ok(None);
+    }
+    Ok(Some(handle))
+}
+/// Verify immutable evidence and its exact acknowledged frontier linkage together.
+fn verify_capture_on(
+    db: &Database,
+    reader: &Connection,
+    scope: &Scope,
+    item: &Item,
+    evidence: Handle,
+) -> Result<(), ReceiptError> {
+    let envelope = verify(db, reader, evidence)?;
+    let row: Option<(String, String, String, Option<String>)> = reader
+        .query_row(
+            "SELECT e.scope, e.artifact, l.item, f.capture FROM acquisition_capture_links l
+             JOIN acquisition_evidence e ON e.id = l.envelope
+             JOIN acquisition_frontier f ON f.id = l.item WHERE l.envelope = ?1",
+            [evidence.to_string()],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .optional()?;
+    let (stored_scope, artifact, linked_item, acknowledged) = row.ok_or(ReceiptError::Invalid)?;
+    if stored_scope != scope.as_str()
+        || linked_item != item.id.to_string()
+        || envelope.item.to_string() != linked_item
+        || acknowledged.as_deref() != Some(artifact.as_str())
+        || item.capture.as_ref().map(Digest::as_str) != Some(artifact.as_str())
+    {
+        return Err(ReceiptError::Invalid);
+    }
+    Ok(())
 }
 /// Validate content and exact representation before admitting any durable bytes.
 fn validate(
@@ -373,15 +389,19 @@ fn existing(
     }
 }
 /// Verify both artifact bodies and their immutable scoped linkage on every replay.
-fn verify(db: &Database, capture: Handle) -> Result<CaptureEnvelope, ReceiptError> {
-    let body: String = db.reader()?.query_row(
+fn verify(
+    db: &Database,
+    reader: &Connection,
+    capture: Handle,
+) -> Result<CaptureEnvelope, ReceiptError> {
+    let body: String = reader.query_row(
         "SELECT e.artifact FROM acquisition_capture_links l
          JOIN acquisition_evidence e ON e.id = l.body WHERE l.envelope = ?1",
         [capture.to_string()],
         |row| row.get(0),
     )?;
     let envelope: CaptureEnvelope =
-        serde_json::from_slice(&privacy::snapshot(db, &capture.to_string())?)?;
+        serde_json::from_slice(&privacy::snapshot_on(db, reader, &capture.to_string())?)?;
     // Preparation checked digest and length before retaining these immutable
     // edges. The artifact store rehashes both payloads here; repeating those
     // field comparisons cannot detect any additional substitution.
@@ -434,7 +454,7 @@ fn validate_parent(
     if accepted.as_deref() != Some(artifact.as_str()) {
         return Err(ReceiptError::Invalid);
     }
-    let envelope = verify(db, parent)?;
+    let envelope = verify(db, &*db.reader()?, parent)?;
     let rules: Vec<Derivation> = serde_json::from_str(include_str!("derivations.json"))?;
     if !rules.iter().any(|rule| {
         rule.child == child.representation && rule.parents.contains(&envelope.representation)

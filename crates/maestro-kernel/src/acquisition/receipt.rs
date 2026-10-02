@@ -369,11 +369,12 @@ fn validate_inventories(
 ) -> Result<BTreeSet<(Stage, Handle)>, ReceiptError> {
     let mut seen = BTreeSet::new();
     let mut complete = receipt.reason == Reason::None;
+    let reader = db.reader()?;
     for handle in &receipt.inventories {
         let page: InventoryPage =
-            serde_json::from_slice(&privacy::snapshot(db, &handle.to_string())?)?;
+            serde_json::from_slice(&privacy::snapshot_on(db, &reader, &handle.to_string())?)?;
         validate_page(&page)?;
-        if !privacy::linked(&db.reader()?, *handle, &inventory_references(&page))? {
+        if !privacy::linked(&reader, *handle, &inventory_references(&page))? {
             return Err(ReceiptError::Invalid);
         }
         complete &= page.complete;

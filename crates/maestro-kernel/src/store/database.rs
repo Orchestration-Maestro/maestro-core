@@ -4,6 +4,7 @@
 use super::{
     error::Error,
     migration::{MIGRATIONS, migrate, pending},
+    reader::Reader,
 };
 use crate::{
     artifact::Store,
@@ -34,8 +35,14 @@ static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 /// The kernel's database, and the artifact store whose artifacts it records.
 #[derive(Debug)]
 pub struct Database {
+    /// Idle readers close before the writer so its final WAL checkpoint can run.
+    /// The free-list lock never covers query execution.
+    readers: Mutex<Vec<Connection>>,
     /// The one connection that writes, shared by every thread.
     writer: Mutex<Connection>,
+    /// Reader connections opened by this database, exposed only to test support.
+    #[cfg(any(test, feature = "test"))]
+    reader_opens: AtomicU64,
     /// The database file, absolute, which each reader opens.
     path: PathBuf,
     /// The artifact store whose artifacts the `artifacts` table records.
@@ -86,6 +93,9 @@ impl Database {
         }
         Ok(Self {
             writer: Mutex::new(reader),
+            readers: Mutex::new(Vec::new()),
+            #[cfg(any(test, feature = "test"))]
+            reader_opens: AtomicU64::new(0),
             path,
             artifacts: Store::new(data.join("artifacts")),
         })
@@ -108,6 +118,9 @@ impl Database {
         migrate(&mut writer, migrations)?;
         Ok(Self {
             writer: Mutex::new(writer),
+            readers: Mutex::new(Vec::new()),
+            #[cfg(any(test, feature = "test"))]
+            reader_opens: AtomicU64::new(0),
             path,
             artifacts: Store::new(artifacts),
         })
@@ -154,7 +167,8 @@ impl Database {
     ///
     /// [`Error::Sqlite`] when the database cannot be read at all.
     pub fn quick_check(&self) -> Result<Vec<String>, Error> {
-        let reader = self.reader()?;
+        // Doctor checks the current file, not a pooled connection to an older inode.
+        let reader = self.new_reader()?;
         let checked = reader
             .prepare("PRAGMA quick_check")
             .and_then(|mut statement| {
@@ -175,17 +189,33 @@ impl Database {
         }
     }
 
+    /// Number of reader connection opens, for deterministic adapter cost tests.
+    #[cfg(any(test, feature = "test"))]
+    #[must_use]
+    pub fn reader_opens(&self) -> u64 {
+        self.reader_opens.load(Ordering::Relaxed)
+    }
+
     /// A connection of its own that only reads, and sees the last commit,
     /// never a write in progress.
     ///
     /// # Errors
     ///
     /// [`Error::Sqlite`] when the database file cannot be opened.
-    pub(crate) fn reader(&self) -> Result<Connection, Error> {
-        configured(Connection::open_with_flags(
+    pub(crate) fn reader(&self) -> Result<Reader<'_>, Error> {
+        Reader::borrow(&self.readers, || self.new_reader())
+    }
+    /// A dedicated configured connection for controlled searches and file diagnostics.
+    /// Its raw connection type cannot be returned to the ordinary reader pool.
+    pub(crate) fn new_reader(&self) -> Result<Connection, Error> {
+        let reader = configured(Connection::open_with_flags(
             &self.path,
             OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )?)
+        )?)?;
+        reader.pragma_update(None, "query_only", true)?;
+        #[cfg(any(test, feature = "test"))]
+        self.reader_opens.fetch_add(1, Ordering::Relaxed);
+        Ok(reader)
     }
 }
 

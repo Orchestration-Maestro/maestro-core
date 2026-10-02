@@ -3,8 +3,8 @@
 //!
 //! The file, `kernel.sqlite3` in the kernel's data directory by default, is in
 //! WAL mode. One writer connection, behind a mutex, serves every thread, and
-//! each write is one short `IMMEDIATE` transaction; readers open connections
-//! of their own, which only read and see the last commit. Every connection
+//! each write is one short `IMMEDIATE` transaction; read units borrow connections
+//! from a free list, which only read and see the last commit. Every connection
 //! waits 5 s for another's lock, enforces foreign keys, and fires the delete
 //! triggers of the rows a `REPLACE` removes (recursive triggers), so no
 //! replacement that names a guarded row's rowid deletes it. The kernel's
@@ -51,6 +51,7 @@ pub(crate) mod artifacts;
 mod database;
 mod error;
 mod migration;
+mod reader;
 #[cfg(test)]
 mod tests;
 

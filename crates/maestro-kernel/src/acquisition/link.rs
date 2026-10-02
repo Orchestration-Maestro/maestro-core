@@ -92,7 +92,7 @@ impl Database {
             link,
         } = request;
         verify_capture(self, scope, link.capture)?;
-        self.get(&evidence_digest(&self.reader()?, link.fidelity)?)?;
+        self.get(&evidence_digest(&*self.reader()?, link.fidelity)?)?;
         let inventory: Inventory =
             serde_json::from_slice(&self.get(&link.inventory)?).map_err(|_| conflict(link))?;
         let Inventory(_version, records) = inventory;
@@ -118,7 +118,7 @@ impl Database {
         scopes: &ScopeSet,
         revision: &str,
     ) -> Result<Vec<RevisionLink>, document::Error> {
-        links(&self.reader()?, scopes, "revision", revision)
+        links(&*self.reader()?, scopes, "revision", revision)
     }
     /// Reverse lookup for withdrawal/repair; denied captures return no revision identities.
     ///
@@ -129,7 +129,7 @@ impl Database {
         scopes: &ScopeSet,
         capture: Handle,
     ) -> Result<Vec<RevisionLink>, document::Error> {
-        links(&self.reader()?, scopes, "capture", &capture.to_string())
+        links(&*self.reader()?, scopes, "capture", &capture.to_string())
     }
 }
 /// Reuse N12's acknowledged-item verifier and capture artifact readback, never a parallel reader.

@@ -215,7 +215,7 @@ impl Database {
     ///
     /// [`Error::Store`] when the database cannot be read.
     pub fn document(&self, scopes: &ScopeSet, id: &str) -> Result<Option<Document>, Error> {
-        Ok(find_document(&self.reader()?, Some(scopes), id)?)
+        Ok(find_document(&*self.reader()?, Some(scopes), id)?)
     }
 }
 

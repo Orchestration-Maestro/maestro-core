@@ -256,8 +256,9 @@ pub(super) fn read(
     principal: &str,
     handle: Handle,
 ) -> Result<Option<ProtectedArtifact>, ReceiptError> {
-    let scopes = db.visible(principal)?;
-    let Some(digest) = authorized(&db.reader()?, &scopes, handle)? else {
+    let reader = db.reader()?;
+    let scopes = Database::visible_on(&reader, principal)?;
+    let Some(digest) = authorized(&reader, &scopes, handle)? else {
         return Ok(None);
     };
     Ok(Some(ProtectedArtifact {
@@ -266,7 +267,7 @@ pub(super) fn read(
 }
 /// Loads an internal snapshot. This is kernel bookkeeping, never an external view.
 pub(super) fn snapshot(db: &Database, handle: &str) -> Result<Vec<u8>, ReceiptError> {
-    snapshot_on(db, &db.reader()?, handle)
+    snapshot_on(db, &*db.reader()?, handle)
 }
 #[cfg(test)]
 thread_local! {

@@ -94,6 +94,10 @@ impl Fixture {
     }
     /// The same production API retains typed refusal evidence.
     pub(super) fn try_sync(&self) -> Result<Report, Failure> {
+        self.try_sync_page_size(2)
+    }
+    /// Exercise production cursor size without changing the ordinary regression fixtures.
+    pub(super) fn try_sync_page_size(&self, page_size: u16) -> Result<Report, Failure> {
         let scopes = self.db.visible(&self.kernel_principal).unwrap();
         let principal = Principal {
             id: &self.os_principal,
@@ -121,7 +125,7 @@ impl Fixture {
             epoch: Instant::now(),
             collection: self.collection.clone(),
             kernel_principal: &self.kernel_principal,
-            frontier_page_size: 2,
+            frontier_page_size: page_size,
         };
         Builder::new_current_thread()
             .enable_all()

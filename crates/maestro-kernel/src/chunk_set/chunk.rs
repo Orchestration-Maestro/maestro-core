@@ -68,7 +68,7 @@ impl Database {
     /// [`Error::Store`] when the database cannot be read.
     pub fn chunks(&self, scopes: &ScopeSet, chunk_set_id: &str) -> Result<Vec<Chunk>, Error> {
         Ok(read(
-            &self.reader()?,
+            &*self.reader()?,
             &format!(
                 "chunks.chunk_set_id = ?1 AND {}",
                 ScopeSet::source_condition("documents.collection_id", "documents.source_id", 2)

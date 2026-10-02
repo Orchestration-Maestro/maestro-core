@@ -5,6 +5,8 @@ use maestro_kernel::acquisition::{
 };
 use maestro_kernel::scope::Scope;
 use serde::Serialize;
+#[cfg(test)]
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// One stage's distinct-item counts; stages are never summed as disjoint items.
@@ -76,14 +78,16 @@ pub fn reconcile(
     verification: (&dyn Captures, &Scope),
 ) -> Result<Outcome, ReceiptError> {
     let mut frontier_ids = BTreeSet::new();
+    let mut frontier_index = BTreeMap::new();
     let mut attempted = BTreeSet::new();
     let mut verified = BTreeSet::new();
     let mut attempts = 0_u64;
     for item in frontier {
-        let handle: Handle = item.id.to_string().parse()?;
+        let handle = frontier_key(item)?;
         if !frontier_ids.insert(handle) {
             return Err(ReceiptError::Invalid);
         }
+        frontier_index.insert(handle, item);
         attempts = attempts
             .checked_add(item.attempts)
             .ok_or(ReceiptError::Invalid)?;
@@ -131,7 +135,7 @@ pub fn reconcile(
                 return Err(ReceiptError::Invalid);
             }
             check_evidence(item.disposition, item.evidence)?;
-            verify_evidence(verification, frontier, item)?;
+            verify_evidence(verification, &frontier_index, item)?;
             match item.disposition {
                 ItemDisposition::Blocked => blocked = true,
                 ItemDisposition::Refused | ItemDisposition::Pending => incomplete = true,
@@ -221,16 +225,13 @@ fn check_evidence(
 /// Counts cannot stand in for verification of accepted evidence, at any stage.
 fn verify_evidence(
     verification: (&dyn Captures, &Scope),
-    frontier: &[Item],
+    frontier: &BTreeMap<Handle, &Item>,
     item: &StageItem,
 ) -> Result<(), ReceiptError> {
     if item.disposition == ItemDisposition::Accepted
         || item.disposition == ItemDisposition::Unchanged
     {
-        let frontier_item = frontier
-            .iter()
-            .find(|entry| entry.id.to_string() == item.item.to_string())
-            .ok_or(ReceiptError::Invalid)?;
+        let frontier_item = frontier_item(frontier, item.item)?;
         verification.0.verify_capture(
             verification.1,
             frontier_item,
@@ -238,4 +239,67 @@ fn verify_evidence(
         )?;
     }
     Ok(())
+}
+
+/// Format each frontier identity once while building the reconciliation index.
+fn frontier_key(item: &Item) -> Result<Handle, ReceiptError> {
+    #[cfg(test)]
+    KEY_FORMATS.with(|count| count.set(count.get() + 1));
+    item.id.to_string().parse()
+}
+/// Indexed lookup never scans or reformats the frontier for each completed item.
+fn frontier_item<'a>(
+    frontier: &BTreeMap<Handle, &'a Item>,
+    handle: Handle,
+) -> Result<&'a Item, ReceiptError> {
+    frontier.get(&handle).copied().ok_or(ReceiptError::Invalid)
+}
+#[cfg(test)]
+thread_local! {
+    /// Identity formatting work on this test thread, independent of concurrent tests.
+    static KEY_FORMATS: Cell<usize> = const { Cell::new(0) };
+}
+#[cfg(test)]
+mod tests {
+    use super::{KEY_FORMATS, frontier_item, frontier_key};
+    use maestro_kernel::{
+        acquisition::{Handle, Item, NewItem},
+        artifact::Digest,
+    };
+    use std::{cell::Cell, collections::BTreeMap};
+
+    #[test]
+    fn s6_reconciliation_index_formats_each_identity_only_once() {
+        for rows in [10, 40] {
+            let items: Vec<_> = (0..rows)
+                .map(|_| Item {
+                    id: Handle::new().to_string().parse().unwrap(),
+                    source: "synthetic".into(),
+                    job: Handle::new().to_string().parse().unwrap(),
+                    request: NewItem {
+                        fetch_identity: "https://example.test/synthetic".into(),
+                        authorization_context: Digest::of(b"authority"),
+                        representation_profile: Digest::of(b"profile"),
+                    },
+                    attempts: 0,
+                    epoch: 0,
+                    capture: None,
+                })
+                .collect();
+            KEY_FORMATS.with(|count| count.set(0));
+            let index: BTreeMap<Handle, &Item> = items
+                .iter()
+                .map(|item| (frontier_key(item).unwrap(), item))
+                .collect();
+            for (handle, item) in index.iter().rev() {
+                assert_eq!(frontier_item(&index, *handle).unwrap().id, item.id);
+            }
+            assert!(frontier_item(&index, Handle::new()).is_err());
+            assert_eq!(
+                KEY_FORMATS.with(Cell::get),
+                rows,
+                "lookups reformatted/scanned identities"
+            );
+        }
+    }
 }

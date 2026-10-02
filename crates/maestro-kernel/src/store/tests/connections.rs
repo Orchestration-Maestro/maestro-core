@@ -125,7 +125,7 @@ fn a_reader_sees_only_commits_and_cannot_write() {
                 [ABC],
             )?;
             assert_eq!(
-                count(&database.reader()?),
+                count(&*database.reader()?),
                 0,
                 "a write in progress is not seen"
             );

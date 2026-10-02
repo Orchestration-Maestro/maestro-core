@@ -9,7 +9,10 @@ use crate::retrieval::{Error, InventoryRequest, ReadControl, SearchRead, SystemC
 use rusqlite::Connection;
 use std::{
     slice,
-    sync::{Arc, atomic::AtomicBool},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -150,4 +153,44 @@ fn progress_handler_interrupts_a_long_recursive_read() {
         interrupted.map_err(|error| classify(error, &control)),
         Err(Error::TimedOut)
     ));
+}
+
+#[test]
+fn s6_cancelled_controlled_reader_cannot_change_or_enter_pool() {
+    let search = SearchDb::new("Synthetic controlled read.");
+    let pooled = search.database.reader().unwrap();
+    pooled.pragma_update(None, "cache_size", -1777).unwrap();
+    drop(pooled);
+    let before = search.database.reader_opens();
+    let control = control();
+    let controlled: Connection = controlled_reader(&search.database, &control).unwrap();
+    control.cancelled.store(true, Ordering::Relaxed);
+    assert!(long_read(&controlled).is_err());
+    drop(controlled);
+    assert_eq!(search.database.reader_opens(), before + 1);
+    let pooled = search.database.reader().unwrap();
+    assert!(
+        long_read(&pooled).is_ok(),
+        "no cancelled callback reaches the pool"
+    );
+    let cache: i64 = pooled
+        .pragma_query_value(None, "cache_size", |row| row.get(0))
+        .unwrap();
+    assert_eq!(
+        cache, -1777,
+        "controlled reads did not borrow the idle connection"
+    );
+    let timeout: i64 = pooled
+        .pragma_query_value(None, "busy_timeout", |row| row.get(0))
+        .unwrap();
+    assert_eq!(timeout, 5000);
+    drop(pooled);
+    let first = search.database.reader().unwrap();
+    let second = search.database.reader().unwrap();
+    assert_eq!(
+        search.database.reader_opens(),
+        before + 2,
+        "search did not add an idle connection"
+    );
+    drop((first, second));
 }
