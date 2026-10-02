@@ -141,3 +141,46 @@ fn distinct_inventory_output_collision_refuses() {
     );
     assert!(preview(&fixture.project, &fixture.port().unwrap(), &["base".into()]).is_ok());
 }
+
+#[test]
+fn transitive_preset_is_composed_and_revalidated() {
+    let fixture = Fixture::new();
+    let base = fixture.catalog.join("presets/base.toml");
+    let text = fs::read_to_string(&base).unwrap();
+    fs::write(base, format!("{text}\nrequires = [\"preset:rust\"]\n")).unwrap();
+    let port = fixture.port().unwrap();
+    let resolved = port.resolve(&["base".into()]).unwrap();
+    assert_eq!(
+        resolved
+            .iter()
+            .map(|preset| preset.name.as_str())
+            .collect::<Vec<_>>(),
+        ["base", "rust"]
+    );
+    let proposal = preview(&fixture.project, &port, &["base".into()]).unwrap();
+    assert_eq!(fs::read_dir(&fixture.project).unwrap().count(), 0);
+    let rust = fixture.catalog.join("presets/rust.toml");
+    let original = fs::read(&rust).unwrap();
+    let mut changed = original.clone();
+    changed.push(b'\n');
+    fs::write(&rust, changed).unwrap();
+    let error = apply(&fixture.project, &proposal).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("input changed; run preview again"),
+        "{error}"
+    );
+    assert_eq!(fs::read_dir(&fixture.project).unwrap().count(), 0);
+    fs::write(rust, original).unwrap();
+    let fresh = preview(&fixture.project, &fixture.port().unwrap(), &["base".into()]).unwrap();
+    apply(&fixture.project, &fresh).unwrap();
+    assert_eq!(
+        fs::read(fixture.project.join(".github/copilot-instructions.md")).unwrap(),
+        b"Synthetic knowledge instructions.\n"
+    );
+    assert_eq!(
+        fs::read(fixture.project.join(".maestro/recipes.json")).unwrap(),
+        b"{\"recipes\":[]}\n"
+    );
+}

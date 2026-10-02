@@ -47,3 +47,32 @@ fn missing_declared_payload_refuses_at_source_check() {
     );
     assert_eq!(fs::read_dir(&fixture.project).unwrap().count(), 0);
 }
+
+#[cfg(unix)]
+#[test]
+fn post_check_links_refuse_before_writes() {
+    use std::os::unix::fs::symlink;
+    for path in [
+        "presets/base.toml",
+        "bootstrap/base.toml",
+        "bootstrap/base/files/instructions.md",
+    ] {
+        let fixture = Fixture::new();
+        let port = fixture.port().unwrap();
+        let expected = port.resolve(&["base".into()]).unwrap();
+        let target = fixture.catalog.join(path);
+        let outside = fixture.root.join("outside");
+        fs::rename(&target, &outside).unwrap();
+        symlink(&outside, &target).unwrap();
+        assert_eq!(port.resolve(&["base".into()]).unwrap(), expected);
+        let proposal = preview(&fixture.project, &port, &["base".into()]).unwrap();
+        let error = apply(&fixture.project, &proposal).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("input changed; run preview again"),
+            "{error}"
+        );
+        assert_eq!(fs::read_dir(&fixture.project).unwrap().count(), 0);
+    }
+}

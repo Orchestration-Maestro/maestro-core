@@ -91,3 +91,33 @@ fn inventory_asset_escape_and_identical_mapping_refuse() {
         );
     }
 }
+
+#[test]
+fn checked_constructor_refuses_stale_codeowners() {
+    let fixture = Fixture::new();
+    let registry = builtin().unwrap();
+    let settings = maestro_settings::Registry::built_in().unwrap();
+    let rows = frozen_rows();
+    let catalog = check(
+        &Directory::new(&fixture.catalog),
+        &registry,
+        &Limits::PRODUCTION,
+        Known {
+            rows: &rows,
+            settings: &settings,
+            today: 0,
+        },
+    )
+    .unwrap();
+    fs::create_dir_all(fixture.catalog.join(".github")).unwrap();
+    let path = fixture.catalog.join(".github/CODEOWNERS");
+    fs::write(&path, catalog.codeowners().unwrap()).unwrap();
+    assert!(fixture.port().is_ok());
+    fs::write(path, b"# stale generated rules\n").unwrap();
+    let error = fixture.port().unwrap_err();
+    assert!(
+        error.contains(".github/CODEOWNERS") && error.contains("rule drift"),
+        "{error}"
+    );
+    assert_eq!(fs::read_dir(&fixture.project).unwrap().count(), 0);
+}

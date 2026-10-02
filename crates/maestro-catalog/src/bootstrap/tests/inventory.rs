@@ -471,3 +471,42 @@ fn preset_names_are_functional_not_paths() {
     fixture.refuses(&["Bad".into()], "functional name");
     fixture.refuses(&["../base".into()], "functional name");
 }
+
+#[test]
+fn distinct_sources_same_inventory_output_refuse() {
+    let fixture = Fixture::new();
+    let manifest = fixture.catalog.join("bootstrap/base.toml");
+    let text = fs::read_to_string(&manifest).unwrap();
+    let entry = text
+        .split_once("[[files]]")
+        .unwrap()
+        .1
+        .split_once("[metadata]")
+        .unwrap()
+        .0;
+    let second = entry.replace("source = \"instructions.md\"", "source = \"second.md\"");
+    fs::copy(
+        fixture.catalog.join("bootstrap/base/files/instructions.md"),
+        fixture.catalog.join("bootstrap/base/files/second.md"),
+    )
+    .unwrap();
+    fs::write(
+        &manifest,
+        text.replace("[metadata]", &format!("[[files]]{second}\n[metadata]")),
+    )
+    .unwrap();
+    fixture.refuses(
+        &["base".into()],
+        "file collision: .github/copilot-instructions.md",
+    );
+    let text = fs::read_to_string(&manifest).unwrap().replacen(
+        "output = \".github/copilot-instructions.md\"",
+        "output = \"second.md\"",
+        1,
+    );
+    fs::write(manifest, text).unwrap();
+    let resolved = fixture.port().unwrap().resolve(&["base".into()]).unwrap();
+    assert_eq!(resolved[0].files.len(), 2);
+    assert_eq!(resolved[0].source_files.len(), 4);
+    assert_eq!(fs::read_dir(&fixture.project).unwrap().count(), 0);
+}
