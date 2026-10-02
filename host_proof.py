@@ -17,7 +17,7 @@ cases=[
  ('source-symlink-identity',V,'fn publish_verified_inner','source.read_to_end(&mut bytes)?; (checks.before_link)()?; self.verify_created(from, &source)?;','source.read_to_end(&mut bytes)?; (checks.before_link)()?; /* skip */','maestro-catalog',F+'publication_refuses_symlink_source_swap_after_held_read_before_link'),
  ('published-replacement-identity',V,'fn publish_verified_inner','(checks.after_link)().and_then(|()| self.verify_created(to, &source))','(checks.after_link)()','maestro-catalog',F+'publication_post_compare_preserves_a_replacement_of_the_published_link'),
  ('mkdir-post-floor',P,'fn create_directory_with','.check_current_policy()','.parent.verify_named()','maestro-catalog',F+'deny_rebind_between_check_and_mkdir_reaches_native_directory_rollback'),
- ('write-post-floor',P,'fn write_new_with','result .and_then(|()| self.check_current_policy())','result','maestro-catalog',F+'deny_rebind_between_check_and_mkdir_reaches_native_directory_rollback'),
+ ('write-post-floor',P,'fn write_new_with','result .and_then(|()| self.check_current_policy())','result','maestro-catalog',F+'new_parents_and_written_bytes_roll_back_on_post_effect_revocation'),
  ('removal-post-floor',P,'fn remove_verified_with','self.check_current_policy()','Ok(())','maestro-catalog',F+'removal_restores_quarantined_bytes_when_post_effect_policy_refuses'),
 ]
 if platform=='win32':
