@@ -182,3 +182,54 @@ pub(super) fn passage_labels(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{CliError, KnowledgeError, Output, error_parts, write_error};
+    use serde_json::Value;
+    use std::{
+        env,
+        process::{Command, ExitCode},
+    };
+
+    #[test]
+    fn search_cli_failures_deadline_errors_preserve_exit_codes() {
+        const CHILD: &str = "MAESTRO_TEST_SEARCH_DEADLINE_CHILD";
+        if env::var_os(CHILD).is_some() {
+            let (code, message, exit) = error_parts(KnowledgeError::Failed {
+                code: "deadline_exceeded",
+                message: "search exceeded its accepted deadline",
+            });
+            println!(); // Separate the document from the test harness's prefix.
+            let status = write_error(Output::new(true), CliError { code, message }, exit)
+                .expect("deadline output");
+            assert_eq!(status, ExitCode::from(1));
+            return;
+        }
+
+        // Capture the real JSON writer in a separate process, without replacing
+        // stdout or depending on a search completing before a wall-clock cutoff.
+        let output = Command::new(env::current_exe().unwrap())
+            .args([
+                concat!(
+                    "cli::search::execution::tests::",
+                    "search_cli_failures_deadline_errors_preserve_exit_codes"
+                ),
+                "--exact",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CHILD, "1")
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let documents = stdout
+            .lines()
+            .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+            .collect::<Vec<_>>();
+        assert_eq!(documents.len(), 1, "{stdout}");
+        assert_eq!(documents[0]["error"]["code"], "deadline_exceeded");
+        assert_eq!(documents[0]["schema"], "maestro-cli/knowledge-search/1");
+    }
+}
