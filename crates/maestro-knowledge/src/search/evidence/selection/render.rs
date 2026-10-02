@@ -461,7 +461,10 @@ mod tests {
             candidate(markdown, &document, &sections, 0, "First marker."),
             candidate(markdown, &document, &sections, 1, "Second marker."),
         ];
-        let selected = [(1, candidates[1].required_span)];
+        let selected = [
+            (0, candidates[0].required_span),
+            (1, candidates[1].required_span),
+        ];
         let mut covered = BTreeSet::new();
         let passage = render_cluster(
             &candidates,

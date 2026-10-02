@@ -82,7 +82,7 @@ mod set;
 #[cfg(test)]
 mod tests;
 
-pub use config::{CONFIG_FILE, Config, ConfigError, LOCAL};
+pub use config::{CONFIG_FILE, Config, ConfigError, ConfigRefreshError, LOCAL};
 pub use path::{
     InvalidName, InvalidScope, Scope, WORKSPACE, check_collection_name, check_name,
     collection_path, source_path,

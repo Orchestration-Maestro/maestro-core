@@ -100,7 +100,15 @@ pub(super) fn publish_initial(
         .latest_complete_chunk_set(
             &scopes,
             COLLECTION,
-            ChunkProfile::default().chunker_version(),
+            ChunkProfile::named(
+                &maestro_settings::Registry::built_in()
+                    .unwrap()
+                    .default_of("chunking.profile")
+                    .unwrap()
+                    .to_string(),
+            )
+            .unwrap()
+            .chunker_version(),
         )
         .unwrap()
         .unwrap()

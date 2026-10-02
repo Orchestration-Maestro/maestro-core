@@ -4,6 +4,7 @@
 //! Windows.
 
 mod config;
+mod config_refresh;
 mod grants;
 mod inventory;
 mod known;

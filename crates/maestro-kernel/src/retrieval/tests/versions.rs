@@ -1,22 +1,16 @@
 //! Exact version existence in a pinned, scoped generation.
 
+use super::clock::control;
 use super::support::SearchDb;
 use crate::{
     document::RevisionStatus,
-    retrieval::{ReadControl, SearchMember, SearchRead},
-};
-use std::{
-    sync::{Arc, atomic::AtomicBool},
-    time::{Duration, Instant},
+    retrieval::{SearchMember, SearchRead},
 };
 
 #[test]
 fn version_exists_matches_only_the_exact_pinned_revision_version() {
     let search = SearchDb::new("Install the tool with --force.");
-    let control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control();
     let read = |version| SearchRead {
         generation: &search.generation,
         scopes: &search.scopes,
@@ -85,11 +79,4 @@ fn version_exists_ignores_a_version_only_carried_by_a_duplicate_member() {
         control: &control,
     };
     assert!(!search.database.version_exists(&read).unwrap());
-}
-
-fn control() -> ReadControl {
-    ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    }
 }

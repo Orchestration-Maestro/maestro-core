@@ -3,6 +3,7 @@
 use super::super::support::{Ended, Home};
 use super::cli_cases::{SET_ID, published_glossary};
 use super::knowledge_search::{cli_data, mcp_search_result_of};
+use maestro_kernel::evidence::RequestBudget;
 use serde_json::{Value, json};
 
 const QUERY: &str = "What does the glossary say?";
@@ -51,11 +52,15 @@ fn cli_and_mcp_search_refuse_one_byte_past_the_ceiling_and_name_it() {
     let home = Home::bare();
     let expected = json!({
         "code": "invalid_evidence_bytes",
-        "message": "evidence_bytes must be between 1 and 24000"
+        "message": format!(
+            "evidence_bytes must be between 1 and {}",
+            RequestBudget::MAX_EVIDENCE_BUDGET
+        )
     });
 
-    let cli = cli_search(&home, "24001");
-    let mcp = mcp_search(&home, 24_001);
+    let past_ceiling = RequestBudget::MAX_EVIDENCE_BUDGET + 1;
+    let cli = cli_search(&home, &past_ceiling.to_string());
+    let mcp = mcp_search(&home, past_ceiling);
 
     assert_eq!(cli.code, Some(2), "{cli:?}");
     assert_eq!(cli.json()["error"], expected);

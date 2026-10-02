@@ -64,7 +64,7 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
         intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
-        qdrant: &qdrant,
+        projection: &qdrant,
         embedder: None,
         reranker: None,
         source_classes: None,
@@ -77,18 +77,16 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
     );
     // On a stopped clock: no route deadline passes, so a loaded host cannot
     // turn the missing projection into a passed deadline.
-    let identifier_result =
-        on_stopped_clock(future::pending(), Box::pin(search(&context, &identifier)))
-            .await
-            .unwrap();
+    let searched = || Box::pin(search(&context, &identifier));
+    let result = on_stopped_clock(future::pending(), searched).await.unwrap();
     assert_eq!(
-        identifier_result.routes.get("identifier"),
+        result.routes.get("identifier"),
         Some(&RouteStatus::Unavailable(
             "search projection missing; publish a new generation".to_owned()
         ))
     );
-    assert!(identifier_result.ranked.is_empty());
-    assert!(identifier_result.inventory.is_none());
+    assert!(result.ranked.is_empty());
+    assert!(result.inventory.is_none());
 
     let inventory = SearchRequest {
         evidence: EvidenceSettings::default(),
@@ -96,7 +94,7 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
         ..identifier
     };
     let inventory_result =
-        on_stopped_clock(future::pending(), Box::pin(search(&context, &inventory)))
+        on_stopped_clock(future::pending(), || Box::pin(search(&context, &inventory)))
             .await
             .unwrap();
     assert_eq!(

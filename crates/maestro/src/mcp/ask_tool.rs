@@ -120,7 +120,8 @@ mod tests {
             "question": "How is the service configured?"
         }))
         .expect("valid bounded ask");
-        assert_eq!(request.model, "qwen3-4b");
+        assert_eq!(request.model, "ask-gemma4-e4b-nonthinking");
+        assert_eq!(request.budget.evidence_bytes, 6_000);
         assert!(
             parse(json!({
                 "collection": "docs",

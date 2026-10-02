@@ -368,12 +368,12 @@ pub(super) fn card_file(home: &Home, reranker: bool) -> CardFiles {
     }
 }
 
-struct StubRouter {
-    url: String,
+pub(super) struct StubRouter {
+    pub(super) url: String,
 }
 
 impl StubRouter {
-    fn serve(scores: [f64; 2]) -> Self {
+    pub(super) fn serve(scores: [f64; 2]) -> Self {
         use std::{
             thread,
             time::{Duration, Instant},
@@ -398,6 +398,9 @@ impl StubRouter {
 
 fn serve_one(listener: &TcpListener, scores: [f64; 2]) -> IoResult<()> {
     let (stream, _) = listener.accept()?;
+    // Windows hands the accepted socket the listener's non-blocking mode;
+    // Linux does not. Reads below expect a blocking stream on every host.
+    stream.set_nonblocking(false)?;
     answer_request(stream, scores);
     Ok(())
 }

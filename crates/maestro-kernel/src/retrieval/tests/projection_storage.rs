@@ -1,19 +1,14 @@
 //! Tests for search-member, readiness and generation projection storage.
 
+use super::clock::control;
 use super::{storage::input_count, support::SearchDb};
 use crate::{
     generation::NewGeneration,
-    retrieval::{
-        Error, IDENTIFIER_PROFILE, ReadControl, SearchMember, SearchProjection, SearchRead,
-    },
+    retrieval::{Error, IDENTIFIER_PROFILE, SearchMember, SearchProjection, SearchRead},
     scope::{Right, Scope},
     store::{self, Database},
 };
-use std::{
-    slice,
-    sync::{Arc, atomic::AtomicBool},
-    time::{Duration, Instant},
-};
+use std::slice;
 
 #[test]
 fn member_write_requires_collection_scope_and_valid_representatives() {
@@ -153,10 +148,7 @@ fn derived_rows_and_readiness_markers_reject_update_replace_and_delete() {
 #[test]
 fn search_chunks_is_pinned_scoped_versioned_and_independent_of_search_readiness() {
     let search = SearchDb::new("Install the tool with --force.");
-    let control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control();
     let read = SearchRead {
         generation: &search.generation,
         scopes: &search.scopes,

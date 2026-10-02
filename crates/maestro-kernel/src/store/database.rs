@@ -23,6 +23,7 @@ use std::{
 
 /// How long a connection waits for another's lock before it gives up.
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// The database's file in the kernel's data directory.
 const FILE: &str = "kernel.sqlite3";
 
@@ -109,7 +110,9 @@ impl Database {
     /// Runs `work` in one write transaction on the writer and commits what it
     /// did, or rolls it all back when it fails. The transaction takes the
     /// write lock as it begins, so writers wait for each other, here and in
-    /// other processes; keep `work` short, with no file-system work inside.
+    /// other processes; keep `work` short. Config reconciliation deliberately
+    /// loads its small file inside this lock to prevent stale grant snapshots;
+    /// other file-system work stays outside.
     ///
     /// `work` must not call a method of this database that writes, `pin` and
     /// `put` among them: the lock is not re-entrant, and the call would wait
@@ -290,5 +293,74 @@ fn io_error(path: &Path, source: io::Error) -> Error {
     Error::Io {
         path: path.to_path_buf(),
         source,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Database;
+    use maestro_test_scratch::scratch_directory;
+    use rusqlite::Connection;
+    use std::{
+        cell::RefCell,
+        fs,
+        sync::mpsc::{self, Receiver, Sender},
+        thread,
+        time::Duration,
+    };
+
+    thread_local! {
+        /// The refresh thread's handshake at SQLite's actual lock contention.
+        static BUSY_GATE: RefCell<Option<(Sender<()>, Receiver<()>)>> =
+            const { RefCell::new(None) };
+    }
+
+    /// Signals a blocked writer and waits until the outside transaction is released.
+    fn wait_for_release(_: i32) -> bool {
+        BUSY_GATE.with_borrow(|gate| {
+            let (blocked, released) = gate.as_ref().expect("busy handler handshake installed");
+            blocked.send(()).unwrap();
+            released.recv_timeout(Duration::from_secs(10)).unwrap();
+        });
+        true
+    }
+
+    #[test]
+    fn public_config_refresh_loads_only_after_the_writer_lock() {
+        let directory = scratch_directory().unwrap();
+        let database = Database::open_in(&directory).unwrap();
+        let config = directory.join("config.toml");
+        fs::write(&config, "[access]\nread = ['workspace/default']\n").unwrap();
+        let outside = Connection::open(directory.join("kernel.sqlite3")).unwrap();
+        outside.execute_batch("BEGIN IMMEDIATE").unwrap();
+        database
+            .writer
+            .lock()
+            .unwrap()
+            .busy_handler(Some(wait_for_release))
+            .unwrap();
+        let (blocked, contention) = mpsc::channel();
+        let (release, released) = mpsc::channel();
+        let scopes = thread::scope(|threads| {
+            let refresh = threads.spawn(|| {
+                BUSY_GATE.set(Some((blocked, released)));
+                let result = database.refresh_config(&directory);
+                BUSY_GATE.set(None);
+                result
+            });
+            contention.recv_timeout(Duration::from_secs(10)).unwrap();
+            // The public refresh has reached BEGIN IMMEDIATE, not a guessed delay.
+            fs::write(&config, "[access]\nread = []\n").unwrap();
+            outside.execute_batch("ROLLBACK").unwrap();
+            release.send(()).unwrap();
+            refresh.join().unwrap().unwrap()
+        });
+        assert!(
+            scopes.is_empty(),
+            "public refresh loaded config before obtaining the writer lock"
+        );
+        drop(outside);
+        drop(database);
+        fs::remove_dir_all(directory).unwrap();
     }
 }

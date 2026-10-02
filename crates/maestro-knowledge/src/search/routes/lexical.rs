@@ -15,7 +15,7 @@ use crate::{
 /// # Errors
 ///
 /// [`RouteError::ProfileMismatch`] when the generation recorded another
-/// analyzer, and [`RouteError::Qdrant`] when Qdrant fails.
+/// analyzer, and [`RouteError::Projection`] when the projection backend fails.
 pub async fn search_bm25<R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
 ) -> Result<Vec<ScoredChunk>, RouteError> {
@@ -34,7 +34,7 @@ pub async fn search_bm25<R: RetrievalProjectionPort>(
     }
 
     let points = query
-        .qdrant
+        .projection
         .search_sparse(
             &query.collection(),
             SparseValues {
@@ -45,6 +45,6 @@ pub async fn search_bm25<R: RetrievalProjectionPort>(
             query_filter(query.scopes, query.version),
         )
         .await
-        .map_err(RouteError::Qdrant)?;
+        .map_err(RouteError::Projection)?;
     Ok(rank(chunks(points)?, query.limit))
 }

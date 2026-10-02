@@ -129,6 +129,163 @@ fn every_member_inherits_the_workspace_lints() {
 }
 
 #[test]
+fn positional_mutant_exclusions_match_their_source_operator() {
+    let root = root();
+    let path = root.join(".cargo/mutants.toml");
+    let config: toml::Value = toml::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    let entries = config["exclude_re"].as_array().unwrap();
+    let mut failures = Vec::new();
+    let mut positional_entries = 0;
+    for entry in entries.iter().filter_map(toml::Value::as_str) {
+        let Some((position, replacement)) = entry.split_once(": replace ") else {
+            continue;
+        };
+        if !replacement.contains(" in ") {
+            continue;
+        }
+        let position = position.strip_prefix('^').unwrap_or(position);
+        let Some((position, column)) = position.rsplit_once(':') else {
+            failures.push(format!("{entry}: missing column"));
+            continue;
+        };
+        let Some((file, line)) = position.rsplit_once(':') else {
+            failures.push(format!("{entry}: missing line"));
+            continue;
+        };
+        let file = file.replace("\\.", ".");
+        let operator = replacement
+            .split_once(" with ")
+            .map(|(operator, _)| operator.replace('\\', ""));
+        let Some(operator) = operator else {
+            failures.push(format!("{entry}: missing replaced operator"));
+            continue;
+        };
+        let source = fs::read_to_string(root.join(&file));
+        let (Ok(line), Ok(column)) = (line.parse::<usize>(), column.parse::<usize>()) else {
+            failures.push(format!("{entry}: missing numeric line or column"));
+            continue;
+        };
+        positional_entries += 1;
+        let found = source.ok().and_then(|source| {
+            source
+                .lines()
+                .nth(line.checked_sub(1)?)?
+                .get(column.checked_sub(1)?..)
+                .map(str::to_owned)
+        });
+        if !found.as_deref().is_some_and(|source| {
+            source.starts_with(&operator)
+                && source
+                    .get(operator.len()..)
+                    .and_then(|rest| rest.chars().next())
+                    .is_none_or(|next| !"|&<>=!^+-*/%".contains(next))
+        }) {
+            failures.push(format!(
+                "{entry}: position holds {found:?}, expected operator {operator:?}"
+            ));
+        }
+    }
+    assert!(
+        positional_entries > 0,
+        "no positional mutant exclusions found"
+    );
+    assert!(
+        failures.is_empty(),
+        "dead mutant exclusions:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn function_body_mutant_exclusions_name_the_body_and_function() {
+    let root = root();
+    let path = root.join(".cargo/mutants.toml");
+    let config: toml::Value = toml::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    let entries = config["exclude_re"].as_array().unwrap();
+    let mut failures = Vec::new();
+    let mut body_entries = 0;
+    let mut match_arm_entries = 0;
+    for entry in entries.iter().filter_map(toml::Value::as_str) {
+        let Some((position, action)) = entry.trim_start_matches('^').split_once(": ") else {
+            continue;
+        };
+        let function = if let Some(replacement) = action.strip_prefix("replace ") {
+            replacement.split_once(" -> ").map(|(function, _)| function)
+        } else if let Some(deletion) = action.strip_prefix("delete match arm ") {
+            deletion.split_once(" in ").map(|(_, function)| function)
+        } else {
+            continue;
+        };
+        let Some(function) = function else {
+            continue;
+        };
+        let function = function
+            .trim_end_matches('$')
+            .rsplit("::")
+            .next()
+            .unwrap_or(function);
+        if action.starts_with("delete match arm ") {
+            match_arm_entries += 1;
+        } else {
+            body_entries += 1;
+        }
+        let Some((position, column)) = position.rsplit_once(':') else {
+            failures.push(format!("{entry}: missing column"));
+            continue;
+        };
+        let Some((file, line)) = position.rsplit_once(':') else {
+            failures.push(format!("{entry}: missing line"));
+            continue;
+        };
+        let file = file.replace("\\.", ".");
+        let (Ok(line), Ok(column)) = (line.parse::<usize>(), column.parse::<usize>()) else {
+            failures.push(format!("{entry}: missing numeric line or column"));
+            continue;
+        };
+        let source = fs::read_to_string(root.join(file));
+        let location = line.checked_sub(1);
+        let column = column.checked_sub(1);
+        let body = source.ok().and_then(|source| {
+            let lines: Vec<_> = source.lines().collect();
+            let location = location?;
+            let column = column?;
+            let body_text = lines.get(location)?.get(column..)?;
+            let declaration = lines
+                .iter()
+                .enumerate()
+                .take(location + 1)
+                .rev()
+                .find(|(_, candidate)| candidate.contains(&format!("fn {function}")))
+                .map(|(index, candidate)| (index, *candidate));
+            let function_declaration = declaration.is_some_and(|(index, candidate)| {
+                (index < location
+                    && lines[index..=location]
+                        .iter()
+                        .any(|line| line.contains('{')))
+                    || (index == location
+                        && candidate.find('{').is_some_and(|opening| opening < column))
+            });
+            Some((!body_text.trim().is_empty(), function_declaration))
+        });
+        if !body.is_some_and(|(nonblank, declaration)| nonblank && declaration) {
+            failures.push(format!(
+                "{entry}: position must be nonblank inside fn {function}; found {body:?}"
+            ));
+        }
+    }
+    assert!(body_entries > 0, "no function-body mutant exclusions found");
+    assert!(
+        match_arm_entries > 0,
+        "no deleted match-arm exclusions found"
+    );
+    assert!(
+        failures.is_empty(),
+        "invalid function-body mutant exclusions:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
 fn every_relative_link_and_anchor_resolves() {
     let root = root();
     let broken: Vec<String> = repository_files(&root)

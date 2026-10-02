@@ -11,14 +11,13 @@ use super::{
 use maestro_kernel::{
     chunk_set::Chunk,
     generation::Generation,
-    retrieval::{self, ReadControl, SearchRead},
+    retrieval::{self, Clock, ReadControl, SearchRead},
     scope::ScopeSet,
     store::Database,
 };
 use std::{
     collections::{BTreeSet, HashMap},
     sync::{Arc, atomic::Ordering},
-    time::Instant as StdInstant,
 };
 use tokio::time::Instant;
 
@@ -51,6 +50,8 @@ pub(super) struct Request {
     pub(super) deadline: Instant,
     /// The earlier cutoff after which enrichment keeps chunk text.
     pub(super) context_deadline: Instant,
+    /// The clock the blocking worker reads both cutoffs with.
+    pub(super) clock: Arc<dyn Clock>,
     /// Validated optional ranking policies.
     pub(super) configuration: SearchConfiguration,
     /// Query used only to exempt explicitly requested section classes.
@@ -120,6 +121,7 @@ pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Lo
         expected_revisions,
         deadline,
         context_deadline,
+        clock,
         configuration,
         query,
         source_classes,
@@ -135,10 +137,7 @@ pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Lo
         .map(|candidate| candidate.chunk_id.clone())
         .collect::<Vec<_>>();
     deadline::run_blocking(deadline, move |cancelled| {
-        let control = ReadControl {
-            deadline: deadline::std_deadline(deadline),
-            cancelled,
-        };
+        let control = deadline::read_control(deadline, cancelled, clock);
         let read = SearchRead {
             generation: &generation,
             scopes: &scopes,
@@ -177,14 +176,13 @@ pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Lo
                 configuration,
                 query: &query,
                 generation: &generation,
-                deadline: deadline::std_deadline(context_deadline),
+                deadline: context_deadline.into_std(),
             },
             &mut texts,
         );
         let enrichment = ReadControl {
-            deadline: control
-                .deadline
-                .min(deadline::std_deadline(context_deadline)),
+            deadline: control.deadline.min(context_deadline.into_std()),
+            clock: control.clock.clone(),
             cancelled: control.cancelled.clone(),
         };
         let source = source_class::penalized(
@@ -223,7 +221,7 @@ pub(super) fn classify_read(error: retrieval::Error) -> Failure {
 
 /// Stops artifact reads at cancellation or the absolute deadline.
 pub(super) fn check_control(control: &ReadControl) -> Result<(), Failure> {
-    if control.cancelled.load(Ordering::Relaxed) || StdInstant::now() >= control.deadline {
+    if control.cancelled.load(Ordering::Relaxed) || control.now() >= control.deadline {
         Err(Failure::TimedOut)
     } else {
         Ok(())

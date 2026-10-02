@@ -116,7 +116,7 @@ pub(super) async fn capture_question<P: ModelPort>(
         intent_expander: None,
         database: Arc::clone(&capture.database),
         principal: capture.principal,
-        qdrant: capture.qdrant,
+        projection: capture.qdrant,
         embedder: Some(Embedder {
             port: capture.embedder.port,
             card: capture.embedder.card,

@@ -74,6 +74,7 @@ pub(super) fn enrich(
     let candidates = candidates.get_mut(..depth).unwrap_or_default();
     let control = ReadControl {
         deadline: control.deadline.min(settings.deadline),
+        clock: control.clock.clone(),
         cancelled: control.cancelled.clone(),
     };
     let profile = chunk_profile(database, scopes, settings.generation).unwrap_or_default();

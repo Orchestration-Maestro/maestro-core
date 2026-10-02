@@ -21,7 +21,7 @@ use maestro_kernel::{
     store::Error as StoreError,
 };
 use maestro_knowledge::{
-    answer::{AskBudget, AskError, AskRequest},
+    answer::{AskBudget, AskError, AskRequest, DEFAULT_MODEL},
     search::{SearchError, evidence::EvidenceError},
 };
 use std::{
@@ -35,10 +35,11 @@ use std::{
 fn unregistered_default_answerer_is_not_resolved() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).expect("open test kernel");
+    register_answerer(&kernel, "qwen3-4b", b"registered Qwen answerer");
     let request = AskRequest {
         collection: "collection".to_owned(),
         question: "How can I configure the service?".to_owned(),
-        model: "qwen3-4b".to_owned(),
+        model: DEFAULT_MODEL.to_owned(),
         version: None,
         budget: AskBudget::default(),
     };
@@ -92,26 +93,36 @@ fn default_request() -> AskRequest {
     AskRequest {
         collection: "collection".to_owned(),
         question: "How can I configure the service?".to_owned(),
-        model: "qwen3-4b".to_owned(),
+        model: "ask-gemma4-e4b-nonthinking".to_owned(),
         version: None,
         budget: AskBudget::default(),
     }
 }
 
 #[test]
-fn default_resolution_takes_a_thinking_card_registered_later() {
+fn a_thinking_card_registered_later_is_the_default() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).expect("open test kernel");
     let request = default_request();
-    register_answerer(&kernel, "qwen3-4b", b"older answerer");
-    register_reasoning_answerer(&kernel, b"plain answerer", false);
+    register_reasoning_answerer_for_entry(
+        &kernel,
+        "ask-gemma4-e4b-nonthinking",
+        b"plain answerer",
+        false,
+    );
+    register_answerer(&kernel, "other-model", b"later different alias");
 
-    let (thinking, _) = register_reasoning_answerer(&kernel, b"thinking answerer", true);
+    let (latest_thinking, _) = register_reasoning_answerer_for_entry(
+        &kernel,
+        "ask-gemma4-e4b-nonthinking",
+        b"thinking answerer",
+        true,
+    );
 
     let resolved = registered_answerer(&kernel, &kernel.scopes, &request)
         .expect("read scoped card registry")
-        .expect("the thinking answerer");
-    assert_eq!(resolved.id, thinking);
+        .expect("the selected thinking answerer");
+    assert_eq!(resolved.id, latest_thinking);
 }
 
 #[test]
@@ -119,9 +130,19 @@ fn a_plain_card_registered_after_a_thinking_one_is_the_default() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).expect("open test kernel");
     let request = default_request();
-    register_reasoning_answerer(&kernel, b"thinking answerer", true);
+    register_reasoning_answerer_for_entry(
+        &kernel,
+        "ask-gemma4-e4b-nonthinking",
+        b"thinking answerer",
+        true,
+    );
 
-    let (plain, _) = register_reasoning_answerer(&kernel, b"plain answerer", false);
+    let (plain, _) = register_reasoning_answerer_for_entry(
+        &kernel,
+        "ask-gemma4-e4b-nonthinking",
+        b"plain answerer",
+        false,
+    );
 
     let resolved = registered_answerer(&kernel, &kernel.scopes, &request)
         .expect("read scoped card registry")
@@ -283,7 +304,16 @@ pub(crate) fn register_reasoning_answerer(
     weights: &[u8],
     thinking: bool,
 ) -> (String, ModelCard) {
-    let mut identity = card_identity(kernel, Role::Answerer, "qwen3-4b", weights);
+    register_reasoning_answerer_for_entry(kernel, "qwen3-4b", weights, thinking)
+}
+
+fn register_reasoning_answerer_for_entry(
+    kernel: &Kernel,
+    entry: &str,
+    weights: &[u8],
+    thinking: bool,
+) -> (String, ModelCard) {
+    let mut identity = card_identity(kernel, Role::Answerer, entry, weights);
     identity.invocation.reasoning = Capability::Supported(BTreeMap::from([(
         "enable_thinking".to_owned(),
         ControlValue::Boolean(thinking),

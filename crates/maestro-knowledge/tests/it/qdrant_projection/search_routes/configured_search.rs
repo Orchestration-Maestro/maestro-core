@@ -60,7 +60,7 @@ pub(super) fn context<'a>(
         intent_expander: None,
         database: fixture.kernel.database.clone(),
         principal: "tester",
-        qdrant: &fixture.qdrant,
+        projection: &fixture.qdrant,
         embedder: Some(Embedder {
             port: &fixture.port,
             card: &fixture.embedder_card,
@@ -107,7 +107,7 @@ fn off() -> SearchConfiguration {
 async fn run(fixture: &Published, text: &str, configuration: SearchConfiguration) -> EvidenceInput {
     let context = context(fixture, None);
     let request = request(fixture, text, configuration);
-    on_stopped_clock(future::pending(), Box::pin(search(&context, &request)))
+    on_stopped_clock(future::pending(), || Box::pin(search(&context, &request)))
         .await
         .unwrap()
 }

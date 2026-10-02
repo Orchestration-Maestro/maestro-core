@@ -152,7 +152,9 @@ in place.
 │   │   │   │   │   ├── import_endings.rs                                    # An import ends its job succeeded with its report or failed saying why; each step journaled, or a lost lease stops it
 │   │   │   │   │   ├── lease_heartbeats.rs                                  # A foreground job's lease, held only by Holder::run: renewed at each heartbeat and step, never after a takeover
 │   │   │   │   │   ├── mod.rs                                               # The unit tests' door: declarations only
+│   │   │   │   │   ├── model_failures.rs                                    # Registration constraint failures are refused; other database errors fail.
 │   │   │   │   │   ├── publication_resume.rs                                # A new publication attempt resumes from the last step of its predecessor
+│   │   │   │   │   ├── stale_grants.rs                                      # CLI paths must not deliver content admitted by delayed stale reconciliation
 │   │   │   │   │   ├── supersessions.rs                                     # An import supersedes its resource's holder once no live lease holds it, and leaves a live one alone
 │   │   │   │   │   ├── support.rs                                           # What the unit tests share: a scratch kernel and a job leased in it, held or lost
 │   │   │   │   │   └── verify_outcome.rs                                    # Verification findings make the verify job fail without dropping its report
@@ -206,7 +208,8 @@ in place.
 │   │   │   │   │   │   └── tests.rs                                         # Rust source: tests
 │   │   │   │   │   ├── tests/                                               # Integration tests
 │   │   │   │   │   │   ├── call_deadlines.rs                                # The MCP call caps against the search and chat caps they wrap
-│   │   │   │   │   │   └── search_workers.rs                                # Rust source: search workers
+│   │   │   │   │   │   ├── search_workers.rs                                # Rust source: search workers
+│   │   │   │   │   │   └── stale_grants.rs                                  # Delayed startup reconciliation must not deliver revoked content
 │   │   │   │   │   ├── warmup/                                              # Background startup warming for visible published embedder cards
 │   │   │   │   │   │   └── tests.rs                                         # Rust source: tests
 │   │   │   │   │   ├── handler.rs                                           # MCP protocol handler and advertised knowledge tool schemas
@@ -307,6 +310,7 @@ in place.
 │   │   │       ├── mcp_stdio.rs                                             # The stdio MCP server's process boundary and advertised tools
 │   │   │       ├── model_cli.rs                                             # Registration and listing of scoped model cards through the public CLI
 │   │   │       ├── model_cli_registration.rs                                # Registration input, grant, and router-failure contract tests
+│   │   │       ├── model_cli_selection.rs                                   # Selection reads only the evaluations of the exact card it selects
 │   │   │       ├── publish_again.rs                                         # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
 │   │   │       ├── settings_config.rs                                       # maestro config: the user file preferences.toml, the project file
@@ -859,6 +863,7 @@ in place.
 │   │   │   │   └── validation.rs                                            # Canonical shard validation and relational set completion
 │   │   │   ├── retrieval/                                                   # Controlled, scope-bound retrieval and its shared literal search rules
 │   │   │   │   ├── tests/                                                   # Tests for exact identifier search inputs
+│   │   │   │   │   ├── clock.rs                                             # A settable clock shared by controlled-read tests
 │   │   │   │   │   ├── deadlines.rs                                         # Cancellation and real-clock bounds on SQLite reads
 │   │   │   │   │   ├── errors.rs                                            # Nonblank retrieval refusals and preserved store error sources
 │   │   │   │   │   ├── identifier_scope.rs                                  # Rust source: identifier scope
@@ -879,6 +884,7 @@ in place.
 │   │   │   ├── scope/                                                       # Scopes and grants: who may see what (docs/architecture/04 §3, building
 │   │   │   │   ├── tests/                                                   # Tests of scopes: their paths and names, what a grant covers, the grants
 │   │   │   │   │   ├── config.rs                                            # config.toml: the local principal's grants, checked whole when read, and
+│   │   │   │   │   ├── config_refresh.rs                                    # The config load and its resulting scope snapshot share one writer transaction
 │   │   │   │   │   ├── grants.rs                                            # Grants: a principal sees only what it was granted and what lies below it
 │   │   │   │   │   ├── inventory.rs                                         # There is no read function without a ScopeSet: every public method of
 │   │   │   │   │   ├── known.rs                                             # The scopes a set was granted, and the known scopes it covers: the workspace, collections and sources
@@ -1206,6 +1212,7 @@ in place.
 │   │   │   │   │   │   ├── assembly_versions.rs                             # Rust source: assembly versions
 │   │   │   │   │   │   ├── budget.rs                                        # Rust source: budget
 │   │   │   │   │   │   ├── candidate_context.rs                             # Rust source: candidate context
+│   │   │   │   │   │   ├── clock_cutoffs.rs                                 # Evidence assembly and source loading read their cutoff on the clock the
 │   │   │   │   │   │   ├── conflict_emission.rs                             # Rust source: conflict emission
 │   │   │   │   │   │   ├── conflict_structures.rs                           # Rust source: conflict structures
 │   │   │   │   │   │   ├── conflicts.rs                                     # Rust source: conflicts
@@ -1254,6 +1261,7 @@ in place.
 │   │   │   │   ├── tests/                                                   # Integration tests
 │   │   │   │   │   ├── admission.rs                                         # Request-boundary checks before generation admission
 │   │   │   │   │   ├── candidate_enrichment.rs                              # Opt-in reranker enrichment degrades to the indexed chunk, never to a failed search
+│   │   │   │   │   ├── clock.rs                                             # A settable clock for the blocking stages' cutoff tests
 │   │   │   │   │   ├── deadlines.rs                                         # Rust source: deadlines
 │   │   │   │   │   ├── fusion.rs                                            # Rust source: fusion
 │   │   │   │   │   ├── handoff.rs                                           # Route joining and rerank handoff boundaries
@@ -1269,6 +1277,7 @@ in place.
 │   │   │   │   │   ├── routes.rs                                            # Pure route helpers: Qdrant scope filters and ranked-hit cleanup
 │   │   │   │   │   ├── section_prior.rs                                     # The soft section prior: strict demotion and precise, bilingual exemptions
 │   │   │   │   │   ├── source_class.rs                                      # Source classes: the table adapter, the class vocabulary and the prior
+│   │   │   │   │   ├── stage_clocks.rs                                      # Each blocking search stage reads its cutoff on the clock its request
 │   │   │   │   │   ├── stages.rs                                            # The outcome each end of a search, a route or the rerank gives its stage
 │   │   │   │   │   ├── support.rs                                           # Scratch kernel records for the bounded candidate handoff
 │   │   │   │   │   ├── top_scores.rs                                        # Rust source: top scores
@@ -1485,6 +1494,14 @@ in place.
 │   │   │   ├── store.rs                                                     # The port a session reads its preferences layers through, and its file
 │   │   │   └── value.rs                                                     # A setting's value: read from the command line's text or a file's TOML
 │   │   └── Cargo.toml                                                       # Crate manifest: Maestro's settings: the registry of every setting, its layered files and their resolution
+│   ├── maestro-test-clock/                                                  # Maestro test clock
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── lib.rs                                                       # Clock and stage signals used only by the workspace's tests
+│   │   │   ├── stage_end.rs                                                 # Watches the outcome fields of tracing stages for a held-clock release
+│   │   │   └── stopped.rs                                                   # Holds Tokio time still while ordinary test work runs
+│   │   ├── tests/                                                           # Integration tests
+│   │   │   └── stage_end.rs                                                 # Stage completion must wait for the watched span's outcome
+│   │   └── Cargo.toml                                                       # Crate manifest: Stopped Tokio time and stage completion signals for workspace tests
 │   └── maestro-test-scratch/                                                # Maestro test scratch
 │       ├── src/                                                             # The crate's sources
 │       │   ├── lib.rs                                                       # Where the workspace's tests create their scratch directories

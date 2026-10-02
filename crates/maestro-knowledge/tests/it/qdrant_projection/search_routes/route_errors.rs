@@ -6,11 +6,14 @@ use super::{
     models::{self, Fault},
     support::{TEXT, collection_scopes, generation},
 };
-use maestro_kernel::generation::{GenerationState, NewGeneration};
+use maestro_kernel::{
+    generation::{GenerationState, NewGeneration},
+    retrieval::Clock,
+};
 use maestro_knowledge::{
     lexical,
     search::{
-        Query, pin,
+        Query, RuntimeClock, pin,
         routes::{
             dense::{Embedder, search_dense},
             error::{RouteError, VectorError},
@@ -18,7 +21,7 @@ use maestro_knowledge::{
         },
     },
 };
-use std::error::Error as _;
+use std::{error::Error as _, sync::Arc};
 use tonic::Code;
 
 #[tokio::test]
@@ -34,6 +37,7 @@ async fn lexical_route_refuses_a_generation_with_another_sparse_profile() {
         "another-sparse-profile/1",
     );
     let qdrant = backend.client();
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &generation,
         scopes: &collection_scopes(&kernel),
@@ -41,7 +45,8 @@ async fn lexical_route_refuses_a_generation_with_another_sparse_profile() {
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
+        clock: &clock,
     };
     assert!(matches!(
         search_bm25(&query).await,
@@ -64,6 +69,7 @@ async fn dense_route_refuses_a_card_with_dimensions_from_another_generation() {
         lexical::PROFILE,
     );
     let qdrant = backend.client();
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &generation,
         scopes: &collection_scopes(&kernel),
@@ -71,7 +77,8 @@ async fn dense_route_refuses_a_card_with_dimensions_from_another_generation() {
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
+        clock: &clock,
     };
     let embedder = Embedder {
         port: &port,
@@ -108,6 +115,7 @@ async fn no_free_room_is_typed_and_does_not_touch_qdrant() {
     );
     let qdrant = backend.client();
     let scopes = collection_scopes(&kernel);
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &generation,
         scopes: &scopes,
@@ -115,7 +123,8 @@ async fn no_free_room_is_typed_and_does_not_touch_qdrant() {
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
+        clock: &clock,
     };
     let failed = Embedder {
         port: &port,
@@ -133,7 +142,7 @@ async fn no_free_room_is_typed_and_does_not_touch_qdrant() {
     };
     assert!(matches!(
         search_dense(&query, &retry).await,
-        Err(RouteError::Qdrant(_))
+        Err(RouteError::Projection(_))
     ));
 }
 
@@ -151,6 +160,7 @@ async fn dense_route_types_bad_dimensions_and_non_finite_vectors() {
     );
     let qdrant = backend.client();
     let scopes = collection_scopes(&kernel);
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &generation,
         scopes: &scopes,
@@ -158,7 +168,8 @@ async fn dense_route_types_bad_dimensions_and_non_finite_vectors() {
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
+        clock: &clock,
     };
     for fault in [Fault::Dimensions, Fault::NotANumber] {
         let port = models::Embedder::default();
@@ -230,6 +241,7 @@ async fn empty_scope_and_zero_limit_routes_return_without_model_or_qdrant() {
     let empty_scopes = kernel.database.visible("ungranted-reader").unwrap();
     assert!(empty_scopes.is_empty());
     let scopes = collection_scopes(&kernel);
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let empty_scope_query = Query {
         generation: &generation,
         scopes: &empty_scopes,
@@ -237,7 +249,8 @@ async fn empty_scope_and_zero_limit_routes_return_without_model_or_qdrant() {
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
+        clock: &clock,
     };
     let zero_limit_query = Query {
         generation: &generation,
@@ -246,7 +259,8 @@ async fn empty_scope_and_zero_limit_routes_return_without_model_or_qdrant() {
         limit: 0,
         identifier_limit: 0,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
+        clock: &clock,
     };
     let embedder = Embedder {
         port: &port,

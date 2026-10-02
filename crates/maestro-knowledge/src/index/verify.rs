@@ -64,26 +64,30 @@ pub(super) async fn verify(
 /// has `dimensions` compared by cosine and its sparse vector `SPARSE` is
 /// weighted by IDF.
 pub(super) fn vectors(layout: &CollectionLayout, dimensions: u64) -> Result<(), Unverified> {
-    let matches = layout.dense_present
-        && layout.dense_dimensions == dimensions
-        && layout.dense_distance == "Cosine"
-        && layout.sparse_present
-        && layout.sparse_modifier.as_deref() == Some("Idf");
+    let matches = layout.dense.as_ref().is_some_and(|dense| {
+        dense.dimensions == dimensions
+            && dense.distance == super::projection_port::DenseDistance::Cosine
+    }) && layout.sparse_present
+        && layout.sparse_modifier == Some(super::projection_port::SparseModifier::Idf);
     if matches {
         return Ok(());
     }
-    let dense = if layout.dense_present {
-        format!(
-            "a dense vector `dense` of {} dimensions compared by {}",
-            layout.dense_dimensions, layout.dense_distance
-        )
-    } else {
-        "no dense vector `dense`".to_owned()
-    };
+    let dense = layout.dense.as_ref().map_or_else(
+        || "no dense vector `dense`".to_owned(),
+        |dense| {
+            format!(
+                "a dense vector `dense` of {} dimensions compared by {}",
+                dense.dimensions,
+                dense.distance.label()
+            )
+        },
+    );
     let sparse = if layout.sparse_present {
         format!(
             "a sparse vector `bm25` weighted by {} modifier",
-            layout.sparse_modifier.as_deref().unwrap_or("no")
+            layout
+                .sparse_modifier
+                .map_or("no", super::projection_port::SparseModifier::label)
         )
     } else {
         "no sparse vector `bm25`".to_owned()

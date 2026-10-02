@@ -3,19 +3,83 @@
 use serde_json::Value;
 use std::{collections::BTreeMap, error, fmt};
 
+/// Distance choices supported by the retrieval projection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DenseDistance {
+    /// Cosine distance.
+    Cosine,
+    /// Euclidean distance.
+    Euclid,
+    /// Dot-product distance.
+    Dot,
+    /// Manhattan distance.
+    Manhattan,
+    /// The backend's unspecified distance.
+    Unknown,
+    /// An unrecognized distance value.
+    Other,
+}
+
+impl DenseDistance {
+    /// Diagnostic label matching the established verification output.
+    pub(super) fn label(self) -> &'static str {
+        match self {
+            Self::Cosine => "Cosine",
+            Self::Euclid => "Euclid",
+            Self::Dot => "Dot",
+            Self::Manhattan => "Manhattan",
+            Self::Unknown => "UnknownDistance",
+            Self::Other => "unknown",
+        }
+    }
+}
+
+/// Modifier choices supported by sparse retrieval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SparseModifier {
+    /// No modifier.
+    None,
+    /// Inverse-document-frequency weighting.
+    Idf,
+}
+
+impl SparseModifier {
+    /// Diagnostic label matching the established verification output.
+    pub(super) fn label(self) -> &'static str {
+        match self {
+            Self::None => "None",
+            Self::Idf => "Idf",
+        }
+    }
+}
+
+/// The named dense vector layout.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DenseLayout {
+    /// The dimension count of the named dense vector.
+    pub dimensions: u64,
+    /// Its distance function.
+    pub distance: DenseDistance,
+}
+
 /// The named vector layout required by current dense and sparse retrieval.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CollectionLayout {
-    /// The dimension count of the named dense vector.
-    pub dense_dimensions: u64,
-    /// Whether the named dense vector is present.
-    pub dense_present: bool,
-    /// The backend-neutral name of its distance function.
-    pub dense_distance: String,
+    /// The dense vector layout, absent when no dense vector exists.
+    pub dense: Option<DenseLayout>,
     /// Whether the named BM25 sparse vector is present.
     pub sparse_present: bool,
-    /// Its modifier name, or absent when no modifier is set.
-    pub sparse_modifier: Option<String>,
+    /// Its modifier, or absent when no modifier is set.
+    pub sparse_modifier: Option<SparseModifier>,
+}
+
+/// Kind of payload field index supported by the projection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PayloadFieldKind {
+    /// Exact string-match index.
+    Keyword,
+    /// A different or unsupported field kind.
+    Other,
 }
 
 /// A point ready to store in a generation's projection.
@@ -178,7 +242,7 @@ pub trait RetrievalProjectionPort: fmt::Debug {
     async fn payload_fields(
         &self,
         collection: &str,
-    ) -> Result<BTreeMap<String, String>, ProjectionError>;
+    ) -> Result<BTreeMap<String, PayloadFieldKind>, ProjectionError>;
     /// Upsert points and wait until they have been applied.
     async fn upsert_points(
         &self,

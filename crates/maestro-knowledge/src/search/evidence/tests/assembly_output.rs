@@ -1,5 +1,6 @@
+use super::support::assemble_on_stopped_clock;
 use super::{
-    super::{EvidenceCounter, EvidenceSettings, assemble_evidence},
+    super::{EvidenceCounter, EvidenceSettings},
     support::{Fixture, evidence_input, fixture},
 };
 use crate::{
@@ -14,7 +15,7 @@ use maestro_kernel::{
 };
 use std::{collections::BTreeSet, slice::from_ref, sync::Arc};
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn public_entry_emits_every_bundle_field_deterministically() {
     let fixture = fixture(&[(
         "guide.md",
@@ -25,10 +26,11 @@ async fn public_entry_emits_every_bundle_field_deterministically() {
     let expected = expected_bundle(&fixture, &input);
     let database = Arc::new(fixture.database);
 
-    let bundle = assemble_evidence(database.clone(), input.clone(), EvidenceCounter::Utf8Bytes)
-        .await
-        .unwrap();
-    let repeated = assemble_evidence(
+    let bundle =
+        assemble_on_stopped_clock(database.clone(), input.clone(), EvidenceCounter::Utf8Bytes)
+            .await
+            .unwrap();
+    let repeated = assemble_on_stopped_clock(
         database,
         input,
         EvidenceSettings::default().counter().unwrap(),
@@ -116,7 +118,7 @@ fn expected_bundle(fixture: &Fixture, input: &EvidenceInput) -> Bundle {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn language_tags_and_unavailable_reranking_are_preserved() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative passage.\n")]);
     let language_inputs = [
@@ -139,13 +141,13 @@ async fn language_tags_and_unavailable_reranking_are_preserved() {
     }
     let database = Arc::new(fixture.database);
     for (input, expected) in language_inputs {
-        let bundle = assemble_evidence(database.clone(), input, EvidenceCounter::Utf8Bytes)
+        let bundle = assemble_on_stopped_clock(database.clone(), input, EvidenceCounter::Utf8Bytes)
             .await
             .unwrap();
         assert_eq!(bundle.lang, expected);
     }
 
-    let bundle = assemble_evidence(database, rerank_input, EvidenceCounter::Utf8Bytes)
+    let bundle = assemble_on_stopped_clock(database, rerank_input, EvidenceCounter::Utf8Bytes)
         .await
         .unwrap();
     assert_eq!(
@@ -155,7 +157,7 @@ async fn language_tags_and_unavailable_reranking_are_preserved() {
     assert!(bundle.trace.iter().all(|trace| trace.score.is_none()));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn identifier_route_can_be_unavailable_while_lexical_evidence_remains() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nThe guide describes ERR_404.\n")]);
     let mut input = evidence_input(&fixture, "How can I resolve ERR_404?");
@@ -164,7 +166,7 @@ async fn identifier_route_can_be_unavailable_while_lexical_evidence_remains() {
         RouteStatus::Unavailable("identifier index warming".to_owned()),
     );
 
-    let bundle = assemble_evidence(
+    let bundle = assemble_on_stopped_clock(
         Arc::new(fixture.database),
         input,
         EvidenceCounter::Utf8Bytes,
@@ -182,7 +184,7 @@ async fn identifier_route_can_be_unavailable_while_lexical_evidence_remains() {
     assert!(bundle.known_gaps.is_empty());
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn unresolved_candidates_and_budgeted_identifiers_have_exact_gaps() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nThe guide describes ERR_404.\n")]);
     let mut unresolved_input = evidence_input(&fixture, "What does the guide say?");
@@ -194,7 +196,7 @@ async fn unresolved_candidates_and_budgeted_identifiers_have_exact_gaps() {
     budgeted_input.budget.evidence_bytes = 1;
     let database = Arc::new(fixture.database);
 
-    let unresolved = assemble_evidence(
+    let unresolved = assemble_on_stopped_clock(
         database.clone(),
         unresolved_input,
         EvidenceCounter::Utf8Bytes,
@@ -210,7 +212,7 @@ async fn unresolved_candidates_and_budgeted_identifiers_have_exact_gaps() {
         ]
     );
 
-    let budgeted = assemble_evidence(database, budgeted_input, EvidenceCounter::Utf8Bytes)
+    let budgeted = assemble_on_stopped_clock(database, budgeted_input, EvidenceCounter::Utf8Bytes)
         .await
         .unwrap();
     assert!(budgeted.passages.is_empty());
@@ -227,14 +229,14 @@ async fn unresolved_candidates_and_budgeted_identifiers_have_exact_gaps() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn accepted_warning_dispositions_are_visible_in_exact_source_gaps() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nA source with reviewed warnings.\n")]);
     let revision_id = revision_of(&fixture.database, &fixture.scopes, "guide.md");
     accept_with_warnings(&fixture.scratch, &revision_id);
     let input = evidence_input(&fixture, "What does the guide say?");
 
-    let bundle = assemble_evidence(
+    let bundle = assemble_on_stopped_clock(
         Arc::new(fixture.database),
         input,
         EvidenceCounter::Utf8Bytes,

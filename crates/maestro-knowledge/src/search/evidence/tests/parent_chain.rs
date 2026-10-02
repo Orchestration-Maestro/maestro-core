@@ -347,13 +347,13 @@ fn canonical_graph_choices_keep_nested_procedures_and_validate_ranges() {
 #[test]
 fn parent_chain_honors_cancelled_and_expired_controls() {
     use super::super::EvidenceError;
-    use std::{sync::atomic::Ordering, time::Instant};
+    use std::sync::atomic::Ordering;
     let counter = EvidenceCounter::Utf8Bytes;
     let info = counter_info(&counter).unwrap();
     for expired in [false, true] {
         let mut control = control();
         if expired {
-            control.deadline = Instant::now();
+            control.deadline = control.now();
         } else {
             control.cancelled.store(true, Ordering::Relaxed);
         }

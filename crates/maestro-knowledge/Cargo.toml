@@ -24,6 +24,7 @@ uuid.workspace = true
 whatlang.workspace = true
 
 [dev-dependencies]
+maestro-test-clock.workspace = true
 maestro-test-scratch.workspace = true
 reqwest.workspace = true
 rusqlite.workspace = true

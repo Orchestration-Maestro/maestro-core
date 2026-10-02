@@ -10,7 +10,7 @@ use maestro_kernel::{
     evidence::RequestBudget,
     gateway::ModelPort,
     generation::Generation,
-    retrieval::{self, InventoryRequest},
+    retrieval::{self, Clock, InventoryRequest},
     scope::ScopeSet,
     store::Database,
 };
@@ -38,6 +38,8 @@ pub(super) struct AdmittedSearch {
     pub(super) scopes: Arc<ScopeSet>,
     /// Absolute route, work and T032 deadlines derived at request entry.
     pub(super) cutoffs: deadline::Deadlines,
+    /// The clock blocking workers read `cutoffs` with, captured beside them.
+    pub(super) clock: Arc<dyn Clock>,
     /// Validated execution settings frozen before route access.
     pub(super) configuration: SearchConfiguration,
     /// The source classifier the source prior reads, when one is configured.
@@ -58,12 +60,16 @@ pub(super) async fn admit_request<P: ModelPort, R>(
     let version = request.version.map(str::to_owned);
     let cutoffs =
         deadline::from_budget(started, request.budget, request.configuration.stage_window);
+    let clock: Arc<dyn Clock> = Arc::new(deadline::RuntimeClock::current());
     let (admission_scopes, generation, version_documented) = admit(
         context.database.clone(),
-        context.principal,
-        request.collection,
-        version.clone(),
-        cutoffs.expires,
+        Admission {
+            principal: context.principal.to_owned(),
+            collection: request.collection.to_owned(),
+            version: version.clone(),
+            deadline: cutoffs.expires,
+            clock: clock.clone(),
+        },
     )
     .await?;
     Ok(AdmittedSearch {
@@ -76,6 +82,7 @@ pub(super) async fn admit_request<P: ModelPort, R>(
         principal: context.principal.to_owned(),
         scopes: Arc::new(admission_scopes),
         cutoffs,
+        clock,
         configuration: request.configuration,
         source_classes: context.source_classes.clone(),
     })
@@ -174,26 +181,39 @@ pub(super) fn validate(request: &SearchRequest<'_>) -> Result<Understood, Search
     Ok(understood)
 }
 
+/// What admission reads on its blocking worker, and its cutoff.
+pub(super) struct Admission {
+    /// The trusted caller whose permissions are resolved.
+    pub(super) principal: String,
+    /// The collection whose published generation is pinned.
+    pub(super) collection: String,
+    /// The explicit version filter to look up, if any.
+    pub(super) version: Option<String>,
+    /// The request's absolute deadline.
+    pub(super) deadline: Instant,
+    /// The clock the blocking worker reads `deadline` with.
+    pub(super) clock: Arc<dyn Clock>,
+}
+
 /// Resolves current scopes and pins a published generation off the async executor.
-async fn admit(
+pub(super) async fn admit(
     database: Arc<Database>,
-    principal: &str,
-    collection: &str,
-    version: Option<String>,
-    deadline: Instant,
+    admission: Admission,
 ) -> Result<(ScopeSet, Generation, bool), SearchError> {
-    let principal = principal.to_owned();
-    let collection = collection.to_owned();
+    let Admission {
+        principal,
+        collection,
+        version,
+        deadline,
+        clock,
+    } = admission;
     match deadline::run_blocking(deadline, move |cancelled| {
         let scopes = database
             .visible(&principal)
             .map_err(|error| SearchError::Kernel(retrieval::Error::Store(error)))?;
         let generation = pin(&database, &scopes, &collection).map_err(SearchError::Admission)?;
         let version_documented = if let Some(version) = version.as_deref() {
-            let control = retrieval::ReadControl {
-                deadline: deadline::std_deadline(deadline),
-                cancelled,
-            };
+            let control = deadline::read_control(deadline, cancelled, clock);
             let read = retrieval::SearchRead {
                 generation: &generation,
                 scopes: &scopes,

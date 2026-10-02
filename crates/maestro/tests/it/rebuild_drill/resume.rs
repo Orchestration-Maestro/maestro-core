@@ -142,6 +142,16 @@ pub(super) fn takeover_number(home: &Home, interrupted: &Interrupted) -> u64 {
     events[0].data["lease"]["number"].as_u64().unwrap()
 }
 
+pub(super) fn expected_replayed_indices(chunks: u64) -> Vec<u64> {
+    let mut indexed = 0;
+    let mut indices = Vec::new();
+    while indexed < chunks {
+        indexed = indexed.saturating_add(BATCH_SIZE).min(chunks);
+        indices.push(indexed);
+    }
+    indices
+}
+
 pub(super) fn replayed_indices(home: &Home, interrupted: &Interrupted) -> Vec<u64> {
     let database = home.database();
     let scopes = database.visible(LOCAL).unwrap();

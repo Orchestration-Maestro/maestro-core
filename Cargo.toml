@@ -28,6 +28,7 @@ maestro-filesystem = { path = "crates/maestro-filesystem", version = "0.1.0" }
 maestro-kernel = { path = "crates/maestro-kernel", version = "0.1.0" }
 maestro-knowledge = { path = "crates/maestro-knowledge", version = "0.1.0" }
 maestro-settings = { path = "crates/maestro-settings", version = "0.1.0" }
+maestro-test-clock = { path = "crates/maestro-test-clock", version = "0.1.0" }
 maestro-test-scratch = { path = "crates/maestro-test-scratch", version = "0.1.0" }
 pulldown-cmark = { version = "=0.13.4", default-features = false }
 # Qdrant's official client, over gRPC (ADR-0003, ADR-0020): no snapshot

@@ -1,6 +1,9 @@
 //! Absolute cutoffs shared by routes, candidate loading and T032 handoff.
 
-use maestro_kernel::{evidence::RequestBudget, retrieval::ReadControl};
+use maestro_kernel::{
+    evidence::RequestBudget,
+    retrieval::{Clock, ReadControl},
+};
 use std::{
     future::Future,
     sync::{
@@ -10,6 +13,7 @@ use std::{
     time::{Duration, Instant as StdInstant},
 };
 use tokio::{
+    runtime::Handle,
     task::spawn_blocking,
     time::{self, Instant},
 };
@@ -18,6 +22,45 @@ use tokio::{
 pub const DEADLINE_EXCEEDED: &str = "deadline_exceeded";
 /// The stable route status reason when disabled by the search configuration.
 pub const DISABLED_BY_CONFIGURATION: &str = "disabled by search configuration";
+
+/// Tokio's runtime clock, including a test runtime's paused clock.
+///
+/// In production, when time is not paused, Tokio's clock tracks the system
+/// monotonic clock. Capturing the handle lets blocking workers read it safely.
+#[derive(Clone, Debug)]
+pub struct RuntimeClock(Handle);
+
+impl RuntimeClock {
+    /// Captures the currently entered runtime for blocking workers.
+    ///
+    /// # Panics
+    ///
+    /// When called outside a Tokio runtime.
+    #[must_use]
+    pub fn current() -> Self {
+        Self(Handle::current())
+    }
+}
+
+impl Clock for RuntimeClock {
+    fn now(&self) -> StdInstant {
+        let _entered = self.0.enter();
+        Instant::now().into_std()
+    }
+}
+
+/// Builds a read control whose absolute cutoff `clock` reads.
+pub(super) fn read_control(
+    deadline: Instant,
+    cancelled: Arc<AtomicBool>,
+    clock: Arc<dyn Clock>,
+) -> ReadControl {
+    ReadControl {
+        deadline: deadline.into_std(),
+        clock,
+        cancelled,
+    }
+}
 
 /// The largest assembly window: evidence assembly keeps two of them.
 const MAX_ASSEMBLY_WINDOW: Duration = Duration::from_millis(300);
@@ -124,18 +167,6 @@ pub(super) fn from_budget(
     }
 }
 
-/// The kernel read deadline of the cutoff `deadline`: now, on the standard
-/// clock, plus the time left until it on tokio's.
-///
-/// Kernel reads compare against the standard clock. Converting the tokio
-/// instant itself would give the same deadline, except on a paused tokio
-/// clock, which tests stop so that no deadline passes: the converted
-/// deadline would still pass in real time. The time left freezes with the
-/// clock.
-pub(super) fn std_deadline(deadline: Instant) -> StdInstant {
-    StdInstant::now() + deadline.saturating_duration_since(Instant::now())
-}
-
 /// A deadline elapsed before its future completed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct DeadlineElapsed;
@@ -197,10 +228,10 @@ impl Drop for CancelOnDrop {
 /// Whether optional enrichment may still read under `control`: neither
 /// cancelled nor past its cutoff.
 pub(super) fn open(control: &ReadControl) -> bool {
-    open_at(control, StdInstant::now())
+    open_at(control, control.now())
 }
 
-/// Whether optional enrichment remains open at the supplied real-clock instant.
+/// Whether optional enrichment remains open at the supplied clock instant.
 pub(super) fn open_at(control: &ReadControl, now: StdInstant) -> bool {
     !control.cancelled.load(Ordering::Relaxed) && now < control.deadline
 }

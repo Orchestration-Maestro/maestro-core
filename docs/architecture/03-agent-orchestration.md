@@ -511,6 +511,10 @@ never release-note text or install commands in instructions.
 | Evidence and result validation | On | Locked |
 | Auto-discovered executable hooks | Off | Locked |
 
+S1 knowledge answers are an exception: each generated attempt is capped at
+2,048 tokens, with smaller card-specific limits honored; the default is `off`,
+so the registered card supplies its limit.
+
 Budgets never cancel prohibitions: 39 remaining tool calls grant nothing.
 
 ### 1.7 Project bootstrap (`maestro init`)

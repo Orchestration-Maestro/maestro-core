@@ -10,6 +10,7 @@ use super::super::{
 use super::knowledge_search::{cli_data, mcp_search_result_of, published_identifier_source};
 use maestro_kernel::{
     artifact::Store,
+    evidence::RequestBudget,
     gateway::{
         ModelCard, Role, RouterEntry,
         card_v2::{Capability, Dimensions, EmbeddingFormat},
@@ -28,7 +29,7 @@ use std::{
 
 const QUERY: &str = "What does --force do?";
 /// The deadline the searches ask for, in milliseconds.
-const DEADLINE_MS: u32 = 3000;
+const DEADLINE_MS: u32 = RequestBudget::MAX_DEADLINE_MS;
 
 /// Serves a loopback router that refuses each request with 503 immediately.
 pub(super) fn refusing_router() -> String {

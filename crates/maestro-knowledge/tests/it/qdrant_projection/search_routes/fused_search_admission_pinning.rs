@@ -31,7 +31,7 @@ async fn unknown_and_unpublished_collections_stop_before_model_or_qdrant_calls()
         intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
-        qdrant: &qdrant,
+        projection: &qdrant,
         embedder: Some(maestro_knowledge::search::routes::dense::Embedder {
             port: &port,
             card: &card,
@@ -139,7 +139,7 @@ async fn alias_and_generation_moves_after_admission_keep_search_pinned() {
         intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
-        qdrant: &qdrant,
+        projection: &qdrant,
         embedder: Some(maestro_knowledge::search::routes::dense::Embedder {
             port: &search_port,
             card: &embedder_card,
@@ -254,7 +254,7 @@ async fn a_permission_revocation_during_a_slow_route_aborts_the_handoff() {
         intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
-        qdrant: &qdrant,
+        projection: &qdrant,
         embedder: Some(maestro_knowledge::search::routes::dense::Embedder {
             port: &search_port,
             card: &embedder_card,
@@ -321,7 +321,7 @@ async fn a_new_grant_during_a_slow_route_aborts_the_handoff() {
         intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
-        qdrant: &qdrant,
+        projection: &qdrant,
         embedder: Some(maestro_knowledge::search::routes::dense::Embedder {
             port: &search_port,
             card: &embedder_card,

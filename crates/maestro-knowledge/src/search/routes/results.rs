@@ -13,7 +13,7 @@ pub struct ScoredChunk {
     pub chunk_id: String,
     /// The source revision that owns the chunk.
     pub revision_id: String,
-    /// Qdrant's score for this route.
+    /// The projection backend's score for this route.
     pub score: f64,
 }
 
@@ -26,7 +26,8 @@ pub(crate) fn deduplicate(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChu
         .collect()
 }
 
-/// Converts Qdrant hits to their required payload fields; `rank` orders them.
+/// Converts hits from the projection backend to their required payload
+/// fields; `rank` orders them.
 pub(super) fn chunks(points: Vec<PointHit>) -> Result<Vec<ScoredChunk>, RouteError> {
     let mut hits = Vec::with_capacity(points.len());
     for point in points {
@@ -36,7 +37,9 @@ pub(super) fn chunks(points: Vec<PointHit>) -> Result<Vec<ScoredChunk>, RouteErr
             .score
             .ok_or_else(|| invalid_answer("ranked hit lacks a score"))?;
         if !score.is_finite() {
-            return Err(invalid_answer("Qdrant returned a non-finite score"));
+            return Err(invalid_answer(
+                "the projection backend returned a non-finite score",
+            ));
         }
         hits.push(ScoredChunk {
             chunk_id,
@@ -49,10 +52,11 @@ pub(super) fn chunks(points: Vec<PointHit>) -> Result<Vec<ScoredChunk>, RouteErr
 
 /// Orders near-equal scores by ID, then removes duplicates and applies `limit`.
 ///
-/// Qdrant's IDF-weighted f32 scores vary by a few ULPs between builds, far
-/// below τ = 1e-5 × max(1, |group leader|); meaningful score gaps are far larger.
-/// A tie group larger than the extra `limit` fetched by each route can still
-/// be truncated by Qdrant, leaving its cutoff order-dependent.
+/// Qdrant's IDF-weighted f32 scores (the current adapter) vary by a few ULPs
+/// between builds, far below τ = 1e-5 × max(1, |group leader|); meaningful
+/// score gaps are far larger. A tie group larger than the extra `limit` fetched
+/// by each route can still be truncated by the projection backend, leaving its
+/// cutoff order-dependent.
 pub(crate) fn rank(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> {
     let mut hits = hits;
     hits.sort_by(|left, right| right.score.total_cmp(&left.score));
@@ -75,16 +79,18 @@ pub(crate) fn rank(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> {
     deduplicate(hits, limit)
 }
 
-/// Gets a string payload field from one Qdrant hit.
+/// Gets a string payload field from a hit returned by the projection
+/// backend.
 fn payload_text(point: &PointHit, key: &str) -> Result<String, RouteError> {
     projection_payload_text(point, key)
         .map(str::to_owned)
         .ok_or_else(|| invalid_answer(&format!("hit payload lacks string {key}")))
 }
 
-/// Wraps a malformed answer from Qdrant as an invalid answer error.
+/// Wraps a malformed answer from the projection backend as an invalid answer
+/// error.
 fn invalid_answer(reason: &str) -> RouteError {
-    RouteError::Qdrant(projection_invalid_answer(reason))
+    RouteError::Projection(projection_invalid_answer(reason))
 }
 
 #[cfg(test)]

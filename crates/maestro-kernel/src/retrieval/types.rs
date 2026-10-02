@@ -2,6 +2,7 @@
 
 use crate::{evidence::Inventory, generation::Generation, scope::ScopeSet};
 use std::{
+    fmt::Debug,
     sync::{Arc, atomic::AtomicBool},
     time::Instant,
 };
@@ -53,6 +54,22 @@ pub enum InventoryRequest {
     },
 }
 
+/// Supplies the time source used by deadline-controlled kernel reads.
+pub trait Clock: Debug + Send + Sync {
+    /// Returns the current instant according to this clock.
+    fn now(&self) -> Instant;
+}
+
+/// The system monotonic clock used by production reads.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SystemClock;
+
+impl Clock for SystemClock {
+    fn now(&self) -> Instant {
+        Instant::now()
+    }
+}
+
 /// A controlled synchronous read of a pinned generation.
 #[derive(Debug)]
 pub struct SearchRead<'a> {
@@ -94,11 +111,21 @@ pub struct InventorySelection {
     pub supports: Vec<ChunkHit>,
 }
 
-/// Cancellation and an absolute wall-clock deadline for a blocking search read.
+/// Cancellation and an absolute deadline for a blocking search read.
 #[derive(Debug)]
 pub struct ReadControl {
-    /// The wall-clock instant after which the read must stop.
+    /// The instant after which the read must stop.
     pub deadline: Instant,
+    /// The clock that owns the absolute cutoff.
+    pub clock: Arc<dyn Clock>,
     /// Set when the async caller no longer waits for this worker.
     pub cancelled: Arc<AtomicBool>,
+}
+
+impl ReadControl {
+    /// Returns the current instant from the deadline's clock.
+    #[must_use]
+    pub fn now(&self) -> Instant {
+        self.clock.now()
+    }
 }

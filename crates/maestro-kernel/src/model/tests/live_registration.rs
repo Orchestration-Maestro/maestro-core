@@ -287,6 +287,82 @@ fn register_card_refuses_an_unknown_collection() {
     assert_no_evidence_import(&fixture);
 }
 
+#[test]
+fn register_card_accepts_a_card_of_exactly_the_size_limit() {
+    let fixture = Fixture::new();
+    let mut padded = fixture.card_json.clone();
+    padded.resize(1 << 20, b' ');
+    fs::write(&fixture.card_path, padded).unwrap();
+
+    let result = fixture.register(&fixture.weights, COLLECTION, &fixture.scopes);
+
+    assert_eq!(result.unwrap().1, ModelCardRegistrationOutcome::Recorded);
+}
+
+#[test]
+fn register_card_accepts_an_evidence_directory_of_exactly_the_size_limit() {
+    let fixture = Fixture::new();
+    let evidence_bytes: u64 = EVIDENCE_FILES
+        .iter()
+        .map(|(_, bytes)| u64::try_from(bytes.len()).unwrap())
+        .sum();
+    let file_limit = 16 << 20;
+    for (index, length) in [
+        file_limit,
+        file_limit,
+        file_limit,
+        file_limit - evidence_bytes,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let path = fixture.evidence_dir.join(format!("padding-{index}.bin"));
+        fs::File::create(path).unwrap().set_len(length).unwrap();
+    }
+
+    let result = fixture.register(&fixture.weights, COLLECTION, &fixture.scopes);
+
+    assert_eq!(result.unwrap().1, ModelCardRegistrationOutcome::Recorded);
+}
+
+#[test]
+fn register_card_stores_evidence_with_the_media_type_of_its_extension() {
+    let fixture = Fixture::new();
+    for (name, bytes) in &EVIDENCE_FILES[..3] {
+        let digest_named = fixture.evidence_dir.join(Digest::of(bytes).as_str());
+        fs::rename(digest_named, fixture.evidence_dir.join(name)).unwrap();
+    }
+
+    fixture
+        .register(&fixture.weights, COLLECTION, &fixture.scopes)
+        .unwrap();
+
+    let expected = [
+        "application/json",
+        "text/plain",
+        "application/json",
+        "application/octet-stream",
+    ];
+    for ((name, bytes), media) in EVIDENCE_FILES.iter().zip(expected) {
+        let stored = fixture.database.artifact(&Digest::of(bytes)).unwrap();
+        assert_eq!(stored.unwrap().media, media, "{name}");
+    }
+}
+
+#[test]
+fn register_card_refuses_a_gguf_of_another_length_before_hashing_it() {
+    let fixture = Fixture::new();
+    let longer = fixture.scratch.0.join("longer.gguf");
+    fs::write(&longer, [TEST_WEIGHTS, b"!"].concat()).unwrap();
+
+    let Err(error) = fixture.register(&longer, COLLECTION, &fixture.scopes) else {
+        panic!("a GGUF of another length was accepted");
+    };
+
+    assert_eq!(error.to_string(), "GGUF file length differs from the card");
+    assert_no_evidence_import(&fixture);
+}
+
 struct Fixture {
     database: Database,
     scopes: ScopeSet,

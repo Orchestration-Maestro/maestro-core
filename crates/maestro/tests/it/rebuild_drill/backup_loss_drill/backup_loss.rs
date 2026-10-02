@@ -306,7 +306,7 @@ impl Drill {
         );
         assert_eq!(
             resume::replayed_indices(&self.home, &baseline.interrupted),
-            [64, 128, 192, 240]
+            resume::expected_replayed_indices(baseline.progress["chunks"].as_u64().unwrap())
         );
         Recovered {
             document,
