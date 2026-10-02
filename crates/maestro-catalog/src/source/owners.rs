@@ -13,6 +13,10 @@ use serde::{
 use std::collections::{BTreeMap, BTreeSet};
 use std::{fmt, marker::PhantomData};
 
+/// The base is judged as of its own time: no expiry applies;
+/// parsing, ownership and digests are unchanged.
+const HISTORICAL_DAY: i64 = i64::MIN;
+
 /// A checked revision and exact file pins retained from its single source read.
 #[derive(Debug)]
 pub struct OwnerSnapshot {
@@ -25,6 +29,30 @@ pub struct OwnerSnapshot {
 }
 
 impl OwnerSnapshot {
+    /// Decode a historical base without applying today's exception expiry.
+    /// Strict date parsing, source validation, ownership and exact digests remain checked.
+    ///
+    /// # Errors
+    /// Invalid revisions or catalog source checks refuse.
+    pub fn check_base(
+        revision: &str,
+        tree: &dyn SourceTree,
+        registry: &Registry,
+        limits: &Limits,
+        known: Known<'_>,
+    ) -> Result<Self, Refusal> {
+        Self::check(
+            revision,
+            tree,
+            registry,
+            limits,
+            Known {
+                today: HISTORICAL_DAY,
+                ..known
+            },
+        )
+    }
+
     /// Check an injected tree and retain its digests without reopening source files.
     ///
     /// # Errors

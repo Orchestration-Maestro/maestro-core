@@ -93,29 +93,13 @@ fn source_rule_owners_and_delegated_maintainers_bind_all_digests() {
 
 #[test]
 fn central_exception_requires_standard_and_root_reviews() {
-    let root = package_source("package", "common").replace("@synthetic/knowledge", "root-owner");
-    let standard = package_source("standard", "security")
-        .replace("@synthetic/knowledge", "standard-owner")
-        .replace("security-001", "SEC-001");
-    let tree = MemoryTree::owned()
-        .with("package.toml", &root)
-        .with("standards/security/package.toml", &standard);
-    let base = snapshot(BASE, &tree);
-    let metadata = standard.split_once("[metadata]").unwrap().1;
     for path in [
         "exceptions/temporary.toml",
         "standards/security/exceptions/temporary.toml",
     ] {
-        let exception = format!(
-            "name = \"temporary\"\n\
-             rule = \"SEC-001\"\n\
-             scopes = [\"package:core\"]\n\
-             rationale = \"Synthetic only\"\n\
-             expiry = \"2026-10-02\"\n\
-             evidence = \"standard-check:security/approval\"\n\
-             [metadata]{metadata}"
-        );
-        let head = snapshot(HEAD, &tree.clone().with(path, &exception));
+        let (head_tree, base_tree) = exception_tree(path);
+        let base = snapshot(BASE, &base_tree);
+        let head = snapshot(HEAD, &head_tree);
         let (_, _, mut evidence) = fixture();
         evidence
             .principals
@@ -140,6 +124,115 @@ fn central_exception_requires_standard_and_root_reviews() {
                 "{path}: {missing}"
             );
         }
+    }
+}
+
+/// Root and standard owners protect a synthetic exception with valid metadata.
+fn exception_tree(path: &str) -> (MemoryTree, MemoryTree) {
+    let root = package_source("package", "common").replace("@synthetic/knowledge", "root-owner");
+    let standard = package_source("standard", "security")
+        .replace("@synthetic/knowledge", "standard-owner")
+        .replace("security-001", "SEC-001");
+    let tree = MemoryTree::owned()
+        .with("package.toml", &root)
+        .with("standards/security/package.toml", &standard);
+    let metadata = standard.split_once("[metadata]").unwrap().1;
+    let exception = format!(
+        "name = \"temporary\"\n\
+         rule = \"SEC-001\"\n\
+         scopes = [\"package:core\"]\n\
+         rationale = \"Synthetic only\"\n\
+         expiry = \"2026-10-02\"\n\
+         evidence = \"standard-check:security/approval\"\n\
+         [metadata]{metadata}"
+    );
+    let base = tree.clone().with(path, &exception);
+    (base, tree)
+}
+
+#[test]
+fn expired_base_exception_deletion_uses_base_owner_evidence() {
+    let (base_tree, head_tree) = exception_tree("exceptions/temporary.toml");
+    let rows = frozen_rows();
+    let settings = maestro_settings::Registry::built_in().unwrap();
+    let registry = builtin().unwrap();
+    let known = Known {
+        rows: &rows,
+        settings: &settings,
+        today: 20_728,
+    };
+    let head =
+        OwnerSnapshot::check(HEAD, &head_tree, &registry, &Limits::PRODUCTION, known).unwrap();
+    let base =
+        OwnerSnapshot::check_base(BASE, &base_tree, &registry, &Limits::PRODUCTION, known).unwrap();
+    let (_, _, mut evidence) = fixture();
+    evidence
+        .principals
+        .extend([user("root-owner"), user("standard-owner")]);
+    evidence.approvals = ["root-owner", "standard-owner"]
+        .map(|actor| OwnerApproval {
+            actor: actor.into(),
+            head: HEAD.into(),
+            approved: true,
+            files: vec![ApprovalFile {
+                path: "exceptions/temporary.toml".into(),
+                digest: None,
+            }],
+        })
+        .to_vec();
+    assert_eq!(check_owners(&base, &head, &evidence, REPOSITORY), Ok(()));
+}
+
+#[test]
+fn expired_exception_kept_in_head_refuses() {
+    let (tree, _) = exception_tree("exceptions/temporary.toml");
+    let rows = frozen_rows();
+    let settings = maestro_settings::Registry::built_in().unwrap();
+    let registry = builtin().unwrap();
+    let known = Known {
+        rows: &rows,
+        settings: &settings,
+        today: 20_728,
+    };
+    OwnerSnapshot::check_base(BASE, &tree, &registry, &Limits::PRODUCTION, known).unwrap();
+    let refusal =
+        OwnerSnapshot::check(HEAD, &tree, &registry, &Limits::PRODUCTION, known).unwrap_err();
+    assert!(refusal.diagnostics.iter().any(|diagnostic| {
+        diagnostic.path == "exceptions/temporary.toml"
+            && diagnostic.key == "expiry"
+            && diagnostic.message == "expired central exception"
+    }));
+}
+
+#[test]
+fn malformed_base_exception_date_refuses() {
+    let (tree, _) = exception_tree("exceptions/temporary.toml");
+    let rows = frozen_rows();
+    let settings = maestro_settings::Registry::built_in().unwrap();
+    for date in ["not-a-date", "2026-02-30"] {
+        let tree = tree
+            .clone()
+            .edit("exceptions/temporary.toml", "2026-10-02", date);
+        let refusal = OwnerSnapshot::check_base(
+            BASE,
+            &tree,
+            &builtin().unwrap(),
+            &Limits::PRODUCTION,
+            Known {
+                rows: &rows,
+                settings: &settings,
+                today: 20_728,
+            },
+        )
+        .unwrap_err();
+        assert!(
+            refusal.diagnostics.iter().any(|diagnostic| {
+                diagnostic.path == "exceptions/temporary.toml"
+                    && diagnostic.key == "expiry"
+                    && diagnostic.message == "must be a YYYY-MM-DD calendar date"
+            }),
+            "{date}"
+        );
     }
 }
 

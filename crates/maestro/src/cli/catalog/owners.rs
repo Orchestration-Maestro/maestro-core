@@ -5,7 +5,7 @@ use crate::{cli::output::Output, failure::Failure};
 use maestro_catalog::{
     limits::Limits,
     source::{
-        Directory, Known, SourceTree, builtin, frozen_rows,
+        Directory, Known, Refusal, SourceTree, builtin, frozen_rows,
         owners::{OwnerEvidence, OwnerSnapshot, check_owners},
     },
 };
@@ -69,24 +69,29 @@ pub(in crate::cli) fn run(
         settings: &settings,
         today: today()?,
     };
-    let snapshot = |revision, directory| {
-        OwnerSnapshot::check(
-            revision,
-            &Directory::new(directory),
-            &registry,
-            &Limits::PRODUCTION,
-            known,
-        )
-        .map_err(|refusal| {
-            if refusal.unreadable() {
-                Failure::failed(refusal)
-            } else {
-                Failure::refused(refusal)
-            }
-        })
+    let failure = |refusal: Refusal| {
+        if refusal.unreadable() {
+            Failure::failed(refusal)
+        } else {
+            Failure::refused(refusal)
+        }
     };
-    let base = snapshot(base_revision, base_dir)?;
-    let head = snapshot(head_revision, catalog_dir)?;
+    let base = OwnerSnapshot::check_base(
+        base_revision,
+        &Directory::new(base_dir),
+        &registry,
+        &Limits::PRODUCTION,
+        known,
+    )
+    .map_err(failure)?;
+    let head = OwnerSnapshot::check(
+        head_revision,
+        &Directory::new(catalog_dir),
+        &registry,
+        &Limits::PRODUCTION,
+        known,
+    )
+    .map_err(failure)?;
     check_owners(&base, &head, &evidence, repository).map_err(Failure::refused)?;
     output.result(
         &Document {
