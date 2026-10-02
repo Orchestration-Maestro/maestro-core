@@ -2347,10 +2347,10 @@ ARC-005 exception for `source::kinds`.
 **Requirements:** FR-S3-046, FR-S3-047, SC-S3-004, SC-S3-016.
 **Named tests:** `old_authoring_lock_requires_preview`, `every_selected_input_is_locked`, `changed_source_path_requires_preview`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Emit project/authoring-lock /2 with exact selected areas and complete source identity/revision/digest inventory. Include descriptors, resources/sidecars, presets, explicit inventories/assets and selected checked configs. C47a adds runtime non-resource wiring rather than hiding it here. Recheck exact bytes before apply through C04.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Emit project/authoring-lock /2 with exact selected areas and complete source identity/revision/digest inventory. Include descriptors, resources/sidecars, presets, explicit inventories/assets and selected checked configs. C47a adds runtime non-resource wiring rather than hiding it here. Recheck exact bytes before apply through C04.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

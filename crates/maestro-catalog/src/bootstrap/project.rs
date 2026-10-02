@@ -1,6 +1,6 @@
 //! Preview and apply project files through C04's digest-bound writer.
 use super::{
-    compose::{PresetPort, read_preset_file},
+    compose::{Preset, PresetPort, read_preset_file},
     inspect::Inspection,
 };
 use crate::files::{FileInput, FilePlan, apply as apply_files, digest};
@@ -58,6 +58,8 @@ struct ProjectDescriptor<'a> {
     lock: &'static str,
     /// Explicitly selected presets.
     presets: &'a [String],
+    /// Exact checked area selection; no installation or trust authority.
+    areas: &'a [String],
     /// Declared capabilities, empty until a preset specifies supported data.
     capabilities: &'static [&'static str],
     /// Context files, empty until selected by an explicit preset.
@@ -73,8 +75,23 @@ struct AuthoringLock {
     schema: &'static str,
     /// Every generated file and its SHA-256 digest.
     files: Vec<LockedFile>,
-    /// The selected source manifests and templates and their digests.
-    sources: Vec<LockedFile>,
+    /// Exact checked area selection.
+    areas: Vec<String>,
+    /// Complete selected source closure and its per-resource provenance.
+    sources: Vec<LockedSource>,
+}
+
+/// One selected input's qualified identity, declared revision and exact digest.
+#[derive(Serialize)]
+struct LockedSource {
+    /// Catalog-relative source path, including sidecars and inventoried assets.
+    path: String,
+    /// Qualified identity of the owning checked resource.
+    id: String,
+    /// Declared revision; null for a kind without a declared version.
+    revision: Option<String>,
+    /// Digest of the captured source bytes.
+    sha256: String,
 }
 
 /// One generated file's root-relative name and digest.
@@ -122,29 +139,57 @@ pub fn preview(
     let captured = presets
         .iter()
         .flat_map(|preset| {
-            preset.source_files.iter().filter_map(|(path, bytes)| {
+            preset.source_files.iter().filter_map(|(path, source)| {
                 preset.source_root.as_ref().map(|root| CapturedSource {
                     root: root.clone(),
                     path: path.clone(),
-                    sha256: digest(bytes),
+                    sha256: digest(&source.bytes),
                 })
             })
         })
         .collect();
+    let files = project_files(presets, names)?;
+    let plan = FilePlan::preview(root, files, trust)
+        .map_err(|error| format!("{error}; run preview again; existing bytes were not rebound"))?;
+    Ok(BootstrapPreview {
+        plan,
+        inspection,
+        prerequisites,
+        bindings,
+        sources: captured,
+    })
+}
+
+/// Emit descriptor and lock from the same resolved inputs used by composition.
+fn project_files(presets: Vec<Preset>, names: &[String]) -> Result<Vec<FileInput>, String> {
     let sources = presets
         .iter()
         .flat_map(|preset| preset.source_files.iter())
-        .map(|(path, bytes)| LockedFile {
+        .map(|(path, source)| LockedSource {
             path: path.clone(),
-            sha256: digest(bytes),
+            id: source.id.clone(),
+            revision: source.revision.clone(),
+            sha256: digest(&source.bytes),
         })
         .collect();
+    let areas: Vec<_> = presets
+        .iter()
+        .flat_map(|preset| preset.areas.iter().cloned())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
     let mut files = super::compose::compose_resolved(presets)?;
-    let qualified: Vec<String> = names.iter().map(|name| format!("preset:{name}")).collect();
+    let qualified: Vec<String> = names
+        .iter()
+        .map(|name| format!("preset:{name}"))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
     let descriptor = ProjectDescriptor {
         schema: "maestro-project/2",
         lock: ".maestro/authoring.lock.json",
         presets: &qualified,
+        areas: &areas,
         capabilities: &[],
         context_files: &[],
         mode: "authoring",
@@ -165,20 +210,14 @@ pub fn preview(
     let lock = AuthoringLock {
         schema: "maestro-authoring-lock/2",
         files: locked,
+        areas,
         sources,
     };
     files.push(FileInput::new(
         ".maestro/authoring.lock.json",
         serde_json::to_vec_pretty(&lock).map_err(|error| error.to_string())?,
     ));
-    let plan = FilePlan::preview(root, files, trust).map_err(|error| error.to_string())?;
-    Ok(BootstrapPreview {
-        plan,
-        inspection,
-        prerequisites,
-        bindings,
-        sources: captured,
-    })
+    Ok(files)
 }
 
 /// Apply a previously displayed preview through C04's single owned-file writer.

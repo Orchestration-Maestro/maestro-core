@@ -14,7 +14,8 @@ impl Catalog {
     /// Declaration/offline validation confers no GitHub approval or runtime grant.
     ///
     /// # Errors
-    /// Refuses missing, duplicate, unreviewed, retired-area or ownership-inconsistent selections.
+    /// Refuses missing, duplicate, unreviewed, retired-area or ownership-inconsistent
+    /// selections, including a member whose area descriptor is not selected.
     pub fn selection(
         &self,
         selected: &[ResourceId],
@@ -97,7 +98,7 @@ impl Catalog {
                     format!("{id} needs reviewed maturity"),
                 ));
             }
-            if let Some(problem) = self.selection_ownership_problem(resource) {
+            if let Some(problem) = self.selection_ownership_problem(resource, &ids) {
                 diagnostics.push(problem);
             }
             members.push(resource);
@@ -112,7 +113,11 @@ impl Catalog {
     }
 
     /// Selection checks the owning area's status independently of member maturity.
-    fn selection_ownership_problem(&self, resource: &Resource) -> Option<Diagnostic> {
+    fn selection_ownership_problem(
+        &self,
+        resource: &Resource,
+        selected: &BTreeSet<ResourceId>,
+    ) -> Option<Diagnostic> {
         let Some(ownership) = self.ownership(resource) else {
             return Some(Diagnostic::new(
                 &resource.path,
@@ -120,6 +125,16 @@ impl Catalog {
                 format!("{} does not match its area ownership record", resource.id),
             ));
         };
+        if !selected.contains(&ownership.descriptor.id) {
+            return Some(Diagnostic::new(
+                &resource.path,
+                "selection",
+                format!(
+                    "unselected area: {}; {} requires {} in the selection",
+                    ownership.descriptor.id.name, resource.id, ownership.descriptor.id
+                ),
+            ));
+        }
         if ownership
             .descriptor
             .fields

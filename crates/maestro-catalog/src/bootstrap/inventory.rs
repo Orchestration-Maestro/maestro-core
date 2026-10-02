@@ -1,5 +1,5 @@
 //! Explicit area-local inventory data behind the existing preset port.
-use super::compose::{FileBytes, Preset, PresetPort};
+use super::compose::{FileBytes, Preset, PresetPort, SourceFile};
 use crate::{
     files::digest,
     limits::Limits,
@@ -66,7 +66,7 @@ struct Loader<'a> {
     /// Each selected area/inventory is included once across all requested presets.
     selected: BTreeSet<String>,
     /// First capture of each distinct path across the complete resolve call.
-    source_files: FileBytes,
+    source_files: BTreeMap<String, SourceFile>,
     /// Sources counted across presets, manifests and assets.
     count: usize,
     /// Captured input bytes across the complete request.
@@ -87,6 +87,11 @@ impl PresetPort for AreaInventories {
             .catalog
             .selection(&selected, &self.registry)
             .map_err(|error| error.to_string())?;
+        let area_ids = closure
+            .iter()
+            .filter(|resource| resource.fields.contains_key("owners"))
+            .map(|resource| resource.id.to_string())
+            .collect();
         let areas = closure
             .iter()
             .filter(|resource| resource.fields.contains_key("owners"))
@@ -105,23 +110,45 @@ impl PresetPort for AreaInventories {
             adapter: self,
             areas,
             selected: BTreeSet::new(),
-            source_files: FileBytes::new(),
+            source_files: BTreeMap::new(),
             count: 0,
             bytes: 0,
         };
-        closure
+        for resource in &closure {
+            for path in resource.files.iter().chain(&resource.data) {
+                loader.capture(resource, path)?;
+            }
+        }
+        let mut presets: Vec<_> = closure
             .into_iter()
             .filter(|resource| resource.id.kind == "preset")
             .map(|resource| loader.preset(resource))
-            .collect()
+            .collect::<Result<_, _>>()?;
+        if let Some(first) = presets.first_mut() {
+            first.areas = area_ids;
+            first.source_files = loader.source_files;
+        }
+        Ok(presets)
     }
+}
+
+/// Metadata revisions take precedence; checked area versions are the fallback.
+fn source_revision(resource: &Resource) -> Option<String> {
+    resource.metadata.version.clone().or_else(|| {
+        resource
+            .fields
+            .contains_key("owners")
+            .then(|| resource.fields.get("version").and_then(Value::text))
+            .flatten()
+            .map(str::to_owned)
+    })
 }
 
 impl Loader<'_> {
     /// Reuse each captured source once from the bounded checked snapshot.
-    fn read(&mut self, path: &str) -> Result<Vec<u8>, String> {
-        if let Some(bytes) = self.source_files.get(path) {
-            return Ok(bytes.clone());
+    fn capture(&mut self, resource: &Resource, path: &str) -> Result<(), String> {
+        if self.source_files.contains_key(path) {
+            return Ok(());
         }
         self.count += 1;
         if self.count > self.adapter.limits.archive_entries {
@@ -136,19 +163,25 @@ impl Loader<'_> {
         if self.bytes > self.adapter.limits.archive_total_bytes {
             return Err("inventory source bytes exceed limit".to_owned());
         }
-        self.source_files.insert(path.to_owned(), bytes.clone());
-        Ok(bytes)
+        self.source_files.insert(
+            path.to_owned(),
+            SourceFile {
+                id: resource.id.to_string(),
+                revision: source_revision(resource),
+                bytes,
+            },
+        );
+        Ok(())
     }
 
     /// Expand the checked closure's decoded preset templates without source parsing.
     fn preset(&mut self, resource: &Resource) -> Result<Preset, String> {
         let name = &resource.id.name;
-        let path = resource.path.clone();
-        let bytes = self.read(&path)?;
         let mut preset = Preset {
             name: name.to_owned(),
             files: FileBytes::new(),
-            source_files: BTreeMap::from([(path, bytes)]),
+            source_files: BTreeMap::new(),
+            areas: Vec::new(),
             tools: Vec::new(),
             bindings: Vec::new(),
             source_root: Some(self.adapter.root.clone()),
@@ -179,9 +212,6 @@ impl Loader<'_> {
             format!("{root}/")
         };
         let path = format!("{prefix}bootstrap/{name}.toml");
-        let bytes = self
-            .read(&path)
-            .map_err(|error| format!("unknown inventory: {selector}: {error}"))?;
         let resource = self
             .adapter
             .catalog
@@ -190,14 +220,18 @@ impl Loader<'_> {
             .find(|resource| resource.path == path)
             .ok_or_else(|| format!("unknown inventory: {selector}"))?;
         let inventory = Inventory::decoded(resource)?;
-        preset.source_files.insert(path, bytes);
         preset.tools.extend(inventory.tools);
         preset.bindings.extend(inventory.bindings);
         for (file, path) in inventory.files.iter().map(|file| {
             let path = format!("{prefix}bootstrap/{name}/files/{}", file.source);
             (file, path)
         }) {
-            let bytes = self.read(&path)?;
+            let bytes = self
+                .source_files
+                .get(&path)
+                .ok_or_else(|| format!("inventory input missing from selected closure: {path}"))?
+                .bytes
+                .clone();
             if digest(&bytes) != file.sha256 {
                 return Err(format!(
                     "inventory digest mismatch: {path}; input changed; run preview again"
@@ -210,7 +244,6 @@ impl Loader<'_> {
             {
                 return Err(format!("inventory file collision: {}", file.output));
             }
-            preset.source_files.insert(path, bytes);
         }
         Ok(())
     }

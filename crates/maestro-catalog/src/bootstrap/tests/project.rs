@@ -42,6 +42,7 @@ impl PresetPort for Presets {
                         files[".github/copilot-instructions.md"].clone(),
                     )]),
                     source_files: BTreeMap::new(),
+                    areas: Vec::new(),
                     tools: Vec::new(),
                     bindings: Vec::new(),
                     source_root: None,
@@ -53,6 +54,7 @@ impl PresetPort for Presets {
                         files[".maestro/recipes.json"].clone(),
                     )]),
                     source_files: BTreeMap::new(),
+                    areas: Vec::new(),
                     tools: Vec::new(),
                     bindings: Vec::new(),
                     source_root: None,
@@ -313,6 +315,7 @@ fn base_only_descriptor_has_exact_authoring_keys_and_lock_reference() {
     assert_eq!(
         descriptor.keys().map(String::as_str).collect::<Vec<_>>(),
         [
+            "areas",
             "capabilities",
             "context_files",
             "lock",
@@ -369,10 +372,17 @@ fn authoring_lock_binds_every_generated_file_and_source() {
             vec![
                 "bootstrap/base.toml",
                 "bootstrap/base/files/instructions.md",
+                "core/agents/maestro.agent.md",
+                "core/agents/maestro.maestro.toml",
+                "core/package.toml",
                 "languages/rust/bootstrap/starter.toml",
                 "languages/rust/bootstrap/starter/files/recipes.json",
+                "languages/rust/package.toml",
+                "package.toml",
                 "presets/base.toml",
                 "presets/rust.toml",
+                "standards/quality/package.toml",
+                "standards/security/package.toml",
             ],
         ),
     ] {

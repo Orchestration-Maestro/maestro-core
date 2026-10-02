@@ -2,6 +2,7 @@
 mod discovery;
 mod inventory;
 mod inventory_reuse;
+mod locks;
 mod project;
 mod selection;
 mod snapshot;

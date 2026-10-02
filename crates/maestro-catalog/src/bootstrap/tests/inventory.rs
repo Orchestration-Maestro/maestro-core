@@ -96,7 +96,7 @@ fn selected_owner_inventory_accepts() {
         .iter()
         .map(|source| source["path"].as_str().unwrap())
         .collect();
-    assert_eq!(paths.len(), 6);
+    assert_eq!(paths.len(), 13);
     assert!(paths.contains(&"bootstrap/base.toml"));
     assert!(paths.contains(&"languages/rust/bootstrap/starter.toml"));
 }
@@ -303,6 +303,12 @@ fn inventory_aggregate_bounds_have_passing_neighbours() {
     use crate::limits::Limits;
     let fixture = Fixture::new();
     let bytes = [
+        "package.toml",
+        "core/package.toml",
+        "core/agents/maestro.agent.md",
+        "core/agents/maestro.maestro.toml",
+        "standards/quality/package.toml",
+        "standards/security/package.toml",
         "presets/base.toml",
         "bootstrap/base.toml",
         "bootstrap/base/files/instructions.md",
@@ -311,7 +317,7 @@ fn inventory_aggregate_bounds_have_passing_neighbours() {
     .map(|path| fs::metadata(fixture.catalog.join(path)).unwrap().len())
     .sum::<u64>();
     let limits = Limits {
-        archive_entries: 3,
+        archive_entries: 9,
         archive_total_bytes: bytes,
         ..Limits::PRODUCTION
     };
@@ -326,7 +332,7 @@ fn inventory_aggregate_bounds_have_passing_neighbours() {
     for (limits, message) in [
         (
             Limits {
-                archive_entries: 2,
+                archive_entries: 8,
                 ..limits
             },
             "source count exceeds limit",
@@ -507,6 +513,6 @@ fn distinct_sources_same_inventory_output_refuse() {
     fs::write(manifest, text).unwrap();
     let resolved = fixture.port().unwrap().resolve(&["base".into()]).unwrap();
     assert_eq!(resolved[0].files.len(), 2);
-    assert_eq!(resolved[0].source_files.len(), 4);
+    assert_eq!(resolved[0].source_files.len(), 10);
     assert_eq!(fs::read_dir(&fixture.project).unwrap().count(), 0);
 }

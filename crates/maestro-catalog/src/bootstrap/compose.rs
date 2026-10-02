@@ -11,6 +11,17 @@ use std::{
 /// Relative file names mapped to exact inert bytes.
 pub(super) type FileBytes = BTreeMap<String, Vec<u8>>;
 
+/// One checked source's exact bytes and resource provenance.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SourceFile {
+    /// Qualified identity of the resource owning this source, sidecar or asset.
+    pub id: String,
+    /// Declared resource revision, absent only for unversioned sources.
+    pub revision: Option<String>,
+    /// Bytes from the single checked snapshot.
+    pub bytes: Vec<u8>,
+}
+
 /// One named preset's root-relative file set.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Preset {
@@ -18,8 +29,10 @@ pub struct Preset {
     pub name: String,
     /// Files selected by this preset.
     pub files: FileBytes,
-    /// Source manifest and template files, keyed by catalog-relative path.
-    pub source_files: FileBytes,
+    /// Complete checked source closure, keyed by catalog-relative path.
+    pub source_files: BTreeMap<String, SourceFile>,
+    /// Exact selected area identities, sorted and included once across presets.
+    pub areas: Vec<String>,
     /// Executable names to report without invoking them.
     pub tools: Vec<String>,
     /// Required binding references, reported without resolving or invoking them.

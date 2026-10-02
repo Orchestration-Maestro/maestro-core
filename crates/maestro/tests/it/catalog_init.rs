@@ -71,14 +71,22 @@ fn catalog_init_refuses_changed_sources_after_bootstrap() {
     let initial = home.run_in(&root, &args);
     assert_eq!(initial.code, Some(0), "{initial:?}");
     let before = fs::read(&guide).unwrap();
-    fs::write(
-        catalog.join("bootstrap/base/files/instructions.md"),
-        b"changed source\n",
-    )
-    .unwrap();
-    let changed = home.run_in(&root, &args);
-    assert_eq!(changed.code, Some(2), "{changed:?}");
-    assert_eq!(fs::read(guide).unwrap(), before);
+    for path in [
+        "package.toml",
+        "core/agents/maestro.maestro.toml",
+        "bootstrap/base/files/instructions.md",
+    ] {
+        let source = catalog.join(path);
+        let original = fs::read(&source).unwrap();
+        let mut edited = original.clone();
+        edited.push(b'\n');
+        fs::write(&source, edited).unwrap();
+        let changed = home.run_in(&root, &args);
+        assert_eq!(changed.code, Some(2), "{path}: {changed:?}");
+        assert_eq!(fs::read(&guide).unwrap(), before);
+        fs::write(source, original).unwrap();
+    }
+    assert_eq!(home.run_in(&root, &args).code, Some(0));
 }
 
 #[test]
@@ -104,6 +112,20 @@ fn catalog_init_apply_writes_composition_and_identical_rerun_is_noop() {
     let recipes = root.join(".maestro/recipes.json");
     assert!(guide.exists());
     assert!(serde_json::from_slice::<serde_json::Value>(&fs::read(&recipes).unwrap()).is_ok());
+    let lock: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".maestro/authoring.lock.json")).unwrap())
+            .unwrap();
+    assert_eq!(lock["sources"].as_array().unwrap().len(), 13);
+    assert_eq!(
+        lock["areas"],
+        serde_json::json!([
+            "language:rust",
+            "package:common",
+            "package:core",
+            "standard:quality",
+            "standard:security"
+        ])
+    );
     let guide_bytes = fs::read(&guide).unwrap();
     let rerun = home.run_in(&root, &args);
     assert_eq!(rerun.code, Some(0), "{rerun:?}");

@@ -27,6 +27,12 @@ fn same_source_two_outputs_counts_once() {
     )
     .unwrap();
     let bytes = [
+        "package.toml",
+        "core/package.toml",
+        "core/agents/maestro.agent.md",
+        "core/agents/maestro.maestro.toml",
+        "standards/quality/package.toml",
+        "standards/security/package.toml",
         "presets/base.toml",
         "bootstrap/base.toml",
         "bootstrap/base/files/instructions.md",
@@ -35,14 +41,14 @@ fn same_source_two_outputs_counts_once() {
     .map(|path| fs::metadata(fixture.catalog.join(path)).unwrap().len())
     .sum::<u64>();
     let limits = Limits {
-        archive_entries: 3,
+        archive_entries: 9,
         archive_total_bytes: bytes,
         ..Limits::PRODUCTION
     };
     let port = fixture.port().unwrap().with_limits(limits);
     let resolved = port.resolve(&["base".into()]).unwrap();
     assert_eq!(resolved[0].files.len(), 2);
-    assert_eq!(resolved[0].source_files.len(), 3);
+    assert_eq!(resolved[0].source_files.len(), 9);
     let proposal = preview(&fixture.project, &port, &["base".into()]).unwrap();
     apply(&fixture.project, &proposal).unwrap();
     assert_eq!(
@@ -88,7 +94,14 @@ fn shared_source_across_presets_counts_once() {
 
     fixture.edit("presets/rust.toml", ", \"rust/starter\"", "");
     let bytes = [
+        "package.toml",
+        "core/package.toml",
+        "core/agents/maestro.agent.md",
+        "core/agents/maestro.maestro.toml",
+        "standards/quality/package.toml",
+        "standards/security/package.toml",
         "presets/base.toml",
+        "languages/rust/package.toml",
         "presets/rust.toml",
         "bootstrap/base.toml",
         "bootstrap/base/files/instructions.md",
@@ -97,17 +110,17 @@ fn shared_source_across_presets_counts_once() {
     .map(|path| fs::metadata(fixture.catalog.join(path)).unwrap().len())
     .sum::<u64>();
     let limits = Limits {
-        archive_entries: 4,
+        archive_entries: 11,
         archive_total_bytes: bytes,
         ..Limits::PRODUCTION
     };
     let port = fixture.port().unwrap().with_limits(limits);
     let resolved = port.resolve(&["base".into(), "rust".into()]).unwrap();
     let path = "bootstrap/base/files/instructions.md";
-    assert_eq!(resolved[0].source_files.len(), 3);
-    assert_eq!(resolved[1].source_files.len(), 1);
+    assert_eq!(resolved[0].source_files.len(), 11);
+    assert_eq!(resolved[1].source_files.len(), 0);
     assert_eq!(
-        resolved[0].source_files[path],
+        resolved[0].source_files[path].bytes,
         fs::read(fixture.catalog.join(path)).unwrap()
     );
 }
@@ -115,6 +128,12 @@ fn shared_source_across_presets_counts_once() {
 #[test]
 fn deleted_input_refuses_before_writes() {
     for path in [
+        "package.toml",
+        "core/package.toml",
+        "core/agents/maestro.agent.md",
+        "core/agents/maestro.maestro.toml",
+        "standards/quality/package.toml",
+        "standards/security/package.toml",
         "presets/base.toml",
         "bootstrap/base.toml",
         "bootstrap/base/files/instructions.md",
@@ -139,7 +158,14 @@ fn aggregate_bounds_cross_presets() {
     use crate::limits::Limits;
     let fixture = Fixture::new();
     let bytes = [
+        "package.toml",
+        "core/package.toml",
+        "core/agents/maestro.agent.md",
+        "core/agents/maestro.maestro.toml",
+        "standards/quality/package.toml",
+        "standards/security/package.toml",
         "presets/base.toml",
+        "languages/rust/package.toml",
         "presets/rust.toml",
         "bootstrap/base.toml",
         "bootstrap/base/files/instructions.md",
@@ -150,7 +176,7 @@ fn aggregate_bounds_cross_presets() {
     .map(|path| fs::metadata(fixture.catalog.join(path)).unwrap().len())
     .sum::<u64>();
     let limits = Limits {
-        archive_entries: 6,
+        archive_entries: 13,
         archive_total_bytes: bytes,
         ..Limits::PRODUCTION
     };
@@ -166,7 +192,7 @@ fn aggregate_bounds_cross_presets() {
     for (limits, message) in [
         (
             Limits {
-                archive_entries: 5,
+                archive_entries: 12,
                 ..limits
             },
             "source count exceeds limit",

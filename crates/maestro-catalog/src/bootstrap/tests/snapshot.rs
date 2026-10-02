@@ -9,6 +9,10 @@ use std::fs;
 #[test]
 fn checked_snapshot_never_reopens_presets_inventories_or_payloads() {
     for path in [
+        "package.toml",
+        "core/agents/maestro.agent.md",
+        "core/agents/maestro.maestro.toml",
+        "standards/quality/package.toml",
         "presets/base.toml",
         "bootstrap/base.toml",
         "bootstrap/base/files/instructions.md",
