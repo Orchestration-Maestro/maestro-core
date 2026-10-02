@@ -1612,6 +1612,7 @@ in place.
 │       │   ├── dependencies.md                                              # C09 dependency measurements
 │       │   ├── hosts.md                                                     # Catalog host format probe (C01)
 │       │   ├── interface.md                                                 # Init terminal dependency measurements (C05f)
+│       │   ├── owner-first-migration.md                                     # Public v4 checker and bootstrap migration evidence
 │       │   └── trust.md                                                     # C09 public attestation probe and trust measurements
 │       ├── plan.md                                                          # Implementation Plan: Catalog
 │       ├── spec.md                                                          # Feature Specification: Catalog

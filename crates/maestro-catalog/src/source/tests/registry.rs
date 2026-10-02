@@ -281,6 +281,14 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
             "model-card"
         ]
     );
+    let versions = registry.registrations().map(|kind| kind.descriptor.version);
+    for ((kind, actual), expected) in kinds
+        .iter()
+        .zip(versions)
+        .zip([3, 3, 4, 3, 3, 4, 1, 1, 3, 1, 3])
+    {
+        assert_eq!(actual, expected, "{kind}");
+    }
     assert_eq!(
         check_by(&MemoryTree::valid(), &registry, &Limits::PRODUCTION),
         check_by(

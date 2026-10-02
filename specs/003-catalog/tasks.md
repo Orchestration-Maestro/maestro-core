@@ -2365,14 +2365,14 @@ ARC-005 exception for `source::kinds`.
 `specs/003-catalog/research/owner-first-migration.md` for public evidence.
 **Requirements:** SC-S3-008, SC-S3-009, SC-S3-015, SC-S3-016.
 
-- [ ] **Step 1: Red.** Require an evidence matrix for every six-rule neighbour,
+- [x] **Step 1: Red.** Require an evidence matrix for every six-rule neighbour,
   source/CLI `/2` marker, descriptor version, migrated fixture family and old-lock
   refusal; absent/zero-test evidence fails this acceptance review.
-- [ ] **Step 2: Green.** Repair only migration regressions, retaining C04,
+- [x] **Step 2: Green.** Repair only migration regressions, retaining C04,
   source bounds, namespace collisions, settings authority and kernel card
   fingerprints. Run focused source/bootstrap/CLI checks, normal workspace and
   three-target checks, then independent review; do not run local mutations.
-- [ ] **Step 3: Check.** Record exact commands/exits/test totals, three-OS CI,
+- [x] **Step 3: Check.** Record exact commands/exits/test totals, three-OS CI,
   normal hooks, Markdown/links, generated CODEOWNERS drift proof and task
   mappings. Record mutation/coverage evidence from CI when available, never
   invented local results. Native live evidence is C40/C08; S6 is separate.
