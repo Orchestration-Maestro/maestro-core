@@ -32,3 +32,20 @@ CREATE TRIGGER acquisition_partition_snapshots_never_delete
 BEFORE DELETE ON acquisition_partition_snapshots BEGIN
     SELECT RAISE(ABORT, 'accepted partition is immutable');
 END;
+
+-- Distinct request/context identities, retained atomically with each checkpoint.
+CREATE TABLE acquisition_partition_items (
+    partition TEXT NOT NULL REFERENCES acquisition_partitions(id),
+    fetch_identity TEXT NOT NULL,
+    authorization_context TEXT NOT NULL,
+    representation_profile TEXT NOT NULL,
+    PRIMARY KEY (partition, fetch_identity, authorization_context, representation_profile)
+) STRICT;
+CREATE TRIGGER acquisition_partition_items_never_change
+BEFORE UPDATE ON acquisition_partition_items BEGIN
+    SELECT RAISE(ABORT, 'partition inventory is immutable');
+END;
+CREATE TRIGGER acquisition_partition_items_never_delete
+BEFORE DELETE ON acquisition_partition_items BEGIN
+    SELECT RAISE(ABORT, 'partition inventory is immutable');
+END;

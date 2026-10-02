@@ -2,16 +2,16 @@
 use super::{
     capture::Captures,
     envelope::CaptureEnvelope,
-    frontier::enqueue_on,
     lease,
     lease::SourceLease,
-    partition_record::{AcceptedPartition, Batch, Enumeration, PartitionState},
+    partition_checkpoint::{checkpoint, held},
+    partition_record::{AcceptedPartition, Batch, DiscoveredItem, PartitionState},
     privacy,
     privacy::{Handle, ReceiptError},
     record::{COLUMNS, item_row},
 };
 use crate::{artifact::Digest, scope::Scope, store::Database};
-use rusqlite::{OptionalExtension as _, params};
+use rusqlite::{Connection, OptionalExtension as _, params};
 use std::{collections::BTreeSet, time::SystemTime};
 
 /// Replaceable kernel partition boundary over the existing frontier.
@@ -50,71 +50,7 @@ impl Partitions for Database {
         batch: &Batch,
         now: SystemTime,
     ) -> Result<(), ReceiptError> {
-        validate(batch)?;
-        let scope = held(self, writer, now)?;
-        let previous = self.partition(&scope, batch.partition.id)?;
-        let source: Option<String> = self
-            .reader()?
-            .query_row(
-                "SELECT source FROM acquisition_partitions WHERE id = ?1",
-                [batch.partition.id.to_string()],
-                |row| row.get(0),
-            )
-            .optional()?;
-        if source.is_some_and(|source| source != writer.source) {
-            return Err(ReceiptError::Conflict);
-        }
-        if replay(previous.as_ref(), batch)? {
-            return Ok(());
-        }
-        let encoded = serde_json::to_vec(batch)?;
-        let references: Vec<_> = batch.capture.into_iter().collect();
-        privacy::validate(&scope, &encoded, &references)?;
-        if let Some(capture) = batch.capture {
-            parent(self, &scope, writer, capture, batch)?;
-        }
-        let digest = self.put(&encoded, "application/json")?;
-        let cursor = Digest::of(&serde_json::to_vec(&batch.cursor)?);
-        let sequence = u32::try_from(previous.as_ref().map_or(0, |state| state.batches.len()))
-            .map_err(|_| ReceiptError::Invalid)?;
-        self.write(|tx| {
-            lease::held(tx, writer, now).map_err(|_| ReceiptError::Conflict)?;
-            tx.execute(
-                "INSERT INTO acquisition_partitions (id, source, scope) VALUES (?1,
-                ?2, ?3) ON CONFLICT DO NOTHING",
-                params![
-                    batch.partition.id.to_string(),
-                    writer.source,
-                    scope.as_str()
-                ],
-            )?;
-            let (source, stored_scope, count): (String, String, u32) = tx.query_row(
-                "SELECT source, scope, (SELECT count(*) FROM
-                    acquisition_partition_batches WHERE partition = ?1) FROM
-                    acquisition_partitions WHERE id = ?1",
-                [batch.partition.id.to_string()],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )?;
-            if source != writer.source || stored_scope != scope.as_str() || count != sequence {
-                return Err(ReceiptError::Conflict);
-            }
-            for item in &batch.items {
-                enqueue_on(tx, writer, &item.request, scope.as_str())
-                    .map_err(|_| ReceiptError::Storage)?;
-            }
-            let evidence = privacy::retain_on(tx, &scope, &digest, &references)?;
-            tx.execute(
-                "INSERT INTO acquisition_partition_batches (partition, sequence,
-                cursor, evidence) VALUES (?1, ?2, ?3, ?4)",
-                params![
-                    batch.partition.id.to_string(),
-                    sequence,
-                    cursor.as_str(),
-                    evidence.to_string()
-                ],
-            )?;
-            Ok(())
-        })
+        checkpoint(self, writer, batch, now)
     }
     fn commit_partition(
         &self,
@@ -122,72 +58,13 @@ impl Partitions for Database {
         partition: Handle,
         now: SystemTime,
     ) -> Result<(), ReceiptError> {
-        let scope = held(self, writer, now)?;
-        let state = self
-            .partition(&scope, partition)?
-            .ok_or(ReceiptError::Invalid)?;
-        let last = state.batches.last().ok_or(ReceiptError::Invalid)?;
-        complete(&state)?;
-        let mut references = self.batch_handles(partition)?;
-        for batch in &state.batches {
-            for discovered in &batch.items {
-                let reader = self.reader()?;
-                let item = reader.query_row(
-                    &format!(
-                        "SELECT {COLUMNS} FROM acquisition_frontier WHERE source = ?1 AND
-                    fetch_identity = ?2 AND authorization_context = ?3 AND
-                    representation_profile = ?4"
-                    ),
-                    params![
-                        writer.source,
-                        discovered.request.fetch_identity,
-                        discovered.request.authorization_context.as_str(),
-                        discovered.request.representation_profile.as_str()
-                    ],
-                    item_row,
-                )?;
-                let capture: Option<String> = reader
-                    .query_row(
-                        "SELECT envelope FROM acquisition_capture_links WHERE item = ?1",
-                        [item.id.to_string()],
-                        |row| row.get(0),
-                    )
-                    .optional()?;
-                let handle: Handle = capture.ok_or(ReceiptError::Conflict)?.parse()?;
-                self.verify_capture(&scope, &item, handle)
-                    .map_err(|_| ReceiptError::Conflict)?;
-                references.push(handle);
-            }
-        }
-        if state.accepted.is_some() {
-            return Ok(());
-        }
-        let snapshot = AcceptedPartition {
-            watermark: last.partition.window.end,
-        };
-        let encoded = serde_json::to_vec(&snapshot)?;
-        references.sort_unstable();
-        references.dedup();
-        privacy::validate(&scope, &encoded, &references)?;
-        let digest = self.put(&encoded, "application/json")?;
-        self.write(|tx| {
-            lease::held(tx, writer, now).map_err(|_| ReceiptError::Conflict)?;
-            let source: String = tx.query_row(
-                "SELECT source FROM acquisition_partitions WHERE id = ?1",
-                [partition.to_string()],
-                |row| row.get(0),
-            )?;
-            if source != writer.source {
-                return Err(ReceiptError::Invalid);
-            }
-            let evidence = privacy::retain_on(tx, &scope, &digest, &references)?;
-            tx.execute(
-                "INSERT INTO acquisition_partition_snapshots (partition, evidence)
-                VALUES (?1, ?2) ON CONFLICT DO NOTHING",
-                params![partition.to_string(), evidence.to_string()],
-            )?;
-            Ok(())
-        })
+        self.commit_partition_with(
+            writer,
+            partition,
+            now,
+            #[cfg(test)]
+            || {},
+        )
     }
     fn partition(
         &self,
@@ -207,7 +84,7 @@ impl Partitions for Database {
             .batch_handles(partition)?
             .into_iter()
             .map(|handle| {
-                serde_json::from_slice(&privacy::snapshot(self, &handle.to_string())?)
+                serde_json::from_slice(&privacy::snapshot_on(self, &reader, &handle.to_string())?)
                     .map_err(ReceiptError::from)
             })
             .collect::<Result<Vec<Batch>, _>>()?;
@@ -220,7 +97,7 @@ impl Partitions for Database {
             .optional()?;
         let accepted = accepted
             .map(|handle| {
-                serde_json::from_slice(&privacy::snapshot(self, &handle)?)
+                serde_json::from_slice(&privacy::snapshot_on(self, &reader, &handle)?)
                     .map_err(ReceiptError::from)
             })
             .transpose()?;
@@ -229,7 +106,7 @@ impl Partitions for Database {
             [partition.to_string()],
             |row| row.get(0),
         )?;
-        let pending = self.pending_items(&source, &batches)?;
+        let pending = self.pending_items(scope, &source, &batches)?;
         Ok(Some(PartitionState {
             batches,
             pending,
@@ -238,40 +115,155 @@ impl Partitions for Database {
     }
 }
 impl Database {
-    /// Current distinct-item count, not a checkpoint cursor or a claim of coverage.
-    fn pending_items(&self, source: &str, batches: &[Batch]) -> Result<u16, ReceiptError> {
+    /// Test seam after the initial read, before fenced snapshot retention.
+    fn commit_partition_with(
+        &self,
+        writer: &SourceLease,
+        partition: Handle,
+        now: SystemTime,
+        #[cfg(test)] between: impl FnOnce(),
+    ) -> Result<(), ReceiptError> {
+        let scope = held(self, writer, now)?;
+        let state = self
+            .partition(&scope, partition)?
+            .ok_or(ReceiptError::Invalid)?;
+        let last = state.batches.last().ok_or(ReceiptError::Invalid)?;
+        complete(&state)?;
+        let mut references = self.batch_handles(partition)?;
         let reader = self.reader()?;
-        let mut seen = BTreeSet::new();
-        let mut pending = 0;
-        for item in batches.iter().flat_map(|batch| &batch.items) {
-            let key = (
-                &item.request.fetch_identity,
-                &item.request.authorization_context,
-                &item.request.representation_profile,
-            );
-            if !seen.insert(key) {
-                continue;
-            }
-            let captured: bool = reader.query_row(
-                "SELECT EXISTS (SELECT 1 FROM acquisition_frontier f
-                 JOIN acquisition_capture_links l ON l.item = f.id
-                 JOIN acquisition_evidence e ON e.id = l.envelope
-                 WHERE f.source = ?1 AND f.fetch_identity = ?2
-                 AND f.authorization_context = ?3 AND f.representation_profile = ?4
-                 AND f.capture = e.artifact)",
-                params![
-                    source,
-                    item.request.fetch_identity,
-                    item.request.authorization_context.as_str(),
-                    item.request.representation_profile.as_str()
-                ],
-                |row| row.get(0),
-            )?;
-            if !captured {
-                pending += 1;
+        let source: String = reader.query_row(
+            "SELECT source FROM acquisition_partitions WHERE id = ?1",
+            [partition.to_string()],
+            |row| row.get(0),
+        )?;
+        if source != writer.source {
+            return Err(ReceiptError::Invalid);
+        }
+        for batch in &state.batches {
+            for discovered in &batch.items {
+                let handle = self
+                    .bound_capture(&reader, &scope, &source, discovered)?
+                    .ok_or(ReceiptError::Conflict)?;
+                references.push(handle);
             }
         }
-        Ok(pending)
+        if state.accepted.is_some() {
+            return Ok(());
+        }
+        let snapshot = AcceptedPartition {
+            watermark: last.partition.window.end,
+        };
+        let encoded = serde_json::to_vec(&snapshot)?;
+        references.sort_unstable();
+        references.dedup();
+        privacy::validate(&scope, &encoded, &references)?;
+        let digest = self.put(&encoded, "application/json")?;
+        #[cfg(test)]
+        between();
+        self.write(|tx| {
+            lease::held(tx, writer, now).map_err(|_| ReceiptError::Conflict)?;
+            let source: String = tx.query_row(
+                "SELECT source FROM acquisition_partitions WHERE id = ?1",
+                [partition.to_string()],
+                |row| row.get(0),
+            )?;
+            if source != writer.source {
+                return Err(ReceiptError::Invalid);
+            }
+            let accepted: bool = tx.query_row(
+                "SELECT EXISTS (SELECT 1 FROM acquisition_partition_snapshots
+                 WHERE partition = ?1)",
+                [partition.to_string()],
+                |row| row.get(0),
+            )?;
+            if accepted {
+                return Ok(());
+            }
+            let evidence = privacy::retain_on(tx, &scope, &digest, &references)?;
+            tx.execute(
+                "INSERT INTO acquisition_partition_snapshots (partition, evidence)
+                VALUES (?1, ?2) ON CONFLICT DO NOTHING",
+                params![partition.to_string(), evidence.to_string()],
+            )?;
+            Ok(())
+        })
+    }
+    /// Current distinct-item count, not a checkpoint cursor or a claim of coverage.
+    fn pending_items(
+        &self,
+        scope: &Scope,
+        source: &str,
+        batches: &[Batch],
+    ) -> Result<u16, ReceiptError> {
+        let reader = self.reader()?;
+        let mut pending = BTreeSet::new();
+        for item in batches.iter().flat_map(|batch| &batch.items) {
+            if self.bound_capture(&reader, scope, source, item)?.is_none() {
+                pending.insert((
+                    &item.request.fetch_identity,
+                    &item.request.authorization_context,
+                    &item.request.representation_profile,
+                ));
+            }
+        }
+        u16::try_from(pending.len()).map_err(|_| ReceiptError::Invalid)
+    }
+
+    /// The checkpoint may claim only change evidence bound to acknowledged bytes.
+    fn bound_capture(
+        &self,
+        reader: &Connection,
+        scope: &Scope,
+        source: &str,
+        discovered: &DiscoveredItem,
+    ) -> Result<Option<Handle>, ReceiptError> {
+        let item = reader
+            .query_row(
+                &format!(
+                    "SELECT {COLUMNS} FROM acquisition_frontier WHERE source = ?1
+                AND fetch_identity = ?2 AND authorization_context = ?3
+                AND representation_profile = ?4"
+                ),
+                params![
+                    source,
+                    discovered.request.fetch_identity,
+                    discovered.request.authorization_context.as_str(),
+                    discovered.request.representation_profile.as_str()
+                ],
+                item_row,
+            )
+            .optional()?;
+        let Some(item) = item else {
+            return Ok(None);
+        };
+        let capture: Option<String> = reader
+            .query_row(
+                "SELECT envelope FROM acquisition_capture_links WHERE item = ?1",
+                [item.id.to_string()],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(capture) = capture else {
+            return Ok(None);
+        };
+        let handle = capture.parse()?;
+        if self.verify_capture(scope, &item, handle).is_err() {
+            return Ok(None);
+        }
+        let envelope: CaptureEnvelope =
+            serde_json::from_slice(&privacy::snapshot_on(self, reader, &capture)?)?;
+        let validator = Digest::of(&serde_json::to_vec(&envelope.headers)?);
+        if discovered.keys.revision.is_some()
+            || discovered
+                .keys
+                .validator
+                .as_ref()
+                .is_some_and(|key| *key != validator)
+            || discovered.keys.representation != envelope.artifact
+        {
+            return Ok(None);
+        }
+        Ok(Some(handle))
     }
     /// Immutable checkpoint handles, ordered by their validated continuation chain.
     fn batch_handles(&self, partition: Handle) -> Result<Vec<Handle>, ReceiptError> {
@@ -285,116 +277,6 @@ impl Database {
             .collect::<Result<Vec<_>, _>>()?;
         rows.into_iter().map(|text| text.parse()).collect()
     }
-}
-/// Source lease and collection binding remain kernel authority, not adapter state.
-fn held(db: &Database, writer: &SourceLease, now: SystemTime) -> Result<Scope, ReceiptError> {
-    db.write(|tx| lease::held(tx, writer, now).map_err(|_| ReceiptError::Conflict))?
-        .parse()
-        .map_err(|_| ReceiptError::Invalid)
-}
-/// Prepared capture linkage must belong to this source and exact item contexts.
-fn parent(
-    db: &Database,
-    scope: &Scope,
-    writer: &SourceLease,
-    capture: Handle,
-    batch: &Batch,
-) -> Result<(), ReceiptError> {
-    let reader = db.reader()?;
-    let found: bool = reader.query_row(
-        "SELECT EXISTS (SELECT 1 FROM acquisition_capture_links l JOIN
-        acquisition_evidence e ON e.id = l.envelope JOIN acquisition_frontier f ON
-        f.id = l.item WHERE l.envelope = ?1 AND e.scope = ?2 AND f.source = ?3)",
-        params![capture.to_string(), scope.as_str(), writer.source],
-        |row| row.get(0),
-    )?;
-    if !found {
-        return Err(ReceiptError::Invalid);
-    }
-    let envelope: CaptureEnvelope =
-        serde_json::from_slice(&privacy::snapshot(db, &capture.to_string())?)?;
-    for item in &batch.items {
-        if item.request.authorization_context != envelope.authorization_context
-            || item.request.representation_profile != envelope.profile
-            || item.keys.representation != envelope.artifact
-        {
-            return Err(ReceiptError::Invalid);
-        }
-    }
-    Ok(())
-}
-/// Bound all durable inventories and preserve unknown coverage instead of guessing.
-fn validate(batch: &Batch) -> Result<(), ReceiptError> {
-    let partition = &batch.partition;
-    if partition.window.start >= partition.window.end
-        || !(1..=1000).contains(&partition.max_batches)
-        || !(1..=1000).contains(&partition.max_items)
-        || batch.items.len() > usize::from(partition.max_items)
-        || batch.denied.len() > 1000
-    {
-        return Err(ReceiptError::Invalid);
-    }
-    if partition.kind == Enumeration::Links
-        && (batch.capture.is_none()
-            || batch
-                .extractor
-                .as_ref()
-                .is_none_or(|text| text.is_empty() || text.len() > 512))
-    {
-        return Err(ReceiptError::Invalid);
-    }
-    if batch.terminal == batch.next.is_some() {
-        return Err(ReceiptError::Invalid);
-    }
-    let mut identities = BTreeSet::new();
-    for item in &batch.items {
-        if item.keys.permissions != item.request.authorization_context
-            || !identities.insert((
-                &item.request.fetch_identity,
-                &item.request.authorization_context,
-                &item.request.representation_profile,
-            ))
-        {
-            return Err(ReceiptError::Invalid);
-        }
-    }
-    Ok(())
-}
-/// Exact replay is idempotent; changed or cyclic continuations are conflicts.
-fn replay(previous: Option<&PartitionState>, batch: &Batch) -> Result<bool, ReceiptError> {
-    if batch.next.is_some() && batch.next == batch.cursor {
-        return Err(ReceiptError::Conflict);
-    }
-    let Some(state) = previous else {
-        return if batch.cursor.is_none() {
-            Ok(false)
-        } else {
-            Err(ReceiptError::Conflict)
-        };
-    };
-    if state.batches.iter().any(|saved| saved == batch) {
-        return Ok(true);
-    }
-    let last = state.batches.last().ok_or(ReceiptError::Invalid)?;
-    if state.accepted.is_some()
-        || last.terminal
-        || last.partition != batch.partition
-        || last.next != batch.cursor
-        || state.batches.len() >= usize::from(batch.partition.max_batches)
-    {
-        return Err(ReceiptError::Conflict);
-    }
-    let mut count = batch.items.len();
-    for saved in &state.batches {
-        if saved.cursor == batch.cursor || (batch.next.is_some() && batch.next == saved.cursor) {
-            return Err(ReceiptError::Conflict);
-        }
-        count += saved.items.len();
-    }
-    if count > usize::from(batch.partition.max_items) {
-        return Err(ReceiptError::Conflict);
-    }
-    Ok(false)
 }
 /// Only terminal, stable, uncapped, count-proven windows can be accepted.
 fn complete(state: &PartitionState) -> Result<(), ReceiptError> {
@@ -410,4 +292,161 @@ fn complete(state: &PartitionState) -> Result<(), ReceiptError> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Partitions, privacy::Handle};
+    use crate::{
+        acquisition::{Batch, Enumeration, Frontier, LeaseRequest, Partition, Window},
+        scope::Scope,
+        store::Database,
+    };
+    use maestro_test_scratch::scratch_directory;
+    use std::{
+        cell::Cell,
+        fs,
+        time::{Duration, UNIX_EPOCH},
+    };
+
+    #[test]
+    fn n13_review_concurrent_commit_retains_no_orphan_evidence() {
+        let root = scratch_directory().unwrap();
+        let db = Database::open_in(&root).unwrap();
+        let scope: Scope = "workspace/default/collection/garden".parse().unwrap();
+        let now = UNIX_EPOCH + Duration::from_secs(1000);
+        let writer = db
+            .lease_source(
+                "notes",
+                &scope,
+                LeaseRequest {
+                    holder: "worker",
+                    now,
+                    term: Duration::from_secs(30),
+                },
+            )
+            .unwrap();
+        let batch = Batch {
+            partition: Partition {
+                id: Handle::new(),
+                run: Handle::new(),
+                kind: Enumeration::Index,
+                window: Window {
+                    start: 10,
+                    end: 20,
+                    overlap: 0,
+                    skew: 0,
+                },
+                max_batches: 1,
+                max_items: 1,
+            },
+            cursor: None,
+            next: None,
+            terminal: true,
+            stable: true,
+            truncated: false,
+            expected: Some(0),
+            items: vec![],
+            extractor: None,
+            denied: vec![],
+            capture: None,
+        };
+        db.checkpoint(&writer, &batch, now).unwrap();
+        let mut retained = (0, 0);
+        db.commit_partition_with(&writer, batch.partition.id, now, || {
+            db.commit_partition(&writer, batch.partition.id, now)
+                .unwrap();
+            retained = counts(&db);
+        })
+        .unwrap();
+        assert_eq!(
+            counts(&db),
+            retained,
+            "concurrent replay retained orphan evidence or pins"
+        );
+        assert_eq!(
+            db.partition(&scope, batch.partition.id)
+                .unwrap()
+                .unwrap()
+                .accepted
+                .unwrap()
+                .watermark,
+            20
+        );
+        drop(db);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Both opaque evidence count and total artifact pins must be unchanged.
+    fn counts(db: &Database) -> (u32, u32) {
+        db.reader()
+        .unwrap()
+        .query_row(
+            "SELECT (SELECT count(*) FROM acquisition_evidence), (SELECT sum(pins) FROM artifacts)",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn n13_review_append_snapshot_loads_do_not_grow_with_history() {
+        let root = scratch_directory().unwrap();
+        let db = Database::open_in(&root).unwrap();
+        let scope: Scope = "workspace/default/collection/garden".parse().unwrap();
+        let now = UNIX_EPOCH + Duration::from_secs(1000);
+        let writer = db
+            .lease_source(
+                "notes",
+                &scope,
+                LeaseRequest {
+                    holder: "worker",
+                    now,
+                    term: Duration::from_secs(3600),
+                },
+            )
+            .unwrap();
+        let mut batch = Batch {
+            partition: Partition {
+                id: Handle::new(),
+                run: Handle::new(),
+                kind: Enumeration::Index,
+                window: Window {
+                    start: 10,
+                    end: 20,
+                    overlap: 0,
+                    skew: 0,
+                },
+                max_batches: 200,
+                max_items: 1,
+            },
+            cursor: None,
+            next: None,
+            terminal: false,
+            stable: true,
+            truncated: false,
+            expected: Some(0),
+            items: vec![],
+            extractor: None,
+            denied: vec![],
+            capture: None,
+        };
+        let mut second = 0;
+        for index in 0..200 {
+            batch.cursor = (index > 0).then(|| serde_json::json!(index));
+            batch.next = Some(serde_json::json!(index + 1));
+            super::super::privacy::SNAPSHOT_READS.with(|count| count.set(0));
+            db.checkpoint(&writer, &batch, now).unwrap();
+            let reads = super::super::privacy::SNAPSHOT_READS.with(Cell::get);
+            if index == 1 {
+                second = reads;
+            }
+            if index == 199 {
+                assert_eq!(reads, second, "snapshot loads grew with history");
+            }
+        }
+        assert_eq!(second, 1, "an append loads only the last checkpoint");
+        drop(db);
+        fs::remove_dir_all(root).unwrap();
+    }
 }

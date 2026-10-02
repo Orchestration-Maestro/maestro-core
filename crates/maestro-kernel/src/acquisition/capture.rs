@@ -113,7 +113,15 @@ impl Captures for Database {
         }
         // Preparation bound this immutable envelope to verified length/digest;
         // the artifact store rehashes the returned body on every read.
-        let bytes = self.get(&envelope.artifact)?;
+        let bytes = self
+            .get_bounded(&envelope.artifact, max_bytes)
+            .map_err(|error| {
+                if let store::Error::Artifact(artifact::Error::TooLarge) = error {
+                    ReceiptError::Invalid
+                } else {
+                    ReceiptError::Storage
+                }
+            })?;
         Ok((envelope, Some(bytes)))
     }
     fn prepare_capture(

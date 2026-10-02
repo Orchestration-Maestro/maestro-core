@@ -96,6 +96,8 @@ mod n13_capture_edges;
 
 mod n13_dom_query;
 
+mod n13_review_kernel;
+
 mod n16_define_extraction_fidelity_and_cumulative_decode_contracts;
 
 mod n16_fix_regressions;

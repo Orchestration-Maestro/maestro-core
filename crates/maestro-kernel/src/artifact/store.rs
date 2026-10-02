@@ -25,6 +25,8 @@ pub enum Error {
         /// The digest of the bytes found in its place.
         found: Digest,
     },
+    /// The actual stored body exceeds the finite read ceiling.
+    TooLarge,
     /// A file-system operation failed; the error's source says why.
     Io {
         /// The file or directory it concerned.
@@ -37,6 +39,7 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::TooLarge => formatter.write_str("artifact exceeds read ceiling"),
             Self::Missing(digest) => write!(
                 formatter,
                 "no artifact is stored under sha256:{}",
@@ -58,7 +61,7 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::Io { source, .. } => Some(source),
-            Self::Missing(_) | Self::Corrupt { .. } => None,
+            Self::Missing(_) | Self::Corrupt { .. } | Self::TooLarge => None,
         }
     }
 }
@@ -135,6 +138,13 @@ impl Store {
     /// longer match it, and [`Error::Io`] when something other than a regular
     /// file is in its place or the file cannot be read.
     pub fn get(&self, digest: &Digest) -> Result<Vec<u8>, Error> {
+        self.get_bounded(digest, u64::MAX)
+    }
+
+    /// Read at most `cap + 1` bytes, refusing growth before digest verification.
+    /// # Errors
+    /// [`Error::TooLarge`] above the cap; otherwise the same errors as [`Self::get`].
+    pub(crate) fn get_bounded(&self, digest: &Digest, cap: u64) -> Result<Vec<u8>, Error> {
         let path = self.path(digest);
         let failed = |source: io::Error| {
             if source.kind() == io::ErrorKind::NotFound {
@@ -146,7 +156,11 @@ impl Store {
         if !fs::symlink_metadata(&path).map_err(&failed)?.is_file() {
             return Err(io_error(&path, io::Error::other("not a regular file")));
         }
-        let bytes = fs::read(&path).map_err(failed)?;
+        let file = fs::File::open(&path).map_err(&failed)?;
+        let bytes = bounded_bytes(file, cap).map_err(failed)?;
+        if bytes.len() as u64 > cap {
+            return Err(Error::TooLarge);
+        }
         let found = Digest::of(&bytes);
         if found == *digest {
             Ok(bytes)
@@ -187,5 +201,47 @@ fn io_error(path: &Path, source: io::Error) -> Error {
     Error::Io {
         path: path.to_path_buf(),
         source,
+    }
+}
+
+/// Reads a finite prefix before admitting an artifact body.
+fn bounded_bytes(mut reader: impl io::Read, cap: u64) -> io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    let mut remaining = cap.saturating_add(1);
+    let mut buffer = [0; 8192];
+    while remaining > 0 {
+        let size = usize::try_from(remaining.min(buffer.len() as u64)).map_err(io::Error::other)?;
+        let count = reader.read(
+            buffer
+                .get_mut(..size)
+                .ok_or_else(|| io::Error::other("invalid read size"))?,
+        )?;
+        if count == 0 {
+            break;
+        }
+        bytes.try_reserve_exact(count).map_err(io::Error::other)?;
+        bytes.extend_from_slice(
+            buffer
+                .get(..count)
+                .ok_or_else(|| io::Error::other("invalid read count"))?,
+        );
+        remaining -= count as u64;
+    }
+    Ok(bytes)
+}
+
+#[cfg(test)]
+mod bounded_tests {
+    use super::bounded_bytes;
+    use std::io::Cursor;
+
+    #[test]
+    fn n13_review_bounded_read_limits_bytes_and_allocation() {
+        let mut reader = Cursor::new(vec![b'x'; 8192]);
+        let bytes = bounded_bytes(&mut reader, 1000).unwrap();
+        assert_eq!(reader.position(), 1001);
+        assert_eq!(bytes.len(), 1001);
+        assert!(bytes.capacity() <= 1001);
+        assert_eq!(bounded_bytes(Cursor::new(b"body"), 4).unwrap(), b"body");
     }
 }

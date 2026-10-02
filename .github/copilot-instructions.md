@@ -456,6 +456,7 @@ in place.
 │   │   │       ├── n13_dom_query.rs                                                     # Owner-approved offline HTML5 link reader and its recorded data contract
 │   │   │       ├── n13_durably_enumerate_public_links_and_bounded_partitions.rs         # N13 durable synthetic discovery and partition contracts
 │   │   │       ├── n13_edges.rs                                                         # N13 trust, bound and partial-commit guards over real kernel storage
+│   │   │       ├── n13_review_kernel.rs                                                 # Permanent kernel regressions from the N13 review
 │   │   │       ├── n15_bounds.rs                                                        # Independent shape/qualification guard neighbours, not parser-error mutants
 │   │   │       ├── n15_policy_binding.rs                                                # Genuine admitted handles exercise each core policy binding independently
 │   │   │       ├── n15_qualification_closure.rs                                         # Shared/cyclic closures remain bounded by the existing logical resource cache
@@ -707,6 +708,7 @@ in place.
 │   │   │   │   ├── lease.rs                                                             # Fencing handles: durable authority time plus a local monotonic deadline
 │   │   │   │   ├── mod.rs                                                               # Kernel-owned acquisition work, exposed through a replaceable frontier port
 │   │   │   │   ├── partition.rs                                                         # Durable checkpoints reuse the frontier; complete snapshots never replace them
+│   │   │   │   ├── partition_checkpoint.rs                                              # Constant-evidence checkpoint validation and transactional distinct inventory
 │   │   │   │   ├── partition_record.rs                                                  # Pending checkpoints are separate from immutable accepted partition snapshots
 │   │   │   │   ├── privacy.rs                                                           # Content-free output types and opaque, transitively scoped artifact handles
 │   │   │   │   ├── receipt.rs                                                           # Unique run attempts, immutable receipt snapshots and bounded stage inventories

@@ -27,6 +27,7 @@ pub use envelope::{
 pub use headers::{safe_header_names, safe_headers, safe_media};
 
 mod partition;
+mod partition_checkpoint;
 mod partition_record;
 pub use partition::Partitions;
 pub use partition_record::{

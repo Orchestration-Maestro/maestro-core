@@ -46,8 +46,10 @@ pub(super) fn item(fixture: &Fixture, suffix: &str) -> DiscoveredItem {
             representation_profile: fixture.envelope.profile.clone(),
         },
         keys: ChangeKeys {
-            revision: Some(Digest::of(b"revision")),
-            validator: Some(Digest::of(b"validator")),
+            revision: None,
+            validator: Some(Digest::of(
+                &serde_json::to_vec(&fixture.envelope.headers).unwrap(),
+            )),
             metadata: Some(Digest::of(b"metadata")),
             permissions: fixture.envelope.authorization_context.clone(),
             links: Digest::of(suffix.as_bytes()),

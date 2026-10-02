@@ -6,6 +6,8 @@ use crate::{
 };
 use rusqlite::{Connection, OptionalExtension as _, Transaction, params};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
+#[cfg(test)]
+use std::cell::Cell;
 use std::{error, fmt, str::FromStr};
 use ulid::Ulid;
 
@@ -164,6 +166,9 @@ impl fmt::Debug for ProtectedArtifact {
             .finish()
     }
 }
+/// Maximum direct reference edges of a single protected snapshot.
+pub(super) const MAX_REFERENCES: usize = 1000;
+
 /// Checks the bounded protected payload and its collection-derived scope.
 pub(super) fn validate(
     scope: &Scope,
@@ -172,7 +177,7 @@ pub(super) fn validate(
 ) -> Result<(), ReceiptError> {
     if scope.as_str().split('/').nth(2) != Some("collection")
         || bytes.len() > 4 * 1024 * 1024
-        || references.len() > 1000
+        || references.len() > MAX_REFERENCES
     {
         return Err(ReceiptError::Invalid);
     }
@@ -261,7 +266,23 @@ pub(super) fn read(
 }
 /// Loads an internal snapshot. This is kernel bookkeeping, never an external view.
 pub(super) fn snapshot(db: &Database, handle: &str) -> Result<Vec<u8>, ReceiptError> {
-    let digest: String = db.reader()?.query_row(
+    snapshot_on(db, &db.reader()?, handle)
+}
+#[cfg(test)]
+thread_local! {
+    /// Snapshot loads on this test thread, independent of concurrent tests.
+    pub(super) static SNAPSHOT_READS: Cell<u32> = const { Cell::new(0) };
+}
+
+/// Read evidence through the caller's existing bookkeeping connection.
+pub(super) fn snapshot_on(
+    db: &Database,
+    reader: &Connection,
+    handle: &str,
+) -> Result<Vec<u8>, ReceiptError> {
+    #[cfg(test)]
+    SNAPSHOT_READS.with(|count| count.set(count.get() + 1));
+    let digest: String = reader.query_row(
         "SELECT artifact FROM acquisition_evidence WHERE id = ?1",
         [handle],
         |row| row.get(0),

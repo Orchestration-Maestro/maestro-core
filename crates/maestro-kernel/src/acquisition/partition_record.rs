@@ -37,7 +37,7 @@ pub struct Partition {
     pub kind: Enumeration,
     /// Exact source bounds.
     pub window: Window,
-    /// Finite batch ceiling (1–1,000).
+    /// Finite batch ceiling (1–1,000); batch and item ceilings sum to at most 1,000.
     pub max_batches: u16,
     /// Finite distinct-item ceiling (1–1,000).
     pub max_items: u16,
