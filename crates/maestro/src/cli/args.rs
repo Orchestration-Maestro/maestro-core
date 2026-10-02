@@ -406,6 +406,30 @@ pub(super) enum CollectionCommand {
 /// What to do with a catalog's authoring sources.
 #[derive(Debug, Subcommand)]
 pub(super) enum CatalogCommand {
+    /// Check trusted CI identity/review evidence, with no network or credential handling.
+    Owners {
+        /// Require trusted identity checks; there is no offline approval bypass.
+        #[arg(long, required = true)]
+        check_identities: bool,
+        /// Exact proposed catalog checkout selected by trusted workflow code.
+        #[arg(long, value_name = "DIR")]
+        catalog_dir: PathBuf,
+        /// Exact base catalog checkout selected by trusted workflow code.
+        #[arg(long, value_name = "DIR")]
+        base_dir: PathBuf,
+        /// Trusted read-only lookup and effective review records, not PR metadata.
+        #[arg(long, value_name = "FILE")]
+        evidence: PathBuf,
+        /// Trusted repository binding, for example organization/manifests.
+        #[arg(long)]
+        repository: String,
+        /// Full base commit ID.
+        #[arg(long)]
+        base_revision: String,
+        /// Full proposed commit ID.
+        #[arg(long)]
+        head_revision: String,
+    },
     /// Render CODEOWNERS to stdout; redirect it to .github/CODEOWNERS to update.
     /// --check compares the committed file without writing.
     Codeowners {

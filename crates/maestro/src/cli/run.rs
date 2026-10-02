@@ -4,8 +4,8 @@
 
 use super::{
     args::{
-        Arguments, CatalogCommand, CollectionCommand, ConfigCommand, EvalCommand, JobCommand,
-        KnowledgeCommand, Noun, PublishArguments, Target,
+        Arguments, CollectionCommand, ConfigCommand, EvalCommand, JobCommand, KnowledgeCommand,
+        Noun, PublishArguments, Target,
     },
     ask, backup, catalog, collection,
     config::{self, Change, Places},
@@ -145,10 +145,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         }
         Noun::Config(command) => config_command(output, command, &session),
         Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
-        Noun::Catalog(CatalogCommand::Check { catalog_dir }) => catalog::check(output, catalog_dir),
-        Noun::Catalog(CatalogCommand::Codeowners { catalog_dir, check }) => {
-            catalog::codeowners(output, catalog_dir, *check)
-        }
+        Noun::Catalog(command) => catalog::dispatch::run(output, command),
         Noun::Policy(command) => policy::run(output, command),
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
         Noun::Doctor => health::doctor::run(output, &session),

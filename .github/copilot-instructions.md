@@ -61,7 +61,9 @@ in place.
 │   │   │   │   ├── catalog/                                                 # catalog: the catalog's authoring commands
 │   │   │   │   │   ├── check.rs                                             # catalog check --catalog-dir DIR: the strict source checker over a
 │   │   │   │   │   ├── codeowners.rs                                        # Read-only CODEOWNERS rendering to stdout and exact committed-file comparison
-│   │   │   │   │   └── mod.rs                                               # catalog: the catalog's authoring commands
+│   │   │   │   │   ├── dispatch.rs                                          # Catalog-only dispatch; foreground session and repair ordering stay at the caller
+│   │   │   │   │   ├── mod.rs                                               # catalog: the catalog's authoring commands
+│   │   │   │   │   └── owners.rs                                            # Effect-free ownership checks over externally supplied trusted CI evidence
 │   │   │   │   ├── config/                                                  # maestro config: the settings, read, explained, changed and their
 │   │   │   │   │   ├── change.rs                                            # config set and config unset: one setting written in one preferences
 │   │   │   │   │   ├── history.rs                                           # config history: the journaled changes of the local principal's
@@ -286,6 +288,7 @@ in place.
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
 │   │   │       ├── catalog_codeowners.rs                                    # Read-only CODEOWNERS rendering and comparison against committed rules
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
+│   │   │       ├── catalog_owners.rs                                        # Trusted evidence is a separate input; the command performs no lookup or write
 │   │   │       ├── catalog_policy.rs                                        # Real Cedar through the effect-free policy CLI
 │   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
 │   │   │       ├── catalog_presentation.rs                                  # C05c keeps localized interface prose separate from English machine contracts
@@ -624,6 +627,9 @@ in place.
 │   │   │   │   │   ├── layout.rs                                            # The catalog's layout: agent and sidecar pairing, duplicate IDs, entries
 │   │   │   │   │   ├── mod.rs                                               # The source checker's tests: the valid synthetic catalog and each of its
 │   │   │   │   │   ├── model_card.rs                                        # Rust source: model card
+│   │   │   │   │   ├── owners.rs                                            # Trusted synthetic lookups and reviews: no API or credential in these checks
+│   │   │   │   │   ├── owners_boundaries.rs                                 # Strict evidence shapes, immutable snapshots and change-ownership boundaries
+│   │   │   │   │   ├── owners_rules.rs                                      # Source-rule admission and central standard exceptions bind real base reviewers
 │   │   │   │   │   ├── ownership.rs                                         # Area principals, derived ownership and last-match delegation refusals
 │   │   │   │   │   ├── placement_boundaries.rs                              # Permanent discovery-only neighbours from the C30 review
 │   │   │   │   │   ├── placement_guards.rs                                  # Isolated registration and filename classification guards
@@ -656,6 +662,7 @@ in place.
 │   │   │   │   ├── metadata.rs                                              # The Maestro metadata every resource declares, read the same way wherever
 │   │   │   │   ├── mod.rs                                                   # The strict checker of a catalog's authoring sources: a registry of
 │   │   │   │   ├── naming.rs                                                # Functional naming from shared adapter metadata, with only exact host and
+│   │   │   │   ├── owners.rs                                                # Trusted identity and review evidence injected by base-code CI, never catalog metadata
 │   │   │   │   ├── ownership.rs                                             # Offline area principals and ordered review delegation, not approval evidence
 │   │   │   │   ├── parse.rs                                                 # Bounded, strict parsing into checked values
 │   │   │   │   ├── placements.rs                                            # Descriptor placement patterns, shared by registration and discovery

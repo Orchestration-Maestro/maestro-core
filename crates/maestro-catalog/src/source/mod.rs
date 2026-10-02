@@ -16,6 +16,7 @@ mod kinds;
 mod load;
 mod metadata;
 mod naming;
+pub mod owners;
 mod ownership;
 mod parse;
 mod placements;

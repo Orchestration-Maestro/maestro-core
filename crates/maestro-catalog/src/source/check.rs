@@ -71,11 +71,21 @@ impl Directory {
         limits: &Limits,
         known: Known<'_>,
     ) -> Result<(Catalog, Snapshot), Refusal> {
-        let snapshot = scan(self, limits)?;
-        let (catalog, generated) = build_snapshot(&snapshot, registry, limits, known)?;
-        catalog.verify_generated(generated.as_deref())?;
-        Ok((catalog, snapshot))
+        checked_snapshot(self, registry, limits, known)
     }
+}
+
+/// Retain the same bounded bytes that passed all source and generation checks.
+pub(super) fn checked_snapshot(
+    tree: &dyn SourceTree,
+    registry: &Registry,
+    limits: &Limits,
+    known: Known<'_>,
+) -> Result<(Catalog, Snapshot), Refusal> {
+    let snapshot = scan(tree, limits)?;
+    let (catalog, generated) = build_snapshot(&snapshot, registry, limits, known)?;
+    catalog.verify_generated(generated.as_deref())?;
+    Ok((catalog, snapshot))
 }
 
 /// Load registered resources and then verify their exact static/dynamic claims.

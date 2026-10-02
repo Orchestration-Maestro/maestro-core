@@ -2321,6 +2321,8 @@ source/runtime implementation or private-data read, and no delivered claim.
 
 **Acceptance:** No second owner registry, broad-rule protection bypass or claim of independent quorums; C80b verifies trusted identities/approvals.
 
+- [ ] **C35-MAN:** the trusted maestro-manifests workflow feeds C80b's checks; no token reaches PR code.
+
 ### C36 Area-based preset and inventory composition [US1, US5] (3–4 h)
 
 C36 wires the CLI to the checked closure through C50’s inventory adapter, then
@@ -3520,7 +3522,7 @@ Central standard-exception evidence is shape-checked by C81b; trusted CI must ve
 **Design coverage:** MD09, MD15 (approved design §8.4).
 **Named tests:** `verified_existing_principals_accept`, `unknown_team_or_missing_access_refuses`, `stale_head_approval_refuses`, `newly_added_owner_cannot_self_approve`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
 - [ ] **Step 2: Green.** Trusted CI principal-existence/base-owner approval checks. Unknown user/team, missing access, stale-head approval and newly self-added owner fail; no token to PR code.
 - [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through

@@ -157,7 +157,7 @@ fn slug(text: &str, team: bool) -> bool {
 }
 
 /// No network lookup: syntactic validity alone never grants review authority.
-fn principal(text: &str) -> bool {
+pub(super) fn principal(text: &str) -> bool {
     if let Some(handle) = text.strip_prefix('@') {
         if let Some((org, team)) = handle.split_once('/') {
             return slug(org, false) && slug(team, true);
@@ -277,6 +277,24 @@ pub struct ReviewRule {
 }
 
 impl Ownership<'_> {
+    /// The canonical exception/governance protections shared by rendering and CI.
+    pub(super) fn protected_paths(&self) -> Vec<ReviewPath> {
+        if self.descriptor.path.contains('/') {
+            let parent = self
+                .descriptor
+                .path
+                .rsplit_once('/')
+                .map_or("", |(parent, _)| parent);
+            vec![ReviewPath::Tree(join(parent, Scope::EXCEPTIONS))]
+        } else {
+            Scope::SUPPORT_ROOTS
+                .into_iter()
+                .chain(Scope::ROOT_GOVERNANCE)
+                .map(|path| ReviewPath::Tree(path.to_owned()))
+                .collect()
+        }
+    }
+
     /// Content first, then the descriptor and caller-supplied exception/governance paths.
     #[must_use]
     pub fn review_rules(&self, protected: &[ReviewPath]) -> Vec<ReviewRule> {
@@ -379,16 +397,7 @@ impl Catalog {
             let ownership = self
                 .ownership(area)
                 .ok_or_else(|| format!("missing or ambiguous ownership for {}", area.path))?;
-            let protected: Vec<_> = if area.path == root.descriptor.path {
-                Scope::SUPPORT_ROOTS
-                    .into_iter()
-                    .chain(Scope::ROOT_GOVERNANCE)
-                    .map(|path| ReviewPath::Tree(path.to_owned()))
-                    .collect()
-            } else {
-                let parent = area.path.rsplit_once('/').map_or("", |(parent, _)| parent);
-                vec![ReviewPath::Tree(join(parent, Scope::EXCEPTIONS))]
-            };
+            let protected = ownership.protected_paths();
             let rules = ownership.review_rules(&protected);
             ownership.check_review_rules(&rules, &protected)?;
             records.push((ownership, rules));
