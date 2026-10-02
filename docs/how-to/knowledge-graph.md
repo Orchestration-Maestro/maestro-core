@@ -45,32 +45,34 @@ digest hashes the policy file bytes, so even whitespace changes its digest.
 
 ## Select the engine
 
-Build `maestro` with the `engine` feature to unlock the `lbug` setting:
+Build `maestro` with the `engine` feature to unlock the `ladybug` setting:
 
 ```sh
 cargo build --release -p maestro --features engine
 ```
 
-Today the feature only unlocks the setting; the engine arrives with G27.
+With the feature, the build includes the native engine; the graph's
+projection operations arrive with later tasks.
 
 Select it for every run, or for one run:
 
 ```sh
-maestro config set graph.engine lbug
-maestro --set graph.engine=lbug status
+maestro config set graph.engine ladybug
+maestro --set graph.engine=ladybug status
 ```
 
-`graph.engine` accepts `none` or `lbug`. No setting or flag takes a graph file
+`graph.engine` accepts `none` or `ladybug`; the old spelling `lbug` refuses
+with a message naming `ladybug`. No setting or flag takes a graph file
 path: Maestro places the graph under its own data directory. A build without the
-engine refuses the graph part of `setup` when `lbug` is selected, but still
+engine refuses the graph part of `setup` when `ladybug` is selected, but still
 runs the search-service part; `status` and `doctor` report the engine as
 missing from the build.
 
 ## Create the graph's directory
 
 ```sh
-maestro --set graph.engine=lbug setup        # preview: changes nothing
-maestro --set graph.engine=lbug setup --yes  # create it
+maestro --set graph.engine=ladybug setup        # preview: changes nothing
+maestro --set graph.engine=ladybug setup --yes  # create it
 ```
 
 Setup previews, and with `--yes` creates, `<data directory>/graph`, where the

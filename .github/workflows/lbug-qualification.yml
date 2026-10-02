@@ -80,7 +80,10 @@ jobs:
               command = ['ldd', str(binary)]
           result = subprocess.run(command, check=True, text=True, stdout=subprocess.PIPE)
           print('COMMAND:', ' '.join(command))
-          print(result.stdout)
+          # objdump -p prints the whole PE header; show only the imported DLLs.
+          shown = result.stdout if os.name != 'nt' else '\n'.join(
+              line for line in result.stdout.splitlines() if 'DLL Name:' in line)
+          print(shown)
           links = result.stdout.lower()
           if sys.platform == 'darwin':
               assert 'libc++' in links and 'libsystem' in links, 'Not the linked engine executable'
