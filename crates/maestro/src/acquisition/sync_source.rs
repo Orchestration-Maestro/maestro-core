@@ -1,9 +1,11 @@
 //! One source writer; frontier pages, never a second authoritative queue.
 use super::{
-    controls::{SourceWork, decision, request, storage},
+    controls::{CaptureWork, SourceWork, decision, request, storage},
     output::{Entry, Report},
     resources,
-    sync_capture::{CaptureWork, capture},
+    sync_budget::RunBudget,
+    sync_capture::{capture, prepared_parent},
+    sync_disposition::exclusion,
 };
 use crate::failure::Failure;
 use maestro_acquisition::policy::limits::Limits;
@@ -19,8 +21,9 @@ use maestro_acquisition::{
 };
 use maestro_kernel::{
     acquisition::{
-        Captures, Frontier, Handle, InventoryPage, InventorySchema, Item, ItemDisposition,
-        LeaseRequest, NewItem, Partitions, Receipts, SourceLease, Stage, StageItem,
+        Batch, CaptureEnvelope, Captures, Frontier, Handle, InventoryPage, InventorySchema, Item,
+        ItemDisposition, LeaseRequest, NewItem, Partitions, Receipts, SourceLease, Stage,
+        StageItem,
     },
     artifact::Digest,
 };
@@ -101,20 +104,98 @@ fn seeds<S: Frontier + Receipts, T>(
     }
     Ok(depths)
 }
+/// Recover only scoped immutable parent provenance; historical unknown depths remain held.
+fn recover<S: Partitions + Receipts, T>(
+    work: &SourceWork<'_, S, T>,
+    depths: &mut BTreeMap<Digest, u64>,
+) -> Result<Vec<Batch>, Failure> {
+    let mut batches = Vec::new();
+    let mut after = None;
+    loop {
+        let page = work
+            .store
+            .partition_page(work.scope, &work.source.id, after, 1000)
+            .map_err(|_| storage())?;
+        if page.is_empty() {
+            break;
+        }
+        after = page.last().copied();
+        for id in page {
+            let state = work
+                .store
+                .partition(work.scope, id)
+                .map_err(|_| storage())?
+                .ok_or_else(storage)?;
+            for batch in state.batches {
+                batches.extend(recover_batch(work, batch, depths)?);
+            }
+        }
+    }
+    Ok(batches)
+}
+/// Only immutable evidence for the same effective source context establishes a depth.
+fn recover_batch<S: Receipts, T>(
+    work: &SourceWork<'_, S, T>,
+    batch: Batch,
+    depths: &mut BTreeMap<Digest, u64>,
+) -> Result<Option<Batch>, Failure> {
+    let (Some(depth), Some(handle)) = (batch.parent_depth, batch.capture) else {
+        return Ok(None);
+    };
+    let bytes = work
+        .store
+        .read(work.runtime.kernel_principal, handle)
+        .map_err(|_| storage())?
+        .ok_or_else(storage)?;
+    let envelope: CaptureEnvelope = serde_json::from_slice(bytes.bytes()).map_err(|_| storage())?;
+    if envelope.source != work.source.id
+        || envelope.profile != work.source.acquisition_profile.digest
+        || envelope.authorization_context != Digest::of(work.runtime.kernel_principal.as_bytes())
+    {
+        return Ok(None);
+    }
+    depths
+        .entry(Digest::of(envelope.requested.as_str().as_bytes()))
+        .or_insert(depth);
+    for child in &batch.items {
+        depths
+            .entry(Digest::of(child.request.fetch_identity.as_bytes()))
+            .or_insert(depth.saturating_add(1));
+    }
+    Ok(Some(batch))
+}
+/// Retry eligible historical partitions once their durable children have acknowledged captures.
+fn reconcile_checkpoints<S: Partitions, T>(
+    work: &SourceWork<'_, S, T>,
+    writer: &SourceLease,
+    batches: &[Batch],
+) {
+    for batch in batches {
+        if batch.stable && !batch.truncated {
+            // A refusal remains durable pending evidence, not a speculative watermark.
+            let _ = work
+                .store
+                .commit_partition(writer, batch.partition.id, SystemTime::now());
+        }
+    }
+}
 /// Drain current work once per attempt, preserving every failed item in the frontier.
 pub(crate) async fn execute<S, T>(
     work: &mut SourceWork<'_, S, T>,
     report: &mut Report,
+    run: &mut RunBudget,
 ) -> Result<SourceResult, Failure>
 where
     S: Frontier + Captures + Partitions + Receipts,
     T: PinnedTransport,
     T::Connection: AsyncRead + AsyncWrite + Unpin + Send,
 {
+    let remaining = run.remaining(&work.policy.policy().aggregate_limits);
+    let exhausted = remaining.is_none();
     let limits = resources::bounds(
         &compose(&[
             work.source.limits.clone(),
-            work.policy.policy().aggregate_limits.clone(),
+            remaining.unwrap_or_else(|| work.policy.policy().aggregate_limits.clone()),
         ])
         .map_err(|_| storage())?,
         false,
@@ -132,32 +213,48 @@ where
         .lease_source(&work.source.id, work.scope, lease)
         .map_err(|_| Failure::refused(SOURCE_OWNED))?;
     work.writers.push(writer.clone());
-    let depths = seeds(work, &writer, report)?;
+    let mut depths = seeds(work, &writer, report)?;
+    let checkpoints = recover(work, &mut depths)?;
     let bounds = [limits.clone()];
-    let reservation = work.resources.reserve(
-        &bounds,
-        Usage {
-            cpu_millicores: limits.cpu_millicores.get(),
-            memory_bytes: limits.memory_bytes.get(),
-            ..Usage::default()
+    let usage = Usage {
+        cpu_millicores: if exhausted {
+            0
+        } else {
+            limits.cpu_millicores.get()
         },
-    );
-    let reservation = reservation.ok();
+        memory_bytes: if exhausted {
+            0
+        } else {
+            limits.memory_bytes.get()
+        },
+        ..Usage::default()
+    };
+    let reservation = run.reserve(work.resources, usage);
+    let aggregate_bounds = run.bounds.clone();
     let mut state = Drain {
         depths,
+        checkpoints,
+        exhausted,
         reservation,
         accounting: Accounting::new(limits.clone()),
-        usage: Usage {
-            cpu_millicores: limits.cpu_millicores.get(),
-            memory_bytes: limits.memory_bytes.get(),
-            ..Usage::default()
-        },
+        usage,
+        carried_staging: run.staging,
+        aggregate_bounds: &aggregate_bounds,
         seen: BTreeSet::new(),
         attempted: 0,
         inventory: BTreeMap::new(),
         partitions: vec![],
     };
-    drain(work, &writer, &bounds, &mut state, report).await?;
+    let drained = drain(work, &writer, &bounds, &mut state, report).await;
+    if let Some(reservation) = state.reservation.take() {
+        run.reservation = Some(reservation);
+    }
+    run.record(
+        state.attempted,
+        &state.accounting,
+        state.usage.staging_bytes,
+    )?;
+    drained?;
     for (partition, _) in &state.partitions {
         if work
             .store
@@ -169,6 +266,7 @@ where
                 .push(Entry::new(&partition.to_string(), "partition_incomplete"));
         }
     }
+    reconcile_checkpoints(work, &writer, &state.checkpoints);
     let items = frontier_items(
         work.store,
         work.principal,
@@ -184,7 +282,15 @@ where
     })
 }
 /// Bounded process-local traversal metadata; the frontier remains authoritative.
-struct Drain {
+struct Drain<'a> {
+    /// Retained storage from already stopped sources.
+    carried_staging: u64,
+    /// Full aggregate allocation envelope, independent of source-local bounds.
+    aggregate_bounds: &'a [Limits],
+    /// Existing scoped checkpoint provenance, including prepared parent evidence.
+    checkpoints: Vec<Batch>,
+    /// No aggregate headroom can dispatch new work.
+    exhausted: bool,
     /// Seed and newly discovered item depths, not a queue of dispatch requests.
     depths: BTreeMap<Digest, u64>,
     /// Owned resource reservation, absent on a truthful budget hold.
@@ -207,7 +313,7 @@ async fn drain<S, T>(
     work: &SourceWork<'_, S, T>,
     writer: &SourceLease,
     bounds: &[Limits],
-    state: &mut Drain,
+    state: &mut Drain<'_>,
     report: &mut Report,
 ) -> Result<(), Failure>
 where
@@ -229,7 +335,7 @@ where
 async fn scan_pass<S, T>(
     work: &SourceWork<'_, S, T>,
     owned: (&SourceLease, &[Limits]),
-    state: &mut Drain,
+    state: &mut Drain<'_>,
     report: &mut Report,
 ) -> Result<(), Failure>
 where
@@ -265,7 +371,7 @@ async fn visit<S, T>(
     work: &SourceWork<'_, S, T>,
     owned: (&SourceLease, &[Limits]),
     item: &Item,
-    state: &mut Drain,
+    state: &mut Drain<'_>,
     report: &mut Report,
 ) -> Result<(), Failure>
 where
@@ -275,7 +381,8 @@ where
 {
     let (writer, bounds) = owned;
     let limits = bounds.first().ok_or_else(storage)?;
-    let reusable = item.capture.is_some();
+    let reusable =
+        item.capture.is_some() || prepared_parent(work, &state.checkpoints, item)?.is_some();
     let reference = Digest::of(item.request.fetch_identity.as_bytes());
     let depth = state.depths.get(&reference).copied();
     let previous_partitions = state.partitions.len();
@@ -285,12 +392,16 @@ where
             || item.request.representation_profile != work.source.acquisition_profile.digest)
     {
         Some("context_changed")
+    } else if state.exhausted && !reusable {
+        Some("aggregate_budget")
     } else if state.attempted >= limits.pages.get() && !reusable {
         Some("page_budget")
     } else {
         None
     };
-    let result = if let Some(reason) = held {
+    let result = if let Some(excluded) = exclusion(work, item, report)? {
+        excluded
+    } else if let Some(reason) = held {
         report
             .pending
             .push(Entry::new(&item.request.fetch_identity, reason));
@@ -305,13 +416,15 @@ where
         }
         let mut capture_work = CaptureWork {
             source: work,
+            checkpoints: &state.checkpoints,
             writer,
             reservation,
             bounds,
+            carried_staging: state.carried_staging,
+            aggregate_bounds: state.aggregate_bounds,
             accounting: &mut state.accounting,
             usage: &mut state.usage,
             partitions: &mut state.partitions,
-            remaining: limits.pages.get().saturating_sub(state.attempted),
         };
         capture(&mut capture_work, item, depth, report).await?
     } else {
@@ -357,6 +470,7 @@ fn inventory_pages<S: Receipts, T>(
     let complete = inventory.values().all(|item| {
         item.disposition == ItemDisposition::Accepted
             || item.disposition == ItemDisposition::Unchanged
+            || item.disposition == ItemDisposition::Denied
     });
     let entries: Vec<_> = inventory.into_values().collect();
     Ok(entries

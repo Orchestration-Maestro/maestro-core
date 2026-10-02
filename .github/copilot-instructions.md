@@ -71,7 +71,11 @@ in place.
 │   │   │   │   ├── output.rs                                                            # Content-free run summaries; only the owner's offline public preview includes URLs
 │   │   │   │   ├── record_tests.rs                                                      # Read-only inspection and bounded pre-start inventory regression checks
 │   │   │   │   ├── resources.rs                                                         # OA3 bounds are data; fresh backing-store measurements never come from bindings
+│   │   │   │   ├── resume_tests.rs                                                      # Permanent N14 interrupted-depth and cross-source aggregate regressions
+│   │   │   │   ├── sync_budget.rs                                                       # Aggregate consumed capacity and one retained sync allocation across sequential sources
 │   │   │   │   ├── sync_capture.rs                                                      # Public HTTP, immutable capture and offline discovery under one current writer
+│   │   │   │   ├── sync_discovery.rs                                                    # Full declared inventories are independent of this run's remaining HTTP slots
+│   │   │   │   ├── sync_disposition.rs                                                  # Definitive historical exclusions precede readiness, allocation and dispatch holds
 │   │   │   │   └── sync_source.rs                                                       # One source writer; frontier pages, never a second authoritative queue
 │   │   │   ├── cli/                                                                     # The commands, a module each, and what they share
 │   │   │   │   ├── backup/                                                              # Back up and restore the kernel

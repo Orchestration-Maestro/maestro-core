@@ -1,27 +1,25 @@
 //! Public HTTP, immutable capture and offline discovery under one current writer.
 use super::{
-    controls::{SourceWork, decision, millis, request, storage},
+    controls::{CaptureWork, SourceWork, decision, millis, request, storage},
     output::{Entry, Report},
+    sync_discovery::discovery,
 };
 use crate::failure::Failure;
 use maestro_acquisition::{
     capture::{CaptureBudget, http_envelope, prepare},
-    discovery::{links::DomLinks, partition::discover},
-    lifecycle::resources::Reservation,
-    policy::{format_time, identity::FetchIdentity, limits::Limits},
+    policy::{format_time, identity::FetchIdentity},
     transport::{
         budget::Usage,
         connect::PinnedTransport,
         http::{Fetch, Http, Response},
         pacing::PacingContext,
-        stream::Accounting,
     },
 };
 use maestro_kernel::{
     acquisition::{
-        CaptureContext, CaptureEnvelope, Captures, DispatchRequest, Enumeration, Frontier, Handle,
-        Item, ItemDisposition, LeaseRequest, Partition, Partitions, Receipts, Representation,
-        SafeIdentity, SourceLease, StageItem, Transport, Window,
+        Batch, CaptureContext, CaptureEnvelope, Captures, DispatchRequest, Frontier, Handle, Item,
+        ItemDisposition, LeaseRequest, Partitions, Receipts, Representation, SafeIdentity,
+        StageItem, Transport,
     },
     artifact::Digest,
 };
@@ -31,25 +29,6 @@ use std::{
 };
 use tokio::io::{AsyncRead, AsyncWrite};
 
-/// One admitted source allocation and its durable discovery checkpoints.
-pub(crate) struct CaptureWork<'a, 'b, S, T> {
-    /// Existing source composition and ports.
-    pub(crate) source: &'a SourceWork<'b, S, T>,
-    /// Current fenced writer.
-    pub(crate) writer: &'a SourceLease,
-    /// N11 owned resource reservation.
-    pub(crate) reservation: &'a mut Reservation,
-    /// Tightened OA3/source limits.
-    pub(crate) bounds: &'a [Limits],
-    /// Cumulative HTTP attempts, elapsed time and response bytes.
-    pub(crate) accounting: &'a mut Accounting,
-    /// Actual retained allocation, never reset between captures.
-    pub(crate) usage: &'a mut Usage,
-    /// Current run checkpoints and parent depths.
-    pub(crate) partitions: &'a mut Vec<(Handle, u64)>,
-    /// Remaining bounded inventory slots before starting discovery.
-    pub(crate) remaining: u64,
-}
 /// Verified reuse is not revalidation, and starts no fetch.
 fn reuse<S: Captures + Receipts, T>(
     work: &CaptureWork<'_, '_, S, T>,
@@ -113,6 +92,9 @@ where
         ));
         return Ok(stage);
     }
+    if let Some(handle) = prepared_parent(work.source, work.checkpoints, item)? {
+        return resume(work, item, handle, depth, report).await;
+    }
     let Some((context, response)) = fetch_item(work, item, report).await? else {
         return Ok(stage);
     };
@@ -122,6 +104,7 @@ where
         reservation: work.reservation,
         bounds: work.bounds,
         usage: *work.usage,
+        carried_staging: Some((work.carried_staging, work.aggregate_bounds)),
     };
     let prepared = prepare(
         work.source.store,
@@ -139,22 +122,7 @@ where
         return Ok(stage);
     };
     stage.evidence = Some(handle);
-    let acknowledged = if let Some(depth) = depth {
-        discovery(work, (&context, handle), &envelope, depth, report).await?
-    } else if work.source.source.discovery.is_empty()
-        || envelope
-            .declared_media
-            .as_deref()
-            .is_some_and(|media| media != "text/html")
-    {
-        discovery(work, (&context, handle), &envelope, 0, report).await?
-    } else {
-        report.pending.push(Entry::new(
-            &item.request.fetch_identity,
-            "discovery_depth_unknown",
-        ));
-        false
-    };
+    let acknowledged = interpret(work, (&context, handle), (&envelope, depth), report).await?;
     if acknowledged {
         stage.disposition = ItemDisposition::Accepted;
     }
@@ -169,6 +137,107 @@ where
     entry.observed_ms = Some(envelope.observed_ms);
     report.completed.push(entry);
     Ok(stage)
+}
+/// Re-lease verified prepared bytes for offline discovery, never another HTTP fetch.
+async fn resume<S: Frontier + Captures + Partitions + Receipts, T>(
+    work: &mut CaptureWork<'_, '_, S, T>,
+    item: &Item,
+    handle: Handle,
+    depth: Option<u64>,
+    report: &mut Report,
+) -> Result<StageItem, Failure> {
+    let now = SystemTime::now();
+    let holder = work.source.receipt.attempt.to_string();
+    let lease = work
+        .source
+        .store
+        .lease(
+            work.writer,
+            item.id,
+            DispatchRequest {
+                lease: LeaseRequest {
+                    holder: &holder,
+                    now,
+                    term: Duration::from_hours(1),
+                },
+                max_attempts: u32::MAX,
+            },
+        )
+        .map_err(|_| storage())?;
+    let context = CaptureContext {
+        writer: work.writer.clone(),
+        item: lease,
+        now,
+    };
+    let (envelope, _) = work
+        .source
+        .store
+        .read_capture(&context, handle, work.accounting.limits().dom_bytes.get())
+        .map_err(|_| storage())?;
+    let acknowledged = interpret(work, (&context, handle), (&envelope, depth), report).await?;
+    let stage = StageItem {
+        item: item.id.to_string().parse().map_err(|_| storage())?,
+        evidence: Some(handle),
+        disposition: if acknowledged {
+            ItemDisposition::Accepted
+        } else {
+            ItemDisposition::Pending
+        },
+    };
+    let mut entry = Entry::new(
+        &item.request.fetch_identity,
+        "captured_earlier_not_revalidated",
+    );
+    entry.observed_ms = Some(envelope.observed_ms);
+    report.completed.push(entry);
+    Ok(stage)
+}
+/// Known checkpoint depths resume; unrelated historical HTML remains held.
+async fn interpret<S: Frontier + Captures + Partitions + Receipts, T>(
+    work: &mut CaptureWork<'_, '_, S, T>,
+    capture: (&CaptureContext, Handle),
+    metadata: (&CaptureEnvelope, Option<u64>),
+    report: &mut Report,
+) -> Result<bool, Failure> {
+    let (envelope, depth) = metadata;
+    if let Some(depth) = depth {
+        discovery(work, capture, envelope, depth, report).await
+    } else if work.source.source.discovery.is_empty()
+        || envelope
+            .declared_media
+            .as_deref()
+            .is_some_and(|media| media != "text/html")
+    {
+        discovery(work, capture, envelope, 0, report).await
+    } else {
+        report.pending.push(Entry::new(
+            envelope.requested.as_str(),
+            "discovery_depth_unknown",
+        ));
+        Ok(false)
+    }
+}
+/// Locate checkpoint-backed parent evidence; current lease verification follows before reuse.
+pub(crate) fn prepared_parent<S: Receipts, T>(
+    work: &SourceWork<'_, S, T>,
+    checkpoints: &[Batch],
+    item: &Item,
+) -> Result<Option<Handle>, Failure> {
+    for batch in checkpoints {
+        if let Some(handle) = batch.capture {
+            let bytes = work
+                .store
+                .read(work.runtime.kernel_principal, handle)
+                .map_err(|_| storage())?
+                .ok_or_else(storage)?;
+            let envelope: CaptureEnvelope =
+                serde_json::from_slice(bytes.bytes()).map_err(|_| storage())?;
+            if envelope.item.to_string() == item.id.to_string() {
+                return Ok(Some(handle));
+            }
+        }
+    }
+    Ok(None)
 }
 /// Fresh readiness, leases and the actual N09 operation share the same guards.
 async fn fetch_item<S, T>(
@@ -197,7 +266,16 @@ where
     }
     if work
         .reservation
-        .checkpoint(work.bounds, *work.usage)
+        .checkpoint(
+            work.aggregate_bounds,
+            Usage {
+                staging_bytes: work
+                    .carried_staging
+                    .checked_add(work.usage.staging_bytes)
+                    .ok_or_else(storage)?,
+                ..*work.usage
+            },
+        )
         .is_err()
     {
         report.pending.push(Entry::new(candidate.url, "budget"));
@@ -337,86 +415,4 @@ fn http<'a, S, T>(work: &CaptureWork<'_, 'a, S, T>) -> Http<'a, T> {
                 .get(),
         },
     }
-}
-/// The sole N13 enumerator acknowledges only stable bounded discovery.
-async fn discovery<S, T>(
-    work: &mut CaptureWork<'_, '_, S, T>,
-    capture: (&CaptureContext, Handle),
-    envelope: &CaptureEnvelope,
-    depth: u64,
-    report: &mut Report,
-) -> Result<bool, Failure>
-where
-    S: Frontier + Captures + Partitions + Receipts,
-{
-    if !work.source.source.discovery.is_empty() && envelope.declared_media.is_none() {
-        report.pending.push(Entry::new(
-            envelope.requested.as_str(),
-            "discovery_media_unknown",
-        ));
-        return Ok(false);
-    }
-    if envelope.declared_media.as_deref() != Some("text/html")
-        || work.source.source.discovery.is_empty()
-    {
-        work.source
-            .store
-            .acknowledge_capture(capture.0, capture.1)
-            .map_err(|_| storage())?;
-        return Ok(true);
-    }
-    if work.partitions.len() as u64 >= work.accounting.limits().partitions.get() {
-        report.pending.push(Entry::new(
-            envelope.requested.as_str(),
-            "inventory_or_partition_limit",
-        ));
-        return Ok(false);
-    }
-    let partition = Partition {
-        id: Handle::new(),
-        run: work.source.receipt.run,
-        kind: Enumeration::Links,
-        window: Window {
-            start: 0,
-            end: 1,
-            overlap: 0,
-            skew: 0,
-        },
-        max_batches: 1,
-        max_items: u16::try_from(work.remaining.min(999)).map_err(|_| storage())?,
-    };
-    let extractor = DomLinks::new().map_err(|_| storage())?;
-    let discovered = discover(
-        work.source.store,
-        &extractor,
-        capture,
-        work.source.policy,
-        (partition, depth),
-    )
-    .await;
-    let Ok(batch) = discovered else {
-        report.pending.push(Entry::new(
-            envelope.requested.as_str(),
-            "discovery_unavailable",
-        ));
-        return Ok(false);
-    };
-    work.partitions.push((batch.partition.id, depth));
-    for excluded in &batch.not_enqueued {
-        report.not_enqueued(excluded).map_err(|_| storage())?;
-    }
-    if batch.inventory_overflow > 0 {
-        report.overflow = report
-            .overflow
-            .checked_add(u64::from(batch.inventory_overflow))
-            .ok_or_else(storage)?;
-    }
-    if !batch.stable || batch.truncated {
-        report.pending.push(Entry::new(
-            envelope.requested.as_str(),
-            "discovery_incomplete",
-        ));
-        return Ok(false);
-    }
-    Ok(true)
 }

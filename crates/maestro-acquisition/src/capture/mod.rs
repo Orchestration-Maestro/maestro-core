@@ -2,7 +2,7 @@
 mod commit;
 mod envelope;
 mod outcome;
-pub use commit::{CaptureBudget, finish_run, prepare};
+pub use commit::{CaptureBudget, finish_run, prepare, prepare_receipt};
 pub use envelope::http_envelope;
 pub use maestro_kernel::acquisition::{
     CaptureContext, CaptureEnvelope, Captures, HeaderReason, RedirectHop, Representation,

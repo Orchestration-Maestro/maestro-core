@@ -38,6 +38,12 @@ pub struct Config {
 }
 
 impl Config {
+    /// Configured read scopes without reconciling persisted grants.
+    #[must_use]
+    pub fn read_scopes(&self) -> super::set::ScopeSet {
+        super::set::ScopeSet::new(self.read.clone())
+    }
+
     /// The configuration of [`CONFIG_FILE`] in `config_dir`; one that grants
     /// nothing when the file does not exist.
     ///

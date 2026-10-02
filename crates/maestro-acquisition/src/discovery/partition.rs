@@ -35,7 +35,26 @@ pub async fn discover(
     policy: &CheckedPolicy,
     request: (Partition, u64),
 ) -> Result<Batch, ReceiptError> {
-    let (mut partition, depth) = request;
+    discover_with_captured(
+        store,
+        extractor,
+        capture,
+        policy,
+        (request.0, request.1, &BTreeSet::new()),
+    )
+    .await
+}
+/// Enumerate the full bounded inventory, prioritizing children without captures.
+/// # Errors
+/// The same ownership, immutable capture and finite inventory guards as discovery.
+pub async fn discover_with_captured(
+    store: &(impl Partitions + Captures),
+    extractor: &dyn LinkExtractor,
+    capture: (&CaptureContext, Handle),
+    policy: &CheckedPolicy,
+    request: (Partition, u64, &BTreeSet<String>),
+) -> Result<Batch, ReceiptError> {
+    let (mut partition, depth, captured) = request;
     let (context, handle) = capture;
     let source = policy
         .policy()
@@ -48,9 +67,9 @@ pub async fn discover(
         policy.policy().aggregate_limits.clone(),
     ])
     .map_err(|_| ReceiptError::Invalid)?;
-    partition.max_items = partition
-        .max_items
-        .min(u16::try_from(limits.pages.get().min(1000)).map_err(|_| ReceiptError::Invalid)?);
+    partition.max_items = partition.max_items.min(
+        u16::try_from(source.limits.pages.get().min(1000)).map_err(|_| ReceiptError::Invalid)?,
+    );
     partition.max_batches = partition
         .max_batches
         .min(u16::try_from(limits.partitions.get().min(1000)).map_err(|_| ReceiptError::Invalid)?);
@@ -73,6 +92,7 @@ pub async fn discover(
         truncated: bytes.is_none(),
         expected: None,
         items: vec![],
+        parent_depth: Some(depth),
         capture: Some(handle),
         extractor: Some(extractor.contract().to_owned()),
         parent_keys: Some(keys(&envelope, &[])?),
@@ -110,6 +130,8 @@ pub async fn discover(
         batch.truncated =
             output.limit_hit || batch.inventory_overflow > 0 || batch.not_enqueued.len() > 1000;
         batch.not_enqueued.truncate(1000);
+        let mut eligible: Vec<_> = eligible.into_iter().collect();
+        eligible.sort_by_key(|identity| captured.contains(identity));
         batch.items = eligible
             .into_iter()
             .take(usize::from(batch.partition.max_items))

@@ -223,6 +223,7 @@ fn n12_n11_budget_holds_before_write_and_replay_adds_no_usage() {
     limits.staging_bytes = 1.try_into().unwrap();
     let bounds = [limits];
     let mut budget = CaptureBudget {
+        carried_staging: None,
         reservation: &mut reservation,
         bounds: &bounds,
         usage: Usage::default(),
@@ -245,6 +246,7 @@ fn n12_n11_budget_holds_before_write_and_replay_adds_no_usage() {
         .unwrap();
     let bounds = [exact];
     let mut budget = CaptureBudget {
+        carried_staging: None,
         reservation: &mut reservation,
         bounds: &bounds,
         usage: Usage::default(),
@@ -359,6 +361,7 @@ fn n12_failed_link_keeps_written_bytes_charged() {
     let mut reservation = n11_support::reserve(&resources, Usage::default());
     let bounds = [n11_support::limits()];
     let mut budget = CaptureBudget {
+        carried_staging: None,
         reservation: &mut reservation,
         bounds: &bounds,
         usage: Usage::default(),

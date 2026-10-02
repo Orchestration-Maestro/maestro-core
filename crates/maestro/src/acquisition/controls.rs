@@ -2,22 +2,25 @@
 use crate::failure::Failure;
 use maestro_acquisition::{
     CheckedPolicy, Principal, Refusal,
-    lifecycle::resources::Resources,
+    lifecycle::resources::{Reservation, Resources},
     policy::{
         authority::{Authority, Operation, Target},
         decision::{AdmissionControls, ItemAttributes, Request, RequestKind, admit},
         identity::FetchIdentity,
+        limits::Limits,
         source::Source,
     },
     transport::{
+        budget::Usage,
         connect::Resolver,
         pacing::OriginLedger,
         robots::{DenyOverrides, RobotsBinding, RobotsCache},
         robots_store::RobotsStore,
+        stream::Accounting,
     },
 };
 use maestro_kernel::{
-    acquisition::{Receipt, SourceLease},
+    acquisition::{Batch, Handle, Receipt, SourceLease},
     artifact::Digest,
     scope::Scope,
 };
@@ -223,4 +226,28 @@ pub(crate) struct SourceWork<'a, S, T> {
     pub(crate) run_id: &'a str,
     /// Unique frozen pending receipt.
     pub(crate) receipt: &'a Receipt,
+}
+
+/// One admitted source allocation and its durable discovery checkpoints.
+pub(crate) struct CaptureWork<'a, 'b, S, T> {
+    /// Prior immutable checkpoints for verified offline continuation.
+    pub(crate) checkpoints: &'a [Batch],
+    /// Existing source composition and ports.
+    pub(crate) source: &'a SourceWork<'b, S, T>,
+    /// Current fenced writer.
+    pub(crate) writer: &'a SourceLease,
+    /// N11 owned resource reservation.
+    pub(crate) reservation: &'a mut Reservation,
+    /// Tightened OA3/source limits.
+    pub(crate) bounds: &'a [Limits],
+    /// Prior sources' retained staging allocation.
+    pub(crate) carried_staging: u64,
+    /// Complete aggregate reservation bounds, never narrowed by a finished source.
+    pub(crate) aggregate_bounds: &'a [Limits],
+    /// Cumulative HTTP attempts, elapsed time and response bytes.
+    pub(crate) accounting: &'a mut Accounting,
+    /// Actual retained allocation, never reset between captures.
+    pub(crate) usage: &'a mut Usage,
+    /// Current run checkpoints and parent depths.
+    pub(crate) partitions: &'a mut Vec<(Handle, u64)>,
 }

@@ -429,20 +429,20 @@ fn n14_depth_preserves_definitive_exclusions_and_out_of_scope_unknowns_do_not_ho
 }
 
 #[test]
-fn n14_zero_slots_count_every_eligible_link_and_enqueue_none() {
+fn n14_exhausted_fetch_slots_do_not_shrink_discovery_inventory() {
     let fixture = Fixture::new(|policy| {
         clean(policy);
         policy["sources"][0]["limits"]["pages"] = serde_json::json!(1);
     });
     let report = fixture.sync();
     assert_eq!(report.status, Status::Partial);
-    assert_eq!(report.overflow, 2);
+    assert_eq!(report.overflow, 1);
     let scopes = fixture.db.visible("reader").unwrap();
     assert_eq!(
         Frontier::page(&fixture.db, &scopes, "notes", None, 1000)
             .unwrap()
             .len(),
-        1
+        2
     );
     assert_eq!(fixture.site.requests.lock().unwrap().len(), 2);
     fixture.finish();

@@ -4,6 +4,7 @@
 use super::support::{ABC, EMPTY, Scratch, pins, stored};
 use crate::{
     artifact::Digest,
+    scope::Right,
     store::{
         Database, Error,
         database::{configured, link_into_place, link_new_file},
@@ -297,4 +298,21 @@ fn a_file_that_is_not_a_database_is_refused_by_sqlite() {
         reason.is_some_and(|reason| reason.contains("not a database")),
         "{error:?}"
     );
+}
+
+#[test]
+fn n14_read_only_open_refuses_writes_and_never_creates_storage() {
+    let scratch = Scratch::new();
+    assert!(Database::open_read_only(&scratch.0).is_err());
+    assert!(!scratch.database().exists());
+    drop(scratch.open());
+    let database = Database::open_read_only(&scratch.0).unwrap();
+    assert!(database.quick_check().unwrap().is_empty());
+    let scope = "workspace/default/collection/garden".parse().unwrap();
+    assert!(
+        database
+            .grant("reader", &scope, Right::Read, "owner")
+            .is_err()
+    );
+    assert!(database.visible("reader").unwrap().is_empty());
 }

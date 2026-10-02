@@ -45,7 +45,7 @@ pub(super) struct Fixture {
     /// The kernel authorizer of this OS caller.
     kernel_principal: String,
     /// Independently bound collection bytes.
-    collection: Digest,
+    pub(super) collection: Digest,
     /// Explicit synthetic public wire adapter.
     pub(super) site: Site,
 }
@@ -249,31 +249,6 @@ fn n14_declared_depth_is_discarded_but_run_depth_is_pending() {
             .any(|entry| entry.reason == "run_depth_limit")
     );
     capped.finish();
-}
-
-#[test]
-fn n14_inventory_overflow_retains_exact_count_and_holds_window() {
-    let capped = Fixture::new(|value| {
-        clean(value);
-        value["sources"][0]["limits"]["pages"] = json!(2);
-    });
-    let report = capped.sync();
-    assert_eq!(report.status, Status::Partial, "{report:?}");
-    assert_eq!(report.overflow, 1);
-    assert!(
-        report
-            .text()
-            .contains("1 links pending: inventory limit reached")
-    );
-    capped.finish();
-    let exact = Fixture::new(|value| {
-        clean(value);
-        value["sources"][0]["limits"]["pages"] = json!(3);
-    });
-    let report = exact.sync();
-    assert_eq!(report.overflow, 0);
-    assert_eq!(report.status, Status::Complete, "{report:?}");
-    exact.finish();
 }
 
 /// Synthetic measurement seam proves the existing N11 floor, not a disk-number binding.

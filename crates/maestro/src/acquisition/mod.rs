@@ -16,6 +16,8 @@ mod flow_tests;
 mod history_tests;
 #[cfg(test)]
 mod record_tests;
+#[cfg(test)]
+mod resume_tests;
 
 mod bindings;
 pub(crate) mod cli;
@@ -28,6 +30,12 @@ mod inspect;
 mod output;
 mod resources;
 #[cfg(any(target_os = "linux", test))]
+mod sync_budget;
+#[cfg(any(target_os = "linux", test))]
 mod sync_capture;
+#[cfg(any(target_os = "linux", test))]
+mod sync_discovery;
+#[cfg(any(target_os = "linux", test))]
+mod sync_disposition;
 #[cfg(any(target_os = "linux", test))]
 mod sync_source;

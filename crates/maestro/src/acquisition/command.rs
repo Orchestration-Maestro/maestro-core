@@ -2,10 +2,11 @@
 use super::{
     controls::{Controls, Runtime, SourceWork, decision, request, storage},
     output::{Entry, Report},
+    sync_budget::RunBudget,
     sync_source::{SOURCE_OWNED, execute},
 };
 use crate::failure::Failure;
-use maestro_acquisition::capture::{finish_run, reconcile};
+use maestro_acquisition::capture::prepare_receipt;
 use maestro_acquisition::{
     CheckedPolicy, PolicySource, Principal,
     lifecycle::resources::Resources,
@@ -136,6 +137,7 @@ where
         leases: vec![],
     };
     let mut pages = Vec::new();
+    let mut budget = RunBudget::new(&policy.policy().aggregate_limits)?;
     let performed = async {
         let mut frontier = Vec::new();
         for source in &policy.policy().sources {
@@ -151,7 +153,7 @@ where
                 run_id: &run_id,
                 writers: &mut writers.leases,
             };
-            let result = execute(&mut work, &mut report).await?;
+            let result = execute(&mut work, &mut report, &mut budget).await?;
             receipt.budget.response_bytes = receipt
                 .budget
                 .response_bytes
@@ -252,8 +254,8 @@ pub(super) fn finish(
     report: &mut Report,
 ) -> Result<(), Failure> {
     let (pages, frontier) = inventory;
-    let outcome =
-        reconcile(pages, frontier, receipt.reason, (store, scope)).map_err(|_| storage())?;
+    let (mut terminal, outcome) =
+        prepare_receipt(store, scope, receipt, pages, frontier).map_err(|_| storage())?;
     if report.status == Status::Complete && outcome.status != Status::Complete {
         report.status = outcome.status;
         receipt.status = outcome.status;
@@ -263,20 +265,17 @@ pub(super) fn finish(
             "capture_reconciliation_pending",
         ));
     }
-    let references = pages
-        .iter()
-        .map(|page| store.retain_inventory(scope, page))
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| storage())?;
+    terminal.status = report.status;
+    terminal.reason = receipt.reason;
     let summary = store
         .retain(
             scope,
             &serde_json::to_vec(report).map_err(|_| storage())?,
-            &references,
+            &terminal.inventories,
         )
         .map_err(|_| storage())?;
-    receipt.downstream.push(summary);
-    finish_run(store, scope, receipt, pages, frontier).map_err(|_| storage())?;
+    terminal.downstream.push(summary);
+    store.finish(&terminal).map_err(|_| storage())?;
     Ok(())
 }
 /// Release after all owned futures and persisted dispositions, including errors.

@@ -22,7 +22,11 @@ fn n14_invalid_manifest_refuses_before_any_start() {
     let home = Home::new();
     let manifest = home.root().join("invalid.json");
     let bindings = home.root().join("bindings.json");
-    fs::write(&manifest, b"{\"schema\":\"wrong\",\"unknown\":true}").unwrap();
+    fs::write(
+        &manifest,
+        include_bytes!("../../../maestro-acquisition/tests/fixtures/collection.json"),
+    )
+    .unwrap();
     fs::write(
         &bindings,
         b"{\"schema\":\"maestro-acquisition-bindings/1\",\"resources\":[]}",
@@ -68,6 +72,10 @@ fn n14_inspect_receipt_and_run_are_real_exclusive_read_operations() {
         let output: Value = serde_json::from_str(&result.stdout).unwrap();
         assert_eq!(output["status"], "refused");
         assert_eq!(output["started"], 0);
+        assert!(
+            !home.data().join("kernel.sqlite3").exists(),
+            "inspect wrote an empty kernel"
+        );
     }
     let result = home.run(&[
         "knowledge",

@@ -96,6 +96,9 @@ pub struct Batch {
     pub not_enqueued: Vec<NotEnqueued>,
     /// Eligible references outside the inventory ceiling; pending, never accepted.
     pub inventory_overflow: u32,
+    /// Verified parent's traversal depth, absent for unrelated historical checkpoints.
+    #[serde(default)]
+    pub parent_depth: Option<u64>,
     /// Prepared immutable parent capture, absent for source indexes.
     pub capture: Option<Handle>,
 }

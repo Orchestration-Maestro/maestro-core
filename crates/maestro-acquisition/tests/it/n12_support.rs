@@ -119,6 +119,7 @@ impl Fixture {
         let mut reservation = n11_support::reserve(&resources, Usage::default());
         let bounds = [n11_support::limits()];
         let mut budget = CaptureBudget {
+            carried_staging: None,
             reservation: &mut reservation,
             bounds: &bounds,
             usage: Usage::default(),

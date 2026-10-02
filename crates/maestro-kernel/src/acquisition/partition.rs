@@ -16,6 +16,16 @@ use std::{collections::BTreeSet, time::SystemTime};
 
 /// Replaceable kernel partition boundary over the existing frontier.
 pub trait Partitions: Send + Sync {
+    /// Page existing checkpoint identities for current source provenance recovery.
+    /// # Errors
+    /// Invalid page bounds or unreadable storage refuse.
+    fn partition_page(
+        &self,
+        scope: &Scope,
+        source: &str,
+        after: Option<Handle>,
+        limit: u16,
+    ) -> Result<Vec<Handle>, ReceiptError>;
     /// Atomically enqueue every eligible request before retaining a checkpoint.
     /// # Errors
     /// Invalid bounds, stale ownership, replay/cursor conflict or storage failure.
@@ -44,6 +54,38 @@ pub trait Partitions: Send + Sync {
     ) -> Result<Option<PartitionState>, ReceiptError>;
 }
 impl Partitions for Database {
+    fn partition_page(
+        &self,
+        scope: &Scope,
+        source: &str,
+        after: Option<Handle>,
+        limit: u16,
+    ) -> Result<Vec<Handle>, ReceiptError> {
+        if !(1..=1000).contains(&limit) {
+            return Err(ReceiptError::Invalid);
+        }
+        let reader = self.reader()?;
+        let mut query = reader.prepare(
+            "SELECT id FROM acquisition_partitions WHERE scope = ?1 AND source = ?2
+             AND (?3 IS NULL OR id > ?3) ORDER BY id LIMIT ?4",
+        )?;
+        query
+            .query_map(
+                params![
+                    scope.as_str(),
+                    source,
+                    after.map(|id| id.to_string()),
+                    limit
+                ],
+                |row| row.get::<_, String>(0),
+            )?
+            .map(|row| {
+                row.map_err(ReceiptError::from)
+                    .and_then(|text| text.parse())
+            })
+            .collect()
+    }
+
     fn checkpoint(
         &self,
         writer: &SourceLease,
@@ -271,6 +313,10 @@ fn complete(state: &PartitionState) -> Result<(), ReceiptError> {
     }
     for batch in &state.batches {
         if !batch.stable
+            || batch
+                .not_enqueued
+                .iter()
+                .any(|entry| entry.reason.pending())
             || batch.truncated
             || batch.expected.map(usize::from) != Some(batch.items.len())
         {
@@ -337,6 +383,7 @@ mod tests {
             parent_keys: None,
             not_enqueued: vec![],
             inventory_overflow: 0,
+            parent_depth: None,
             capture: None,
         };
         db.checkpoint(&writer, &batch, now).unwrap();
@@ -419,6 +466,7 @@ mod tests {
             parent_keys: None,
             not_enqueued: vec![],
             inventory_overflow: 0,
+            parent_depth: None,
             capture: None,
         };
         let mut second = 0;

@@ -82,6 +82,11 @@ impl Accounting {
     pub fn limits(&self) -> &Limits {
         &self.limits
     }
+    /// Number of attempted HTTP operations, including failures and robots.
+    #[must_use]
+    pub fn requests(&self) -> u64 {
+        self.requests
+    }
     /// All raw post-final-header bytes, including redirect DATA, framing and trailers.
     #[must_use]
     pub fn wire_bytes(&self) -> u64 {

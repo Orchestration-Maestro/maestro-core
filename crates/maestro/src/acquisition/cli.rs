@@ -5,15 +5,23 @@ use super::{
     command::{preview, sync},
     controls::{Controls, Runtime},
 };
-use crate::{failure::Failure, kernel::Kernel};
+use crate::failure::Failure;
+#[cfg(target_os = "linux")]
+use crate::kernel::Kernel;
 use clap::{Args, Subcommand};
 #[cfg(target_os = "linux")]
 use maestro_acquisition::Principal;
 use maestro_kernel::{
     acquisition::{Handle, Receipts},
+    paths::{Environment, data_dir},
     scope::LOCAL,
+    store::Database,
 };
+#[cfg(target_os = "linux")]
+use maestro_kernel::{paths::config_dir, scope::Config};
 use maestro_knowledge::collection::Declaration;
+#[cfg(target_os = "linux")]
+use rustix::process::geteuid;
 #[cfg(target_os = "linux")]
 use std::time::SystemTime;
 use std::{env, path::PathBuf};
@@ -26,11 +34,6 @@ use {
     },
     std::{sync::Arc, time::Instant},
     tokio::runtime::Builder,
-};
-#[cfg(target_os = "linux")]
-use {
-    maestro_kernel::paths::{Environment, data_dir},
-    rustix::process::geteuid,
 };
 
 /// Caller-selected portable manifest and separate local bindings.
@@ -77,15 +80,24 @@ pub(crate) enum Acquire {
 /// Invalid input is checked before the kernel is opened for any write.
 pub(crate) fn run(command: &Acquire) -> Result<Report, Failure> {
     if let Acquire::Inspect { receipt, run } = command {
-        let kernel = Kernel::open()?;
+        let data = data_dir(&Environment::current()).map_err(|error| Failure::failed_by(&error))?;
+        if !data
+            .join("kernel.sqlite3")
+            .try_exists()
+            .map_err(|error| Failure::failed_by(&error))?
+        {
+            return Err(Failure::refused("acquisition receipt unavailable"));
+        }
+        let database =
+            Database::open_read_only(&data).map_err(|error| Failure::failed_by(&error))?;
         let attempt = match receipt {
             Some(attempt) => *attempt,
             None => latest(
-                &*kernel.database,
+                &database,
                 run.ok_or_else(|| Failure::refused("acquisition run missing"))?,
             )?,
         };
-        return inspect(&*kernel.database, LOCAL, attempt);
+        return inspect(&database, LOCAL, attempt);
     }
     let inputs = match command {
         Acquire::Preview { inputs } | Acquire::Sync { inputs } => inputs,
@@ -99,12 +111,15 @@ pub(crate) fn run(command: &Acquire) -> Result<Report, Failure> {
 /// Linux-only live composition; synthetic port contracts still run on every host.
 #[cfg(target_os = "linux")]
 fn configured(command: &Acquire, inputs: &Inputs) -> Result<Report, Failure> {
-    let kernel = Kernel::open()?;
+    let config = config_dir(&Environment::current()).map_err(|error| Failure::failed_by(&error))?;
+    let scopes = Config::load(&config)
+        .map_err(|error| Failure::refused_by(&error))?
+        .read_scopes();
     let principal_id = geteuid().as_raw().to_string();
     let principal = Principal {
         id: &principal_id,
         platform: env::consts::OS,
-        scopes: &kernel.scopes,
+        scopes: &scopes,
     };
     let (policy, collection) = bindings::load(&inputs.manifest, &inputs.bindings, &principal)?;
     let scope = format!(
@@ -120,6 +135,13 @@ fn configured(command: &Acquire, inputs: &Inputs) -> Result<Report, Failure> {
         return preview(&policy, &controls, SystemTime::now());
     }
     resources::supported(env::consts::OS)?;
+    let kernel = Kernel::open()?;
+    // Writing open refreshes grants: a concurrent config revocation must win.
+    let principal = Principal {
+        id: &principal_id,
+        platform: env::consts::OS,
+        scopes: &kernel.scopes,
+    };
     let root = data_dir(&Environment::current())
         .map_err(|_| Failure::refused("acquisition storage root unavailable"))?;
     let resources = Resources::new(Arc::new(resources::Host {

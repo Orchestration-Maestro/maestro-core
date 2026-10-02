@@ -60,6 +60,7 @@ pub(super) fn item(fixture: &Fixture, suffix: &str) -> DiscoveredItem {
 /// A terminal complete batch; tests remove individual evidence below.
 pub(super) fn batch(fixture: &Fixture) -> Batch {
     Batch {
+        parent_depth: None,
         partition: partition(),
         cursor: None,
         next: None,

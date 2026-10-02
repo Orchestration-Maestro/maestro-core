@@ -69,6 +69,28 @@ impl Database {
         Self::open(&data.join(FILE), &data.join("artifacts"))
     }
 
+    /// Open only an existing, fully migrated database without writing grants or schema.
+    /// # Errors
+    /// Missing files, unknown or pending migrations, and unreadable storage refuse.
+    pub fn open_read_only(data: &Path) -> Result<Self, Error> {
+        let path = path::absolute(data.join(FILE)).map_err(|source| io_error(data, source))?;
+        let reader = configured(Connection::open_with_flags(
+            &path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?)?;
+        if !pending(&reader, MIGRATIONS)?.is_empty() {
+            return Err(io_error(
+                &path,
+                io::Error::other("kernel migrations pending"),
+            ));
+        }
+        Ok(Self {
+            writer: Mutex::new(reader),
+            path,
+            artifacts: Store::new(data.join("artifacts")),
+        })
+    }
+
     /// [`Database::open`] with `migrations` in place of the binary's own.
     pub(super) fn open_with(
         database: &Path,

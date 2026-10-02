@@ -20,7 +20,9 @@ use maestro_acquisition::{
     policy::decision::{RequestKind, admit},
 };
 use maestro_kernel::{
-    acquisition::{Batch, Frontier, NotEnqueued, NotEnqueuedReason, Partitions, ReceiptError},
+    acquisition::{
+        Batch, Frontier, Handle, NotEnqueued, NotEnqueuedReason, Partitions, ReceiptError,
+    },
     artifact::Digest,
 };
 use serde_json::json;
@@ -131,6 +133,31 @@ fn n13_review_future_denial_does_not_drop_current_link() {
     assert_eq!(batch.expected, Some(1));
     assert!(batch.stable && !batch.truncated);
     assert!(batch.not_enqueued.is_empty());
+}
+
+#[test]
+fn n14_review_pending_reason_cannot_commit_watermark() {
+    let policy = denial_policy("1970-01-01T00:00:00Z", false);
+    let mut fixture = Fixture::with_policy(policy);
+    let mut batch = discover_body(&mut fixture, b"<a href='/docs/new'>new</a>");
+    batch.partition.id = Handle::new();
+    batch.not_enqueued.first_mut().unwrap().reason = NotEnqueuedReason::RunDepthLimit;
+    batch.stable = true;
+    fixture
+        .db
+        .checkpoint(&fixture.context.writer, &batch, fixture.context.now)
+        .unwrap();
+    assert!(
+        fixture
+            .db
+            .commit_partition(
+                &fixture.context.writer,
+                batch.partition.id,
+                fixture.context.now
+            )
+            .is_err(),
+        "pending run depth advanced watermark"
+    );
 }
 
 #[test]
