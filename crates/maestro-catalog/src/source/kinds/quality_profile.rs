@@ -78,7 +78,7 @@ struct Binding {
 }
 
 /// Binding availability is data, never a successful gate result.
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum BindingState {
     /// No implementation reference has been supplied.
@@ -120,7 +120,7 @@ impl Threshold {
     fn valid(&self) -> bool {
         match self {
             Self::Integer(value) => *value >= 0,
-            Self::Float(value) => value.is_finite() && *value >= 0.0,
+            Self::Float(value) => *value >= 0.0,
         }
     }
 
@@ -200,20 +200,31 @@ impl KindRules for QualityRules {
 
 /// Decode the hook-owned exact nested binding shape.
 fn bindings(resource: &Resource) -> Result<BTreeMap<String, Binding>, String> {
-    resource
+    let value = resource
         .fields
         .get("bindings")
-        .ok_or_else(|| "missing bindings".to_owned())?
-        .decode()
+        .ok_or_else(|| "missing bindings".to_owned())?;
+    let Value::Table(records) = value else {
+        return Err("bindings must be a table".to_owned());
+    };
+    for (gate, record) in records {
+        if !matches!(record, Value::Table(_)) {
+            return Err(format!("binding {gate} must be a table"));
+        }
+    }
+    value.decode()
 }
 
 /// Decode both explicit restriction directions without supplying defaults.
 fn thresholds(resource: &Resource) -> Result<Thresholds, String> {
-    resource
+    let value = resource
         .fields
         .get("thresholds")
-        .ok_or_else(|| "missing thresholds".to_owned())?
-        .decode()
+        .ok_or_else(|| "missing thresholds".to_owned())?;
+    if !matches!(value, Value::Table(_)) {
+        return Err("thresholds must be a table".to_owned());
+    }
+    value.decode()
 }
 
 /// Every required gate records availability, even if its implementation is absent.

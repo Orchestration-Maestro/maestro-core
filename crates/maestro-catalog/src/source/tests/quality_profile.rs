@@ -268,6 +268,41 @@ fn quality_shapes_and_binding_references_are_strict() {
 }
 
 #[test]
+fn positional_thresholds_refuse() {
+    let text = format!(
+        "thresholds = [{{coverage = 90.0}}, {{warnings = 2}}]\n{}",
+        fixture!("technology").replace(
+            "[thresholds.floors]\ncoverage = 90.0\n[thresholds.ceilings]\nwarnings = 2\n",
+            "",
+        )
+    );
+    assert!(
+        check_under(
+            &tree().with("profiles/quality/technology.toml", &text),
+            &Limits::PRODUCTION,
+        )
+        .is_err(),
+        "positional thresholds accepted",
+    );
+}
+
+#[test]
+fn positional_binding_refuses() {
+    let text = fixture!("bound").replace(
+        "[bindings.lint]\nstate = \"bound\"\nreference = \"skill:common/valid-skill\"\n",
+        "[bindings]\nlint = [\"bound\", \"skill:common/valid-skill\"]\n",
+    );
+    assert!(
+        check_under(
+            &tree().with("profiles/quality/technology.toml", &text),
+            &Limits::PRODUCTION,
+        )
+        .is_err(),
+        "positional binding accepted",
+    );
+}
+
+#[test]
 fn quality_integer_thresholds_never_round() {
     let large = tree()
         .edit(
@@ -357,5 +392,97 @@ fn quality_equal_bounds_and_required_lists() {
             &fixture!("technology").replace(&format!("{field} = {value}\n"), ""),
             &format!("{field}: missing"),
         );
+    }
+}
+
+#[test]
+fn quality_same_type_intersections() {
+    refuses(
+        &fixture!("technology").replace("warnings = 2", "warnings = 2\ncoverage = 85.0"),
+        "conflicting threshold coverage",
+    );
+    for ceiling in ["90.0", "95.0"] {
+        let text = fixture!("technology").replace(
+            "warnings = 2",
+            &format!("warnings = 2\ncoverage = {ceiling}"),
+        );
+        assert!(
+            check_under(
+                &tree().with("profiles/quality/technology.toml", &text),
+                &Limits::PRODUCTION,
+            )
+            .is_ok()
+        );
+    }
+}
+
+#[test]
+fn quality_acyclic_depth_refuses() {
+    let middle = fixture!("technology").replace("name = \"technology\"", "name = \"middle\"");
+    let child = fixture!("technology").replace(
+        "quality-profile:common/baseline",
+        "quality-profile:common/middle",
+    );
+    let input = tree()
+        .with("profiles/quality/middle.toml", &middle)
+        .with("profiles/quality/technology.toml", &child);
+    let refusal = check_under(&input, &Limits::PRODUCTION)
+        .unwrap_err()
+        .to_string();
+    assert!(refusal.contains("baseline depth exceeds one"), "{refusal}");
+}
+
+#[test]
+fn quality_integer_floors_only_narrow() {
+    for (baseline, child, admitted) in [
+        (80_i64, 80_i64, true),
+        (80, 81, true),
+        (80, 79, false),
+        (9_007_199_254_740_996, 9_007_199_254_740_996, true),
+        (9_007_199_254_740_996, 9_007_199_254_740_997, true),
+        (9_007_199_254_740_996, 9_007_199_254_740_995, false),
+    ] {
+        let input = tree()
+            .edit(
+                "profiles/quality/baseline.toml",
+                "coverage = 80.0",
+                &format!("coverage = {baseline}"),
+            )
+            .edit(
+                "profiles/quality/technology.toml",
+                "coverage = 90.0",
+                &format!("coverage = {child}"),
+            );
+        let result = check_under(&input, &Limits::PRODUCTION);
+        if admitted {
+            assert!(result.is_ok(), "{baseline} -> {child}: {result:?}");
+        } else {
+            let refusal = result.unwrap_err().to_string();
+            assert!(refusal.contains("weakens floor coverage"), "{refusal}");
+        }
+    }
+}
+
+#[test]
+fn quality_float_ceilings_only_narrow() {
+    for (ceiling, admitted) in [("5.0", true), ("2.0", true), ("6.0", false)] {
+        let input = tree()
+            .edit(
+                "profiles/quality/baseline.toml",
+                "warnings = 5",
+                "warnings = 5.0",
+            )
+            .edit(
+                "profiles/quality/technology.toml",
+                "warnings = 2",
+                &format!("warnings = {ceiling}"),
+            );
+        let result = check_under(&input, &Limits::PRODUCTION);
+        if admitted {
+            assert!(result.is_ok(), "{ceiling}: {result:?}");
+        } else {
+            let refusal = result.unwrap_err().to_string();
+            assert!(refusal.contains("weakens ceiling warnings"), "{refusal}");
+        }
     }
 }
