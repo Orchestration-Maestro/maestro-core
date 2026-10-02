@@ -268,12 +268,39 @@ fn codeowners_unsafe_or_ambiguous_area_refuses() {
 }
 
 #[test]
+fn codeowners_render_refuses_oversized_without_truncating_reviewers() {
+    for count in [10, 20_000] {
+        let owners = (0..count)
+            .map(|index| format!("\"owner-{index:05}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let source =
+            package_source("package", "common").replace("\"@synthetic/knowledge\"", &owners);
+        let catalog = checked(&MemoryTree::default().with("package.toml", &source));
+        let rendered = catalog.codeowners();
+        if count == 20_000 {
+            assert!(rendered.is_err(), "oversized CODEOWNERS must refuse");
+            let refusal = rendered.unwrap_err();
+            assert!(refusal.contains("CODEOWNERS"), "{refusal}");
+            assert!(refusal.contains("larger than 1048576 bytes"), "{refusal}");
+        } else {
+            let rendered = rendered.unwrap();
+            let expected: Vec<_> = (0..count)
+                .map(|index| format!("@owner-{index:05}"))
+                .collect();
+            assert_eq!(reviewers(&rendered, "package.toml"), expected);
+            assert!(catalog.check_codeowners(&rendered).is_ok());
+        }
+    }
+}
+
+#[test]
 fn codeowners_requires_root_ownership() {
     let tree = MemoryTree::default().with("core/package.toml", &package_source("package", "core"));
     assert!(
         checked(&tree)
             .codeowners()
             .unwrap_err()
-            .contains("package.toml")
+            .contains("root area ownership")
     );
 }

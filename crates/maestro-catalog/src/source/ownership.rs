@@ -5,6 +5,7 @@ use super::{
     placements::{directories, fits, join, safe},
     types::{Catalog, Problems, Resource, Value},
 };
+use crate::limits::Limits;
 use std::{collections::BTreeSet, iter::once};
 
 /// A known generated file, counted in the snapshot and validated after area loading.
@@ -353,14 +354,18 @@ impl Catalog {
     /// This is review routing, not identity verification or independent quorums.
     ///
     /// # Errors
-    /// Missing/ambiguous area ownership or an unsafe literal review placement.
+    /// Missing/ambiguous area ownership, unsafe literal placement or oversized output.
     pub fn codeowners(&self) -> Result<String, String> {
         let root = self
             .resources
             .iter()
-            .find(|resource| resource.path == "package.toml")
+            .find(|resource| {
+                resource.id.namespace.is_none()
+                    && resource.fields.contains_key("owners")
+                    && !resource.path.contains('/')
+            })
             .and_then(|resource| self.ownership(resource))
-            .ok_or_else(|| "CODEOWNERS requires root ownership from package.toml".to_owned())?;
+            .ok_or_else(|| "CODEOWNERS requires unambiguous root area ownership".to_owned())?;
         let mut areas: Vec<_> = self
             .resources
             .iter()
@@ -401,6 +406,12 @@ impl Catalog {
                     &reviewers(ownership, rule, &root.owners),
                 )?);
             }
+        }
+        if u64::try_from(text.len()).unwrap_or(u64::MAX) > Limits::PRODUCTION.source_file_bytes {
+            return Err(format!(
+                "{CODEOWNERS_PATH}: larger than {} bytes",
+                Limits::PRODUCTION.source_file_bytes
+            ));
         }
         Ok(text)
     }

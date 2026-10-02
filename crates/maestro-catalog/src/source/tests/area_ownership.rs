@@ -125,6 +125,9 @@ fn area_specificity_ignores_descriptor_filename_length() {
             .with(filename, &source)
             .with("core/package.toml", &package_source("package", "core"));
         let catalog = check_by(&tree, &registry, &Limits::PRODUCTION).unwrap();
+        let rendered = catalog.codeowners().unwrap();
+        assert!(rendered.contains(&format!("/{filename} @reader\n")));
+        assert!(catalog.check_codeowners(&rendered).is_ok());
         let core = catalog
             .resources
             .iter()

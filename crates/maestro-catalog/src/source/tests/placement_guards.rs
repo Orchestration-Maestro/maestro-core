@@ -53,16 +53,27 @@ fn registry_sidecar_suffix_is_portable_and_nonempty() {
     assert!(Registry::default().register(descriptor).is_ok());
 }
 
-// Unix allows byte names; Windows exposes Unicode names through its directory API.
+// Unix exposes byte names; APFS refuses invalid UTF-8, and Windows uses Unicode.
 #[cfg(unix)]
 #[test]
 fn directory_non_utf8_names_are_unsupported() {
-    use crate::source::{Directory, EntryKind, SourceTree};
+    #[cfg(not(target_os = "macos"))]
+    use crate::source::EntryKind;
+    use crate::source::{Directory, SourceTree};
     use std::{ffi::OsString, fs, os::unix::ffi::OsStringExt};
     let scratch = maestro_test_scratch::scratch_directory().unwrap();
-    fs::write(scratch.join(OsString::from_vec(vec![0x80])), b"").unwrap();
+    let created = fs::write(scratch.join(OsString::from_vec(vec![0x80])), b"");
+    #[cfg(target_os = "macos")]
+    assert_eq!(created.unwrap_err().raw_os_error(), Some(92)); // Darwin EILSEQ.
+    #[cfg(not(target_os = "macos"))]
+    created.unwrap();
     let entries = Directory::new(&scratch).list("").unwrap();
     fs::remove_dir_all(scratch).unwrap();
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].kind, EntryKind::Unsupported);
+    #[cfg(target_os = "macos")]
+    assert!(entries.is_empty());
+    #[cfg(not(target_os = "macos"))]
+    {
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].kind, EntryKind::Unsupported);
+    }
 }

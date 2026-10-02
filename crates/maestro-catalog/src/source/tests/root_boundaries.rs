@@ -7,7 +7,7 @@ use crate::{
     limits::Limits,
     source::{KindDescriptor, Layout, Registry},
 };
-// Unix permits byte names; Windows uses Unicode names.
+// Unix exposes byte names; APFS refuses invalid UTF-8, and Windows uses Unicode.
 #[cfg(unix)]
 use crate::source::{Directory, SourceTree};
 #[cfg(unix)]
@@ -121,10 +121,15 @@ fn c30_review_probe_root_single_non_overlap() {
 #[cfg(unix)]
 #[test]
 fn c30_review_probe_directory_lossy_name_order() {
+    #[cfg(not(target_os = "macos"))]
     use crate::source::EntryKind;
     use std::{ffi::OsString, os::unix::ffi::OsStringExt};
     let scratch = maestro_test_scratch::scratch_directory().unwrap();
-    fs::write(scratch.join(OsString::from_vec(vec![0x80])), b"").unwrap();
+    let created = fs::write(scratch.join(OsString::from_vec(vec![0x80])), b"");
+    #[cfg(target_os = "macos")]
+    assert_eq!(created.unwrap_err().raw_os_error(), Some(92)); // Darwin EILSEQ.
+    #[cfg(not(target_os = "macos"))]
+    created.unwrap();
     fs::write(scratch.join("é"), b"").unwrap();
     let entries = Directory::new(&scratch).list("").unwrap();
     fs::remove_dir_all(scratch).unwrap();
@@ -132,6 +137,7 @@ fn c30_review_probe_directory_lossy_name_order() {
     let mut sorted = names.clone();
     sorted.sort_unstable();
     assert_eq!(names, sorted);
+    #[cfg(not(target_os = "macos"))]
     assert_eq!(
         entries.iter().find(|entry| entry.name == "�").unwrap().kind,
         EntryKind::Unsupported
