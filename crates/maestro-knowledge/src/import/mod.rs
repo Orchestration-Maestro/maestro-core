@@ -50,6 +50,7 @@ mod collection;
 mod corpus;
 mod entry;
 mod error;
+mod ingest;
 mod report;
 mod source;
 #[cfg(test)]
@@ -57,4 +58,5 @@ mod tests;
 
 pub use collection::{declare, import, import_observed};
 pub use error::Error;
-pub use report::{Reason, Refusal, Report};
+pub use ingest::{AssetRecord, MappedEvidence, MappedInput, NotImported, Target, ingest_mapped};
+pub use report::{Imported, Reason, Refusal, Report};

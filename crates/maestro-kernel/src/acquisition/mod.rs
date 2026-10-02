@@ -34,3 +34,6 @@ pub use partition_record::{
     AcceptedPartition, Batch, ChangeKeys, DiscoveredItem, Enumeration, Partition, PartitionState,
     Window,
 };
+
+mod link;
+pub use link::RevisionLink;

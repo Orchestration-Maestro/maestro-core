@@ -71,3 +71,5 @@ pub use disposition::{Disposition, Outcome};
 pub use duplicate::{NearDuplicate, Occurrence};
 pub use error::Error;
 pub use revision::{Recorded, Revision, RevisionStatus};
+
+pub(crate) use disposition::record_with_disposition;

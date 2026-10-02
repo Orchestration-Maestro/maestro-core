@@ -74,6 +74,10 @@ pub(super) const MIGRATIONS: &[(&str, &str)] = &[
         "0022_acquisition_partitions",
         include_str!("../../migrations/0022_acquisition_partitions.sql"),
     ),
+    (
+        "0023_acquisition_revision_links",
+        include_str!("../../migrations/0023_acquisition_revision_links.sql"),
+    ),
 ];
 
 /// Applies to `connection` each of `migrations` it does not record yet, in

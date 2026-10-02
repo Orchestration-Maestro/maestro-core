@@ -124,14 +124,6 @@ path = "crates/maestro-kernel/src/scope/mod.rs"
 item = "InvalidName"
 reason = "the scope module owns the public name rule: maestro-knowledge's parser and the kernel's record writers apply it"
 
-# The scope module writes each source path in one place; kernel hold events
-# and maestro-knowledge's import build it too, which the rule does not count.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-kernel/src/scope/mod.rs"
-item = "source_path"
-reason = "the scope module writes every source's scope path: the kernel's hold events and maestro-knowledge's import build it"
-
 # Search reads reuse the generation and chunk records as their public pinned
 # identifiers; creating parallel projection-specific record types would split
 # their authority.
@@ -374,3 +366,16 @@ reason = "the existing public resolve/select port stays extraction-owned; N57 is
 rule = "DEP-001"
 path = "foldhash@0.1.5"
 reason = "dom_query 0.28.0 brings foldhash 0.2, while whatlang 0.18.0's hashbrown 0.15.5 requires 0.1.5 (ADR-0020); remove when whatlang's hashbrown moves to foldhash 0.2"
+
+# Public S1 types have cross-crate consumers that ARC-005 does not count.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/document/mod.rs"
+item = "Disposition"
+reason = "an S1 public contract used across crates by maestro-knowledge; ARC-005 sees only in-crate uses, a known rust-gate limitation in post-m1-queue"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/document/mod.rs"
+item = "record_with_disposition"
+reason = "document owns the single S1 revision-plus-disposition composition; acquisition's link write reuses it so it cannot drift, and moving it to its one external caller would reverse the dependency"

@@ -31,7 +31,7 @@
 //! of an older generation. Every public reader of scoped data takes a
 //! `&ScopeSet` and filters inside its query, and nothing outside the kernel
 //! can build a set that covers every scope. The readers of unscoped
-//! bookkeeping take none:
+//! bookkeeping and trusted write-time validation take none:
 //!
 //! - [`Database::artifact`](crate::store::Database::artifact),
 //!   [`Database::get`](crate::store::Database::get),
@@ -55,6 +55,10 @@
 //!   stream's last sequence, a position rather than an event;
 //! - [`Database::visible`](crate::store::Database::visible): a principal's
 //!   grants, which are what a set is made of;
+//! - [`Database::record_mapped_revision`](crate::store::Database::record_mapped_revision):
+//!   a trusted writer, like [`Database::record_revision`](crate::store::Database::record_revision),
+//!   reading only to verify immutable content-addressed evidence before linking it.
+//!   It returns no read content; insert enforces exact source/evidence scope equality;
 //! - [`Database::setting_changes`](crate::store::Database::setting_changes):
 //!   a principal's own changes to its preferences files, keys and values
 //!   only, which serve `maestro config history`: they name no record;

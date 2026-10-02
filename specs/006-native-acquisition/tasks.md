@@ -746,6 +746,7 @@ Independent test: five lifecycle modes equal uninterrupted reference, and overla
 
 1. **Red:** Contrast temporary authentication outage/partial enumeration with proven deletion/exclusion/permission narrowing; read a pinned older generation and attempt rollback.
 2. **Green:** Use existing S1 lifecycle invalidation/current grants for occurrences, caches and publication eligibility. Retain historical evidence only under approved retention and current access; no invented deletion timer.
+   Release the per-link asset pins that N26 adds.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n38_ -- --nocapture`. Temporary absence is not deletion; proven withdrawal and narrower permissions take effect even on pinned old generations. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N39 [US4] Repair integrity and rebuild affected derivatives in `crates/maestro-acquisition/src/lifecycle/repair.rs` (4 h).

@@ -699,7 +699,8 @@ in place.
 │   │   │   ├── 0019_acquisition_frontier.sql                                            # File: 0019 acquisition frontier
 │   │   │   ├── 0020_acquisition_receipts.sql                                            # File: 0020 acquisition receipts
 │   │   │   ├── 0021_acquisition_captures.sql                                            # File: 0021 acquisition captures
-│   │   │   └── 0022_acquisition_partitions.sql                                          # File: 0022 acquisition partitions
+│   │   │   ├── 0022_acquisition_partitions.sql                                          # File: 0022 acquisition partitions
+│   │   │   └── 0023_acquisition_revision_links.sql                                      # File: 0023 acquisition revision links
 │   │   ├── src/                                                                         # The crate's sources
 │   │   │   ├── acquisition/                                                             # Kernel-owned acquisition work, exposed through a replaceable frontier port
 │   │   │   │   ├── capture.rs                                                           # Verified immutable capture preparation before fenced stage acknowledgment
@@ -709,6 +710,7 @@ in place.
 │   │   │   │   ├── frontier.rs                                                          # Replaceable frontier contract and the kernel SQLite adapter
 │   │   │   │   ├── headers.rs                                                           # Exact data-defined header selection and content-free unsafe value evidence
 │   │   │   │   ├── lease.rs                                                             # Fencing handles: durable authority time plus a local monotonic deadline
+│   │   │   │   ├── link.rs                                                              # Typed immutable capture/fidelity links, composed with S1's revision transaction
 │   │   │   │   ├── mod.rs                                                               # Kernel-owned acquisition work, exposed through a replaceable frontier port
 │   │   │   │   ├── partition.rs                                                         # Durable checkpoints reuse the frontier; complete snapshots never replace them
 │   │   │   │   ├── partition_checkpoint.rs                                              # Constant-evidence checkpoint validation and transactional distinct inventory
@@ -1097,6 +1099,7 @@ in place.
 │   │   │   │   ├── corpus.rs                                                            # Where an import reads a source's corpus: its manifest, and each document relative to it
 │   │   │   │   ├── entry.rs                                                             # Importing one entry: its document checked, canonicalized, stored and recorded, or held
 │   │   │   │   ├── error.rs                                                             # Why an import stopped, before any work or part way
+│   │   │   │   ├── ingest.rs                                                            # One integrity, canonicalization and immutable revision path for both ingress routes
 │   │   │   │   ├── mod.rs                                                               # Importing a collection's corpus through its maestro-corpus/1 manifests
 │   │   │   │   ├── report.rs                                                            # What an import reports: its counts, and why it refused each entry it refused
 │   │   │   │   └── source.rs                                                            # Importing one source's manifest: shared source_refs found first, then each line in turn
@@ -1493,6 +1496,9 @@ in place.
 │   │   │       ├── lexical_vectors.rs                                                   # The sparse vectors of bm25-en-fr/1: a passage's term weighs BM25's
 │   │   │       ├── live_router.rs                                                       # What the live tests share: the router their variables name, and its embedder's model card
 │   │   │       ├── main.rs                                                              # The crate's integration tests, built as one test crate: each module proves
+│   │   │       ├── n26_factor_s1_mapped_ingestion_without_changing_corpus_1.rs          # N26 mapped ingestion: immutable assets, preserved mappings and corpus/1 parity
+│   │   │       ├── n26_revision_links.rs                                                # N26 kernel relation guards and parity with the existing S1 write
+│   │   │       ├── n26_support.rs                                                       # N26 shared synthetic capture and stored-canonical fixtures
 │   │   │       ├── prepare_live.rs                                                      # knowledge prepare on this machine's kernel as a leased job, live: the chunk count, wall time and router calls
 │   │   │       ├── publish_live.rs                                                      # A chunk set of this machine's kernel published into Qdrant as a leased job, live: the embed and upsert rates
 │   │   │       ├── quality_ledger.rs                                                    # maestro-quality-ledger/1: strict rules a line; a missing ledger is empty
