@@ -371,19 +371,12 @@ fn rules(
 ) {
     let mut problems = Vec::new();
     check_references(&loaded.resource, resources, &mut problems);
-    diagnostics.extend(
-        problems
-            .into_iter()
-            .map(|(key, message)| Diagnostic::new(&loaded.resource.path, key, message)),
-    );
-    let Some(rules) = registry
+    if let Some(rules) = registry
         .kind(&loaded.resource.id.kind)
         .and_then(|registration| registration.rules)
-    else {
-        return;
-    };
-    let mut problems = Vec::new();
-    rules.check_catalog(&loaded.resource, resources, &mut problems);
+    {
+        rules.check_catalog(&loaded.resource, resources, &mut problems);
+    }
     diagnostics.extend(
         problems
             .into_iter()

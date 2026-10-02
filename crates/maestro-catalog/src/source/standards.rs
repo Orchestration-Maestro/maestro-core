@@ -116,107 +116,120 @@ pub(super) fn check(resources: &[&Resource], known: Known<'_>) -> Vec<Diagnostic
     diagnostics
 }
 
-/// Validate a central record with an injected UTC epoch day. Expiry is exclusive.
-pub(super) fn check_resource(resource: &Resource, known: Known<'_>, problems: &mut Problems) {
-    let parts: Vec<_> = resource.path.split('/').collect();
-    let central = matches!(
-        parts.as_slice(),
-        ["exceptions", _] | ["standards", _, "exceptions", _]
-    );
-    if !central {
-        problems.push((String::new(), "local exception refuses".to_owned()));
-    }
+/// Effect-free validation, not self-authorized approval.
+#[derive(Debug)]
+pub(super) struct ExceptionRules;
 
-    let expiry = resource
-        .fields
-        .get("expiry")
-        .and_then(Value::text)
-        .unwrap_or_default();
-    if let Err(message) = check_expiry(expiry, known.today) {
-        problems.push(("expiry".to_owned(), message.to_owned()));
-    }
-    let scopes = resource
-        .fields
-        .get("scopes")
-        .and_then(Value::texts)
-        .unwrap_or_default();
-    if scopes.is_empty()
-        || scopes
-            .iter()
-            .any(|scope| ResourceId::parse(scope).is_none())
-    {
-        problems.push((
-            "scopes".to_owned(),
-            "must name nonempty exact qualified IDs".to_owned(),
-        ));
-    }
-    if resource
-        .fields
-        .get("evidence")
-        .and_then(Value::text)
-        .and_then(ResourceId::parse)
-        .is_none()
-    {
-        problems.push((
-            "evidence".to_owned(),
-            "must be a typed evidence reference".to_owned(),
-        ));
-    }
-}
+impl KindRules for ExceptionRules {
+    /// Validate a central record with an injected UTC epoch day. Expiry is exclusive.
+    fn check_resource(
+        &self,
+        resource: &Resource,
+        _body: Option<&str>,
+        known: Known<'_>,
+        problems: &mut Problems,
+    ) {
+        let parts: Vec<_> = resource.path.split('/').collect();
+        let central = matches!(
+            parts.as_slice(),
+            ["exceptions", _] | ["standards", _, "exceptions", _]
+        );
+        if !central {
+            problems.push((String::new(), "local exception refuses".to_owned()));
+        }
 
-/// Rules are inventory data; non-negotiable entries cannot receive exceptions.
-pub(super) fn check_catalog(
-    resource: &Resource,
-    catalog: &BTreeMap<ResourceId, &Resource>,
-    problems: &mut Problems,
-) {
-    let rule = resource
-        .fields
-        .get("rule")
-        .and_then(Value::text)
-        .unwrap_or_default();
-    let standard = catalog.values().find(|standard| {
-        standard.id.kind == "standard"
-            && standard
-                .fields
-                .get("rules")
-                .and_then(Value::texts)
-                .unwrap_or_default()
-                .contains(&rule)
-    });
-    match standard {
-        None => problems.push(("rule".to_owned(), "unknown inventory rule".to_owned())),
-        Some(standard) => {
-            if standard
-                .fields
-                .get("non_negotiable")
-                .and_then(Value::texts)
-                .unwrap_or_default()
-                .contains(&rule)
-            {
-                problems.push((
-                    "rule".to_owned(),
-                    "non-negotiable rule accepts no exception".to_owned(),
-                ));
-            }
-            if resource.id.namespace.as_deref() != Some("common")
-                && resource.id.namespace != Some(standard.id.name.clone())
-            {
-                problems.push((
-                    "rule".to_owned(),
-                    "exception belongs to a different standard".to_owned(),
-                ));
-            }
+        let expiry = resource
+            .fields
+            .get("expiry")
+            .and_then(Value::text)
+            .unwrap_or_default();
+        if let Err(message) = check_expiry(expiry, known.today) {
+            problems.push(("expiry".to_owned(), message.to_owned()));
+        }
+        let scopes = resource
+            .fields
+            .get("scopes")
+            .and_then(Value::texts)
+            .unwrap_or_default();
+        if scopes.is_empty()
+            || scopes
+                .iter()
+                .any(|scope| ResourceId::parse(scope).is_none())
+        {
+            problems.push((
+                "scopes".to_owned(),
+                "must name nonempty exact qualified IDs".to_owned(),
+            ));
+        }
+        if resource
+            .fields
+            .get("evidence")
+            .and_then(Value::text)
+            .and_then(ResourceId::parse)
+            .is_none()
+        {
+            problems.push((
+                "evidence".to_owned(),
+                "must be a typed evidence reference".to_owned(),
+            ));
         }
     }
-    for scope in resource
-        .fields
-        .get("scopes")
-        .and_then(Value::texts)
-        .unwrap_or_default()
-    {
-        if ResourceId::parse(scope).is_none_or(|id| !catalog.contains_key(&id)) {
-            problems.push(("scopes".to_owned(), format!("unknown scope {scope}")));
+
+    /// Rules are inventory data; non-negotiable entries cannot receive exceptions.
+    fn check_catalog(
+        &self,
+        resource: &Resource,
+        catalog: &BTreeMap<ResourceId, &Resource>,
+        problems: &mut Problems,
+    ) {
+        let rule = resource
+            .fields
+            .get("rule")
+            .and_then(Value::text)
+            .unwrap_or_default();
+        let standard = catalog.values().find(|standard| {
+            standard.id.kind == "standard"
+                && standard
+                    .fields
+                    .get("rules")
+                    .and_then(Value::texts)
+                    .unwrap_or_default()
+                    .contains(&rule)
+        });
+        match standard {
+            None => problems.push(("rule".to_owned(), "unknown inventory rule".to_owned())),
+            Some(standard) => {
+                if standard
+                    .fields
+                    .get("non_negotiable")
+                    .and_then(Value::texts)
+                    .unwrap_or_default()
+                    .contains(&rule)
+                {
+                    problems.push((
+                        "rule".to_owned(),
+                        "non-negotiable rule accepts no exception".to_owned(),
+                    ));
+                }
+                if resource.id.namespace.as_deref() != Some("common")
+                    && resource.id.namespace != Some(standard.id.name.clone())
+                {
+                    problems.push((
+                        "rule".to_owned(),
+                        "exception belongs to a different standard".to_owned(),
+                    ));
+                }
+            }
+        }
+        for scope in resource
+            .fields
+            .get("scopes")
+            .and_then(Value::texts)
+            .unwrap_or_default()
+        {
+            if ResourceId::parse(scope).is_none_or(|id| !catalog.contains_key(&id)) {
+                problems.push(("scopes".to_owned(), format!("unknown scope {scope}")));
+            }
         }
     }
 }

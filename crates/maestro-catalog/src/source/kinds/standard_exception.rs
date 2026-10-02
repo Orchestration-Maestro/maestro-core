@@ -1,13 +1,7 @@
 //! Central records live only in root or standard-owned exception placements.
 
 use super::standard_check;
-use crate::source::{
-    descriptor::{Field, FieldType, KindDescriptor, Scope},
-    rules::KindRules,
-    standards,
-    types::{Known, Problems, Resource, ResourceId},
-};
-use std::collections::BTreeMap;
+use crate::source::descriptor::{Field, FieldType, KindDescriptor, Scope};
 
 /// The one exception shape; local placements are not registered.
 pub(super) fn descriptor() -> KindDescriptor {
@@ -25,27 +19,4 @@ pub(super) fn descriptor() -> KindDescriptor {
     ];
     descriptor.hook = Some("standard-exception".to_owned());
     descriptor
-}
-
-/// Effect-free validation, not self-authorized approval.
-#[derive(Debug)]
-pub(super) struct ExceptionRules;
-impl KindRules for ExceptionRules {
-    fn check_resource(
-        &self,
-        resource: &Resource,
-        _body: Option<&str>,
-        known: Known<'_>,
-        problems: &mut Problems,
-    ) {
-        standards::check_resource(resource, known, problems);
-    }
-    fn check_catalog(
-        &self,
-        resource: &Resource,
-        catalog: &BTreeMap<ResourceId, &Resource>,
-        problems: &mut Problems,
-    ) {
-        standards::check_catalog(resource, catalog, problems);
-    }
 }

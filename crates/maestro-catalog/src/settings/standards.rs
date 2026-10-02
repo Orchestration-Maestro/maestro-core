@@ -7,6 +7,7 @@ use std::borrow::Cow;
 /// Merge admitted standard values, then refuse every widening consumer candidate.
 pub(super) fn constrained(
     descriptor: &SettingDescriptor,
+    default: Option<Value>,
     first: &Value,
     remaining: &[Value],
     candidates: Vec<(Layer, Value)>,
@@ -21,34 +22,26 @@ pub(super) fn constrained(
             "standard requires a restrictive override class",
         ));
     }
-    let mut baseline = first.clone();
-    for value in remaining {
-        baseline = merge(
-            descriptor,
-            baseline,
-            vec![(Layer::Workspace, value.clone())],
+    let mut baseline = if descriptor.class == SettingClass::Additive {
+        additive(
+            key,
+            default.ok_or_else(|| diagnostic(key, "setting has no built-in default"))?,
+            vec![(Layer::Standard, first.clone())],
         )?
-        .value()
-        .clone();
+        .value
+    } else {
+        first.clone()
+    };
+    for value in remaining {
+        baseline = merge(descriptor, baseline, vec![(Layer::Standard, value.clone())])?
+            .value()
+            .clone();
     }
     for (_, value) in &candidates {
         if !narrows(descriptor, &baseline, value) {
             return Err(diagnostic(key, "request widens standard"));
         }
     }
-    let candidates = candidates
-        .into_iter()
-        .map(|(layer, value)| {
-            (
-                if layer == Layer::User {
-                    Layer::Workspace
-                } else {
-                    layer
-                },
-                value,
-            )
-        })
-        .collect();
     merge(descriptor, baseline, candidates)
 }
 
@@ -88,7 +81,11 @@ fn merge(
     candidates: Vec<(Layer, Value)>,
 ) -> Result<ResolvedValue, ResolveDiagnostic> {
     if descriptor.class == SettingClass::Additive {
-        return additive(&descriptor.key, baseline, candidates);
+        let mut resolved = additive(&descriptor.key, baseline, candidates)?;
+        if resolved.source == Layer::Default {
+            resolved.source = Layer::Standard;
+        }
+        return Ok(resolved);
     }
     if let Value::Text(bound) = &baseline
         && !matches!(&descriptor.kind, SettingKind::Choice { ordered: true, .. })
@@ -101,15 +98,18 @@ fn merge(
             "conflicting standard constraints",
         ));
     }
-    let mut candidates = candidates;
-    candidates.push((Layer::User, baseline.clone()));
-    bounded(
+    let standard_only = candidates.is_empty();
+    let mut resolved = bounded(
         &descriptor.key,
         &descriptor.kind,
         baseline,
         candidates,
         &mut Vec::new(),
-    )
+    )?;
+    if resolved.source == Layer::Default || standard_only {
+        resolved.source = Layer::Standard;
+    }
+    Ok(resolved)
 }
 
 /// Intersect list permissions; report attempted additions as other C17 bounds do.

@@ -24,6 +24,38 @@ fn standards_constrain_user_workspace_and_flags() {
     let resolved = resolve_with_standards(&registry, &empty, &standards);
     assert_eq!(resolved.integer("ask.output_tokens"), Some(50));
     assert_eq!(resolved.text("updates"), Some("off"));
+    let user_value = Value::Integer(40);
+    let user_layers = Layers {
+        user: Some((
+            PathBuf::from("user.toml"),
+            Layer::default().with("ask.output_tokens", Some(&user_value)),
+        )),
+        ..Layers::default()
+    };
+    let supplied = maestro_settings::resolve(&registry, &user_layers, &[]);
+    let narrowed = resolve_with_standards(&registry, &supplied, &standards);
+    assert_eq!(narrowed.integer("ask.output_tokens"), Some(40));
+    let narrowed = narrowed.get("ask.output_tokens").unwrap().as_ref().unwrap();
+    assert_eq!(narrowed.source(), "user");
+    assert!(narrowed.overridden().is_empty());
+    assert_eq!(
+        resolved
+            .get("ask.output_tokens")
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .source(),
+        "standard"
+    );
+    assert!(
+        resolved
+            .get("ask.output_tokens")
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .overridden()
+            .is_empty()
+    );
     for layer in [0, 1, 2] {
         let value = Value::Integer(60);
         let mut layers = Layers::default();
@@ -109,7 +141,11 @@ fn descriptor_classes_drive_standard_list_intersection_and_accumulation() {
             .as_ref()
             .unwrap()
             .value(),
-        &Value::List(vec!["changelog".to_owned(), "conversion".to_owned()])
+        &Value::List(vec![
+            "changelog".to_owned(),
+            "release_notes".to_owned(),
+            "conversion".to_owned(),
+        ])
     );
 }
 

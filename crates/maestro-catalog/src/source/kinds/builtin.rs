@@ -7,7 +7,7 @@ use super::{
     preset::{self, PresetRules},
     skill, standard, standard_check, standard_exception,
 };
-use crate::source::standards::SettingsRules;
+use crate::source::standards::{ExceptionRules, SettingsRules};
 use crate::source::{descriptor::Scope, registry::Registry, rules::KindRules};
 
 /// The hooks a descriptor may select, by name. Content never supplies code:
@@ -15,11 +15,7 @@ use crate::source::{descriptor::Scope, registry::Registry, rules::KindRules};
 const HOOKS: [(&str, &dyn KindRules, &[&str]); 8] = [
     ("area-package", &package::PackageRules, &["settings"]),
     ("standard-settings", &SettingsRules, &["settings"]),
-    (
-        "standard-exception",
-        &standard_exception::ExceptionRules,
-        &[],
-    ),
+    ("standard-exception", &ExceptionRules, &[]),
     ("agent-profile", &AgentRules, &[]),
     ("preset-settings", &PresetRules, &[]),
     ("model-card", &model_card::ModelCardRules, &["identity"]),

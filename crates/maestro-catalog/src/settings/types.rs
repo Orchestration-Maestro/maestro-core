@@ -14,10 +14,9 @@ pub struct ResolvedValue {
     pub(super) overridden: Vec<(Layer, Value)>,
 }
 
-/// The four accepted preference sources, in precedence order.
+/// Preference and constraint sources, plus accumulated values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Layer {
-    /// Explicit command-line value.
     /// Explicit command-line value.
     Flag,
     /// Workspace configuration file.
@@ -26,6 +25,8 @@ pub enum Layer {
     User,
     /// Built-in descriptor default.
     Default,
+    /// Admitted standard constraint.
+    Standard,
     /// Accumulated additive value.
     Combined,
 }
@@ -39,6 +40,7 @@ impl Layer {
             Self::Workspace => "workspace",
             Self::User => "user",
             Self::Default => "default",
+            Self::Standard => "standard",
             Self::Combined => "combined",
         }
     }

@@ -33,7 +33,7 @@ pub(crate) fn resolve_with_standards(
                 "standard-only setting cannot be declared locally",
             ))
         } else if let Some(values) = standards.get(key).and_then(|values| values.split_first()) {
-            constrained(descriptor, values.0, values.1, candidates)
+            constrained(descriptor, default, values.0, values.1, candidates)
         } else {
             match (descriptor.class, default) {
                 (SettingClass::Locked, Some(value)) => locked(key, value, &candidates),

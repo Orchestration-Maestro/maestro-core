@@ -2905,6 +2905,7 @@ No invented pin, duplicate server registry or extra seed charge; estimate stays 
 ### C58 Any-language extension descriptor [US1, US5] (4 h)
 
 Secret-bearing fields use `FieldType::SecretReference`.
+If extension descriptors become catalog-supplied, core enforces exception placement on the exception kind, independent of descriptor hooks.
 
 **Phase:** P2/X1
 **After:** C32, C53a, C28.
