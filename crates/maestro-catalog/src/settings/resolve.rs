@@ -1,9 +1,11 @@
 //! Typed restrictive resolution over four preference layers; storage and parsing stay in S1.
 
+pub(crate) use super::standards::{additive, numeric_narrows};
 use super::{
-    standards::{additive, bounded, constrained},
+    standards::{bounded, constrained},
     types::{Layer, ResolveDiagnostic, ResolvedSettings, ResolvedValue, diagnostic, first},
 };
+
 use maestro_settings::{
     LayerName, Registry, Resolved, ResolvedSetting, SettingClass, Source, Value,
 };

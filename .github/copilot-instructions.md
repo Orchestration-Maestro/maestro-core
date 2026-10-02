@@ -598,6 +598,7 @@ in place.
 │   │   │   │   │   ├── model_card.rs                                        # model-card: a strict catalog declaration of the kernel's v2 identity
 │   │   │   │   │   ├── package.rs                                           # Area closure roots; ownership and layer semantics are checked by later tasks
 │   │   │   │   │   ├── preset.rs                                            # preset: a project preset, the root of a declared closure, and the
+│   │   │   │   │   ├── quality_profile.rs                                   # Inert quality declarations, separate from session preferences and model profiles
 │   │   │   │   │   ├── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
 │   │   │   │   │   ├── standard.rs                                          # Mandatory standard area roots and their normative rule inventories
 │   │   │   │   │   ├── standard_check.rs                                    # Inert standard-local machine checks: identities, registered adapters and inputs
@@ -626,6 +627,7 @@ in place.
 │   │   │   │   │   ├── placement_boundaries.rs                              # Permanent discovery-only neighbours from the C30 review
 │   │   │   │   │   ├── placement_guards.rs                                  # Isolated registration and filename classification guards
 │   │   │   │   │   ├── qualified.rs                                         # C32 qualified identities and the single source schema cutover
+│   │   │   │   │   ├── quality_profile.rs                                   # Quality-profile declarations, narrowing refusals and honest unresolved bindings
 │   │   │   │   │   ├── references.rs                                        # References across resources: dangling names and tools, dependency
 │   │   │   │   │   ├── registry.rs                                          # The kind registry: registrations stay distinct, each descriptor is
 │   │   │   │   │   ├── restrictive_standards.rs                             # Restrictive standards and scoped, centrally declared exceptions
@@ -1632,6 +1634,7 @@ in place.
 │       │   ├── owner-first-migration.md                                     # Public v4 checker and bootstrap migration evidence
 │       │   └── trust.md                                                     # C09 public attestation probe and trust measurements
 │       ├── plan.md                                                          # Implementation Plan: Catalog
+│       ├── quality-profile-fields.md                                        # Quality-profile fields (C65)
 │       ├── spec.md                                                          # Feature Specification: Catalog
 │       ├── tasks.md                                                         # Catalog Implementation Tasks
 │       └── traceability.json                                                # JSON data: traceability
@@ -1694,6 +1697,22 @@ in place.
 │       │   │   ├── cases.json                                               # JSON data: cases
 │       │   │   ├── rules.cedar                                              # File: rules
 │       │   │   └── schema.json                                              # JSON data: schema
+│       │   ├── quality/                                                     # Quality
+│       │   │   ├── baseline.toml                                            # TOML settings: baseline
+│       │   │   ├── bound.toml                                               # TOML settings: bound
+│       │   │   ├── changed-type.toml                                        # TOML settings: changed type
+│       │   │   ├── dangling-baseline.toml                                   # TOML settings: dangling baseline
+│       │   │   ├── false-binding.toml                                       # TOML settings: false binding
+│       │   │   ├── missing-binding.toml                                     # TOML settings: missing binding
+│       │   │   ├── nonfinite.toml                                           # TOML settings: nonfinite
+│       │   │   ├── removed-ceiling.toml                                     # TOML settings: removed ceiling
+│       │   │   ├── removed-floor.toml                                       # TOML settings: removed floor
+│       │   │   ├── removed-gate.toml                                        # TOML settings: removed gate
+│       │   │   ├── session-field.toml                                       # TOML settings: session field
+│       │   │   ├── technology.toml                                          # TOML settings: technology
+│       │   │   ├── undeclared-baseline.toml                                 # TOML settings: undeclared baseline
+│       │   │   ├── weakened-ceiling.toml                                    # TOML settings: weakened ceiling
+│       │   │   └── weakened-floor.toml                                      # TOML settings: weakened floor
 │       │   ├── settings/                                                    # Settings
 │       │   │   ├── user-preferences.toml                                    # TOML settings: user preferences
 │       │   │   └── workspace.toml                                           # TOML settings: workspace

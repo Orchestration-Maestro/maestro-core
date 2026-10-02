@@ -51,8 +51,8 @@ fn narrows(descriptor: &SettingDescriptor, baseline: &Value, value: &Value) -> b
         (SettingClass::Additive, Value::Flag(true), Value::Flag(false)) => false,
         (SettingClass::Additive, _, _) | (_, Value::Off, _) => true,
         (_, Value::Flag(bound), Value::Flag(value)) => !value || *bound,
-        (_, Value::Integer(bound), Value::Integer(value)) => value <= bound,
-        (_, Value::Number(bound), Value::Number(value)) => value <= bound,
+        (_, Value::Integer(bound), Value::Integer(value)) => numeric_narrows(bound, value, false),
+        (_, Value::Number(bound), Value::Number(value)) => numeric_narrows(bound, value, false),
 
         (_, Value::List(bound), Value::List(value)) => {
             value.iter().all(|item| bound.contains(item))
@@ -344,7 +344,7 @@ pub(super) fn chosen(
 }
 
 /// Accumulates additive flags, lists and prose across all supplied layers.
-pub(super) fn additive(
+pub(crate) fn additive(
     key: &str,
     mut value: Value,
     candidates: Vec<(Layer, Value)>,
@@ -382,5 +382,14 @@ fn merge_list(current: &mut Vec<String>, next: &[String]) {
         if !current.contains(item) {
             current.push(item.clone());
         }
+    }
+}
+
+/// Shared numeric restriction direction: floors rise, ceilings fall.
+pub(crate) fn numeric_narrows<T: PartialOrd>(baseline: &T, value: &T, floor: bool) -> bool {
+    if floor {
+        value >= baseline
+    } else {
+        value <= baseline
     }
 }

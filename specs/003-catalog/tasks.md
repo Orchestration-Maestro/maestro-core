@@ -3079,10 +3079,10 @@ prompt/contracts neighbour uses production descriptors, not substitutes.
 **Design coverage:** MD02, MD11 (approved design §8.4).
 **Named tests:** `quality_profile_is_not_session_profile`, `quality_thresholds_only_narrow`, `missing_required_binding_stays_unresolved`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Quality-profile descriptor distinct from M059, baseline/check accumulation and threshold narrowing. Missing bindings stay unresolved; weakened gate refuses.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Quality-profile descriptor distinct from M059, baseline/check accumulation and threshold narrowing. Missing bindings stay unresolved; weakened gate refuses.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

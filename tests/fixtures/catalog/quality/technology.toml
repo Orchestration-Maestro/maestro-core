@@ -1,0 +1,21 @@
+name = "technology"
+baseline = "quality-profile:common/baseline"
+subject = "synthetic-language"
+gates = ["lint", "coverage"]
+applicability = ["all"]
+failure_conditions = ["missing-report", "gate-failed"]
+evidence = ["json-report"]
+[bindings.lint]
+state = "unresolved"
+[bindings.coverage]
+state = "unresolved"
+[thresholds.floors]
+coverage = 90.0
+[thresholds.ceilings]
+warnings = 2
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]
+requires = ["quality-profile:common/baseline"]

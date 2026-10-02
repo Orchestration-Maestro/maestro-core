@@ -38,3 +38,5 @@ mod versions;
 mod yaml;
 
 mod restrictive_standards;
+
+mod quality_profile;

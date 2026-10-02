@@ -89,7 +89,7 @@ fn unsupported_nonempty_kinds_and_configs_refuse() {
     let registry = builtin().unwrap();
     for path in [
         "mcp/server.toml",
-        "languages/rust/profiles/quality/rust.toml",
+        "languages/rust/profiles/models/rust.toml",
         "core/workflows/flow/workflow.md",
         "instructions/root.instructions.md",
         "agents/root.agent.md",

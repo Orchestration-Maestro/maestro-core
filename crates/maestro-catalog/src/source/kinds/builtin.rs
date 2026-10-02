@@ -5,14 +5,14 @@ use super::{
     agent::{self, AgentRules},
     backend, bootstrap_inventory, instructions, model_card, package,
     preset::{self, PresetRules},
-    skill, standard, standard_check, standard_exception,
+    quality_profile, skill, standard, standard_check, standard_exception,
 };
 use crate::source::standards::{ExceptionRules, SettingsRules};
 use crate::source::{descriptor::Scope, registry::Registry, rules::KindRules};
 
 /// The hooks a descriptor may select, by name. Content never supplies code:
 /// a new hook is reviewed code added here.
-const HOOKS: [(&str, &dyn KindRules, &[&str]); 10] = [
+const HOOKS: [(&str, &dyn KindRules, &[&str]); 11] = [
     (
         "backend-base",
         &backend::BackendRules,
@@ -25,6 +25,11 @@ const HOOKS: [(&str, &dyn KindRules, &[&str]); 10] = [
     ),
     ("area-package", &package::PackageRules, &["settings"]),
     ("standard-settings", &SettingsRules, &["settings"]),
+    (
+        "quality-profile",
+        &quality_profile::QualityRules,
+        &["bindings", "thresholds"],
+    ),
     ("standard-exception", &ExceptionRules, &[]),
     ("agent-profile", &AgentRules, &[]),
     ("preset-settings", &PresetRules, &[]),
@@ -72,6 +77,7 @@ pub fn builtin() -> Result<Registry, String> {
         standard_check::descriptor(),
         standard_exception::descriptor(),
         preset::descriptor(),
+        quality_profile::descriptor(),
         bootstrap_inventory::descriptor(),
         model_card::descriptor(),
         backend::descriptor(),

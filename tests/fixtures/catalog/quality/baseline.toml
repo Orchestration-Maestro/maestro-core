@@ -1,0 +1,20 @@
+name = "baseline"
+subject = "all"
+gates = ["lint", "coverage"]
+applicability = ["all"]
+failure_conditions = ["missing-report", "gate-failed"]
+evidence = ["json-report"]
+[bindings.lint]
+state = "unresolved"
+[bindings.coverage]
+state = "unresolved"
+[thresholds.floors]
+coverage = 80.0
+[thresholds.ceilings]
+warnings = 5
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]
+requires = []

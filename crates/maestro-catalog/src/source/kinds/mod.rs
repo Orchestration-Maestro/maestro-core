@@ -9,6 +9,7 @@ mod instructions;
 mod model_card;
 mod package;
 mod preset;
+mod quality_profile;
 mod skill;
 mod standard;
 mod standard_check;
