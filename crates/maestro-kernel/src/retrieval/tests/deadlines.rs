@@ -194,3 +194,44 @@ fn s6_cancelled_controlled_reader_cannot_change_or_enter_pool() {
     );
     drop((first, second));
 }
+
+#[test]
+fn s6_controlled_query_and_pooled_lookup_overlap() {
+    use std::{sync::mpsc, thread};
+    let search = SearchDb::new("Synthetic concurrent search and scoped lookup.");
+    let database = &search.database;
+    let (ready, started) = mpsc::channel();
+    let (release, finished) = mpsc::channel::<()>();
+    let mut finished = Some(finished);
+    // Pauses the controlled SQL call once, inside SQLite, until the lookup ran.
+    let pause = move || {
+        if let Some(finished) = finished.take() {
+            ready.send(()).unwrap();
+            finished.recv_timeout(Duration::from_secs(10)).unwrap();
+        }
+        false
+    };
+    thread::scope(|threads| {
+        let query = threads.spawn(move || {
+            let control = control();
+            let reader = controlled_reader(database, &control).unwrap();
+            reader.progress_handler(1, Some(pause)).unwrap();
+            reader
+                .query_row("SELECT 1", [], |row| row.get::<_, i32>(0))
+                .unwrap()
+        });
+        started.recv_timeout(Duration::from_secs(5)).unwrap();
+        let (done, visible) = mpsc::channel();
+        let lookup = threads.spawn(move || {
+            done.send(database.visible("reader").unwrap()).unwrap();
+        });
+        let result = visible.recv_timeout(Duration::from_secs(5));
+        release.send(()).unwrap();
+        assert!(
+            !result.unwrap().is_empty(),
+            "scoped lookup did not overlap the controlled SQL call"
+        );
+        assert_eq!(query.join().unwrap(), 1);
+        lookup.join().unwrap();
+    });
+}

@@ -1,7 +1,16 @@
 //! Pool reuse, concurrent units, transaction cleanup and fresh authorization.
 use super::support::Scratch;
-use crate::{scope::Right, store::Database};
-use std::{sync::mpsc, thread, time::Duration};
+use crate::{
+    scope::Right,
+    store::{Database, reader::Reader},
+};
+use rusqlite::Connection;
+use std::{
+    fs,
+    sync::{Mutex, mpsc},
+    thread,
+    time::Duration,
+};
 
 #[test]
 fn s6_readers_return_and_reuse_without_reconfiguration() {
@@ -18,6 +27,17 @@ fn s6_readers_return_and_reuse_without_reconfiguration() {
     assert_eq!(cache, -1777, "the same configured connection is reused");
     assert_eq!(database.reader_opens(), 1);
     assert!(reader.execute("DELETE FROM grants", []).is_err());
+    assert_eq!(
+        reader
+            .pragma_query_value(None, "query_only", |row| row.get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    assert!(
+        reader
+            .execute_batch("CREATE TEMP TABLE s6_temp(value INTEGER)")
+            .is_err()
+    );
 }
 
 #[test]
@@ -102,4 +122,61 @@ fn s6_idle_readers_close_before_the_writer_final_wal_checkpoint() {
         "idle readers prevented the writer's final checkpoint"
     );
     assert!(!shared.exists());
+    let renamed = scratch.0.join("renamed.sqlite3");
+    fs::rename(scratch.database(), &renamed).unwrap();
+    fs::remove_file(&renamed).unwrap();
+}
+
+#[test]
+fn s6_pool_unlocks_before_open() {
+    let pool = Mutex::new(Vec::new());
+    let reader = Reader::borrow(&pool, || {
+        assert!(pool.try_lock().is_ok(), "pool lock covered connection open");
+        Connection::open_in_memory()
+    })
+    .unwrap();
+    drop(reader);
+    assert_eq!(pool.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn s6_failed_rollback_is_unlocked_and_discards_reader() {
+    use rusqlite::hooks::{AuthContext, Authorization};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let pool = Arc::new(Mutex::new(Vec::new()));
+    let observed = Arc::new(AtomicUsize::new(0));
+    let reader = Reader::borrow(&pool, Connection::open_in_memory).unwrap();
+    reader.execute_batch("BEGIN").unwrap();
+    let callback_pool = pool.clone();
+    let callback_observed = observed.clone();
+    reader
+        .authorizer(Some(move |_: AuthContext<'_>| {
+            assert!(
+                callback_pool.try_lock().is_ok(),
+                "pool lock covered SQLite rollback"
+            );
+            callback_observed.fetch_add(1, Ordering::Relaxed);
+            Authorization::Deny
+        }))
+        .unwrap();
+    drop(reader);
+    assert!(
+        observed.load(Ordering::Relaxed) > 0,
+        "rollback authorizer did not run"
+    );
+    assert!(
+        pool.lock().unwrap().is_empty(),
+        "failed rollback returned a dirty reader"
+    );
+    let reader = Reader::borrow(&pool, Connection::open_in_memory).unwrap();
+    assert!(reader.is_autocommit());
+    assert_eq!(
+        reader
+            .query_row("SELECT 1", [], |row| row.get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
 }

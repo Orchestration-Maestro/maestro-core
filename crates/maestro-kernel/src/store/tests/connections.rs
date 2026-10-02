@@ -136,6 +136,17 @@ fn a_reader_sees_only_commits_and_cannot_write() {
     assert_eq!(count(&reader), 1);
     assert!(reader.execute("DELETE FROM artifacts", []).is_err());
     assert_eq!(count(&reader), 1, "a reader cannot write");
+    database
+        .put(b"later committed synthetic artifact", "text/plain")
+        .unwrap();
+    assert_eq!(
+        count(&reader),
+        2,
+        "same read unit retained a stale snapshot after a write"
+    );
+    drop(reader);
+    assert_eq!(count(&database.reader().unwrap()), 2);
+    assert_eq!(database.reader_opens(), 1);
 }
 
 #[test]
