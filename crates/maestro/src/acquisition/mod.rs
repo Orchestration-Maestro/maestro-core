@@ -60,3 +60,15 @@ mod window_edges;
 mod flow_fixture;
 #[cfg(test)]
 mod flow_site;
+
+#[cfg(test)]
+mod scale_tests;
+
+#[cfg(test)]
+mod control_tests;
+
+#[cfg(test)]
+mod scale_port_tests;
+
+#[cfg(any(target_os = "linux", test))]
+mod sync_keys;

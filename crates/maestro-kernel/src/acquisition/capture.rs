@@ -1,5 +1,6 @@
 //! Verified immutable capture preparation before fenced stage acknowledgment.
 use super::{
+    capture_page::{self, CaptureLookup},
     envelope::{CaptureEnvelope, Representation, SafeIdentity, Transport},
     frontier::Frontier,
     headers,
@@ -14,6 +15,7 @@ use crate::{
 };
 use rusqlite::{Connection, OptionalExtension as _, Transaction, params};
 use std::{collections::BTreeMap, time::SystemTime};
+use ulid::Ulid;
 
 /// Current trusted source/dispatch ownership, never a staging path from a source.
 #[derive(Debug, Clone)]
@@ -35,6 +37,14 @@ pub struct PreparedCapture {
 }
 /// Replaceable immutable capture boundary; preparation is a durable checkpoint.
 pub trait Captures: Send + Sync {
+    /// Resolve at most 1,000 current-generation capture links in one read page.
+    /// # Errors
+    /// Invalid bounds or corrupt immutable artifacts refuse.
+    fn capture_page(
+        &self,
+        scope: &Scope,
+        items: &[Item],
+    ) -> Result<BTreeMap<Ulid, CaptureLookup>, ReceiptError>;
     /// Locate immutable prepared evidence for the item's current refresh generation.
     /// # Errors
     /// Invalid scoped evidence or unreadable storage refuses.
@@ -98,6 +108,13 @@ pub trait Captures: Send + Sync {
     ) -> Result<(), ReceiptError>;
 }
 impl Captures for Database {
+    fn capture_page(
+        &self,
+        scope: &Scope,
+        items: &[Item],
+    ) -> Result<BTreeMap<Ulid, CaptureLookup>, ReceiptError> {
+        capture_page::lookup(self, scope, items)
+    }
     fn prepared_for(&self, scope: &Scope, item: &Item) -> Result<Option<Handle>, ReceiptError> {
         let reader = self.reader()?;
         let handle: Option<String> = reader

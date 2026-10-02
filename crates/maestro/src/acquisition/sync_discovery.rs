@@ -1,6 +1,6 @@
 //! Full declared inventories are independent of this run's remaining HTTP slots.
 use super::{
-    controls::{CaptureWork, storage},
+    controls::{CaptureWork, SourceWork, storage},
     output::{Entry, Report},
 };
 use crate::failure::Failure;
@@ -9,28 +9,28 @@ use maestro_kernel::acquisition::{
     CaptureContext, CaptureEnvelope, Captures, Enumeration, Frontier, Handle, Partition,
     Partitions, Receipts, Window,
 };
+#[cfg(test)]
+use std::cell::Cell;
 use std::collections::BTreeSet;
 
 /// Only prioritization reads these markers; reuse still verifies immutable scoped captures.
-fn captured_children<S: Frontier, T>(
-    work: &CaptureWork<'_, '_, S, T>,
+pub(super) fn captured_children<S: Frontier, T>(
+    work: &SourceWork<'_, S, T>,
 ) -> Result<BTreeSet<String>, Failure> {
+    #[cfg(test)]
+    SCANS.with(|count| count.set(count.get() + 1));
     let mut captured = BTreeSet::new();
     let mut after = None;
     loop {
         let page = work
-            .source
             .store
-            .page(
-                work.source.principal.scopes,
-                &work.source.source.id,
-                after,
-                1000,
-            )
+            .page(work.principal.scopes, &work.source.id, after, 1000)
             .map_err(|_| storage())?;
         if page.is_empty() {
             break;
         }
+        #[cfg(test)]
+        SCAN_ITEMS.with(|count| count.set(count.get() + page.len()));
         after = page.last().map(|item| item.id);
         captured.extend(
             page.into_iter()
@@ -89,13 +89,12 @@ where
             .map_err(|_| storage())?,
     };
     let extractor = DomLinks::new().map_err(|_| storage())?;
-    let captured = captured_children(work)?;
     let discovered = discover_with_captured(
         work.source.store,
         &extractor,
         capture,
         work.source.policy,
-        (partition, depth, &captured),
+        (partition, depth, work.captured_children),
     )
     .await;
     let Ok(batch) = discovered else {
@@ -123,4 +122,12 @@ where
         return Ok(false);
     }
     Ok(true)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Complete captured-child traversals on this test thread.
+    pub(super) static SCANS: Cell<usize> = const { Cell::new(0) };
+    /// Frontier rows visited by the captured-child traversals.
+    pub(super) static SCAN_ITEMS: Cell<usize> = const { Cell::new(0) };
 }

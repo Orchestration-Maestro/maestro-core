@@ -4,6 +4,7 @@ use super::{
     output::{Entry, Report},
     resources,
     sync_budget::RunBudget,
+    sync_discovery::captured_children,
     sync_drain::{Drain, drain},
     sync_window::{coverage, verification},
 };
@@ -20,14 +21,14 @@ use maestro_acquisition::{
 };
 use maestro_kernel::{
     acquisition::{
-        Batch, CaptureEnvelope, Captures, Frontier, InventoryPage, InventorySchema, Item,
-        ItemDisposition, LeaseRequest, NewItem, Partitions, Receipts, SourceLease, Stage,
-        StageItem,
+        CaptureEnvelope, Captures, DepthPage, Frontier, InventoryPage, InventorySchema, Item,
+        ItemDisposition, LeaseRequest, NewItem, PartitionSummary, Partitions, Receipts,
+        SourceLease, Stage, StageItem,
     },
     artifact::Digest,
 };
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, btree_map::Entry as MapEntry},
     time::{Duration, SystemTime},
 };
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -107,74 +108,90 @@ fn seeds<S: Frontier + Receipts, T>(
 fn recover<S: Partitions + Receipts, T>(
     work: &SourceWork<'_, S, T>,
     depths: &mut BTreeMap<Digest, u64>,
-) -> Result<Vec<Batch>, Failure> {
-    let mut batches = Vec::new();
+) -> Result<Vec<PartitionSummary>, Failure> {
+    recover_depths(work, depths)?;
+    let mut summaries = Vec::new();
     let mut after = None;
     loop {
         let page = work
             .store
-            .partition_page(work.scope, &work.source.id, after, 1000)
+            .summary_page(work.scope, &work.source.id, after, 1000)
             .map_err(|_| storage())?;
         if page.is_empty() {
             break;
         }
-        after = page.last().copied();
-        for id in page {
-            let state = work
-                .store
-                .partition(work.scope, id)
-                .map_err(|_| storage())?
-                .ok_or_else(storage)?;
-            for batch in state.batches {
-                batches.extend(recover_batch(work, batch, depths)?);
+        after = page.last().map(|summary| (summary.id, summary.sequence));
+        summaries.extend(page);
+    }
+    Ok(summaries)
+}
+/// Verify each first-provenance parent once, independent of historical inventory size.
+fn recover_depths<S: Partitions + Receipts, T>(
+    work: &SourceWork<'_, S, T>,
+    depths: &mut BTreeMap<Digest, u64>,
+) -> Result<(), Failure> {
+    let mut after = None;
+    let authorization = Digest::of(work.runtime.kernel_principal.as_bytes());
+    let mut verified = BTreeMap::new();
+    loop {
+        let page = work
+            .store
+            .depth_page(&DepthPage {
+                scope: work.scope,
+                source: &work.source.id,
+                authorization: &authorization,
+                profile: &work.source.acquisition_profile.digest,
+                after: after.as_deref(),
+                limit: 1000,
+            })
+            .map_err(|_| storage())?;
+        if page.is_empty() {
+            break;
+        }
+        after = page.last().map(|item| item.request.fetch_identity.clone());
+        for item in page {
+            if let MapEntry::Vacant(entry) = verified.entry(item.capture) {
+                let bytes = work
+                    .store
+                    .read(work.runtime.kernel_principal, item.capture)
+                    .map_err(|_| storage())?
+                    .ok_or_else(storage)?;
+                let envelope: CaptureEnvelope =
+                    serde_json::from_slice(bytes.bytes()).map_err(|_| storage())?;
+                entry.insert(
+                    envelope.source == work.source.id
+                        && envelope.profile == work.source.acquisition_profile.digest
+                        && envelope.authorization_context == authorization,
+                );
+            }
+            if verified.get(&item.capture) == Some(&true) {
+                depths
+                    .entry(Digest::of(item.request.fetch_identity.as_bytes()))
+                    .or_insert(item.depth);
             }
         }
     }
-    Ok(batches)
+    Ok(())
 }
-/// Only immutable evidence for the same effective source context establishes a depth.
-fn recover_batch<S: Receipts, T>(
-    work: &SourceWork<'_, S, T>,
-    batch: Batch,
-    depths: &mut BTreeMap<Digest, u64>,
-) -> Result<Option<Batch>, Failure> {
-    let (Some(depth), Some(handle)) = (batch.parent_depth, batch.capture) else {
-        return Ok(None);
-    };
-    let bytes = work
-        .store
-        .read(work.runtime.kernel_principal, handle)
-        .map_err(|_| storage())?
-        .ok_or_else(storage)?;
-    let envelope: CaptureEnvelope = serde_json::from_slice(bytes.bytes()).map_err(|_| storage())?;
-    if envelope.source != work.source.id
-        || envelope.profile != work.source.acquisition_profile.digest
-        || envelope.authorization_context != Digest::of(work.runtime.kernel_principal.as_bytes())
-    {
-        return Ok(None);
-    }
-    depths
-        .entry(Digest::of(envelope.requested.as_str().as_bytes()))
-        .or_insert(depth);
-    for child in &batch.items {
-        depths
-            .entry(Digest::of(child.request.fetch_identity.as_bytes()))
-            .or_insert(depth.saturating_add(1));
-    }
-    Ok(Some(batch))
-}
-/// Retry eligible historical partitions once their durable children have acknowledged captures.
+/// Retry only unaccepted, eligible historical parents; accepted history needs no reread.
 fn reconcile_checkpoints<S: Partitions, T>(
     work: &SourceWork<'_, S, T>,
     writer: &SourceLease,
-    batches: &[Batch],
+    summaries: &[PartitionSummary],
 ) {
-    for batch in batches {
-        if batch.stable && !batch.truncated {
-            // A refusal remains durable pending evidence, not a speculative watermark.
+    for summary in summaries {
+        if summary.capture.is_some()
+            && summary.committable
+            && !summary.accepted
+            && summary.context.as_ref()
+                == Some(&(
+                    Digest::of(work.runtime.kernel_principal.as_bytes()),
+                    work.source.acquisition_profile.digest.clone(),
+                ))
+        {
             let _ = work
                 .store
-                .commit_partition(writer, batch.partition.id, SystemTime::now());
+                .commit_partition(writer, summary.id, SystemTime::now());
         }
     }
 }
@@ -220,7 +237,12 @@ where
     let pending_before = report.pending.len();
     let mut depths = seeds(work, &writer, report)?;
     let checkpoints = recover(work, &mut depths)?;
-    let (coverage_watermark, window, due_window) = verification(work)?;
+    let context = (
+        Digest::of(work.runtime.kernel_principal.as_bytes()),
+        work.source.acquisition_profile.digest.clone(),
+    );
+    let (coverage_watermark, window, due_window) = verification(work, &checkpoints)?;
+    let captured_children = captured_children(work)?;
     let bounds = [limits.clone()];
     let usage = Usage {
         cpu_millicores: if exhausted {
@@ -242,7 +264,12 @@ where
         due_window,
         window,
         depths,
-        checkpoints,
+        prepared_handles: checkpoints
+            .iter()
+            .filter(|summary| summary.context.as_ref() == Some(&context))
+            .filter_map(|summary| summary.capture)
+            .collect(),
+        captured_children,
         exhausted,
         reservation,
         accounting: Accounting::new(limits.clone()),
@@ -252,10 +279,10 @@ where
         seen: BTreeSet::new(),
         attempted: 0,
         inventory: BTreeMap::new(),
+        keys: BTreeMap::new(),
         partitions: vec![],
     };
-    let drained = drain(work, &writer, &bounds, &mut state, report).await;
-    drained?;
+    drain(work, &writer, &bounds, &mut state, report).await?;
     for (partition, _) in &state.partitions {
         if work
             .store
@@ -267,7 +294,7 @@ where
                 .push(Entry::new(&partition.to_string(), "partition_incomplete"));
         }
     }
-    reconcile_checkpoints(work, &writer, &state.checkpoints);
+    reconcile_checkpoints(work, &writer, &checkpoints);
     let items = frontier_items(
         work.store,
         work.principal,

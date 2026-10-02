@@ -52,6 +52,8 @@ mod database;
 mod error;
 mod migration;
 mod reader;
+#[cfg(any(test, feature = "test"))]
+mod statement_counts;
 #[cfg(test)]
 mod tests;
 

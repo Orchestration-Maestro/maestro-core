@@ -1,18 +1,17 @@
 //! Verification coverage reuses immutable bounded kernel partition checkpoints.
 use super::{
     controls::{SourceWork, storage},
-    output::{Entry, Report},
+    output::{Entry, PartitionLimit, Report},
     sync_drain::Drain,
 };
 use crate::failure::Failure;
 use maestro_acquisition::{
-    discovery::partition::captured_keys,
     lifecycle::{full::Mode, incremental::window},
     transport::budget::Usage,
 };
 use maestro_kernel::acquisition::{
-    Batch, CaptureEnvelope, ChangeKeys, DiscoveredItem, Enumeration, Handle, Item, ItemDisposition,
-    Partition, Partitions, Receipts, SourceLease, Status, UnfinalizedPage, Window,
+    Batch, ChangeKeys, DiscoveredItem, Enumeration, Handle, Item, ItemDisposition, Partition,
+    PartitionSummary, Partitions, Receipts, SourceLease, Status, UnfinalizedPage, Window,
 };
 use serde_json::Value;
 use std::{
@@ -30,36 +29,17 @@ pub(crate) struct WindowState {
 /// Only accepted local verification partitions are source clock watermarks.
 pub(crate) fn watermark<S: Partitions + Receipts, T>(
     work: &SourceWork<'_, S, T>,
+    summaries: &[PartitionSummary],
 ) -> Result<WindowState, Failure> {
-    let mut after = None;
     let mut watermark = None;
     let mut runs: BTreeMap<Handle, (Window, bool, bool)> = BTreeMap::new();
-    loop {
-        let page = work
-            .store
-            .partition_page(work.scope, &work.source.id, after, 1000)
-            .map_err(|_| storage())?;
-        if page.is_empty() {
-            break;
-        }
-        after = page.last().copied();
-        for id in page {
-            let state = work
-                .store
-                .partition(work.scope, id)
-                .map_err(|_| storage())?
-                .ok_or_else(storage)?;
-            if let Some(batch) = state.batches.first()
-                && batch.partition.kind == Enumeration::Verification
-            {
-                let run = runs.entry(batch.partition.run).or_insert((
-                    batch.partition.window.clone(),
-                    true,
-                    false,
-                ));
-                run.1 &= state.accepted.is_some();
-                run.2 |= batch.verification_final;
-            }
+    for state in summaries {
+        if state.kind == Enumeration::Verification {
+            let run = runs
+                .entry(state.run)
+                .or_insert((state.window.clone(), true, false));
+            run.1 &= state.accepted;
+            run.2 |= state.verification_final;
         }
     }
     let mut pending = Vec::new();
@@ -98,8 +78,9 @@ fn finalized<S: Receipts, T>(work: &SourceWork<'_, S, T>, run: Handle) -> Result
 /// Frozen local target and the distinct reuse cutoff for pending-window continuation.
 pub(crate) fn verification<S: Partitions + Receipts, T>(
     work: &SourceWork<'_, S, T>,
+    summaries: &[PartitionSummary],
 ) -> Result<(Option<u64>, Window, Window), Failure> {
-    let previous = watermark(work)?;
+    let previous = watermark(work, summaries)?;
     let now = u64::try_from(
         work.runtime
             .run_now
@@ -170,9 +151,12 @@ pub(crate) fn coverage<S: Partitions + Receipts, T>(
     };
     let complete = complete && count as u64 <= available;
     if count as u64 > available {
-        report
-            .pending
-            .push(Entry::new(&work.source.id, "inventory_or_partition_limit"));
+        let mut entry = Entry::new(&work.source.id, "inventory_or_partition_limit");
+        entry.partition_limit = Some(PartitionLimit {
+            chunks: count as u64,
+            ceiling: state.accounting.limits().partitions.get(),
+        });
+        report.pending.push(entry);
     }
     for index in 0..count.min(usize::try_from(available).unwrap_or(usize::MAX)) {
         let selected = eligible
@@ -199,14 +183,18 @@ pub(crate) fn coverage<S: Partitions + Receipts, T>(
                 .map(|item| {
                     Ok(DiscoveredItem {
                         request: item.request.clone(),
-                        keys: verification_keys(
-                            work,
-                            item,
-                            state
-                                .inventory
-                                .get(&item.id)
-                                .and_then(|stage| stage.evidence),
-                        )?,
+                        keys: state
+                            .keys
+                            .get(&item.id)
+                            .cloned()
+                            .unwrap_or_else(|| ChangeKeys {
+                                revision: None,
+                                validator: None,
+                                metadata: None,
+                                permissions: item.request.authorization_context.clone(),
+                                links: None,
+                                representation: None,
+                            }),
                     })
                 })
                 .collect::<Result<_, Failure>>()?,
@@ -265,46 +253,6 @@ fn charge(state: &mut Drain<'_>, bytes: u64) -> Result<bool, Failure> {
     }
     state.usage.staging_bytes = staging_bytes;
     Ok(true)
-}
-
-/// Scoped captured bytes are known; remote revisions and unextracted links are not.
-fn verification_keys<S: Receipts, T>(
-    work: &SourceWork<'_, S, T>,
-    item: &Item,
-    evidence: Option<Handle>,
-) -> Result<ChangeKeys, Failure> {
-    let Some(handle) = evidence else {
-        return Ok(ChangeKeys {
-            revision: None,
-            validator: None,
-            metadata: None,
-            permissions: item.request.authorization_context.clone(),
-            links: None,
-            representation: None,
-        });
-    };
-    let bytes = work
-        .store
-        .read(work.runtime.kernel_principal, handle)
-        .map_err(|_| storage())?
-        .ok_or_else(storage)?;
-    let envelope: CaptureEnvelope = serde_json::from_slice(bytes.bytes()).map_err(|_| storage())?;
-    observed_keys(&envelope, item)
-}
-
-/// Bind observed signals to the exact frontier item, never another capture's bytes.
-pub(super) fn observed_keys(
-    envelope: &CaptureEnvelope,
-    item: &Item,
-) -> Result<ChangeKeys, Failure> {
-    if envelope.item.to_string() != item.id.to_string()
-        || envelope.source != item.source
-        || envelope.authorization_context != item.request.authorization_context
-        || envelope.profile != item.request.representation_profile
-    {
-        return Err(storage());
-    }
-    captured_keys(envelope, None).map_err(|_| storage())
 }
 
 /// Oldest crashed target under the exact current caller, scope and resource refs.

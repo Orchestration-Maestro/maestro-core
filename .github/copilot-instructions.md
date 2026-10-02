@@ -61,6 +61,7 @@ in place.
 │   │   │   │   ├── bindings.rs                                                          # Machine-local file bindings, never grant material or portable source configuration
 │   │   │   │   ├── cli.rs                                                               # Only working public manual operations are registered, without a synthetic bypass
 │   │   │   │   ├── command.rs                                                           # Public manual acquisition composition over the existing admission and frontier ports
+│   │   │   │   ├── control_tests.rs                                                     # Shared admission refuses authenticated sources before authority
 │   │   │   │   ├── controls.rs                                                          # Shared admission and borrowed acquisition port context; no authoritative queue
 │   │   │   │   ├── flow_edges.rs                                                        # Completion, reuse, depth, bindings and resource boundaries of the public MVP
 │   │   │   │   ├── flow_fixture.rs                                                      # Shared real-kernel admitted source fixture with explicit lifecycle windows
@@ -74,11 +75,14 @@ in place.
 │   │   │   │   ├── record_tests.rs                                                      # Read-only inspection and bounded pre-start inventory regression checks
 │   │   │   │   ├── resources.rs                                                         # OA3 bounds are data; fresh backing-store measurements never come from bindings
 │   │   │   │   ├── resume_tests.rs                                                      # Permanent N14 interrupted-depth and cross-source aggregate regressions
+│   │   │   │   ├── scale_port_tests.rs                                                  # Summary-index and batch-lookup parity against authoritative immutable evidence
+│   │   │   │   ├── scale_tests.rs                                                       # Executed SQL and actual frontier scan counters for N36's scale contract
 │   │   │   │   ├── sync_budget.rs                                                       # Aggregate consumed capacity and one retained sync allocation across sequential sources
 │   │   │   │   ├── sync_capture.rs                                                      # Public HTTP, immutable capture and offline discovery under one current writer
 │   │   │   │   ├── sync_discovery.rs                                                    # Full declared inventories are independent of this run's remaining HTTP slots
 │   │   │   │   ├── sync_disposition.rs                                                  # Definitive historical exclusions precede readiness, allocation and dispatch holds
 │   │   │   │   ├── sync_drain.rs                                                        # Paged pending-first traversal over the authoritative frontier
+│   │   │   │   ├── sync_keys.rs                                                         # Observed change keys retain exact frontier provenance before coverage
 │   │   │   │   ├── sync_reader_tests.rs                                                 # Deterministic reader costs and the opt-in N14 large-history profile
 │   │   │   │   ├── sync_source.rs                                                       # One source writer; frontier pages, never a second authoritative queue
 │   │   │   │   ├── sync_window.rs                                                       # Verification coverage reuses immutable bounded kernel partition checkpoints
@@ -738,6 +742,7 @@ in place.
 │   │   ├── src/                                                                         # The crate's sources
 │   │   │   ├── acquisition/                                                             # Kernel-owned acquisition work, exposed through a replaceable frontier port
 │   │   │   │   ├── capture.rs                                                           # Verified immutable capture preparation before fenced stage acknowledgment
+│   │   │   │   ├── capture_page.rs                                                      # One bounded capture-link query, with the same immutable artifact verification
 │   │   │   │   ├── derivations.json                                                     # JSON data: derivations
 │   │   │   │   ├── envelope.rs                                                          # One immutable capture contract shared by admitted transports and the kernel
 │   │   │   │   ├── error.rs                                                             # Refusals from the frontier port; no refused operation acknowledges work
@@ -747,7 +752,9 @@ in place.
 │   │   │   │   ├── link.rs                                                              # Typed immutable capture/fidelity links, composed with S1's revision transaction
 │   │   │   │   ├── mod.rs                                                               # Kernel-owned acquisition work, exposed through a replaceable frontier port
 │   │   │   │   ├── partition.rs                                                         # Durable checkpoints reuse the frontier; complete snapshots never replace them
+│   │   │   │   ├── partition_captures.rs                                                # Page-level capture binding for partition inspection and acceptance
 │   │   │   │   ├── partition_checkpoint.rs                                              # Constant-evidence checkpoint validation and transactional distinct inventory
+│   │   │   │   ├── partition_history.rs                                                 # Immutable checkpoint summary index and first-in-history traversal provenance
 │   │   │   │   ├── partition_record.rs                                                  # Pending checkpoints are separate from immutable accepted partition snapshots
 │   │   │   │   ├── privacy.rs                                                           # Content-free output types and opaque, transitively scoped artifact handles
 │   │   │   │   ├── receipt.rs                                                           # Unique run attempts, immutable receipt snapshots and bounded stage inventories
@@ -1003,7 +1010,8 @@ in place.
 │   │   │   │   ├── error.rs                                                             # Why the kernel's database refused an operation
 │   │   │   │   ├── migration.rs                                                         # The migrations: the SQL files of migrations/, embedded in the binary
 │   │   │   │   ├── mod.rs                                                               # The kernel's database: one SQLite file beside the artifact store, holding
-│   │   │   │   └── reader.rs                                                            # Short read units borrow configured connections without serializing their queries
+│   │   │   │   ├── reader.rs                                                            # Short read units borrow configured connections without serializing their queries
+│   │   │   │   └── statement_counts.rs                                                  # Test-only executed statement counters; no elapsed-time or connection proxy
 │   │   │   ├── telemetry/                                                               # Telemetry: pinned span names and component health (building block B11)
 │   │   │   │   ├── tests/                                                               # Tests of telemetry: component health, and the stages and their spans
 │   │   │   │   │   ├── health.rs                                                        # Tests of component health

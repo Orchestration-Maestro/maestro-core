@@ -93,6 +93,7 @@ pub(crate) fn preview(
                     .ok()
                     .map(|identity| identity.as_str().to_owned()),
                 observed_ms: None,
+                partition_limit: None,
             };
             report.decisions.push(entry.clone());
             if reason == "policy_denial" {

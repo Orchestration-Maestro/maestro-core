@@ -9,7 +9,7 @@ publish.workspace = true
 
 [features]
 # Deterministic connection-open instrumentation for cross-crate adapter tests.
-test = []
+test = ["rusqlite/trace"]
 
 [lints]
 workspace = true
@@ -30,5 +30,6 @@ ulid.workspace = true
 rustix.workspace = true
 
 [dev-dependencies]
+rusqlite = { workspace = true, features = ["trace"] }
 maestro-test-scratch.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }

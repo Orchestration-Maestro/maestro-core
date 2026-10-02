@@ -85,6 +85,7 @@ pub(super) fn checkpoint(
                 evidence.to_string()
             ],
         )?;
+        super::partition_history::record(db, tx, (writer, &scope), batch, sequence)?;
         Ok(())
     })
 }

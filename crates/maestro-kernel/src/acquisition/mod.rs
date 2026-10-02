@@ -17,6 +17,8 @@ pub use receipt::{
 pub use record::{Item, NewItem};
 
 mod capture;
+mod capture_page;
+pub use capture_page::{CaptureLookup, CapturePage};
 mod envelope;
 mod headers;
 pub use capture::{CaptureContext, Captures, PreparedCapture};
@@ -27,6 +29,9 @@ pub use envelope::{
 pub use headers::{safe_header_names, safe_headers, safe_media};
 
 mod partition;
+mod partition_captures;
+mod partition_history;
+pub use partition_history::{DepthEvidence, DepthPage, PartitionSummary};
 mod partition_checkpoint;
 mod partition_record;
 pub use partition::Partitions;

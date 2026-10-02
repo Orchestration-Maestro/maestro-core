@@ -42,11 +42,19 @@ fn n36_verification_respects_source_and_aggregate_partition_caps() {
                 .all(|state| state.accepted.is_some() == enough)
         );
         if !enough {
+            assert!(report.pending.iter().any(|entry| {
+                entry.reason == "inventory_or_partition_limit"
+                    && entry
+                        .partition_limit
+                        .as_ref()
+                        .is_some_and(|limit| limit.chunks == 2 && limit.ceiling == 1)
+            }));
+        }
+        if !enough {
             assert!(
                 report
-                    .pending
-                    .iter()
-                    .any(|entry| entry.reason == "inventory_or_partition_limit")
+                    .text()
+                    .contains("verification needs 2 chunks; limits.partitions ceiling 1")
             );
         }
         let receipt = fixture

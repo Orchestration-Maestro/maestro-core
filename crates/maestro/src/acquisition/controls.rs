@@ -23,12 +23,13 @@ use maestro_acquisition::{
     },
 };
 use maestro_kernel::{
-    acquisition::{Batch, CaptureEnvelope, Handle, Receipt, SourceLease},
+    acquisition::{CaptureEnvelope, CaptureLookup, ChangeKeys, Handle, Receipt, SourceLease},
     artifact::Digest,
     scope::Scope,
 };
 use std::{
     cell::RefCell,
+    collections::{BTreeMap, BTreeSet},
     num::NonZeroUsize,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
@@ -241,8 +242,14 @@ pub(crate) struct SourceWork<'a, S, T> {
 pub(crate) struct CaptureWork<'a, 'b, S, T> {
     /// Prior acknowledged source evidence when this run revalidates an item.
     pub(crate) previous: Option<&'a CaptureEnvelope>,
-    /// Prior immutable checkpoints for verified offline continuation.
-    pub(crate) checkpoints: &'a [Batch],
+    /// Current page's verified immutable linkage, before refresh.
+    pub(crate) observed: Option<&'a CaptureLookup>,
+    /// Precomputed checkpoint-backed parent handles.
+    pub(crate) prepared_handles: &'a BTreeSet<Handle>,
+    /// Captured child markers maintained once per traversal.
+    pub(crate) captured_children: &'a mut BTreeSet<String>,
+    /// Already validated keys carried into Verification coverage.
+    pub(crate) keys: &'a mut BTreeMap<ulid::Ulid, ChangeKeys>,
     /// Existing source composition and ports.
     pub(crate) source: &'a SourceWork<'b, S, T>,
     /// Current fenced writer.

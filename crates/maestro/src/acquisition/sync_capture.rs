@@ -1,6 +1,6 @@
 //! Public HTTP, immutable capture and offline discovery under one current writer.
 use super::{
-    controls::{CaptureWork, SourceWork, decision, millis, request, storage},
+    controls::{CaptureWork, decision, millis, request, storage},
     output::{Entry, Report},
     sync_discovery::discovery,
 };
@@ -18,7 +18,7 @@ use maestro_acquisition::{
 };
 use maestro_kernel::{
     acquisition::{
-        Batch, CaptureContext, CaptureEnvelope, Captures, DispatchRequest, Frontier, Handle, Item,
+        CaptureContext, CaptureEnvelope, Captures, DispatchRequest, Frontier, Handle, Item,
         ItemDisposition, LeaseRequest, Partitions, Receipts, Representation, SafeIdentity,
         StageItem, Transport,
     },
@@ -32,28 +32,20 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 /// Verified reuse is not revalidation, and starts no fetch.
 fn reuse<S: Captures + Receipts, T>(
-    work: &CaptureWork<'_, '_, S, T>,
+    work: &mut CaptureWork<'_, '_, S, T>,
     item: &Item,
     report: &mut Report,
 ) -> Result<Option<StageItem>, Failure> {
     if item.capture.is_none() {
         return Ok(None);
     }
-    let evidence = work
-        .source
-        .store
-        .capture_for(work.source.scope, item)
-        .map_err(|_| storage())?;
-    let Some(handle) = evidence else {
+    let Some(observed) = work.observed.filter(|capture| capture.acknowledged) else {
         return Ok(None);
     };
-    let bytes = work
-        .source
-        .store
-        .read(work.source.runtime.kernel_principal, handle)
-        .map_err(|_| storage())?
-        .ok_or_else(storage)?;
-    let envelope: CaptureEnvelope = serde_json::from_slice(bytes.bytes()).map_err(|_| storage())?;
+    let handle = observed.handle;
+    let envelope = &observed.envelope;
+    work.keys
+        .insert(item.id, super::sync_keys::observed_keys(envelope, item)?);
     let mut entry = Entry::new(
         &item.request.fetch_identity,
         "captured_earlier_not_revalidated",
@@ -93,7 +85,11 @@ where
         ));
         return Ok(stage);
     }
-    if let Some(handle) = prepared_parent(work.source, work.checkpoints, item)? {
+    if let Some(handle) = work
+        .observed
+        .map(|capture| capture.handle)
+        .filter(|handle| work.prepared_handles.contains(handle))
+    {
         return resume(work, item, handle, depth, report).await;
     }
     let Some((context, response)) = fetch_item(work, item, report).await? else {
@@ -122,9 +118,13 @@ where
         ));
         return Ok(stage);
     };
+    work.keys
+        .insert(item.id, super::sync_keys::observed_keys(&envelope, item)?);
     stage.evidence = Some(handle);
     let acknowledged = interpret(work, (&context, handle), (&envelope, depth), report).await?;
     if acknowledged {
+        work.captured_children
+            .insert(item.request.fetch_identity.clone());
         stage.disposition = if work
             .previous
             .is_some_and(|previous| same_capture(previous, &envelope))
@@ -189,6 +189,12 @@ async fn resume<S: Frontier + Captures + Partitions + Receipts, T>(
         .read_capture(&context, handle, work.accounting.limits().dom_bytes.get())
         .map_err(|_| storage())?;
     let acknowledged = interpret(work, (&context, handle), (&envelope, depth), report).await?;
+    work.keys
+        .insert(item.id, super::sync_keys::observed_keys(&envelope, item)?);
+    if acknowledged {
+        work.captured_children
+            .insert(item.request.fetch_identity.clone());
+    }
     let stage = StageItem {
         item: item.id.to_string().parse().map_err(|_| storage())?,
         evidence: Some(handle),
@@ -230,22 +236,6 @@ async fn interpret<S: Frontier + Captures + Partitions + Receipts, T>(
         ));
         Ok(false)
     }
-}
-/// Locate checkpoint-backed parent evidence; current lease verification follows before reuse.
-pub(crate) fn prepared_parent<S: Receipts + Captures, T>(
-    work: &SourceWork<'_, S, T>,
-    checkpoints: &[Batch],
-    item: &Item,
-) -> Result<Option<Handle>, Failure> {
-    let current = work
-        .store
-        .prepared_for(work.scope, item)
-        .map_err(|_| storage())?;
-    Ok(current.filter(|handle| {
-        checkpoints
-            .iter()
-            .any(|batch| batch.capture == Some(*handle))
-    }))
 }
 /// Fresh readiness, leases and the actual N09 operation share the same guards.
 async fn fetch_item<S, T>(

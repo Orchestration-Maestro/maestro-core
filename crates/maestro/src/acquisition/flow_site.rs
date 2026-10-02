@@ -28,6 +28,8 @@ pub(super) enum Revision {
     Original,
     /// Edited/deleted replies plus link-only discovery.
     Changed,
+    /// HTML leaves for deterministic scale fixtures.
+    ScaleHtml,
     /// Validator-only changes with identical bytes.
     Metadata,
 }
@@ -125,6 +127,9 @@ async fn serve(mut server: DuplexStream, site: Site) {
             "Content-Type: text/html\r\n",
             "<a href='/docs/beyond'>beyond</a>",
         ),
+        _ if site.revision == Revision::ScaleHtml && path.starts_with("/docs/legacy-") => {
+            (200, "Content-Type: text/html\r\n", "empty HTML leaf")
+        }
         _ if path.starts_with("/docs/legacy-") => (
             200,
             "Content-Type: application/pdf\r\n",

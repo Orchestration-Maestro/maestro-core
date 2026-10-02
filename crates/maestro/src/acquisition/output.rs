@@ -21,6 +21,30 @@ pub(crate) struct Entry {
     /// Public owner preview only; absent in all durable summaries.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub(crate) url: Option<String>,
+    /// Verification chunk requirement and the effective per-run partition ceiling.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub(crate) partition_limit: Option<PartitionLimit>,
+}
+/// Content-free explanation of a Verification partition hold.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PartitionLimit {
+    /// Total Verification chunks needed for this source sweep.
+    pub(crate) chunks: u64,
+    /// Effective source/aggregate per-run partition ceiling.
+    pub(crate) ceiling: u64,
+}
+impl PartitionLimit {
+    /// Explain the durable source hold without leaking source identity.
+    fn text(&self) -> String {
+        format!(
+            concat!(
+                "verification needs {} chunks; limits.partitions ceiling {}; ",
+                "raise limits.partitions to complete this sweep"
+            ),
+            self.chunks, self.ceiling,
+        )
+    }
 }
 /// Authorized manual capture result, not an embedding or lifecycle claim.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,6 +96,7 @@ impl Report {
             reason,
             url: None,
             observed_ms: None,
+            partition_limit: None,
         };
         if excluded.reason.pending() {
             self.pending.push(entry);
@@ -135,6 +160,7 @@ impl Report {
             ("discarded", &self.discarded),
         ] {
             for entry in entries {
+                lines.extend(entry.partition_limit.iter().map(PartitionLimit::text));
                 lines.push(format!(
                     "{disposition}: {} ({})",
                     entry.url.as_deref().unwrap_or(entry.reference.as_str()),
@@ -154,6 +180,7 @@ impl Entry {
             reason: reason.into(),
             url: None,
             observed_ms: None,
+            partition_limit: None,
         }
     }
 }

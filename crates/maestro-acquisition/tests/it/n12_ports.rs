@@ -4,6 +4,7 @@ use maestro_acquisition::{
     capture::{CaptureBudget, CaptureContext, CaptureEnvelope, Captures, prepare},
     transport::budget::Usage,
 };
+use maestro_kernel::acquisition::CapturePage;
 use maestro_kernel::{acquisition::Item, scope::Scope};
 use maestro_kernel::{
     acquisition::{DispatchRequest, Frontier, Handle, LeaseRequest, PreparedCapture, ReceiptError},
@@ -14,6 +15,10 @@ use std::time::Duration;
 /// Fault adapter models a caller dying after the durable prepare commit.
 struct CrashAfterPrepare<'a>(&'a Database, bool);
 impl Captures for CrashAfterPrepare<'_> {
+    fn capture_page(&self, scope: &Scope, items: &[Item]) -> Result<CapturePage, ReceiptError> {
+        self.0.capture_page(scope, items)
+    }
+
     fn prepared_for(&self, scope: &Scope, item: &Item) -> Result<Option<Handle>, ReceiptError> {
         self.0.prepared_for(scope, item)
     }

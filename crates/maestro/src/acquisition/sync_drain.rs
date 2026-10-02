@@ -2,7 +2,7 @@
 use super::{
     controls::{CaptureWork, SourceWork, storage},
     output::{Entry, Report},
-    sync_capture::{capture, prepared_parent},
+    sync_capture::capture,
     sync_disposition::exclusion,
 };
 use crate::failure::Failure;
@@ -13,8 +13,9 @@ use maestro_acquisition::{
 };
 use maestro_kernel::{
     acquisition::{
-        Batch, CaptureEnvelope, Captures, Frontier, Handle, Item, ItemDisposition, Partitions,
-        Receipts, SourceLease, StageItem, Window, WorkCursor, WorkItem,
+        CaptureEnvelope, CaptureLookup, Captures, ChangeKeys, Frontier, Handle, Item,
+        ItemDisposition, Partitions, Receipts, SourceLease, StageItem, Window, WorkCursor,
+        WorkItem,
     },
     artifact::Digest,
 };
@@ -37,7 +38,11 @@ pub(super) struct Drain<'a> {
     /// Full aggregate allocation envelope, independent of source-local bounds.
     pub(super) aggregate_bounds: &'a [Limits],
     /// Existing scoped checkpoint provenance, including prepared parent evidence.
-    pub(super) checkpoints: Vec<Batch>,
+    pub(super) prepared_handles: BTreeSet<Handle>,
+    /// Captured child markers, scanned once and maintained through refresh/acknowledgment.
+    pub(super) captured_children: BTreeSet<String>,
+    /// Provenance-validated change keys, never reread during coverage.
+    pub(super) keys: BTreeMap<Ulid, ChangeKeys>,
     /// No aggregate headroom can dispatch new work.
     pub(super) exhausted: bool,
     /// Seed and newly discovered item depths, not a queue of dispatch requests.
@@ -108,9 +113,25 @@ where
             break;
         }
         after = page.last().map(|item| item.cursor);
+        let unseen: Vec<_> = page
+            .iter()
+            .filter(|row| !state.seen.contains(&row.item.id))
+            .map(|row| row.item.clone())
+            .collect();
+        let captures = work
+            .store
+            .capture_page(work.scope, &unseen)
+            .map_err(|_| storage())?;
         for item in page {
             if state.seen.insert(item.item.id) {
-                visit(work, (writer, bounds), &item, state, report).await?;
+                visit(
+                    work,
+                    (writer, bounds),
+                    (&item, captures.get(&item.item.id)),
+                    state,
+                    report,
+                )
+                .await?;
             }
         }
     }
@@ -120,7 +141,7 @@ where
 async fn visit<S, T>(
     work: &SourceWork<'_, S, T>,
     owned: (&SourceLease, &[Limits]),
-    row: &WorkItem,
+    current: (&WorkItem, Option<&CaptureLookup>),
     state: &mut Drain<'_>,
     report: &mut Report,
 ) -> Result<(), Failure>
@@ -131,15 +152,22 @@ where
 {
     let (writer, bounds) = owned;
     let limits = bounds.first().ok_or_else(storage)?;
+    let (row, observed) = current;
     let original = &row.item;
     if let Some(excluded) = exclusion(work, original, report)? {
         state.inventory.insert(original.id, excluded);
         return Ok(());
     }
-    let (refreshed, previous) = refresh(work, writer, row, state)?;
+    let (refreshed, previous) = refresh(work, writer, (row, observed), state)?;
     let item = &refreshed;
-    let reusable =
-        item.capture.is_some() || prepared_parent(work, &state.checkpoints, item)?.is_some();
+    let observed = if previous.is_some() {
+        state.captured_children.remove(&item.request.fetch_identity);
+        None
+    } else {
+        observed
+    };
+    let reusable = item.capture.is_some()
+        || observed.is_some_and(|capture| state.prepared_handles.contains(&capture.handle));
     let reference = Digest::of(item.request.fetch_identity.as_bytes());
     let depth = state.depths.get(&reference).copied();
     let previous_partitions = state.partitions.len();
@@ -172,7 +200,10 @@ where
         let mut capture_work = CaptureWork {
             previous: previous.as_ref(),
             source: work,
-            checkpoints: &state.checkpoints,
+            observed,
+            prepared_handles: &state.prepared_handles,
+            captured_children: &mut state.captured_children,
+            keys: &mut state.keys,
             writer,
             reservation,
             bounds,
@@ -215,9 +246,10 @@ where
 fn refresh<S: Captures + Frontier + Receipts, T>(
     work: &SourceWork<'_, S, T>,
     writer: &SourceLease,
-    row: &WorkItem,
+    current: (&WorkItem, Option<&CaptureLookup>),
     state: &Drain<'_>,
 ) -> Result<(Item, Option<CaptureEnvelope>), Failure> {
+    let (row, observed) = current;
     let original = &row.item;
     let revalidate = due(
         work.runtime.mode,
@@ -226,18 +258,12 @@ fn refresh<S: Captures + Frontier + Receipts, T>(
         &state.due_window,
     );
     let previous = if original.capture.is_some() && revalidate {
-        let handle = work
-            .store
-            .capture_for(work.scope, original)
-            .map_err(|_| storage())?
-            .ok_or_else(storage)?;
-        let bytes = work
-            .store
-            .read(work.runtime.kernel_principal, handle)
-            .map_err(|_| storage())?
-            .ok_or_else(storage)?;
-        let envelope: CaptureEnvelope =
-            serde_json::from_slice(bytes.bytes()).map_err(|_| storage())?;
+        let envelope = observed
+            .filter(|capture| capture.acknowledged)
+            .ok_or_else(storage)?
+            .envelope
+            .clone();
+        super::sync_keys::observed_keys(&envelope, original)?;
         work.store
             .refresh(writer, original.id, SystemTime::now())
             .map_err(|_| storage())?;

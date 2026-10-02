@@ -211,7 +211,7 @@ fn n36_verification_keys_refuse_foreign_capture_provenance() {
             3 => observed.profile = Digest::of(b"other profile"),
             _ => {}
         }
-        let result = super::sync_window::observed_keys(&observed, &item);
+        let result = super::sync_keys::observed_keys(&observed, &item);
         assert_eq!(
             result.is_ok(),
             field == 4,

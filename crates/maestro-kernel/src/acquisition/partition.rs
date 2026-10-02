@@ -1,21 +1,34 @@
 //! Durable checkpoints reuse the frontier; complete snapshots never replace them.
 use super::{
-    capture::Captures,
-    envelope::CaptureEnvelope,
     lease,
     lease::SourceLease,
     partition_checkpoint::{checkpoint, held},
-    partition_record::{AcceptedPartition, Batch, DiscoveredItem, PartitionState},
+    partition_history::{self, DepthEvidence, DepthPage, PartitionSummary},
+    partition_record::{AcceptedPartition, Batch, PartitionState},
     privacy,
     privacy::{Handle, ReceiptError},
-    record::{COLUMNS, item_row},
 };
-use crate::{artifact::Digest, scope::Scope, store::Database};
-use rusqlite::{Connection, OptionalExtension as _, params};
+use crate::{scope::Scope, store::Database};
+use rusqlite::{OptionalExtension as _, params};
 use std::{collections::BTreeSet, time::SystemTime};
 
 /// Replaceable kernel partition boundary over the existing frontier.
 pub trait Partitions: Send + Sync {
+    /// Read immutable batch summaries without historical inventories or pending lookups.
+    /// # Errors
+    /// Invalid bounds or unreadable scoped storage refuse.
+    fn summary_page(
+        &self,
+        scope: &Scope,
+        source: &str,
+        after: Option<(Handle, u32)>,
+        limit: u16,
+    ) -> Result<Vec<PartitionSummary>, ReceiptError>;
+    /// Read bounded first-in-history traversal depths for the exact effective context.
+    /// # Errors
+    /// Invalid bounds or unreadable scoped storage refuse.
+    fn depth_page(&self, page: &DepthPage<'_>) -> Result<Vec<DepthEvidence>, ReceiptError>;
+
     /// Page existing checkpoint identities for current source provenance recovery.
     /// # Errors
     /// Invalid page bounds or unreadable storage refuse.
@@ -54,6 +67,19 @@ pub trait Partitions: Send + Sync {
     ) -> Result<Option<PartitionState>, ReceiptError>;
 }
 impl Partitions for Database {
+    fn summary_page(
+        &self,
+        scope: &Scope,
+        source: &str,
+        after: Option<(Handle, u32)>,
+        limit: u16,
+    ) -> Result<Vec<PartitionSummary>, ReceiptError> {
+        partition_history::summaries(self, scope, source, after, limit)
+    }
+    fn depth_page(&self, page: &DepthPage<'_>) -> Result<Vec<DepthEvidence>, ReceiptError> {
+        partition_history::depths(self, page)
+    }
+
     fn partition_page(
         &self,
         scope: &Scope,
@@ -182,11 +208,8 @@ impl Database {
             return Err(ReceiptError::Invalid);
         }
         for batch in &state.batches {
-            for discovered in &batch.items {
-                let handle = self
-                    .bound_capture(&reader, &scope, &source, discovered)?
-                    .ok_or(ReceiptError::Conflict)?;
-                references.push(handle);
+            for handle in super::partition_captures::bound(self, &scope, &source, &batch.items)? {
+                references.push(handle.ok_or(ReceiptError::Conflict)?);
             }
         }
         if state.accepted.is_some() {
@@ -230,10 +253,15 @@ impl Database {
         source: &str,
         batches: &[Batch],
     ) -> Result<u16, ReceiptError> {
-        let reader = self.reader()?;
         let mut pending = BTreeSet::new();
-        for item in batches.iter().flat_map(|batch| &batch.items) {
-            if self.bound_capture(&reader, scope, source, item)?.is_none() {
+        for batch in batches {
+            let handles = super::partition_captures::bound(self, scope, source, &batch.items)?;
+            for (item, _) in batch
+                .items
+                .iter()
+                .zip(handles)
+                .filter(|(_, handle)| handle.is_none())
+            {
                 pending.insert((
                     &item.request.fetch_identity,
                     &item.request.authorization_context,
@@ -244,55 +272,6 @@ impl Database {
         u16::try_from(pending.len()).map_err(|_| ReceiptError::Invalid)
     }
 
-    /// The checkpoint may claim only change evidence bound to acknowledged bytes.
-    fn bound_capture(
-        &self,
-        reader: &Connection,
-        scope: &Scope,
-        source: &str,
-        discovered: &DiscoveredItem,
-    ) -> Result<Option<Handle>, ReceiptError> {
-        let item = reader
-            .query_row(
-                &format!(
-                    "SELECT {COLUMNS} FROM acquisition_frontier WHERE source = ?1
-                AND fetch_identity = ?2 AND authorization_context = ?3
-                AND representation_profile = ?4"
-                ),
-                params![
-                    source,
-                    discovered.request.fetch_identity,
-                    discovered.request.authorization_context.as_str(),
-                    discovered.request.representation_profile.as_str()
-                ],
-                item_row,
-            )
-            .optional()?;
-        let Some(item) = item else {
-            return Ok(None);
-        };
-        let Some(handle) = self.capture_for(scope, &item)? else {
-            return Ok(None);
-        };
-        let envelope: CaptureEnvelope =
-            serde_json::from_slice(&privacy::snapshot_on(self, reader, &handle.to_string())?)?;
-        let validator = Digest::of(&serde_json::to_vec(&envelope.headers)?);
-        if discovered.keys.revision.is_some()
-            || discovered
-                .keys
-                .validator
-                .as_ref()
-                .is_some_and(|key| *key != validator)
-            || discovered
-                .keys
-                .representation
-                .as_ref()
-                .is_some_and(|key| *key != envelope.artifact)
-        {
-            return Ok(None);
-        }
-        Ok(Some(handle))
-    }
     /// Immutable checkpoint handles, ordered by their validated continuation chain.
     fn batch_handles(&self, partition: Handle) -> Result<Vec<Handle>, ReceiptError> {
         let reader = self.reader()?;

@@ -50,3 +50,43 @@ CREATE TRIGGER acquisition_partition_items_never_delete
 BEFORE DELETE ON acquisition_partition_items BEGIN
     SELECT RAISE(ABORT, 'partition inventory is immutable');
 END;
+
+
+-- Derived immutable metadata; Batch artifacts remain the authoritative evidence.
+CREATE TABLE acquisition_partition_summaries (
+    partition TEXT NOT NULL,
+    sequence INTEGER NOT NULL,
+    run TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    window TEXT NOT NULL,
+    verification_final INTEGER NOT NULL CHECK (verification_final IN (0, 1)),
+    committable INTEGER NOT NULL CHECK (committable IN (0, 1)),
+    capture TEXT REFERENCES acquisition_evidence(id),
+    PRIMARY KEY (partition, sequence),
+    FOREIGN KEY (partition, sequence) REFERENCES acquisition_partition_batches(partition, sequence)
+) STRICT;
+CREATE INDEX acquisition_partitions_source_history ON acquisition_partitions(scope, source, id);
+CREATE TRIGGER acquisition_partition_summaries_never_change
+BEFORE UPDATE ON acquisition_partition_summaries BEGIN
+    SELECT RAISE(ABORT, 'partition summary is immutable');
+END;
+CREATE TRIGGER acquisition_partition_summaries_never_delete
+BEFORE DELETE ON acquisition_partition_summaries BEGIN
+    SELECT RAISE(ABORT, 'partition summary is immutable');
+END;
+
+-- First-in-partition-ID-order depth for each effective identity, not a work queue.
+CREATE TABLE acquisition_depths (
+    source TEXT NOT NULL REFERENCES acquisition_sources(source),
+    scope TEXT NOT NULL,
+    fetch_identity TEXT NOT NULL,
+    authorization_context TEXT NOT NULL,
+    representation_profile TEXT NOT NULL,
+    partition TEXT NOT NULL,
+    sequence INTEGER NOT NULL,
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    depth TEXT NOT NULL,
+    capture TEXT NOT NULL REFERENCES acquisition_evidence(id),
+    PRIMARY KEY (source, scope, authorization_context, representation_profile, fetch_identity),
+    FOREIGN KEY (partition, sequence) REFERENCES acquisition_partition_batches(partition, sequence)
+) STRICT;

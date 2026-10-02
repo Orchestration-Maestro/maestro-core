@@ -196,6 +196,19 @@ impl Database {
         self.reader_opens.load(Ordering::Relaxed)
     }
 
+    /// Executed SQL statements on this thread, including transactions.
+    #[cfg(any(test, feature = "test"))]
+    #[must_use]
+    pub fn statement_count(&self) -> u64 {
+        super::statement_counts::statements()
+    }
+    /// Single-item capture-link lookups on this thread.
+    #[cfg(any(test, feature = "test"))]
+    #[must_use]
+    pub fn item_lookup_count(&self) -> u64 {
+        super::statement_counts::item_lookups()
+    }
+
     /// A connection of its own that only reads, and sees the last commit,
     /// never a write in progress.
     ///
@@ -250,6 +263,8 @@ pub fn pending_migrations(data: &Path) -> Result<Vec<&'static str>, Error> {
 /// bundled SQLite default to the first two; the kernel does not depend on it.
 /// No trigger of the kernel writes, so none fires another.
 pub(super) fn configured(connection: Connection) -> Result<Connection, Error> {
+    #[cfg(any(test, feature = "test"))]
+    super::statement_counts::install(&connection);
     connection.busy_timeout(BUSY_TIMEOUT)?;
     connection.pragma_update(None, "foreign_keys", true)?;
     connection.pragma_update(None, "recursive_triggers", true)?;
