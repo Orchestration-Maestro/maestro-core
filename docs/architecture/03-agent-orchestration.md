@@ -159,9 +159,16 @@ resource. Raw MCP config entries are not resources or `mcp:` edges.
 | Policy | Cedar policies + a Cedar schema | — |
 | Knowledge source | `source.toml` plus strict JSON policy/decision/promotion/identity-migration companions | Source-owned URL rules, exact inventory/digests and signed-release plus recorded ownership-review admission; core-derived schemas and valid/invalid fixtures under ADR-0014 |
 | Model card | Area-relative `llm/models/<role>/<local-name>.toml`; seed cards under `core/llm/models/` | Common resource metadata, a model-card `version` field and the exact nested kernel v2 `CardIdentity`; canonical JSON/fingerprint remain kernel-owned |
-| Area closure | One `package.toml` at common/core/team/language/standard root | Kind/name/version, owners and optional maintainers, description/status, maturity/rows and qualified `requires`; resource ownership derives from its area |
+| Area closure | One `package.toml` at common/core/team/language/standard root | Kind/name/version, owners and optional maintainers, description/status, maturity/rows and qualified `requires`; optional `runtime` and `dependency_pins` below; resource ownership derives from its area |
 | Backend/host config | Core `backends/<role>/config.toml`, package add-or-narrow role files; approved core host maps | Typed registered bases/bindings and ten explicit hook states; no replacement endpoint, server shadow, arbitrary adapter code or launch |
 | Preset | Global `presets/<name>.toml` | Exact package/language requirements, mandatory standards and optional area/inventory `templates` selectors; no source file paths or directory globs |
+
+Area version fields are top-level and optional:
+
+| Field | Phase 1 contract |
+| --- | --- |
+| `runtime` | Stable exact `=A.B.C` or one `>=A.B.C, <D.E.F` interval, checked against the current Maestro runtime. Other requirement shapes refuse. |
+| `dependency_pins` | Table from fully qualified required area IDs (`package:common`, `language:rust`, `standard:security`) to stable exact `=A.B.C` pins. Each must equal the checked snapshot's target version. Unpinned requirements use that snapshot's single version; conflicting pins refuse regardless of order. Intervals belong to Phase 2. |
 
 **URL rules (owner, 20:45):** manifests are their sole home. Collections carry
 strict `collection.json` and reference source rules; core has no real per-site

@@ -30,6 +30,7 @@ mod standards;
 pub(crate) mod tests;
 pub(crate) mod tree;
 mod types;
+mod versions;
 mod walk;
 mod yaml;
 

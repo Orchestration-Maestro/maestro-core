@@ -1294,6 +1294,8 @@ marker; authoring and bundle schemas are separate and versioned.
 
 ### C11 Hostile bundle reader [US2] (4 h)
 
+The bundle reader verifies C53a's exact package pins and runtime compatibility
+
 **Phase:** P1/M3
 
 **After:** C10, C03a (model-card hook for the unsupported-role refusal).
@@ -2826,7 +2828,7 @@ No invented pin, duplicate server registry or extra seed charge; estimate stays 
 **Design coverage:** MD08 (approved design §8.4).
 **Named tests:** `exact_package_pins_accept`, `conflicting_exact_pin_refuses`, `incompatible_runtime_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
 - [ ] **Step 2: Green.** Exact package version/dependency pins and existing runtime compatibility; conflicting exact pins refuse.
 - [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
@@ -2834,6 +2836,8 @@ No invented pin, duplicate server registry or extra seed charge; estimate stays 
   Record nonzero test counts, exact exits, applicable lane gates and review.
 
 **Acceptance:** Exact package version/dependency pins and existing runtime compatibility; conflicting exact pins refuse.
+
+Source/package checks are delivered; C53a remains partial until C11 verifies the bundle part.
 
 ### C53b Intervals and signed deprecation [US1, US5] (3 h)
 

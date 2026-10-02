@@ -629,6 +629,7 @@ in place.
 │   │   │   │   │   ├── selection.rs                                         # C34 selection admission, distinct from partial source checking
 │   │   │   │   │   ├── standards.rs                                         # C81a mandatory standards and inert registered machine checks
 │   │   │   │   │   ├── support.rs                                           # An in-memory [SourceTree] adapter holding the valid synthetic catalog
+│   │   │   │   │   ├── versions.rs                                          # C53a exact area pins and bounded runtime compatibility neighbours
 │   │   │   │   │   └── yaml.rs                                              # YAML read node by node at injected limits: the exact node budget and
 │   │   │   │   ├── area_walk.rs                                             # Scoped discovery over the bounded snapshot
 │   │   │   │   ├── backend_extensions.rs                                    # Owner-local, inert backend additions and descriptor-checked ceiling minima
@@ -656,6 +657,7 @@ in place.
 │   │   │   │   ├── standards.rs                                             # Standard settings use the S1 descriptors and the single C17 resolver
 │   │   │   │   ├── tree.rs                                                  # The port through which the checker reads a catalog's files, and its
 │   │   │   │   ├── types.rs                                                 # The catalog's authoring schema, maestro-source/1, as typed data
+│   │   │   │   ├── versions.rs                                              # Phase 1 area versions: exact dependency pins and bounded runtime requirements
 │   │   │   │   ├── walk.rs                                                  # Discovery: the catalog's top level, then each registered kind's
 │   │   │   │   └── yaml.rs                                                  # YAML frontmatter read node by node, never as a whole generic tree first
 │   │   │   ├── adapters.rs                                                  # Shared reviewed adapter naming metadata

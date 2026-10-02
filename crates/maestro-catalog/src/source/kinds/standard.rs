@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 /// A standard is mandatory by kind; no optional/disable field is admitted.
 pub(super) fn descriptor() -> KindDescriptor {
     let mut descriptor = package::descriptor("standard", vec![Scope::Standard]);
-    descriptor.version = 4;
+    descriptor.version = 5;
     descriptor
         .fields
         .retain(|field| field.key != "settings" && field.key != "exceptions");
@@ -70,6 +70,7 @@ impl KindRules for StandardRules {
         catalog: &BTreeMap<ResourceId, &Resource>,
         problems: &mut Problems,
     ) {
+        PackageRules.check_catalog(resource, catalog, problems);
         duplicate_rules(resource, catalog, problems);
     }
 }

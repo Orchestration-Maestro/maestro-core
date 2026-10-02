@@ -1,20 +1,20 @@
 //! Area closure roots; the shared checker enforces dependency layers and
 //! preset membership. Selection admission checks the mandatory root closure.
 
-use crate::source::{backend_extensions, standards};
+use crate::source::{backend_extensions, standards, versions};
 use crate::source::{
     descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
     rules::KindRules,
     types::{Known, Maturity, Problems, Resource, ResourceId, Value},
 };
-use semver::Version;
 use serde::Deserialize;
+use std::collections::BTreeMap;
 
 /// One area kind and its registered roots, never a language/standard package alias.
 pub(super) fn descriptor(kind: &str, scopes: Vec<Scope>) -> KindDescriptor {
     let mut descriptor = KindDescriptor {
         kind: kind.to_owned(),
-        version: if kind == "package" { 4 } else { 3 },
+        version: if kind == "package" { 5 } else { 4 },
         directory: String::new(),
         scopes,
         layout: Layout::Area {
@@ -33,6 +33,8 @@ pub(super) fn descriptor(kind: &str, scopes: Vec<Scope>) -> KindDescriptor {
             Field::optional("maintainers", FieldType::TextList),
             Field::required("description", FieldType::Text),
             Field::required("status", FieldType::Text),
+            Field::optional("runtime", FieldType::Text),
+            Field::optional("dependency_pins", FieldType::ScalarTable),
         ],
         body: false,
         requires: vec!["*".to_owned()],
@@ -75,6 +77,7 @@ impl KindRules for PackageRules {
         _known: Known<'_>,
         problems: &mut Problems,
     ) {
+        versions::check_resource(resource, problems);
         if let Err(message) = backend_extensions::selectors(resource) {
             problems.push(("backend_extensions".to_owned(), message));
         }
@@ -88,7 +91,7 @@ impl KindRules for PackageRules {
             .fields
             .get("version")
             .and_then(Value::text)
-            .is_none_or(|version| Version::parse(version).is_err())
+            .is_none_or(|version| versions::exact_version(version).is_err())
         {
             problems.push((
                 "version".to_owned(),
@@ -113,6 +116,15 @@ impl KindRules for PackageRules {
                 "must be active, deprecated or retired".to_owned(),
             ));
         }
+    }
+
+    fn check_catalog(
+        &self,
+        resource: &Resource,
+        catalog: &BTreeMap<ResourceId, &Resource>,
+        problems: &mut Problems,
+    ) {
+        versions::check_catalog(resource, catalog, problems);
     }
 
     fn assets(&self, resource: &Resource) -> Result<Vec<String>, String> {
