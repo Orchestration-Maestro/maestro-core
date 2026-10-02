@@ -7,6 +7,7 @@ use crate::source::{
     rules::KindRules,
     types::{Known, Maturity, Problems, Resource, ResourceId, Value},
 };
+use semver::Version;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -91,7 +92,7 @@ impl KindRules for PackageRules {
             .fields
             .get("version")
             .and_then(Value::text)
-            .is_none_or(|version| versions::exact_version(version).is_err())
+            .is_none_or(|version| Version::parse(version).is_err())
         {
             problems.push((
                 "version".to_owned(),

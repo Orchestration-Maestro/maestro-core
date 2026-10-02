@@ -217,3 +217,87 @@ fn language_and_standard_pins_use_package_rules() {
         );
     }
 }
+
+#[test]
+fn interval_bounds_refuse_as_unsupported() {
+    for requirement in [">=2.0.0, <1.0.0", ">=1.0.0, <1.0.0"] {
+        let tree = MemoryTree::default().with(
+            "package.toml",
+            &area(
+                "package",
+                "common",
+                &format!("runtime = \"{requirement}\""),
+                "",
+            ),
+        );
+        let message = checked(&tree).unwrap_err().to_string();
+        assert!(
+            message.contains("unsupported in Phase 1"),
+            "{requirement}: {message}"
+        );
+    }
+}
+
+#[test]
+fn malformed_interval_endpoints_refuse() {
+    for requirement in [
+        ">=0.1, <1.0.0",
+        ">=0.1.0-alpha, <1.0.0",
+        ">=0.0.0, <1",
+        ">=0.0.0, <1.0.0-alpha",
+    ] {
+        let tree = MemoryTree::default().with(
+            "package.toml",
+            &area(
+                "package",
+                "common",
+                &format!("runtime = \"{requirement}\""),
+                "",
+            ),
+        );
+        let message = checked(&tree).unwrap_err().to_string();
+        assert!(
+            message.contains("unsupported in Phase 1"),
+            "{requirement}: {message}"
+        );
+    }
+}
+
+#[test]
+fn non_area_required_pin_refuses() {
+    let tree = MemoryTree::valid()
+        .edit(
+            "core/package.toml",
+            "[metadata]",
+            "[dependency_pins]\n\"agent:core/valid\" = \"=1.2.3\"\n[metadata]",
+        )
+        .edit(
+            "core/package.toml",
+            "requires = []",
+            "requires = [\"agent:core/valid\"]",
+        );
+    let message = checked(&tree).unwrap_err().to_string();
+    assert!(message.contains("required area"), "{message}");
+}
+
+#[test]
+fn non_text_pins_refuse() {
+    for scalar in ["1", "1.25", "false"] {
+        let tree = MemoryTree::default()
+            .with("package.toml", &package_source("package", "common"))
+            .with(
+                "core/package.toml",
+                &area(
+                    "package",
+                    "core",
+                    &format!("[dependency_pins]\n\"package:common\" = {scalar}"),
+                    "\"package:common\"",
+                ),
+            );
+        let message = checked(&tree).unwrap_err().to_string();
+        assert!(
+            message.contains("exact") && message.contains("Phase 2"),
+            "{scalar}: {message}"
+        );
+    }
+}
