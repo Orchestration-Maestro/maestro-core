@@ -1,0 +1,159 @@
+//! Content-free run summaries; only the owner's offline public preview includes URLs.
+#[cfg(any(target_os = "linux", test))]
+use maestro_kernel::acquisition::NotEnqueued;
+use maestro_kernel::{
+    acquisition::{Handle, Status},
+    artifact::Digest,
+};
+use serde::{Deserialize, Serialize};
+
+/// A reference has one disposition and one concrete reason.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Entry {
+    /// Content-free identity of the candidate or captured item.
+    pub(crate) reference: Digest,
+    /// Fixed explanation, never raw error text.
+    pub(crate) reason: String,
+    /// Capture observation time, including reuse that was not revalidated.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub(crate) observed_ms: Option<u64>,
+    /// Public owner preview only; absent in all durable summaries.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub(crate) url: Option<String>,
+}
+/// Authorized manual capture result, not an embedding or lifecycle claim.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Report {
+    /// Versioned machine output, first in serialized order.
+    pub(crate) schema: String,
+    /// Complete alone means successful completion.
+    pub(crate) status: Status,
+    /// Unique logical run, absent during preview.
+    pub(crate) run: Option<Handle>,
+    /// Unique durable receipt attempt, absent during preview.
+    pub(crate) receipt: Option<Handle>,
+    /// Offline owner preview decisions; empty in durable capture reports.
+    pub(crate) decisions: Vec<Entry>,
+    /// Distinct captures, not the sum of HTTP attempts and stages.
+    pub(crate) completed: Vec<Entry>,
+    /// Every unresolved reference with its hold reason.
+    pub(crate) pending: Vec<Entry>,
+    /// Exact eligible references beyond bounded inventory, pending at discovery.
+    pub(crate) overflow: u64,
+    /// Every excluded reference with its exclusion reason.
+    pub(crate) discarded: Vec<Entry>,
+}
+impl Report {
+    /// Empty run/preview result, with no implied completed work.
+    pub(crate) fn new() -> Self {
+        Self {
+            schema: "maestro-cli/acquisition/1".into(),
+            status: Status::Pending,
+            run: None,
+            receipt: None,
+            decisions: vec![],
+            completed: vec![],
+            pending: vec![],
+            discarded: vec![],
+            overflow: 0,
+        }
+    }
+    /// One shared classification of durable N13 evidence.
+    #[cfg(any(target_os = "linux", test))]
+    pub(crate) fn not_enqueued(&mut self, excluded: &NotEnqueued) -> Result<(), serde_json::Error> {
+        let reason = serde_json::to_value(excluded.reason)?
+            .as_str()
+            .unwrap_or("unresolved_identity")
+            .to_owned();
+        let entry = Entry {
+            reference: excluded.reference.clone(),
+            reason,
+            url: None,
+            observed_ms: None,
+        };
+        if excluded.reason.pending() {
+            self.pending.push(entry);
+        } else {
+            self.discarded.push(entry);
+        }
+        Ok(())
+    }
+    /// Stable distinct-reference summaries, not dispatch attempt counts.
+    #[cfg(any(target_os = "linux", test))]
+    pub(crate) fn deduplicate(&mut self) {
+        for entries in [&mut self.completed, &mut self.pending, &mut self.discarded] {
+            entries.sort_by(|left, right| {
+                left.reference
+                    .as_str()
+                    .cmp(right.reference.as_str())
+                    .then(left.reason.cmp(&right.reason))
+            });
+            entries.dedup();
+        }
+    }
+    /// Plain text retains every reason, with no hidden partial work.
+    pub(crate) fn text(&self) -> String {
+        if self.run.is_none() {
+            let mut lines = vec![format!(
+                "acquisition preview: {} decisions (no fetches)",
+                self.decisions.len()
+            )];
+            for entry in &self.decisions {
+                lines.push(format!(
+                    "{}: {}",
+                    entry.url.as_deref().unwrap_or(entry.reference.as_str()),
+                    entry.reason
+                ));
+            }
+            return lines.join("\n");
+        }
+
+        let mut lines = vec![format!(
+            concat!(
+                "acquisition {:?}: {} verified byte captures, ",
+                "{} pending references, {} discarded references"
+            ),
+            self.status,
+            self.completed.len(),
+            self.pending.len(),
+            self.discarded.len()
+        )];
+        if self.overflow > 0 {
+            lines.push(format!(
+                "{} links pending: inventory limit reached; rerun to continue",
+                self.overflow
+            ));
+        }
+        if let Some(receipt) = self.receipt {
+            lines.push(format!("receipt {receipt}"));
+        }
+        for (disposition, entries) in [
+            ("completed", &self.completed),
+            ("pending", &self.pending),
+            ("discarded", &self.discarded),
+        ] {
+            for entry in entries {
+                lines.push(format!(
+                    "{disposition}: {} ({})",
+                    entry.url.as_deref().unwrap_or(entry.reference.as_str()),
+                    entry.reason
+                ));
+            }
+        }
+        lines.join("\n")
+    }
+}
+
+impl Entry {
+    /// Fixed content-free disposition for a current candidate.
+    pub(crate) fn new(reference: &str, reason: &str) -> Self {
+        Self {
+            reference: Digest::of(reference.as_bytes()),
+            reason: reason.into(),
+            url: None,
+            observed_ms: None,
+        }
+    }
+}

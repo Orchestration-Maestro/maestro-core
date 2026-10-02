@@ -57,7 +57,7 @@ pub struct ChangeKeys {
     /// Exact canonical link inventory digest.
     pub links: Digest,
     /// Raw representation identity; hidden link changes remain revisions.
-    pub representation: Digest,
+    pub representation: Option<Digest>,
 }
 /// Eligible request handed to the existing frontier, never a competing queue.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -90,8 +90,12 @@ pub struct Batch {
     pub items: Vec<DiscoveredItem>,
     /// Exact extractor/version/function/selector contract; absent for indexes.
     pub extractor: Option<String>,
-    /// Candidate identities excluded by current source policy, hashed for safety.
-    pub denied: Vec<Digest>,
+    /// Parent-page change evidence, absent for index item claims.
+    pub parent_keys: Option<ChangeKeys>,
+    /// Content-free explanations for references not added to the frontier.
+    pub not_enqueued: Vec<NotEnqueued>,
+    /// Eligible references outside the inventory ceiling; pending, never accepted.
+    pub inventory_overflow: u32,
     /// Prepared immutable parent capture, absent for source indexes.
     pub capture: Option<Handle>,
 }
@@ -110,4 +114,39 @@ pub struct PartitionState {
     pub pending: u16,
     /// Separate immutable snapshot; no speculative watermark.
     pub accepted: Option<AcceptedPartition>,
+}
+
+/// Why a discovered reference was not handed to the frontier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NotEnqueuedReason {
+    /// Current policy proves this reference is not eligible.
+    PolicyDenial,
+    /// A well-formed non-HTTPS scheme is not fetch work.
+    NonFetchScheme,
+    /// Identity semantics are unknown; coverage remains pending.
+    UnresolvedIdentity,
+    /// Outside the explicitly declared discovery scope, not a run truncation.
+    BeyondDeclaredDepth,
+    /// The run ceiling stopped discovery within declared scope.
+    RunDepthLimit,
+}
+impl NotEnqueuedReason {
+    /// Pending reasons prevent a completed window; discarded references do not.
+    #[must_use]
+    pub fn pending(self) -> bool {
+        match self {
+            Self::UnresolvedIdentity | Self::RunDepthLimit => true,
+            Self::PolicyDenial | Self::NonFetchScheme | Self::BeyondDeclaredDepth => false,
+        }
+    }
+}
+/// Hashed reference and typed explanation; no source content or URL is stored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NotEnqueued {
+    /// Digest of the exact extracted reference.
+    pub reference: Digest,
+    /// One shared discarded/pending classification.
+    pub reason: NotEnqueuedReason,
 }

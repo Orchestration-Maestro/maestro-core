@@ -6,7 +6,11 @@ use super::{
 };
 use crate::{
     artifact::Digest,
-    job::{events::record_on_stream, lease::times, unsigned},
+    job::{
+        events::record_on_stream,
+        lease::{expire_source, times},
+        unsigned,
+    },
     scope::{Scope, ScopeSet},
     store::{Database, artifacts::pin},
 };
@@ -21,6 +25,10 @@ use ulid::Ulid;
 /// Handles supplied by a connector are untrusted; adapters must recheck their
 /// source, holder and both fencing epochs. No transport runs inside a write.
 pub trait Frontier: Send + Sync {
+    /// Expire only the exact current source writer, leaving its job/work unchanged.
+    /// # Errors
+    /// Expired or taken-over writers return Lost and cannot release a successor.
+    fn release_source(&self, writer: &SourceLease, now: SystemTime) -> Result<(), Error>;
     /// Takes exclusive source ownership, or takes over after its expiry.
     ///
     /// # Errors
@@ -82,6 +90,13 @@ pub trait Frontier: Send + Sync {
 }
 
 impl Frontier for Database {
+    fn release_source(&self, writer: &SourceLease, now: SystemTime) -> Result<(), Error> {
+        self.write(|tx| {
+            lease::held(tx, writer, now)?;
+            expire_source(tx, writer.token, now)?;
+            Ok(())
+        })
+    }
     fn lease_source(
         &self,
         source: &str,

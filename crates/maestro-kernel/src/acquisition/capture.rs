@@ -35,6 +35,11 @@ pub struct PreparedCapture {
 }
 /// Replaceable immutable capture boundary; preparation is a durable checkpoint.
 pub trait Captures: Send + Sync {
+    /// Locate a scoped acknowledged envelope, verifying its immutable linkage.
+    /// Unknown, differently scoped or corrupt capture evidence returns none.
+    /// # Errors
+    /// A content-free storage failure prevents inspection.
+    fn capture_for(&self, scope: &Scope, item: &Item) -> Result<Option<Handle>, ReceiptError>;
     /// Read a prepared capture through its existing verified linkage under the current lease.
     /// A finite byte ceiling is checked before body allocation; admitted artifacts are rehashed.
     /// Over-budget content returns the verified envelope with absent bytes.
@@ -89,6 +94,23 @@ pub trait Captures: Send + Sync {
     ) -> Result<(), ReceiptError>;
 }
 impl Captures for Database {
+    fn capture_for(&self, scope: &Scope, item: &Item) -> Result<Option<Handle>, ReceiptError> {
+        let capture: Option<String> = self
+            .reader()?
+            .query_row(
+                "SELECT envelope FROM acquisition_capture_links WHERE item = ?1",
+                [item.id.to_string()],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(handle) = capture.and_then(|text| text.parse().ok()) else {
+            return Ok(None);
+        };
+        if self.verify_capture(scope, item, handle).is_err() {
+            return Ok(None);
+        }
+        Ok(Some(handle))
+    }
     fn read_capture(
         &self,
         context: &CaptureContext,

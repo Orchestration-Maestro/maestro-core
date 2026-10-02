@@ -190,10 +190,25 @@ fn parent(
     }
     let envelope: CaptureEnvelope =
         serde_json::from_slice(&privacy::snapshot_on(db, reader, &capture.to_string())?)?;
+    let keys = batch.parent_keys.as_ref().ok_or(ReceiptError::Invalid)?;
+    let validator = Digest::of(&serde_json::to_vec(&envelope.headers)?);
+    let metadata = Digest::of(&serde_json::to_vec(&(
+        &envelope.declared_media,
+        &envelope.detected_media,
+    ))?);
+    if keys.representation.as_ref() != Some(&envelope.artifact)
+        || keys.validator.as_ref() != Some(&validator)
+        || keys.metadata.as_ref() != Some(&metadata)
+        || keys.permissions != envelope.authorization_context
+    {
+        return Err(ReceiptError::Invalid);
+    }
     for item in &batch.items {
         if item.request.authorization_context != envelope.authorization_context
             || item.request.representation_profile != envelope.profile
-            || item.keys.representation != envelope.artifact
+            || item.keys.representation.is_some()
+            || item.keys.validator.is_some()
+            || item.keys.metadata.is_some()
         {
             return Err(ReceiptError::Invalid);
         }
@@ -205,11 +220,13 @@ fn validate(batch: &Batch) -> Result<(), ReceiptError> {
     let partition = &batch.partition;
     if partition.window.start >= partition.window.end
         || !(1..=1000).contains(&partition.max_batches)
-        || !(1..=1000).contains(&partition.max_items)
+        || partition.max_items > 1000
+        || (partition.kind == Enumeration::Index && partition.max_items == 0)
         || usize::from(partition.max_batches) + usize::from(partition.max_items)
             > privacy::MAX_REFERENCES
         || batch.items.len() > usize::from(partition.max_items)
-        || batch.denied.len() > 1000
+        || (batch.inventory_overflow > 0 && !batch.truncated)
+        || batch.not_enqueued.len() > 1000
     {
         return Err(ReceiptError::Invalid);
     }

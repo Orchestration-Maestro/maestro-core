@@ -53,7 +53,7 @@ pub(super) fn item(fixture: &Fixture, suffix: &str) -> DiscoveredItem {
             metadata: Some(Digest::of(b"metadata")),
             permissions: fixture.envelope.authorization_context.clone(),
             links: Digest::of(suffix.as_bytes()),
-            representation: fixture.envelope.artifact.clone(),
+            representation: Some(fixture.envelope.artifact.clone()),
         },
     }
 }
@@ -70,7 +70,9 @@ pub(super) fn batch(fixture: &Fixture) -> Batch {
         items: vec![item(fixture, "new")],
         capture: None,
         extractor: None,
-        denied: vec![],
+        parent_keys: None,
+        not_enqueued: vec![],
+        inventory_overflow: 0,
     }
 }
 /// Real scoped protected capture, prepared without acknowledgment.
@@ -97,7 +99,7 @@ fn n13_links_change_without_visible_text_and_survive_restart() {
                 &FakeLinks::new(&[target]),
                 (&fixture.context, handle),
                 &fixture.policy,
-                partition(),
+                (partition(), 0),
             )
             .await
         })
@@ -144,7 +146,7 @@ fn n13_one_failed_enqueue_never_acknowledges_discovery() {
             &FakeLinks::new(&["one", "two"]),
             (&fixture.context, handle),
             &fixture.policy,
-            partition(),
+            (partition(), 0),
         )
         .await
     });
@@ -336,10 +338,10 @@ fn n13_hidden_href_change_revises_raw_representation() {
             &FakeLinks::new(&["new"]),
             (&fixture.context, handle),
             &fixture.policy,
-            partition(),
+            (partition(), 0),
         ))
         .unwrap();
-        keys.push(batch.items.first().unwrap().keys.clone());
+        keys.push(batch.parent_keys.unwrap());
     }
     assert_eq!(keys.first().unwrap().links, keys.last().unwrap().links);
     assert_ne!(
@@ -360,7 +362,7 @@ fn n13_byte_cap_precedes_extraction_and_preserves_pending_checkpoint() {
         &NeverCalled,
         (&fixture.context, handle),
         &fixture.policy,
-        partition(),
+        (partition(), 0),
     ))
     .unwrap();
     assert!(batch.truncated);
@@ -388,9 +390,9 @@ impl LinkExtractor for NeverCalled {
     fn extract<'a>(
         &'a self,
         _: &'a str,
-        _: &'a [u8],
+        bytes: &'a [u8],
     ) -> Pin<Box<dyn Future<Output = Result<LinkExtraction, ReceiptError>> + Send + 'a>> {
-        assert!(bytes_are_bounded(), "HTML cap must precede extraction");
+        assert!(bytes.is_empty(), "HTML cap must precede extraction");
         Box::pin(async { Err(ReceiptError::Invalid) })
     }
 }
@@ -406,7 +408,7 @@ fn n13_item_cap_and_unknown_coverage_cannot_advance_watermark() {
         &FakeLinks::new(&["one", "two"]),
         (&fixture.context, handle),
         &fixture.policy,
-        partition(),
+        (partition(), 0),
     ))
     .unwrap();
     assert!(batch.truncated);
@@ -423,6 +425,7 @@ fn n13_item_cap_and_unknown_coverage_cannot_advance_watermark() {
     let mut unknown = batch.clone();
     unknown.partition.id = Handle::new();
     unknown.truncated = false;
+    unknown.inventory_overflow = 0;
     unknown.expected = None;
     fixture
         .db
@@ -503,9 +506,4 @@ impl LinkExtractor for FakeLinks {
             })
         })
     }
-}
-
-/// A disabled test parser never has admitted bytes.
-fn bytes_are_bounded() -> bool {
-    false
 }

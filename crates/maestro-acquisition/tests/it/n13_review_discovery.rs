@@ -20,7 +20,7 @@ use maestro_acquisition::{
     policy::decision::{RequestKind, admit},
 };
 use maestro_kernel::{
-    acquisition::{Batch, Frontier, Partitions, ReceiptError},
+    acquisition::{Batch, Frontier, NotEnqueued, NotEnqueuedReason, Partitions, ReceiptError},
     artifact::Digest,
 };
 use serde_json::json;
@@ -54,7 +54,7 @@ fn discover_body(fixture: &mut Fixture, body: &[u8]) -> Batch {
         &DomLinks::new().unwrap(),
         (&fixture.context, handle),
         &fixture.policy,
-        partition(),
+        (partition(), 0),
     ))
     .unwrap()
 }
@@ -91,7 +91,7 @@ fn n13_review_unknown_selector_holds_coverage() {
     );
     assert_eq!(batch.items.len(), 1);
     assert_eq!(batch.expected, Some(1));
-    assert!(batch.denied.is_empty());
+    assert!(batch.not_enqueued.is_empty());
     assert_eq!(
         batch.items.first().unwrap().request.fetch_identity,
         "https://garden.example/docs/new"
@@ -130,7 +130,7 @@ fn n13_review_future_denial_does_not_drop_current_link() {
     );
     assert_eq!(batch.expected, Some(1));
     assert!(batch.stable && !batch.truncated);
-    assert!(batch.denied.is_empty());
+    assert!(batch.not_enqueued.is_empty());
 }
 
 #[test]
@@ -144,8 +144,11 @@ fn n13_review_effective_denial_excludes_current_link() {
     assert!(batch.items.is_empty());
     assert_eq!(batch.expected, Some(0));
     assert_eq!(
-        batch.denied,
-        vec![Digest::of(b"https://garden.example/docs/new")]
+        batch.not_enqueued,
+        vec![NotEnqueued {
+            reference: Digest::of(b"https://garden.example/docs/new"),
+            reason: NotEnqueuedReason::PolicyDenial
+        }]
     );
     assert!(batch.stable && !batch.truncated);
     fixture
@@ -171,7 +174,7 @@ fn n13_review_decoder_memory_cap_precedes_extraction() {
         &ForbiddenExtractor,
         (&fixture.context, handle),
         &fixture.policy,
-        partition(),
+        (partition(), 0),
     ))
     .unwrap();
     assert!(batch.truncated);
@@ -226,7 +229,13 @@ fn n13_review_non_fetch_schemes_are_exclusions() {
         );
         assert!(batch.items.is_empty());
         assert_eq!(batch.expected, Some(0));
-        assert_eq!(batch.denied, vec![Digest::of(url.as_bytes())]);
+        assert_eq!(
+            batch.not_enqueued,
+            vec![NotEnqueued {
+                reference: Digest::of(url.as_bytes()),
+                reason: NotEnqueuedReason::NonFetchScheme
+            }]
+        );
         fixture
             .db
             .commit_partition(

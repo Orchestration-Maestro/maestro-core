@@ -117,7 +117,20 @@ fn n13_prepared_parent_and_change_keys_bind_the_exact_source_context() {
     batch.partition.kind = Enumeration::Links;
     batch.capture = Some(capture);
     batch.extractor = Some("synthetic captured extraction/1".into());
-    for index in 0..4 {
+    let mut parent = batch.items.first().unwrap().keys.clone();
+    parent.metadata = Some(Digest::of(
+        &serde_json::to_vec(&(
+            &fixture.envelope.declared_media,
+            &fixture.envelope.detected_media,
+        ))
+        .unwrap(),
+    ));
+    batch.parent_keys = Some(parent);
+    let child = &mut batch.items.first_mut().unwrap().keys;
+    child.representation = None;
+    child.validator = None;
+    child.metadata = None;
+    for index in 0..10 {
         let mut wrong = batch.clone();
         match index {
             0 => {
@@ -127,10 +140,30 @@ fn n13_prepared_parent_and_change_keys_bind_the_exact_source_context() {
                 wrong.extractor = Some("x".repeat(513));
             }
             2 => {
-                wrong.items.first_mut().unwrap().keys.representation = Digest::of(b"substitute");
+                wrong.items.first_mut().unwrap().keys.representation =
+                    Some(Digest::of(b"substitute"));
+            }
+            3 => {
+                wrong.capture = Some(fixture.envelope.inputs);
+            }
+            4 => {
+                wrong.parent_keys.as_mut().unwrap().representation =
+                    Some(Digest::of(b"substitute"));
+            }
+            5 => {
+                wrong.parent_keys.as_mut().unwrap().validator = Some(Digest::of(b"substitute"));
+            }
+            6 => {
+                wrong.parent_keys.as_mut().unwrap().metadata = Some(Digest::of(b"substitute"));
+            }
+            7 => {
+                wrong.parent_keys.as_mut().unwrap().permissions = Digest::of(b"substitute");
+            }
+            8 => {
+                wrong.items.first_mut().unwrap().keys.validator = Some(Digest::of(b"substitute"));
             }
             _ => {
-                wrong.capture = Some(fixture.envelope.inputs);
+                wrong.items.first_mut().unwrap().keys.metadata = Some(Digest::of(b"substitute"));
             }
         }
         assert_eq!(
@@ -216,7 +249,7 @@ fn n13_unsupported_capture_media_and_status_never_enter_discovery() {
                 &Limited(true),
                 (&fixture.context, handle),
                 &fixture.policy,
-                partition()
+                (partition(), 0)
             )),
             Err(ReceiptError::Invalid)
         );
@@ -234,7 +267,7 @@ fn n13_extractor_output_must_match_its_declared_contract() {
             &extractor,
             (&fixture.context, handle),
             &fixture.policy,
-            partition()
+            (partition(), 0)
         )),
         Err(ReceiptError::Invalid)
     );

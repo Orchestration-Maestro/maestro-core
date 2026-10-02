@@ -31,8 +31,8 @@ mod partition_checkpoint;
 mod partition_record;
 pub use partition::Partitions;
 pub use partition_record::{
-    AcceptedPartition, Batch, ChangeKeys, DiscoveredItem, Enumeration, Partition, PartitionState,
-    Window,
+    AcceptedPartition, Batch, ChangeKeys, DiscoveredItem, Enumeration, NotEnqueued,
+    NotEnqueuedReason, Partition, PartitionState, Window,
 };
 
 mod link;

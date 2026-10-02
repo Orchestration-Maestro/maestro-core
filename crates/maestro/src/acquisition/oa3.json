@@ -1,0 +1,28 @@
+{
+  "schema": "maestro-acquisition-oa3/1",
+  "source_runs": 4,
+  "origin_concurrency": 1,
+  "origin_interval_ms": 1000,
+  "retries": 2,
+  "max_backoff_ms": 60000,
+  "aggregate_cpu_millicores": 3000,
+  "run_cpu_millicores": 2000,
+  "aggregate_memory_bytes": 8589934592,
+  "run_memory_bytes": 4294967296,
+  "aggregate_staging_bytes": 21474836480,
+  "run_staging_bytes": 10737418240,
+  "free_reserve_bytes": 32212254720,
+  "gpu_batches": 1,
+  "gpu_bytes": 8589934592,
+  "gpu_reserve_bytes": 2147483648,
+  "decode": {
+    "expanded_bytes": 268435456,
+    "expansion_ratio": 100,
+    "nested_levels": 4,
+    "members": 1000,
+    "decoded_pixels": 32000000,
+    "elapsed_ms": 120000,
+    "memory_bytes": 2147483648,
+    "xml_entities": "disabled"
+  }
+}

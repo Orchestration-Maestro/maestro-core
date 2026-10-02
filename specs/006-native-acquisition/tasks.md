@@ -310,6 +310,8 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 
 ### N14 — Expose public preview and manual sync MVP
 
+Machine-local `maestro-acquisition-bindings/1` supplies separate strict direct-file resource bindings and existing Admission evidence; grants remain in N05.
+
 **After:** N13. **Approval blockers:** OA4a exact grant for a real public source; enforce approved OA3 limits. Synthetic fixture flow needs no live grant.
 
 **Files:** `crates/maestro/src/acquisition/{mod.rs,command.rs,output.rs,inspect.rs}`; `crates/maestro/src/cli/{args.rs,run.rs}`; `docs/how-to/acquisition.md`.
@@ -703,6 +705,8 @@ Independent test: five lifecycle modes equal uninterrupted reference, and overla
 - [ ] N36 [P] [US4] Complete full and incremental lifecycle windows in `crates/maestro-acquisition/src/lifecycle/{full.rs,incremental.rs}` (6 h).
 
 ### N36 — Complete full and incremental lifecycle windows
+
+`--mode full|incremental` arrives here; N14 registers manual sync only.
 
 **After:** N13. **Approval blockers:** None for synthetic work.
 

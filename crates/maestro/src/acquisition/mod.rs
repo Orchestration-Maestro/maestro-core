@@ -8,3 +8,26 @@ mod authority_probe;
 mod authority_service;
 #[cfg(target_os = "linux")]
 mod authority_store;
+#[cfg(test)]
+mod flow_edges;
+#[cfg(test)]
+mod flow_tests;
+#[cfg(test)]
+mod history_tests;
+#[cfg(test)]
+mod record_tests;
+
+mod bindings;
+pub(crate) mod cli;
+// Live admission/transport composition is Linux-only; injected ports are tested everywhere.
+#[cfg(any(target_os = "linux", test))]
+mod command;
+#[cfg(any(target_os = "linux", test))]
+mod controls;
+mod inspect;
+mod output;
+mod resources;
+#[cfg(any(target_os = "linux", test))]
+mod sync_capture;
+#[cfg(any(target_os = "linux", test))]
+mod sync_source;

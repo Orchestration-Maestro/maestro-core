@@ -203,3 +203,14 @@ fn timestamp(connection: &Connection, time: Option<SystemTime>) -> Result<String
     )?;
     text.ok_or(Error::Time)
 }
+
+/// Expire an acquisition source job whose fencing was checked in this transaction.
+/// Job state, frontier attempts and journal are deliberately unchanged.
+pub(crate) fn expire_source(tx: &Transaction<'_>, id: Ulid, now: SystemTime) -> Result<(), Error> {
+    let (at, _) = times(tx, now, Duration::ZERO)?;
+    tx.execute(
+        "UPDATE jobs SET lease_expires = ?2 WHERE id = ?1",
+        params![id.to_string(), at],
+    )?;
+    Ok(())
+}

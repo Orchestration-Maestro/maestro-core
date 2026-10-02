@@ -10,7 +10,10 @@ use maestro_acquisition::discovery::{
     partition::discover,
 };
 use maestro_kernel::{
-    acquisition::{Captures, Enumeration, Frontier, LeaseRequest, Partitions, ReceiptError},
+    acquisition::{
+        Captures, Enumeration, Frontier, LeaseRequest, NotEnqueued, NotEnqueuedReason, Partitions,
+        ReceiptError,
+    },
     artifact::Digest,
 };
 use rusqlite::Connection;
@@ -42,7 +45,13 @@ fn n13_batch_bounds_and_contexts_refuse_before_any_enqueue() {
     bad.partition.max_items = 1;
     variants.push(bad);
     let mut bad = valid.clone();
-    bad.denied = vec![Digest::of(b"denied"); 1001];
+    bad.not_enqueued = vec![
+        NotEnqueued {
+            reference: Digest::of(b"denied"),
+            reason: NotEnqueuedReason::PolicyDenial
+        };
+        1001
+    ];
     variants.push(bad);
     let mut bad = valid.clone();
     bad.partition.kind = Enumeration::Links;
@@ -306,7 +315,7 @@ fn n13_extractor_limit_hit_and_unknown_query_hold_discovery() {
             &Limited(limited),
             (&fixture.context, handle),
             &fixture.policy,
-            partition(),
+            (partition(), 0),
         ))
         .unwrap();
         assert!(result.truncated || !result.stable);

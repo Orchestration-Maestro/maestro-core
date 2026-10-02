@@ -229,22 +229,11 @@ impl Database {
         let Some(item) = item else {
             return Ok(None);
         };
-        let capture: Option<String> = reader
-            .query_row(
-                "SELECT envelope FROM acquisition_capture_links WHERE item = ?1",
-                [item.id.to_string()],
-                |row| row.get(0),
-            )
-            .optional()?;
-        let Some(capture) = capture else {
+        let Some(handle) = self.capture_for(scope, &item)? else {
             return Ok(None);
         };
-        let handle = capture.parse()?;
-        if self.verify_capture(scope, &item, handle).is_err() {
-            return Ok(None);
-        }
         let envelope: CaptureEnvelope =
-            serde_json::from_slice(&privacy::snapshot_on(self, reader, &capture)?)?;
+            serde_json::from_slice(&privacy::snapshot_on(self, reader, &handle.to_string())?)?;
         let validator = Digest::of(&serde_json::to_vec(&envelope.headers)?);
         if discovered.keys.revision.is_some()
             || discovered
@@ -252,7 +241,11 @@ impl Database {
                 .validator
                 .as_ref()
                 .is_some_and(|key| *key != validator)
-            || discovered.keys.representation != envelope.artifact
+            || discovered
+                .keys
+                .representation
+                .as_ref()
+                .is_some_and(|key| *key != envelope.artifact)
         {
             return Ok(None);
         }
@@ -341,7 +334,9 @@ mod tests {
             expected: Some(0),
             items: vec![],
             extractor: None,
-            denied: vec![],
+            parent_keys: None,
+            not_enqueued: vec![],
+            inventory_overflow: 0,
             capture: None,
         };
         db.checkpoint(&writer, &batch, now).unwrap();
@@ -421,7 +416,9 @@ mod tests {
             expected: Some(0),
             items: vec![],
             extractor: None,
-            denied: vec![],
+            parent_keys: None,
+            not_enqueued: vec![],
+            inventory_overflow: 0,
             capture: None,
         };
         let mut second = 0;

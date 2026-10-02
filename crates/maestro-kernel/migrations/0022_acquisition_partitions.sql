@@ -1,4 +1,5 @@
 -- Checkpoints and accepted snapshots are separate, immutable evidence.
+-- Batch artifacts carry bounded not_enqueued digest/reason records, never URLs.
 CREATE TABLE acquisition_partitions (
     id TEXT PRIMARY KEY NOT NULL,
     source TEXT NOT NULL REFERENCES acquisition_sources(source),

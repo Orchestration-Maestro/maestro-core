@@ -15,3 +15,6 @@ pub(crate) mod shape;
 pub mod source;
 pub(crate) mod utc;
 pub mod wiki;
+
+/// The only formatter for admission Request.now.
+pub use utc::format as format_time;

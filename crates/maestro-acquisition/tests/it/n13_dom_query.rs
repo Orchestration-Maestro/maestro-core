@@ -62,7 +62,7 @@ fn n13_dom_query_checkpoint_replay_keeps_canonical_inventory() {
         &reader,
         (&fixture.context, handle),
         &fixture.policy,
-        descriptor.clone(),
+        (descriptor.clone(), 0),
     ))
     .unwrap();
     let replay = run(discover(
@@ -70,7 +70,7 @@ fn n13_dom_query_checkpoint_replay_keeps_canonical_inventory() {
         &reader,
         (&fixture.context, handle),
         &fixture.policy,
-        descriptor,
+        (descriptor, 0),
     ))
     .unwrap();
     assert_eq!(first, replay);

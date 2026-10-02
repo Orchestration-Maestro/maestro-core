@@ -57,7 +57,22 @@ in place.
 │   │   │   │   ├── authority_probe.rs                                                   # One-shot qualification evidence authenticated by Linux peer credentials
 │   │   │   │   ├── authority_service.rs                                                 # Bounded Linux Unix-socket IPC authenticated with kernel peer credentials
 │   │   │   │   ├── authority_store.rs                                                   # Authority-only SQLite writer; grant changes and audit commit atomically
-│   │   │   │   └── mod.rs                                                               # Native acquisition's local authority boundary
+│   │   │   │   ├── bindings-golden.json                                                 # JSON data: bindings golden
+│   │   │   │   ├── bindings.rs                                                          # Machine-local file bindings, never grant material or portable source configuration
+│   │   │   │   ├── cli.rs                                                               # Only working public manual operations are registered, without a synthetic bypass
+│   │   │   │   ├── command.rs                                                           # Public manual acquisition composition over the existing admission and frontier ports
+│   │   │   │   ├── controls.rs                                                          # Shared admission and borrowed acquisition port context; no authoritative queue
+│   │   │   │   ├── flow_edges.rs                                                        # Completion, reuse, depth, bindings and resource boundaries of the public MVP
+│   │   │   │   ├── flow_tests.rs                                                        # Synthetic public site through the production composition, without sockets or credentials
+│   │   │   │   ├── history_tests.rs                                                     # Cursor paging and the frozen OS-to-kernel mapping use the real durable ports
+│   │   │   │   ├── inspect.rs                                                           # Inspect reads authorized durable records only; no policy, authority or transport
+│   │   │   │   ├── mod.rs                                                               # Native acquisition's local authority boundary
+│   │   │   │   ├── oa3.json                                                             # JSON data: oa3
+│   │   │   │   ├── output.rs                                                            # Content-free run summaries; only the owner's offline public preview includes URLs
+│   │   │   │   ├── record_tests.rs                                                      # Read-only inspection and bounded pre-start inventory regression checks
+│   │   │   │   ├── resources.rs                                                         # OA3 bounds are data; fresh backing-store measurements never come from bindings
+│   │   │   │   ├── sync_capture.rs                                                      # Public HTTP, immutable capture and offline discovery under one current writer
+│   │   │   │   └── sync_source.rs                                                       # One source writer; frontier pages, never a second authoritative queue
 │   │   │   ├── cli/                                                                     # The commands, a module each, and what they share
 │   │   │   │   ├── backup/                                                              # Back up and restore the kernel
 │   │   │   │   │   ├── command.rs                                                       # The backup and restore command handlers and backup writer
@@ -289,6 +304,7 @@ in place.
 │   │   │       ├── n05_authority_linux.rs                                               # Qualified Linux authority fixtures; only the launcher uses sudo
 │   │   │       ├── n05_authority_review_fixes.rs                                        # Review regressions against real owner and unprivileged identities
 │   │   │       ├── n05_establish_owner_only_grants_and_the_read_only_authority_port.rs  # N05 authority command refusals; real identity probes are explicitly opt-in
+│   │   │       ├── n14_expose_public_preview_and_manual_sync_mvp.rs                     # Public acquisition CLI registration and refusal boundaries
 │   │   │       ├── publish_again.rs                                                     # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                                     # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
 │   │   │       ├── settings_config.rs                                                   # maestro config: the user file preferences.toml, the project file
@@ -1012,6 +1028,7 @@ in place.
 │   │   │       ├── n04_persist_frontier_leases_and_fenced_submissions.rs                # N04 frontier contract: durable work, exclusive leases and fenced acknowledgement
 │   │   │       ├── n06_receipt_review_regressions.rs                                    # N06 review regressions for terminal reconciliation, bounds and privacy
 │   │   │       ├── n06_store_scoped_receipts_and_content_free_progress_events.rs        # N06: opaque receipt views, durable attempts, and content-free event sinks
+│   │   │       ├── n14_release_source.rs                                                # Manual sync relinquishes only its current lease, never the job or frontier
 │   │   │       ├── n30_filesystem.rs                                                    # Protected local-overlay and durable replacement contracts
 │   │   │       ├── unit_graph_code_leadin.rs                                            # The kernel accepts code groups without an optional lead-in relation
 │   │   │       ├── unit_graph_nested_producer.rs                                        # Kernel conformance for nested procedure, code and table producer graphs
@@ -1599,6 +1616,7 @@ in place.
 │   │   └── unit-graph-v1.md                                                             # Unit graph wire contract v1
 │   ├── how-to/                                                                          # How to
 │   │   ├── acquisition-authority.md                                                     # Acquisition authority
+│   │   ├── acquisition.md                                                               # Preview and manually capture a public source
 │   │   └── knowledge-mcp.md                                                             # Connect a client to Maestro's knowledge MCP server
 │   └── standards/                                                                       # Standards
 │       ├── engineering.md                                                               # Engineering rules in maestro-core

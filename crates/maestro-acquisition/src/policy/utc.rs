@@ -60,7 +60,9 @@ pub(crate) fn advance(text: &str, elapsed: Duration) -> Result<String, Refusal> 
     format(parse(text)?.checked_add(elapsed).ok_or(Refusal::Invalid)?)
 }
 /// Fixed-width UTC spelling, limited to the same year range as the strict parser.
-pub(crate) fn format(time: SystemTime) -> Result<String, Refusal> {
+/// # Errors
+/// Unrepresentable host time refuses instead of constructing a non-UTC request.
+pub fn format(time: SystemTime) -> Result<String, Refusal> {
     let seconds = match time.duration_since(UNIX_EPOCH) {
         Ok(duration) => i128::from(duration.as_secs()),
         Err(error) => {

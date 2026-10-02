@@ -47,7 +47,7 @@ fn n13_review_changed_index_keys_require_current_capture() {
     keys.revision = Some(Digest::of(b"new revision"));
     keys.validator = Some(Digest::of(b"new validator"));
     keys.links = Digest::of(b"new links");
-    keys.representation = Digest::of(b"new representation");
+    keys.representation = Some(Digest::of(b"new representation"));
     fixture
         .db
         .checkpoint(&fixture.context.writer, &changed, fixture.context.now)
@@ -85,7 +85,7 @@ fn n13_review_each_unproven_key_holds() {
         match key {
             "revision" => keys.revision = Some(Digest::of(b"unknown revision")),
             "validator" => keys.validator = Some(Digest::of(b"wrong validator")),
-            _ => keys.representation = Digest::of(b"wrong body"),
+            _ => keys.representation = Some(Digest::of(b"wrong body")),
         }
         fixture
             .db

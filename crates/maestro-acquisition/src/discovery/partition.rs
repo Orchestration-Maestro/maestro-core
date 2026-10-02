@@ -6,7 +6,8 @@ use crate::{
         decision::{ItemAttributes, check_eligibility},
         decisions::Decisions,
         identity::FetchIdentity,
-        source::Source,
+        limits::Limits,
+        source::{Discovery, Source},
         utc,
     },
     transport::budget::compose,
@@ -14,7 +15,7 @@ use crate::{
 use maestro_kernel::{
     acquisition::{
         Batch, CaptureContext, CaptureEnvelope, Captures, ChangeKeys, DiscoveredItem, Enumeration,
-        Handle, NewItem, Partition, Partitions, ReceiptError,
+        Handle, NewItem, NotEnqueued, NotEnqueuedReason, Partition, Partitions, ReceiptError,
     },
     artifact::Digest,
 };
@@ -32,8 +33,9 @@ pub async fn discover(
     extractor: &dyn LinkExtractor,
     capture: (&CaptureContext, Handle),
     policy: &CheckedPolicy,
-    mut partition: Partition,
+    request: (Partition, u64),
 ) -> Result<Batch, ReceiptError> {
+    let (mut partition, depth) = request;
     let (context, handle) = capture;
     let source = policy
         .policy()
@@ -52,13 +54,7 @@ pub async fn discover(
     partition.max_batches = partition
         .max_batches
         .min(u16::try_from(limits.partitions.get().min(1000)).map_err(|_| ReceiptError::Invalid)?);
-    let max_bytes = limits
-        .decode
-        .expanded_bytes
-        .get()
-        .min(limits.decode.memory_bytes.get())
-        .min(limits.dom_bytes.get())
-        .min(limits.memory_bytes.get());
+    let max_bytes = capture_bound(&limits);
     let (envelope, bytes) = store.read_capture(context, handle, max_bytes)?;
     if envelope.profile != source.acquisition_profile.digest
         || envelope.declared_media.as_deref() != Some("text/html")
@@ -79,7 +75,9 @@ pub async fn discover(
         items: vec![],
         capture: Some(handle),
         extractor: Some(extractor.contract().to_owned()),
-        denied: vec![],
+        parent_keys: Some(keys(&envelope, &[])?),
+        not_enqueued: vec![],
+        inventory_overflow: 0,
     };
     if let Some(bytes) = bytes {
         let output = extractor
@@ -91,14 +89,27 @@ pub async fn discover(
         let mut links = output.links;
         links.sort_unstable();
         links.dedup();
-        let keys = keys(&envelope, &links)?;
+        batch.parent_keys = Some(keys(&envelope, &links)?);
+        let keys = child_keys(&envelope);
         let now = utc::format(context.now).map_err(|_| ReceiptError::Invalid)?;
-        let eligible = select_links(source, &policy.decisions, &links, &now, &mut batch);
+        let stopped = depth_reason(source, limits.depth.get(), depth)?;
+        let eligible = select_links(
+            source,
+            &policy.decisions,
+            &links,
+            (&now, stopped),
+            &mut batch,
+        );
         batch.expected = u16::try_from(eligible.len()).ok();
-        batch.truncated = output.limit_hit
-            || eligible.len() > usize::from(batch.partition.max_items)
-            || batch.denied.len() > 1000;
-        batch.denied.truncate(1000);
+        batch.inventory_overflow = u32::try_from(
+            eligible
+                .len()
+                .saturating_sub(usize::from(batch.partition.max_items)),
+        )
+        .map_err(|_| ReceiptError::Invalid)?;
+        batch.truncated =
+            output.limit_hit || batch.inventory_overflow > 0 || batch.not_enqueued.len() > 1000;
+        batch.not_enqueued.truncate(1000);
         batch.items = eligible
             .into_iter()
             .take(usize::from(batch.partition.max_items))
@@ -123,38 +134,69 @@ fn select_links(
     source: &Source,
     registries: &[Decisions],
     links: &[String],
-    now: &str,
+    context: (&str, Option<NotEnqueuedReason>),
     batch: &mut Batch,
 ) -> BTreeSet<String> {
+    let (now, stopped) = context;
     let mut eligible = BTreeSet::new();
     for url in links {
-        if non_fetch_scheme(url) {
-            // Excluded references: proven policy denials and non-fetch schemes.
-            batch.denied.push(Digest::of(url.as_bytes()));
-            continue;
-        }
-        match FetchIdentity::parse(source, url) {
-            Ok(identity) => match check_eligibility(
-                source,
-                &identity,
-                registries,
-                ItemAttributes::default(),
-                now,
-            ) {
-                Ok(_) => {
-                    eligible.insert(identity.as_str().to_owned());
-                }
-                Err(Refusal::Access) => batch.denied.push(Digest::of(url.as_bytes())),
-                Err(_) => {
-                    batch.stable = false;
-                    eligible.insert(identity.as_str().to_owned());
-                }
-            },
-            Err(Refusal::Access) => batch.denied.push(Digest::of(url.as_bytes())),
-            Err(_) => batch.stable = false,
+        let candidate = classify_link(source, registries, url, now);
+        let definitive = candidate.as_ref().err().copied().filter(|reason| {
+            matches!(
+                reason,
+                NotEnqueuedReason::PolicyDenial | NotEnqueuedReason::NonFetchScheme
+            )
+        });
+        let reason = definitive.or_else(|| {
+            if stopped == Some(NotEnqueuedReason::BeyondDeclaredDepth) {
+                stopped
+            } else {
+                candidate.as_ref().err().copied().or(stopped)
+            }
+        });
+        if let Some(reason) = reason {
+            record_reference(url, reason, batch);
+            if reason.pending() {
+                batch.stable = false;
+            }
+        } else if let Ok((identity, known)) = candidate {
+            if !known {
+                batch.stable = false;
+            }
+            eligible.insert(identity.as_str().to_owned());
         }
     }
     eligible
+}
+/// Only definite policy/scheme exclusions outrank the declared depth boundary.
+fn classify_link(
+    source: &Source,
+    registries: &[Decisions],
+    url: &str,
+    now: &str,
+) -> Result<(FetchIdentity, bool), NotEnqueuedReason> {
+    if non_fetch_scheme(url) {
+        return Err(NotEnqueuedReason::NonFetchScheme);
+    }
+    let identity = FetchIdentity::parse(source, url).map_err(|error| {
+        if error == Refusal::Access {
+            NotEnqueuedReason::PolicyDenial
+        } else {
+            NotEnqueuedReason::UnresolvedIdentity
+        }
+    })?;
+    let admitted = check_eligibility(
+        source,
+        &identity,
+        registries,
+        ItemAttributes::default(),
+        now,
+    );
+    if admitted == Err(Refusal::Access) {
+        return Err(NotEnqueuedReason::PolicyDenial);
+    }
+    // A known identity with missing selector attributes remains durable pending inventory.
+    Ok((identity, admitted.is_ok()))
 }
 
 /// Well-formed references outside acquisition's HTTPS fetch scheme are exclusions.
@@ -173,6 +215,64 @@ fn keys(envelope: &CaptureEnvelope, links: &[String]) -> Result<ChangeKeys, Rece
         ))?)),
         permissions: envelope.authorization_context.clone(),
         links: Digest::of(&serde_json::to_vec(links)?),
-        representation: envelope.artifact.clone(),
+        representation: Some(envelope.artifact.clone()),
     })
+}
+
+/// One content-free spelling shared by sync and inspect.
+fn record_reference(reference: &str, reason: NotEnqueuedReason, batch: &mut Batch) {
+    batch.not_enqueued.push(NotEnqueued {
+        reference: Digest::of(reference.as_bytes()),
+        reason,
+    });
+}
+
+/// Declared scope is an exclusion; an earlier operational ceiling is a hold.
+fn depth_reason(
+    source: &Source,
+    run_depth: u64,
+    depth: u64,
+) -> Result<Option<NotEnqueuedReason>, ReceiptError> {
+    let declared = source
+        .discovery
+        .iter()
+        .filter_map(|selection| {
+            if let Discovery::Links { depth } = selection {
+                Some(depth.get())
+            } else {
+                None
+            }
+        })
+        .max()
+        .ok_or(ReceiptError::Invalid)?;
+    if depth >= declared {
+        return Ok(Some(NotEnqueuedReason::BeyondDeclaredDepth));
+    }
+    if depth >= run_depth {
+        return Ok(Some(NotEnqueuedReason::RunDepthLimit));
+    }
+    Ok(None)
+}
+
+/// A parent makes no representation or validator claims about its children.
+fn child_keys(envelope: &CaptureEnvelope) -> ChangeKeys {
+    ChangeKeys {
+        revision: None,
+        validator: None,
+        metadata: None,
+        permissions: envelope.authorization_context.clone(),
+        links: Digest::of(b""),
+        representation: None,
+    }
+}
+
+/// Bound parser input by every applicable memory and byte ceiling.
+fn capture_bound(limits: &Limits) -> u64 {
+    limits
+        .decode
+        .expanded_bytes
+        .get()
+        .min(limits.decode.memory_bytes.get())
+        .min(limits.dom_bytes.get())
+        .min(limits.memory_bytes.get())
 }
