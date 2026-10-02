@@ -16,6 +16,9 @@ pub(super) struct Arguments {
     /// stderr.
     #[arg(long, global = true)]
     pub(super) json: bool,
+    /// Disable color; plain output also respects `NO_COLOR` and `TERM=dumb`.
+    #[arg(long = "no-color", global = true)]
+    _no_color: bool,
     /// Set a setting for this run only, over the project and user files;
     /// repeatable. `maestro config list` names every setting.
     #[arg(long = "set", global = true, value_name = "KEY=VALUE")]
@@ -74,10 +77,19 @@ pub(super) enum Noun {
     Init {
         /// Reviewed authoring catalog directory.
         #[arg(long, value_name = "DIR")]
-        catalog_dir: PathBuf,
+        catalog_dir: Option<PathBuf>,
         /// Explicit preset name; repeat to compose inventories.
-        #[arg(long = "preset", required = true)]
+        #[arg(long = "preset")]
         presets: Vec<String>,
+        /// Sequential labelled prompts, without terminal control sequences.
+        #[arg(long, conflicts_with = "yes")]
+        plain: bool,
+        /// Accept explicit scripted choices, never trust or collisions.
+        #[arg(long)]
+        yes: bool,
+        /// Narrow updates to off or propose; Auto remains user-only.
+        #[arg(long)]
+        updates: Option<String>,
         /// Apply the displayed digest-bound plan.
         #[arg(long)]
         apply: bool,
@@ -109,8 +121,14 @@ pub(super) enum Noun {
     },
     /// Every configurable behaviour: the user file `preferences.toml`, the
     /// project file `.maestro/config.toml`, and `--set`.
-    #[command(subcommand)]
-    Config(ConfigCommand),
+    Config {
+        /// Editor layer, using the existing config set/unset selection.
+        #[command(flatten)]
+        target: Target,
+        /// Without a subcommand, open the every-setting editor.
+        #[command(subcommand)]
+        command: Option<ConfigCommand>,
+    },
     /// Back up the kernel to a new or empty directory.
     Backup {
         /// The directory to write.

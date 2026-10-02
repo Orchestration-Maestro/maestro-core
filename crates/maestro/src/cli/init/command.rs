@@ -1,6 +1,6 @@
 //! `maestro init`: show the complete authoring plan and apply only on request.
 use crate::{
-    cli::{output::Output, trust, trust_path},
+    cli::{catalog, output::Output, session, trust, trust_path},
     failure::Failure,
     presentation::messages::MessageKey,
 };
@@ -19,7 +19,7 @@ use serde::Serialize;
 use std::{
     env,
     io::{self, BufRead, IsTerminal as _, Write},
-    path::Path,
+    path::{Path, PathBuf},
     process::ExitCode,
 };
 
@@ -39,56 +39,58 @@ struct InitDocument<'a> {
     /// Inventory-required binding references, reported without resolving or executing.
     bindings: &'a [String],
     /// The project root shown to the user.
+    /// Canonical workspace selected by init.
     root: &'a Path,
     /// The C04 digest-bound file plan.
     files: &'a FilePlan,
     /// Separate root-local preference draft; trust is checked before CLI apply.
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Independent C04 preference file plan.
     preferences: Option<&'a PreferencesDraft>,
 }
 
 /// Confirmed explicit draft choices over the already validated session port.
 #[derive(Clone, Copy)]
-pub(super) struct PreferenceChoices<'a> {
+pub(in crate::cli) struct PreferenceChoices<'a> {
     /// Storage-independent, immutable preference snapshot.
-    pub(super) source: &'a dyn WorkspacePreferences,
+    pub(in crate::cli) source: &'a dyn WorkspacePreferences,
     /// Only explicitly supplied command-line choices.
-    pub(super) choices: &'a [String],
+    pub(in crate::cli) choices: &'a [String],
 }
 
 /// Explicit effect choices; neither preview nor generic output flags authorize trust.
 #[derive(Clone, Copy)]
-pub(super) struct ApplyChoices<'a> {
+pub(in crate::cli) struct ApplyChoices<'a> {
     /// Whether the user requested effects.
-    pub(super) apply: bool,
+    pub(in crate::cli) apply: bool,
     /// Decline trust and separately approve only preferences.
-    pub(super) preferences_only: bool,
+    pub(in crate::cli) preferences_only: bool,
     /// Exact canonical path for the separate preferences-only approval.
-    pub(super) confirm_path: Option<&'a Path>,
+    pub(in crate::cli) confirm_path: Option<&'a Path>,
 }
 
-/// Preview a composed project and, when requested, apply it through C04.
-pub(super) fn run(
-    output: Output,
+/// One pinned planner result; review and apply consume these exact file plans.
+pub(in crate::cli::init) struct Prepared {
+    /// Canonical workspace selected by init.
+    root: PathBuf,
+    /// The existing C05 bootstrap plan and captured source fingerprints.
+    preview: bootstrap::BootstrapPreview,
+    /// Independent C04 preferences file plan.
+    preferences: Option<PreferencesDraft>,
+    /// Admitted S1 defaults used by the settings editor.
+    pub(in crate::cli::init) registry: maestro_settings::Registry,
+}
+
+/// The existing C05 planner, reused by scripts and interactive review.
+pub(in crate::cli::init) fn prepare(
     catalog_dir: &Path,
     presets: &[String],
-    effects: ApplyChoices<'_>,
+    source: &dyn WorkspacePreferences,
     choices: &[String],
-) -> Result<ExitCode, Failure> {
-    let source = super::session::init_preferences()?;
-    let source = &source as &dyn WorkspacePreferences;
-    let output = preference_output(output, source, choices)?;
-    let preference_choices = PreferenceChoices { source, choices };
-    let should_apply = effects.apply;
+) -> Result<Prepared, Failure> {
     let root = env::current_dir()
         .and_then(|root| root.canonicalize())
         .map_err(|error| Failure::failed_by(&error))?;
-    if should_apply && !effects.preferences_only {
-        require_trust(output, &root)?;
-    }
-    if effects.preferences_only {
-        return preferences_only(output, &root, &effects, preference_choices);
-    }
     let boundaries = trust::boundaries()?;
     let database = trust::existing_database()?;
     let adapter = JournalTrust::optional(
@@ -98,7 +100,7 @@ pub(super) fn run(
     );
     let checked = CheckedTrust::new(&adapter, &boundaries);
     let registry = builtin().map_err(Failure::failed)?;
-    let settings = maestro_settings::Registry::built_in().map_err(Failure::failed)?;
+    let settings = source.registry().map_err(Failure::refused)?;
     let rows = frozen_rows();
     let provider = AreaInventories::new(
         catalog_dir,
@@ -106,11 +108,11 @@ pub(super) fn run(
         Known {
             rows: &rows,
             settings: &settings,
-            today: super::catalog::today()?,
+            today: catalog::today()?,
         },
     )
     .map_err(Failure::refused)?
-    .with_compiled_backends(super::session::compiled_backends());
+    .with_compiled_backends(session::compiled_backends());
     let admitted = InitPreferences {
         source,
         registry: provider.admitted_registry(),
@@ -118,46 +120,108 @@ pub(super) fn run(
     let preferences = preference_draft(&root, &admitted, choices, &checked)?;
     let preview =
         bootstrap::preview(&root, &provider, presets, &checked).map_err(Failure::refused)?;
-    let already_applied = preview.plan.is_applied()
-        && preferences
-            .as_ref()
-            .is_none_or(|draft| draft.files.is_applied());
-    let mut document = InitDocument {
-        schema: "maestro-cli/init/1",
-        mode: "authoring convenience; not a verified install",
-        applied: false,
-        already_applied,
-        prerequisites: &preview.prerequisites,
-        bindings: &preview.bindings,
-        root: &root,
-        files: &preview.plan,
-        preferences: preferences.as_ref(),
-    };
-    let text =
-        serde_json::to_string_pretty(&document).map_err(|error| Failure::failed_by(&error))?;
-    output.text(&text)?;
-    if should_apply {
-        bootstrap::apply(&root, &preview, &checked)
-            .map_err(|error| Failure::refused(error.to_string()))?;
-        if let Some(preferences) = &preferences {
-            files::apply(&root, &preferences.files, &checked)
-                .map_err(|error| Failure::refused_by(&error))?;
+    Ok(Prepared {
+        root,
+        preview,
+        preferences,
+        registry: provider.admitted_registry().clone(),
+    })
+}
+
+impl Prepared {
+    /// The existing versioned document, identical in plain and scripted paths.
+    pub(in crate::cli::init) fn show(&self, output: Output, applied: bool) -> Result<(), Failure> {
+        let already_applied = self.preview.plan.is_applied()
+            && self
+                .preferences
+                .as_ref()
+                .is_none_or(|draft| draft.files.is_applied());
+        let document = InitDocument {
+            schema: "maestro-cli/init/1",
+            mode: "authoring convenience; not a verified install",
+            applied,
+            already_applied,
+            prerequisites: &self.preview.prerequisites,
+            bindings: &self.preview.bindings,
+            root: &self.root,
+            files: &self.preview.plan,
+            preferences: self.preferences.as_ref(),
+        };
+        if output.is_json() {
+            output.result(&document, "")
+        } else {
+            let text = serde_json::to_string_pretty(&document)
+                .map_err(|error| Failure::failed_by(&error))?;
+            output.text(&text)
         }
-        document.applied = true;
-        output.text(if already_applied {
+    }
+
+    /// Recheck real authority after confirmation; never replan the reviewed bytes.
+    pub(in crate::cli::init) fn apply(&self, output: Output) -> Result<(), Failure> {
+        require_trust(output, &self.root)?;
+        let boundaries = trust::boundaries()?;
+        let database = trust::existing_database()?;
+        let adapter = JournalTrust::optional(
+            database
+                .as_ref()
+                .map(|database| database as &dyn WorkspaceAuthority),
+        );
+        let checked = CheckedTrust::new(&adapter, &boundaries);
+        bootstrap::apply(&self.root, &self.preview, &checked).map_err(Failure::refused)?;
+        if let Some(preferences) = &self.preferences {
+            files::apply(&self.root, &preferences.files, &checked).map_err(Failure::refused)?;
+        }
+        output.text(if self.preview.plan.is_applied() {
             "Already applied; no files written."
         } else {
             "Applied authoring plan."
         })?;
+        output.text(&format!(
+            "Config: {}. Inspect with `maestro config explain`.",
+            self.root.join(".maestro/config.toml").display()
+        ))
     }
-    if output.is_json() {
-        output.result(&document, "")?;
+}
+
+/// Script dispatch retains C47a's independent preference snapshot.
+pub(in crate::cli::init) fn scripted(
+    output: Output,
+    catalog_dir: &Path,
+    presets: &[String],
+    effects: ApplyChoices<'_>,
+    choices: &[String],
+) -> Result<ExitCode, Failure> {
+    let source = session::init_preferences()?;
+    let output = preference_output(output, &source, choices)?;
+    if effects.preferences_only {
+        let root = env::current_dir()
+            .and_then(|root| root.canonicalize())
+            .map_err(|error| Failure::failed_by(&error))?;
+        return preferences_only(
+            output,
+            &root,
+            &effects,
+            PreferenceChoices {
+                source: &source,
+                choices,
+            },
+        );
+    }
+    let prepared = prepare(catalog_dir, presets, &source, choices)?;
+    if !output.is_json() || !effects.apply {
+        prepared.show(output, false)?;
+    }
+    if effects.apply {
+        prepared.apply(output)?;
+        if output.is_json() {
+            prepared.show(output, true)?;
+        }
     }
     Ok(ExitCode::SUCCESS)
 }
 
 /// Init localizes from its own preferences without a runtime session or admitted lock.
-fn preference_output(
+pub(in crate::cli::init) fn preference_output(
     output: Output,
     source: &dyn WorkspacePreferences,
     choices: &[String],
@@ -198,11 +262,15 @@ fn preference_draft(
 }
 
 /// CLI decision point only; C05j owns the later held-handle enforcement boundary.
-fn require_trust(output: Output, root: &Path) -> Result<(), Failure> {
+pub(in crate::cli::init) fn require_trust(output: Output, root: &Path) -> Result<(), Failure> {
     let boundaries = trust::boundaries()?;
     boundaries.check_root(root).map_err(Failure::refused)?;
-    let database = trust::database()?;
-    let adapter = JournalTrust::new(&database);
+    let database = trust::existing_database()?;
+    let adapter = JournalTrust::optional(
+        database
+            .as_ref()
+            .map(|database| database as &dyn WorkspaceAuthority),
+    );
     if CheckedTrust::new(&adapter, &boundaries)
         .containing_root(root)
         .is_none()
@@ -222,7 +290,7 @@ fn require_trust(output: Output, root: &Path) -> Result<(), Failure> {
 }
 
 /// Separate decline path never loads a preset or applies a template/projection plan.
-fn preferences_only(
+pub(in crate::cli::init) fn preferences_only(
     output: Output,
     root: &Path,
     effects: &ApplyChoices<'_>,
@@ -244,11 +312,64 @@ fn preferences_only(
 }
 
 /// Preferences-only execution shares rendered prompt hand-off with injected IO.
-fn preferences_only_with_io(
+pub(in crate::cli::init) fn preferences_only_with_io(
     output: Output,
     root: &Path,
     effects: &ApplyChoices<'_>,
     preferences: PreferenceChoices<'_>,
+    (terminal, input, error): (bool, &mut dyn BufRead, &mut dyn Write),
+) -> Result<ExitCode, Failure> {
+    let draft = prepare_preferences(root, preferences.source, preferences.choices)?;
+    apply_preferences_with_io(output, root, effects, &draft, (terminal, input, error))
+}
+
+/// Narrow decline review uses the existing draft planner and no catalog inventory.
+pub(in crate::cli::init) fn prepare_preferences(
+    root: &Path,
+    source: &dyn WorkspacePreferences,
+    choices: &[String],
+) -> Result<PreferencesDraft, Failure> {
+    let boundaries = trust::boundaries()?;
+    boundaries.check_root(root).map_err(Failure::refused)?;
+    let database = trust::existing_database()?;
+    let adapter = JournalTrust::optional(
+        database
+            .as_ref()
+            .map(|database| database as &dyn WorkspaceAuthority),
+    );
+    let checked = CheckedTrust::new(&adapter, &boundaries);
+    draft_preferences(root, source, choices, &Limits::PRODUCTION, &checked)
+        .map_err(Failure::refused)
+}
+
+/// Confirm and persist the exact preferences bytes shown by the narrow review.
+pub(in crate::cli::init) fn apply_preferences(
+    output: Output,
+    root: &Path,
+    effects: &ApplyChoices<'_>,
+    draft: &PreferencesDraft,
+) -> Result<ExitCode, Failure> {
+    let stdin = io::stdin();
+    let stderr = io::stderr();
+    apply_preferences_with_io(
+        output,
+        root,
+        effects,
+        draft,
+        (
+            stdin.is_terminal() && stderr.is_terminal(),
+            &mut stdin.lock(),
+            &mut stderr.lock(),
+        ),
+    )
+}
+
+/// Existing trusted confirmation and journal writer, shared by both decline paths.
+fn apply_preferences_with_io(
+    output: Output,
+    root: &Path,
+    effects: &ApplyChoices<'_>,
+    draft: &PreferencesDraft,
     (terminal, input, error): (bool, &mut dyn BufRead, &mut dyn Write),
 ) -> Result<ExitCode, Failure> {
     trust::boundaries()?
@@ -295,18 +416,10 @@ fn preferences_only_with_io(
             .map(|database| database as &dyn WorkspaceAuthority),
     );
     let checked = CheckedTrust::new(&adapter, &boundaries);
-    let draft = draft_preferences(
-        root,
-        preferences.source,
-        preferences.choices,
-        &Limits::PRODUCTION,
-        &checked,
-    )
-    .map_err(Failure::refused)?;
     write_preferences(&trust::database()?, &checked, &draft.file, confirmation)
         .map_err(Failure::refused)?;
     output.result(
-        &draft,
+        draft,
         &output.wording(MessageKey::InitPreferencesWritten, &[])?,
     )?;
     Ok(ExitCode::SUCCESS)
@@ -331,53 +444,5 @@ impl WorkspacePreferences for InitPreferences<'_> {
         limits: &Limits,
     ) -> Result<maestro_settings::Layers, String> {
         self.source.layers(registry, limits)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{ApplyChoices, PreferenceChoices, preferences_only_with_io};
-    use crate::cli::{output::Output, trust_path};
-    use maestro_catalog::settings::FilePreferences;
-    use maestro_test_scratch::scratch_directory;
-    use std::fs;
-
-    #[test]
-    fn catalog_presentation_init_terminal_handoff_is_localized_and_blank_declines() {
-        let root = scratch_directory().unwrap().canonicalize().unwrap();
-        let source = FilePreferences::new(&root, &root);
-        let visible = trust_path::visible_path(&root);
-        for (language, expected, declined) in [
-            (
-                "fr",
-                format!("Approuver {visible} ? [y/N] "),
-                "écriture des préférences seules refusée ; aucun fichier écrit",
-            ),
-            (
-                "es",
-                format!("¿Aprobar {visible}? [y/N] "),
-                "se rechazó escribir solo las preferencias; no se escribió ningún archivo",
-            ),
-        ] {
-            let output = Output::new(false).with_language(language).unwrap();
-            let mut rendered = Vec::new();
-            let result = preferences_only_with_io(
-                output,
-                &root,
-                &ApplyChoices {
-                    apply: true,
-                    preferences_only: true,
-                    confirm_path: None,
-                },
-                PreferenceChoices {
-                    source: &source,
-                    choices: &[],
-                },
-                (true, &mut "\n".as_bytes(), &mut rendered),
-            );
-            assert_eq!(String::from_utf8(rendered).unwrap(), expected);
-            assert_eq!(result.unwrap_err().to_string(), declined);
-            assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
-        }
     }
 }

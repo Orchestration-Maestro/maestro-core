@@ -181,6 +181,7 @@ fn init_never_parses_an_unsafe_candidate_skipped_by_session() {
             "--set",
             "language=en",
             "init",
+            "--yes",
             "--catalog-dir",
             catalog.to_str().unwrap(),
             "--preset",
@@ -274,6 +275,7 @@ fn init_skips_unsafe_preferences_beside_an_unadmittable_lock() {
         &[
             "--json",
             "init",
+            "--yes",
             "--catalog-dir",
             catalog.to_str().unwrap(),
             "--preset",

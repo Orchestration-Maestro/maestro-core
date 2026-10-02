@@ -23,6 +23,7 @@ fn init(home: &Home, root: &Path, extra: &[&str]) -> super::support::Ended {
         .unwrap();
     let mut args = vec![
         "init",
+        "--yes",
         "--catalog-dir",
         catalog.to_str().unwrap(),
         "--preset",

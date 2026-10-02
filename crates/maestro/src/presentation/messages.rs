@@ -12,6 +12,22 @@ pub(super) const BUILT_INS: &[(&str, &str)] = &[
 /// Typed interface identities, not status codes or command names.
 #[derive(Clone, Copy)]
 pub(crate) enum MessageKey {
+    /// Localized plain-flow label or navigation prompt.
+    FlowWorkspace,
+    /// Localized plain-flow label or navigation prompt.
+    FlowLanguage,
+    /// Localized plain-flow label or navigation prompt.
+    FlowTone,
+    /// Localized plain-flow label or navigation prompt.
+    FlowSettings,
+    /// Localized plain-flow label or navigation prompt.
+    FlowReview,
+    /// Localized plain-flow label or navigation prompt.
+    FlowEditorPrompt,
+    /// Localized plain-flow label or navigation prompt.
+    FlowApplyPrompt,
+    /// Localized plain-flow label or navigation prompt.
+    FlowPreviewPrompt,
     /// One visible note for conversation languages without interface translations.
     InterfaceFallback,
     /// Init requires separately approved workspace trust.
@@ -38,6 +54,22 @@ pub(crate) enum MessageKey {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Translation {
+    /// Plain-flow label or navigation prompt.
+    flow_workspace: String,
+    /// Plain-flow label or navigation prompt.
+    flow_language: String,
+    /// Plain-flow label or navigation prompt.
+    flow_tone: String,
+    /// Plain-flow label or navigation prompt.
+    flow_settings: String,
+    /// Plain-flow label or navigation prompt.
+    flow_review: String,
+    /// Plain-flow label or navigation prompt.
+    flow_editor_prompt: String,
+    /// Plain-flow label or navigation prompt.
+    flow_apply_prompt: String,
+    /// Plain-flow label or navigation prompt.
+    flow_preview_prompt: String,
     /// Conversation language placeholder.
     interface_fallback: String,
     /// Already rendered trust instruction placeholder.
@@ -65,6 +97,14 @@ impl Translation {
     pub(super) fn parse(source: &str) -> Result<Self, String> {
         let translation: Self = serde_json::from_str(source).map_err(|error| error.to_string())?;
         for (template, expected) in [
+            (translation.flow_workspace.as_str(), &[][..]),
+            (translation.flow_language.as_str(), &[][..]),
+            (translation.flow_tone.as_str(), &[][..]),
+            (translation.flow_settings.as_str(), &[][..]),
+            (translation.flow_review.as_str(), &[][..]),
+            (translation.flow_editor_prompt.as_str(), &[][..]),
+            (translation.flow_apply_prompt.as_str(), &[][..]),
+            (translation.flow_preview_prompt.as_str(), &[][..]),
             (translation.interface_fallback.as_str(), &["language"][..]),
             (translation.init_untrusted.as_str(), &["instruction"][..]),
             (translation.init_trust_command.as_str(), &["path"][..]),
@@ -89,6 +129,14 @@ impl Translation {
     /// Select wording before any data is interpolated.
     fn template(&self, key: MessageKey) -> &str {
         match key {
+            MessageKey::FlowWorkspace => &self.flow_workspace,
+            MessageKey::FlowLanguage => &self.flow_language,
+            MessageKey::FlowTone => &self.flow_tone,
+            MessageKey::FlowSettings => &self.flow_settings,
+            MessageKey::FlowReview => &self.flow_review,
+            MessageKey::FlowEditorPrompt => &self.flow_editor_prompt,
+            MessageKey::FlowApplyPrompt => &self.flow_apply_prompt,
+            MessageKey::FlowPreviewPrompt => &self.flow_preview_prompt,
             MessageKey::InterfaceFallback => &self.interface_fallback,
             MessageKey::InitUntrusted => &self.init_untrusted,
             MessageKey::InitTrustCommand => &self.init_trust_command,

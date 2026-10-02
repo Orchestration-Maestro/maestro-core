@@ -22,6 +22,9 @@ fn plain(home: &Home, root: &Path, args: &[&str]) -> Ended {
     command.env("MAESTRO_ROUTER_URL", "http://127.0.0.1:0");
     command.env("MAESTRO_QDRANT_URL", "http://127.0.0.1:0");
     if args.contains(&"init") {
+        if !args.contains(&"--yes") {
+            command.arg("--yes");
+        }
         let catalog = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../tests/fixtures/catalog/bootstrap/owner-local");
         command.args([
@@ -146,6 +149,7 @@ fn catalog_presentation_confirmation_and_outcome_use_the_message_port() {
                 "--tone",
                 tone,
                 "init",
+                "--yes",
                 "--preferences-only",
             ];
             let refused = plain(&home, &root, &args);
@@ -205,6 +209,7 @@ fn catalog_presentation_json_and_english_diagnostics_are_byte_invariant() {
                     "--tone",
                     tone,
                     "init",
+                    "--yes",
                     "--apply",
                 ],
             );
@@ -425,6 +430,7 @@ fn catalog_presentation_review_unsafe_path_instructions() {
                     "--tone",
                     tone,
                     "init",
+                    "--yes",
                     "--preferences-only",
                 ],
             );

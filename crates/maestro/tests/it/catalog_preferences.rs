@@ -39,6 +39,7 @@ fn preview(
         "--set",
         "routing_candidates=2",
         "init",
+        "--yes",
         "--catalog-dir",
         catalog.to_str().unwrap(),
         "--preset",

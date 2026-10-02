@@ -66,6 +66,8 @@ in place.
 │   │   │   │   │   └── owners.rs                                            # Effect-free ownership checks over externally supplied trusted CI evidence
 │   │   │   │   ├── config/                                                  # maestro config: the settings, read, explained, changed and their
 │   │   │   │   │   ├── change.rs                                            # config set and config unset: one setting written in one preferences
+│   │   │   │   │   ├── editor.rs                                            # No-argument config: shared registry-generated editor over S1 operations
+│   │   │   │   │   ├── editor_tests.rs                                      # The shared editor's injected descriptor is persisted by S1's journaled API
 │   │   │   │   │   ├── history.rs                                           # config history: the journaled changes of the local principal's
 │   │   │   │   │   ├── mod.rs                                               # maestro config: the settings, read, explained, changed and their
 │   │   │   │   │   ├── show.rs                                              # config get, config list and config explain: a session's effective
@@ -117,6 +119,16 @@ in place.
 │   │   │   │   │   ├── services.rs                                          # Qdrant answering as the pinned version, the router listing its catalog, each role's model card
 │   │   │   │   │   ├── settings.rs                                          # The settings check: which preferences files a session reads, the user's
 │   │   │   │   │   └── status.rs                                            # maestro status: the kernel, Qdrant and the router ready or not, and each readable collection; exits 0
+│   │   │   │   ├── init/                                                    # Init's shared flow and plain adapter; the catalog planner remains independent
+│   │   │   │   │   ├── tests/                                               # Integration tests
+│   │   │   │   │   │   ├── approval.rs                                      # Rust source: approval
+│   │   │   │   │   │   ├── flow.rs                                          # Registry injection and renderer-independent draft/navigation regression tests
+│   │   │   │   │   │   └── mod.rs                                           # Rust source: mod
+│   │   │   │   │   ├── command.rs                                           # maestro init: show the complete authoring plan and apply only on request
+│   │   │   │   │   ├── flow.rs                                              # Shared draft and renderer port; S1 owns descriptors, validation and edits
+│   │   │   │   │   ├── menu.rs                                              # Init orchestration over the shared draft, plain port and unchanged planner
+│   │   │   │   │   ├── mod.rs                                               # Init's shared flow and plain adapter; the catalog planner remains independent
+│   │   │   │   │   └── plain.rs                                             # Sequential labelled prompts; no raw mode, repaint, color or terminal state
 │   │   │   │   ├── publish/                                                 # Explicit replacement of a lost projection and frozen resume identity
 │   │   │   │   │   ├── mod.rs                                               # Explicit replacement of a lost projection and frozen resume identity
 │   │   │   │   │   ├── recovery.rs                                          # Frozen identity and restart selection for explicit projection recovery
@@ -163,7 +175,6 @@ in place.
 │   │   │   │   ├── collection.rs                                            # knowledge collection add, and the declaration a later command finds for a collection
 │   │   │   │   ├── foreground.rs                                            # A job run in the foreground: submitted or found by its key, taken or followed, a stale holder superseded
 │   │   │   │   ├── import.rs                                                # knowledge import: a leased job in the foreground, its ID first; a rerun follows, takes over or supersedes
-│   │   │   │   ├── init.rs                                                  # maestro init: show the complete authoring plan and apply only on request
 │   │   │   │   ├── lease.rs                                                 # The lease of a job run in the foreground: Holder::run's heartbeat thread and each step renew it
 │   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
 │   │   │   │   ├── model.rs                                                 # Registering and listing scoped model cards
@@ -288,6 +299,7 @@ in place.
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
 │   │   │       ├── catalog_codeowners.rs                                    # Read-only CODEOWNERS rendering and comparison against committed rules
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
+│   │   │       ├── catalog_init_menu.rs                                     # Plain, screen-reader-safe init and the registry-backed config editor
 │   │   │       ├── catalog_owners.rs                                        # Trusted evidence is a separate input; the command performs no lookup or write
 │   │   │       ├── catalog_policy.rs                                        # Real Cedar through the effect-free policy CLI
 │   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
@@ -1605,6 +1617,7 @@ in place.
 │   ├── contracts/                                                           # Contracts
 │   │   └── unit-graph-v1.md                                                 # Unit graph wire contract v1
 │   ├── how-to/                                                              # How to
+│   │   ├── catalog.md                                                       # Initialize a workspace
 │   │   └── knowledge-mcp.md                                                 # Connect a client to Maestro's knowledge MCP server
 │   └── standards/                                                           # Standards
 │       ├── engineering.md                                                   # Engineering rules in maestro-core

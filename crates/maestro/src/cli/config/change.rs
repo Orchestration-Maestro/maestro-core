@@ -9,9 +9,9 @@
 
 use super::{
     super::output::{Output, diagnose},
-    show::{shown, unknown},
+    show::shown,
 };
-use crate::{failure::Failure, kernel::Kernel};
+use crate::{cli::init::flow::validate, failure::Failure, kernel::Kernel};
 use maestro_kernel::{
     paths::{self, Environment},
     scope::LOCAL,
@@ -19,8 +19,8 @@ use maestro_kernel::{
 };
 use maestro_settings::{
     FileEdit, FileError, FilePlace, Layer, LayerName, MAX_FILE_BYTES, MAX_FILE_DEPTH,
-    PROJECT_DIRECTORY, PROJECT_FILE, Registry, SettingClass, USER_FILE, Value,
-    discover_project_file, set_in_document, unset_in_document,
+    PROJECT_DIRECTORY, PROJECT_FILE, Registry, USER_FILE, Value, discover_project_file,
+    set_in_document, unset_in_document,
 };
 use serde_json::json;
 use std::{
@@ -110,20 +110,18 @@ pub(in crate::cli) fn run_with(
     journal: impl FnOnce(&Kernel, &SettingChange) -> Result<(), String>,
 ) -> Result<ExitCode, Failure> {
     let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
-    let descriptor = registry
-        .get(change.key)
-        .ok_or_else(|| unknown(change.key))?;
-    if descriptor.class == SettingClass::Locked {
-        return Err(Failure::refused(format!(
-            "{}: the setting is locked: no file or flag may change it",
-            change.key
-        )));
-    }
-    let new = change
-        .value
-        .map(|text| descriptor.kind.parse_text(text))
-        .transpose()
-        .map_err(|error| Failure::refused(format!("{}: {error}", change.key)))?;
+    run_in_registry(output, change, (places, &registry), open_kernel, journal)
+}
+
+/// The editor uses the same settings API with its admitted descriptor snapshot.
+pub(in crate::cli) fn run_in_registry(
+    output: Output,
+    change: Change<'_>,
+    (places, registry): (&Places, &Registry),
+    open_kernel: impl FnOnce() -> Result<Kernel, Failure>,
+    journal: impl FnOnce(&Kernel, &SettingChange) -> Result<(), String>,
+) -> Result<ExitCode, Failure> {
+    let new = validate(registry, change.key, change.value, change.layer)?;
     let path = target(change.layer, places)?;
     let place = match change.layer {
         LayerName::User => FilePlace::user(&places.config_dir),
@@ -137,7 +135,7 @@ pub(in crate::cli) fn run_with(
         ));
     })
     .map_err(|error| file_failure(&error))?;
-    let edited = edit(&registry, &path, file.before(), change.key, new.as_ref())?;
+    let edited = edit(registry, &path, file.before(), change.key, new.as_ref())?;
     let document = |changed: bool, old: Option<&Value>| {
         json!({
             "schema": "maestro-cli/config-change/1",

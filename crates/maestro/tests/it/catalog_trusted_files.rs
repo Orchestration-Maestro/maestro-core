@@ -37,6 +37,7 @@ fn init(home: &Home, root: &Path, choices: &[String]) -> super::support::Ended {
     let mut args = vec![
         "--json",
         "init",
+        "--yes",
         "--catalog-dir",
         catalog.to_str().unwrap(),
         "--preset",

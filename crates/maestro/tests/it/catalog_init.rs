@@ -24,6 +24,7 @@ fn catalog_init_previews_without_writes_or_script_execution() {
         &root,
         &[
             "init",
+            "--yes",
             "--catalog-dir",
             catalog.to_str().unwrap(),
             "--preset",
@@ -61,6 +62,7 @@ fn catalog_init_refuses_changed_sources_after_bootstrap() {
     let guide = root.join(".github/copilot-instructions.md");
     let args = [
         "init",
+        "--yes",
         "--catalog-dir",
         catalog.to_str().unwrap(),
         "--preset",
@@ -97,6 +99,7 @@ fn catalog_init_apply_writes_composition_and_identical_rerun_is_noop() {
     let catalog = fixtures();
     let args = [
         "init",
+        "--yes",
         "--catalog-dir",
         catalog.to_str().unwrap(),
         "--preset",
@@ -166,6 +169,7 @@ fn catalog_init_reports_found_and_missing_manifest_tools_without_execution() {
     let mut command = home.command(&[
         "--json",
         "init",
+        "--yes",
         "--catalog-dir",
         catalog.to_str().unwrap(),
         "--preset",
@@ -203,6 +207,7 @@ fn catalog_init_never_claims_applied_when_the_writer_refuses() {
         &root,
         &[
             "init",
+            "--yes",
             "--catalog-dir",
             catalog.to_str().unwrap(),
             "--preset",
@@ -241,6 +246,7 @@ fn catalog_init_requires_checked_mandatory_and_language_closure() {
         copy_tree(&fixtures(), &catalog);
         let args = [
             "init",
+            "--yes",
             "--catalog-dir",
             catalog.to_str().unwrap(),
             "--preset",
@@ -279,6 +285,7 @@ fn catalog_init_and_check_refuse_unlisted_inventory_payloads() {
         ],
         vec![
             "init",
+            "--yes",
             "--catalog-dir",
             catalog.to_str().unwrap(),
             "--preset",
@@ -358,6 +365,7 @@ fn catalog_init_freezes_defaults_for_production_sessions() {
     approve(&home, &root);
     let args = [
         "init",
+        "--yes",
         "--catalog-dir",
         catalog.to_str().unwrap(),
         "--preset",
@@ -461,6 +469,7 @@ fn catalog_init_reaches_its_plan_with_an_unadmitted_lock() {
     for apply in [false, true] {
         let mut args = vec![
             "init",
+            "--yes",
             "--catalog-dir",
             catalog.to_str().unwrap(),
             "--preset",

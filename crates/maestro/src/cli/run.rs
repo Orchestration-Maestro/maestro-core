@@ -63,35 +63,18 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
     if let Noun::Trust(command) = &arguments.noun {
         return trust::run(output, command);
     }
-    let flags = arguments.settings();
+    let mut flags = arguments.settings();
+    if let Noun::Init {
+        updates: Some(updates),
+        ..
+    } = &arguments.noun
+    {
+        flags.push(format!("updates={updates}"));
+    }
     let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
     parse_flags(&registry, &flags).map_err(|error| Failure::refused_by(&error))?;
-    // These repairs read no resolved settings, so an unadmitted lock cannot block them.
-    match &arguments.noun {
-        Noun::Setup { yes } => return setup::run(output, *yes),
-        Noun::Status => return health::status::run(output),
-        Noun::Backup { to } => return backup::run_backup(output, to),
-        Noun::Restore { from } => return backup::run_restore(output, from),
-        Noun::Init {
-            catalog_dir,
-            presets,
-            apply,
-            preferences_only,
-            confirm_path,
-        } => {
-            return init::run(
-                output,
-                catalog_dir,
-                presets,
-                init::ApplyChoices {
-                    apply: *apply,
-                    preferences_only: *preferences_only,
-                    confirm_path: confirm_path.as_deref(),
-                },
-                &flags,
-            );
-        }
-        _ => {}
+    if let Some(result) = independent_command(&arguments.noun, output, &flags) {
+        return result;
     }
     let session = match &arguments.noun {
         Noun::Mcp { workspace } => session::for_mcp(workspace.as_deref(), &flags)?,
@@ -143,7 +126,14 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             run_mcp(model_port, qdrant, settings, session.mcp_context())?;
             Ok(ExitCode::SUCCESS)
         }
-        Noun::Config(command) => config_command(output, command, &session),
+        Noun::Config {
+            command: Some(command),
+            ..
+        } => config_command(output, command, &session),
+        Noun::Config {
+            command: None,
+            target,
+        } => config::editor(output, &session, layer(target)),
         Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
         Noun::Catalog(command) => catalog::dispatch::run(output, command),
         Noun::Policy(command) => policy::run(output, command),
@@ -157,6 +147,45 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         | Noun::Trust(_) => Err(Failure::failed(
             "repair command bypassed its scoped dispatch path",
         )),
+    }
+}
+
+/// These commands read no runtime settings, so an unadmitted lock cannot block repair.
+fn independent_command(
+    noun: &Noun,
+    output: Output,
+    flags: &[String],
+) -> Option<Result<ExitCode, Failure>> {
+    match noun {
+        Noun::Setup { yes } => Some(setup::run(output, *yes)),
+        Noun::Status => Some(health::status::run(output)),
+        Noun::Backup { to } => Some(backup::run_backup(output, to)),
+        Noun::Restore { from } => Some(backup::run_restore(output, from)),
+        Noun::Init {
+            catalog_dir,
+            presets,
+            plain,
+            yes,
+            apply,
+            preferences_only,
+            confirm_path,
+            ..
+        } => Some(init::run(
+            output,
+            init::Request {
+                catalog: catalog_dir.as_deref(),
+                presets,
+                plain: *plain,
+                yes: *yes,
+                effects: init::ApplyChoices {
+                    apply: *apply,
+                    preferences_only: *preferences_only,
+                    confirm_path: confirm_path.as_deref(),
+                },
+            },
+            flags,
+        )),
+        _ => None,
     }
 }
 

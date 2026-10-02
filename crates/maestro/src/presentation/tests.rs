@@ -90,6 +90,18 @@ fn catalog_presentation_translation_golden_covers_every_key_and_language() {
 
     let path = [("path", "/synthetic/équipe/{literal}")];
     let messages = [
+        (MessageKey::FlowWorkspace, "flow_workspace", &[][..]),
+        (MessageKey::FlowLanguage, "flow_language", &[][..]),
+        (MessageKey::FlowTone, "flow_tone", &[][..]),
+        (MessageKey::FlowSettings, "flow_settings", &[][..]),
+        (MessageKey::FlowReview, "flow_review", &[][..]),
+        (MessageKey::FlowEditorPrompt, "flow_editor_prompt", &[][..]),
+        (MessageKey::FlowApplyPrompt, "flow_apply_prompt", &[][..]),
+        (
+            MessageKey::FlowPreviewPrompt,
+            "flow_preview_prompt",
+            &[][..],
+        ),
         (
             MessageKey::InterfaceFallback,
             "interface_fallback",
