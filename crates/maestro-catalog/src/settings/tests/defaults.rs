@@ -5,7 +5,7 @@ use crate::{
     settings::resolve,
     source::{
         Catalog, Cause, Directory, Entry, Known, SourceTree, builtin, check,
-        defaults::manifest_registry, frozen_rows,
+        defaults::from_resources, frozen_rows,
     },
 };
 use maestro_settings::{Layer, Layers, Registry, SettingClass, SettingKind, Value, parse_flags};
@@ -66,7 +66,7 @@ fn catalog(defaults: Option<&str>, graph: Option<&str>) -> Result<Catalog, Strin
 /// Feed the checked backend and optional common defaults into the sole S1 slot.
 fn pinned_registry(defaults: Option<&str>, graph: Option<&str>) -> Registry {
     let catalog = catalog(None, graph).unwrap();
-    manifest_registry(
+    from_resources(
         &Registry::built_in().unwrap(),
         &catalog.resources,
         defaults,
@@ -324,21 +324,21 @@ fn manifest_defaults_validate_whole_inputs_and_exact_limits() {
         source_depth: 1,
         ..Limits::PRODUCTION
     };
-    assert!(manifest_registry(&registry, &[], Some(DEFAULTS), &exact).is_ok());
+    assert!(from_resources(&registry, &[], Some(DEFAULTS), &exact).is_ok());
     let shorter = Limits {
         source_file_bytes: exact.source_file_bytes - 1,
         ..exact
     };
-    assert!(manifest_registry(&registry, &[], Some(DEFAULTS), &shorter).is_err());
+    assert!(from_resources(&registry, &[], Some(DEFAULTS), &shorter).is_err());
     let flat = "schema = \"maestro-preferences/1\"\n\"graphdb.max_num_threads\" = 2";
     let nested = "schema = \"maestro-preferences/1\"\n[graphdb]\nmax_num_threads = 2";
     let shallow = Limits {
         source_depth: 1,
         ..Limits::PRODUCTION
     };
-    assert!(manifest_registry(&registry, &[], Some(flat), &shallow).is_ok());
-    assert!(manifest_registry(&registry, &[], Some(nested), &shallow).is_err());
-    assert!(manifest_registry(&registry, &[], Some(nested), &Limits::PRODUCTION).is_ok());
+    assert!(from_resources(&registry, &[], Some(flat), &shallow).is_ok());
+    assert!(from_resources(&registry, &[], Some(nested), &shallow).is_err());
+    assert!(from_resources(&registry, &[], Some(nested), &Limits::PRODUCTION).is_ok());
 }
 
 #[test]

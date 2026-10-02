@@ -1,8 +1,10 @@
 //! Typed restrictive resolution over the canonical S1 settings descriptors.
 
+pub(crate) mod defaults;
 mod discovery;
 mod preferences;
 pub(crate) mod resolve;
+mod session;
 mod standards;
 mod types;
 

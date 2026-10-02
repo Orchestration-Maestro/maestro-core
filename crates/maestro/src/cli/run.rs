@@ -66,6 +66,14 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
     let flags = arguments.settings();
     let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
     parse_flags(&registry, &flags).map_err(|error| Failure::refused_by(&error))?;
+    // These repairs read no resolved settings, so an unadmitted lock cannot block them.
+    match &arguments.noun {
+        Noun::Setup { yes } => return setup::run(output, *yes),
+        Noun::Status => return health::status::run(output),
+        Noun::Backup { to } => return backup::run_backup(output, to),
+        Noun::Restore { from } => return backup::run_restore(output, from),
+        _ => {}
+    }
     let session = match &arguments.noun {
         Noun::Mcp { workspace } => session::for_mcp(workspace.as_deref(), &flags)?,
         _ => session::for_cli(&flags)?,
@@ -144,12 +152,14 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             },
         ),
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
-        Noun::Setup { yes } => setup::run(output, *yes),
-        Noun::Status => health::status::run(output),
         Noun::Doctor => health::doctor::run(output, &session),
-        Noun::Backup { to } => backup::run_backup(output, to),
-        Noun::Restore { from } => backup::run_restore(output, from),
-        Noun::Trust(command) => trust::run(output, command),
+        Noun::Setup { .. }
+        | Noun::Status
+        | Noun::Backup { .. }
+        | Noun::Restore { .. }
+        | Noun::Trust(_) => Err(Failure::failed(
+            "repair command bypassed its scoped dispatch path",
+        )),
     }
 }
 

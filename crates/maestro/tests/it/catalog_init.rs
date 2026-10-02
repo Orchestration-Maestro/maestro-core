@@ -317,3 +317,109 @@ fn copy_tree(from: &Path, to: &Path) {
         }
     }
 }
+
+#[test]
+fn catalog_init_freezes_defaults_for_production_sessions() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    let catalog = home.root().join("catalog");
+    fs::create_dir(&root).unwrap();
+    copy_tree(&fixtures(), &catalog);
+    fs::create_dir(catalog.join("settings")).unwrap();
+    let defaults = catalog.join("settings/defaults.toml");
+    fs::write(
+        &defaults,
+        "schema = 'maestro-preferences/1'\nlanguage = 'fr'\ntone = 'brief'\n",
+    )
+    .unwrap();
+    let graph = catalog.join("core/backends/graphdb/config.toml");
+    fs::create_dir_all(graph.parent().unwrap()).unwrap();
+    fs::write(
+        &graph,
+        include_str!("../../../../tests/fixtures/catalog/backends/graphdb.toml")
+            .replace("ladybug", "none")
+            .replace("max_num_threads = 2", "max_num_threads = 3"),
+    )
+    .unwrap();
+    approve(&home, &root);
+    let args = [
+        "init",
+        "--catalog-dir",
+        catalog.to_str().unwrap(),
+        "--preset",
+        "base",
+        "--apply",
+    ];
+    let applied = home.run_in(&root, &args);
+    assert_eq!(applied.code, Some(0), "{applied:?}");
+    let config = fs::read_to_string(root.join(".maestro/config.toml")).unwrap();
+    assert!(config.contains("language = \"fr\""), "{config}");
+    assert!(config.contains("tone = \"brief\""), "{config}");
+    fs::write(
+        defaults,
+        "schema = 'maestro-preferences/1'\nlanguage = 'ja'\n",
+    )
+    .unwrap();
+    fs::write(graph, "changed catalog bytes").unwrap();
+    for (key, value) in [
+        ("graph.engine", serde_json::json!("none")),
+        ("graphdb.max_num_threads", serde_json::json!(3)),
+    ] {
+        let result = home.run_in(&root, &["--json", "config", "get", key]);
+        assert_eq!(result.code, Some(0), "{result:?}");
+        assert_eq!(result.json()["value"], value);
+        assert_eq!(
+            result.json()["source"],
+            serde_json::json!({"layer":"default"})
+        );
+    }
+    let lock = root.join(".maestro/authoring.lock.json");
+    let original = fs::read(&lock).unwrap();
+    fs::write(&lock, [original.as_slice(), b"\n"].concat()).unwrap();
+    let refused = home.run_in(&root, &["--json", "config", "get", "graph.engine"]);
+    assert_eq!(refused.code, Some(2), "{refused:?}");
+    assert!(refused.stderr.contains("preview again"), "{refused:?}");
+    fs::write(lock, original).unwrap();
+    let revoked = home.run(&["trust", "remove", root.to_str().unwrap()]);
+    assert_eq!(revoked.code, Some(0), "{revoked:?}");
+    let refused = home.run_in(&root, &["config", "get", "graph.engine"]);
+    assert_eq!(refused.code, Some(2), "{refused:?}");
+    assert!(
+        refused.stderr.contains("trusted containing root"),
+        "{refused:?}"
+    );
+}
+
+#[test]
+fn catalog_runtime_engine_refuses_uncompiled_flags_without_effects() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    fs::create_dir(&root).unwrap();
+    let refused = home.run_in(
+        &root,
+        &[
+            "--set",
+            "graph.engine=ladybug",
+            "config",
+            "get",
+            "graph.engine",
+        ],
+    );
+    assert_eq!(refused.code, Some(2), "{refused:?}");
+    assert!(refused.stderr.contains("not compiled"), "{refused:?}");
+    let disabled = home.run_in(
+        &root,
+        &[
+            "--json",
+            "--set",
+            "graph.engine=none",
+            "config",
+            "get",
+            "graph.engine",
+        ],
+    );
+    assert_eq!(disabled.code, Some(0), "{disabled:?}");
+    assert_eq!(disabled.json()["value"], "none");
+    assert!(!home.data().join("kernel.sqlite3").exists());
+    assert_eq!(fs::read_dir(root).unwrap().count(), 0);
+}

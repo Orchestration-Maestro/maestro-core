@@ -4,8 +4,10 @@ mod inventory;
 mod inventory_reuse;
 mod lock_limits;
 mod locks;
+mod nonresource;
 mod project;
 mod selection;
+mod session_lock;
 mod snapshot;
 mod support;
 

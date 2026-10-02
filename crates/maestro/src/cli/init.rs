@@ -94,7 +94,6 @@ pub(super) fn run(
             .map(|database| database as &dyn WorkspaceAuthority),
     );
     let checked = CheckedTrust::new(&adapter, &boundaries);
-    let preferences = preference_draft(&root, source, choices, &checked)?;
     let registry = builtin().map_err(Failure::failed)?;
     let settings = maestro_settings::Registry::built_in().map_err(Failure::failed)?;
     let rows = frozen_rows();
@@ -107,7 +106,13 @@ pub(super) fn run(
             today: super::catalog::today()?,
         },
     )
-    .map_err(Failure::refused)?;
+    .map_err(Failure::refused)?
+    .with_compiled_backends(super::session::compiled_backends());
+    let admitted = InitPreferences {
+        source,
+        registry: provider.admitted_registry(),
+    };
+    let preferences = preference_draft(&root, &admitted, choices, &checked)?;
     let preview =
         bootstrap::preview(&root, &provider, presets, &checked).map_err(Failure::refused)?;
     let already_applied = preview.plan.is_applied()
@@ -283,6 +288,28 @@ fn preferences_only_with_io(
         &output.wording(MessageKey::InitPreferencesWritten, &[])?,
     )?;
     Ok(ExitCode::SUCCESS)
+}
+
+/// Init's existing preference snapshot with the newly checked lowest defaults slot.
+struct InitPreferences<'a> {
+    /// User/workspace layers remain the already selected immutable session source.
+    source: &'a dyn WorkspacePreferences,
+    /// Checked manifest-backed defaults, not resolved preference winners.
+    registry: &'a maestro_settings::Registry,
+}
+
+impl WorkspacePreferences for InitPreferences<'_> {
+    fn registry(&self) -> Result<maestro_settings::Registry, String> {
+        Ok(self.registry.clone())
+    }
+
+    fn layers(
+        &self,
+        registry: &maestro_settings::Registry,
+        limits: &Limits,
+    ) -> Result<maestro_settings::Layers, String> {
+        self.source.layers(registry, limits)
+    }
 }
 
 #[cfg(test)]

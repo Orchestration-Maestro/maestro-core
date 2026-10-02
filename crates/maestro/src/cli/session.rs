@@ -4,7 +4,7 @@ use super::trust;
 use crate::{failure::Failure, settings::Session};
 use maestro_catalog::{
     limits::Limits,
-    policy::workspace::{CheckedTrust, JournalTrust, WorkspaceTrust},
+    policy::workspace::{CheckedTrust, JournalTrust},
     settings::{NoWorkspaceTrust, SessionPreferences},
 };
 use maestro_kernel::{
@@ -12,6 +12,7 @@ use maestro_kernel::{
     store::Database,
 };
 use std::{
+    collections::BTreeSet,
     env,
     path::{Path, PathBuf},
 };
@@ -71,14 +72,22 @@ pub(crate) fn for_mcp_at(
     at(config_dir, workspace, home, flags)
 }
 
-/// Load the file-backed source and pass its discovery metadata to the session.
+/// No-authority fallback: preferences only; pending lock registries fail closed.
 pub(crate) fn at(
     config_dir: &Path,
     start: Option<&Path>,
     home: Option<&Path>,
     flags: &[String],
 ) -> Result<Session, Failure> {
-    at_with_trust(config_dir, start, home, flags, &NoWorkspaceTrust)
+    let snapshot = SessionPreferences::load(
+        config_dir,
+        start,
+        home,
+        &NoWorkspaceTrust,
+        &Limits::PRODUCTION,
+    )
+    .map_err(Failure::refused)?;
+    from_snapshot(config_dir, &snapshot, flags)
 }
 
 /// Production sessions consult kernel authority without creating a fresh database.
@@ -110,14 +119,43 @@ fn at_with_trust(
     start: Option<&Path>,
     home: Option<&Path>,
     flags: &[String],
-    trust: &dyn WorkspaceTrust,
+    trust: &CheckedTrust<'_>,
 ) -> Result<Session, Failure> {
+    let compiled = compiled_backends();
     let snapshot = SessionPreferences::load(config_dir, start, home, trust, &Limits::PRODUCTION)
+        .and_then(|snapshot| snapshot.admit_defaults(trust, &compiled, &Limits::PRODUCTION))
         .map_err(Failure::refused)?;
-    Session::from_preferences(config_dir, &snapshot, snapshot.discovery.clone(), flags)
+    from_snapshot(config_dir, &snapshot, flags)
+}
+
+/// Both authority paths enforce availability after the four layers resolve.
+fn from_snapshot(
+    config_dir: &Path,
+    snapshot: &SessionPreferences,
+    flags: &[String],
+) -> Result<Session, Failure> {
+    let compiled = compiled_backends();
+    let session =
+        Session::from_preferences(config_dir, snapshot, snapshot.discovery.clone(), flags)?;
+    if session
+        .resolved()
+        .text("graph.engine")
+        .is_some_and(|kind| kind != "none" && !compiled.contains(kind))
+    {
+        return Err(Failure::refused(
+            "backend adapter is not compiled into this build",
+        ));
+    }
+    Ok(session)
 }
 
 /// The kernel's configuration directory, which holds the user file.
 fn config_dir() -> Result<PathBuf, Failure> {
     paths::config_dir(&Environment::current()).map_err(|error| Failure::failed_by(&error))
+}
+
+/// Existing S1 vector/MCP adapters linked by this composition root.
+/// S3 has no qualified native graph adapter; explicit `none` needs no adapter.
+pub(super) fn compiled_backends() -> BTreeSet<String> {
+    BTreeSet::from(["qdrant".to_owned(), "knowledge".to_owned()])
 }

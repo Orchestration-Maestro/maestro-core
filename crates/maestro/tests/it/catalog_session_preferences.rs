@@ -1,4 +1,4 @@
-//! Every process pins the same safe preference snapshot before effects.
+//! Preference-consuming processes pin a safe snapshot before effects.
 use super::support::{Home, initialize_mcp, make_safe_preferences_path};
 use serde_json::json;
 use std::{
@@ -17,14 +17,16 @@ fn project(home: &Home, body: &str) -> PathBuf {
 }
 
 #[test]
-fn malformed_selected_preferences_refuse_before_status_or_journal_effects() {
+fn malformed_selected_preferences_allow_status_but_refuse_journal_effects() {
     let home = Home::bare();
     let root = project(&home, "schema = 'maestro-preferences/1'\nunknown = true\n");
-    for args in [vec!["status"], vec!["config", "history"]] {
-        let result = home.run_in(&root, &args);
-        assert_eq!(result.code, Some(2), "{result:?}");
-        assert!(result.stderr.contains("unknown"), "{result:?}");
-    }
+    let status = home.run_in(&root, &["--json", "status"]);
+    assert_eq!(status.code, Some(0), "{status:?}");
+    assert_eq!(status.json()["schema"], "maestro-cli/status/1");
+    assert!(!home.data().join("kernel.sqlite3").exists());
+    let history = home.run_in(&root, &["config", "history"]);
+    assert_eq!(history.code, Some(2), "{history:?}");
+    assert!(history.stderr.contains("unknown"), "{history:?}");
     assert!(!home.data().join("kernel.sqlite3").exists());
 }
 

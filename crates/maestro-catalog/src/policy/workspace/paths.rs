@@ -405,6 +405,17 @@ impl AuthorizedPath<'_> {
         self.finish_read(self.parent.open_regular(&self.name)?)
     }
 
+    /// Read bounded owner-only-writable preferences through the authorized parent.
+    ///
+    /// # Errors
+    /// Refuses non-read leases, stale policy/identity, unsafe metadata and byte limits.
+    pub fn read_preferences(&self, max_bytes: u64) -> io::Result<Vec<u8>> {
+        drop(self.open_read()?);
+        let bytes = self.parent.read_preferences(&self.name, max_bytes)?;
+        self.revalidate()?;
+        Ok(bytes)
+    }
+
     /// Drop the opened handle on refusal rather than returning stale authority.
     fn finish_read(&self, file: File) -> io::Result<File> {
         self.check_current_policy()?;

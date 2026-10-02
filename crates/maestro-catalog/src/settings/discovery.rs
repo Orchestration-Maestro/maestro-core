@@ -32,11 +32,17 @@ pub struct SessionPreferences {
     pub discovery: Discovery,
     /// Strictly parsed layers; no file is reopened during resolution.
     layers: Layers,
+    /// Immutable admitted lowest slot; no resolution rebuilds built-in defaults.
+    pub(super) registry: Registry,
+    /// Independently discovered nearest safe lock, frozen before effects.
+    pub(super) lock: Option<Result<PathBuf, String>>,
 }
 
 impl SessionPreferences {
     /// Load user preferences and at most one safe workspace file, before effects.
     /// No start (MCP without `--workspace`) means user preferences only.
+    /// Call [`Self::admit_defaults`] before consuming a discovered project's registry.
+    /// Discovery captures only the lock path, never its content or defaults.
     ///
     /// # Errors
     /// Refuses malformed selected safe files, including masked keys and byte/depth limits.
@@ -53,7 +59,9 @@ impl SessionPreferences {
             .preferences(&registry, max_bytes, limits.source_depth)
             .map_err(|error| error.to_string())?;
         let (discovery, project) = match start {
-            Some(start) => discover(start, home, trust, max_bytes),
+            Some(start) => discover(start, home, trust, |directory, path| {
+                candidate(directory, path, max_bytes)
+            }),
             None => (Discovery::default(), None),
         };
         if let (Some(path), Some(bytes)) = (&discovery.file, project) {
@@ -64,23 +72,47 @@ impl SessionPreferences {
                 .map_err(|error| format!("{}: {error}", path.display()))?;
             layers.project = Some((path.clone(), layer));
         }
-        Ok(Self { discovery, layers })
+        let lock = start.and_then(|start| {
+            let (found, _) = discover(start, home, trust, |directory, path| {
+                lock_candidate(directory, path, limits.archive_entries)
+            });
+            if !found.skipped.is_empty() {
+                return Some(Err(format!(
+                    "unsafe project lock; run preview again: {}",
+                    found.skipped.join("; ")
+                )));
+            }
+            found.file.map(Ok)
+        });
+        Ok(Self {
+            discovery,
+            layers,
+            registry,
+            lock,
+        })
     }
 }
 
 impl WorkspacePreferences for SessionPreferences {
+    fn registry(&self) -> Result<Registry, String> {
+        if self.lock.is_some() {
+            return Err("project defaults require checked admission".to_owned());
+        }
+        Ok(self.registry.clone())
+    }
+
     fn layers(&self, _registry: &Registry, _limits: &Limits) -> Result<Layers, String> {
         Ok(self.layers.clone())
     }
 }
 
 /// Bound a canonical start by home or a containing journal-approved root.
-fn discover(
+fn discover<T>(
     start: &Path,
     home: Option<&Path>,
     trust: &dyn WorkspaceTrust,
-    max_bytes: u64,
-) -> (Discovery, Option<io::Result<Vec<u8>>>) {
+    mut read: impl FnMut(&Directory, &Path) -> Result<Option<(PathBuf, T)>, String>,
+) -> (Discovery, Option<T>) {
     let start = match start.canonicalize() {
         Ok(start) if start.is_dir() => start,
         _ => return noted("workspace cannot be resolved as a directory".to_owned()),
@@ -100,7 +132,7 @@ fn discover(
     let mut held = Directory::open_canonical(&start);
     discover_project_with(&start, &boundary, |directory| {
         let candidate = match &held {
-            Ok(held) => candidate(held, directory, max_bytes),
+            Ok(held) => read(held, directory),
             Err(error) => Err(format!("{}: skipped: {error}", directory.display())),
         };
         let selected = candidate.as_ref().is_ok_and(Option::is_some);
@@ -137,8 +169,43 @@ fn candidate(
     }
 }
 
+/// Discover lock/marker names only; admission must authorize before any content read.
+fn lock_candidate(
+    directory: &Directory,
+    path: &Path,
+    limit: usize,
+) -> Result<Option<(PathBuf, ())>, String> {
+    let child = match directory.child(PROJECT_DIRECTORY) {
+        Ok(child) => child,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.to_string()),
+    };
+    if directory
+        .is_mount_root()
+        .map_err(|error| error.to_string())?
+    {
+        return Err("mount or drive root is never a workspace".to_owned());
+    }
+    let entries = child
+        .list_bounded(limit)
+        .map_err(|error| error.to_string())?;
+    if entries
+        .iter()
+        .any(|entry| entry.name == "authoring.lock.json")
+    {
+        return Ok(Some((
+            path.join(PROJECT_DIRECTORY).join("authoring.lock.json"),
+            (),
+        )));
+    }
+    if entries.iter().any(|entry| entry.name == "project.toml") {
+        return Err("project lock is missing".to_owned());
+    }
+    Ok(None)
+}
+
 /// Explain fallback without selecting or reading any workspace candidate.
-fn noted(note: String) -> (Discovery, Option<io::Result<Vec<u8>>>) {
+fn noted<T>(note: String) -> (Discovery, Option<T>) {
     (
         Discovery {
             note: Some(note),

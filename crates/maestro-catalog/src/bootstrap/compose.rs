@@ -43,6 +43,24 @@ pub struct Preset {
 
 /// Replaceable source of preset definitions and their inert file bytes.
 pub trait PresetPort {
+    /// The checked, immutable manifest-backed lowest defaults slot.
+    ///
+    /// # Errors
+    /// Refuses invalid defaults before composing outputs.
+    fn defaults(&self) -> Result<maestro_settings::Registry, String> {
+        maestro_settings::Registry::built_in().map_err(|error| error.to_string())
+    }
+
+    /// Missing runtime inputs are pinned too, so adding one invalidates preview.
+    fn absent_inputs(&self) -> Vec<(PathBuf, String)> {
+        Vec::new()
+    }
+
+    /// Runtime base types captured alongside frozen defaults.
+    fn backend_types(&self) -> BTreeSet<String> {
+        BTreeSet::new()
+    }
+
     /// Resolve the selected preset closure in stable ID order; unknown names are errors.
     ///
     /// # Errors

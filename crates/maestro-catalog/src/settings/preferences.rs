@@ -11,6 +11,14 @@ use std::{collections::BTreeMap, fmt::Write as _, path::Path};
 
 /// Replaceable source of strictly parsed preferences selected for the session.
 pub trait WorkspacePreferences {
+    /// The immutable lowest defaults slot captured at admission.
+    ///
+    /// # Errors
+    /// Refuses an invalid registered default.
+    fn registry(&self) -> Result<Registry, String> {
+        Registry::built_in().map_err(|error| error.to_string())
+    }
+
     /// Read preferences only, never user authority. The session selects the nearest
     /// safe workspace file and never merges ancestor configuration.
     ///
@@ -70,7 +78,7 @@ pub fn draft_preferences(
     limits: &Limits,
     trust: &CheckedTrust<'_>,
 ) -> Result<PreferencesDraft, String> {
-    let registry = Registry::built_in().map_err(|error| error.to_string())?;
+    let registry = port.registry()?;
     let layers = port.layers(&registry, limits)?;
     let flags = parse_flags(&registry, choices).map_err(|error| error.to_string())?;
     if flags

@@ -2,7 +2,7 @@
 
 use super::{
     backends::BACKENDS,
-    defaults::manifest_registry,
+    defaults::from_resources,
     descriptor::{Field, FieldType},
     load::Loaded,
     parse::{fields, is_name, toml_table},
@@ -309,7 +309,7 @@ pub(super) fn selected(
         .filter(|resource| resource.id.kind == "backend")
         .map(|resource| (*resource).clone())
         .collect::<Vec<_>>();
-    let registry = manifest_registry(&registry, &bases, common, &Limits::PRODUCTION)?;
+    let registry = from_resources(&registry, &bases, common, &Limits::PRODUCTION)?;
     effective(resources, &registry, &Limits::PRODUCTION)
 }
 

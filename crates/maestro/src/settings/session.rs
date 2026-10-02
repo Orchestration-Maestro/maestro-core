@@ -43,7 +43,7 @@ impl Session {
         discovery: Discovery,
         flags: &[String],
     ) -> Result<Self, Failure> {
-        let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
+        let registry = source.registry().map_err(Failure::refused)?;
         let layers = source
             .layers(&registry, &Limits::PRODUCTION)
             .map_err(Failure::refused)?;
@@ -115,6 +115,10 @@ impl Session {
 }
 
 impl WorkspacePreferences for Session {
+    fn registry(&self) -> Result<Registry, String> {
+        Ok(self.registry.clone())
+    }
+
     fn layers(&self, _registry: &Registry, _limits: &Limits) -> Result<Layers, String> {
         Ok(self.layers.clone())
     }

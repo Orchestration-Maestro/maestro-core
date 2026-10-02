@@ -1,15 +1,14 @@
-//! Manifest producers replace declared defaults in the sole S1 lowest slot.
-
+//! Source-only snapshot and backend extraction into the shared S1 producer.
 use super::{
     scan::Snapshot,
     tree::{EntryKind, SourceTree},
-    types::{Diagnostic, Refusal, Resource, Value as SourceValue},
+    types::{Diagnostic, Refusal, Resource, Value},
 };
-use crate::limits::Limits;
-use maestro_settings::{Layer, MAX_FILE_BYTES, Registry, SCHEMA, Value};
-use std::{borrow::Cow, collections::BTreeMap, io};
+use crate::{limits::Limits, settings::defaults::manifest_registry};
+use maestro_settings::{Registry, SCHEMA};
+use std::{collections::BTreeMap, io};
 
-/// Exact non-resource placement; the source snapshot owns its bytes.
+/// Exact non-resource placement; the bounded source snapshot owns its bytes.
 pub(crate) const DEFAULTS_PATH: &str = "settings/defaults.toml";
 
 /// Read and validate non-resource defaults from the same no-follow catalog snapshot.
@@ -43,7 +42,7 @@ pub(super) fn from_snapshot(
         }
     };
     let settings = match registry {
-        Some(registry) => Some(manifest_registry(
+        Some(registry) => Some(from_resources(
             registry,
             resources,
             common.as_deref(),
@@ -61,28 +60,22 @@ pub(super) fn from_snapshot(
     Ok((settings, common))
 }
 
-/// Construct the S1 registry with one producer for each manifest-declared default.
-/// Undeclared keys retain registered defaults; locked defaults cannot be authored.
-/// The complete common file and every supplied backend control are checked before
-/// any preference can mask them. No engine is opened and no secret is resolved.
-///
-/// # Errors
-/// Refuses invalid/locked values, unknown keys and repeated producers, even equal ones.
-pub(crate) fn manifest_registry(
+/// Convert already checked backend fields to S1 inputs without another source read.
+pub(crate) fn from_resources(
     registry: &Registry,
     resources: &[Resource],
     common: Option<&str>,
     limits: &Limits,
 ) -> Result<Registry, Refusal> {
-    let mut producers = BTreeMap::new();
-    if let Some(text) = common {
-        produce(&mut producers, registry, DEFAULTS_PATH, text, limits)?;
+    let mut inputs = Vec::new();
+    if let Some(common) = common {
+        inputs.push((DEFAULTS_PATH.to_owned(), common.to_owned()));
     }
     for resource in resources
         .iter()
         .filter(|resource| resource.id.kind == "backend" && resource.id.name == "graphdb")
     {
-        let mut fields = BTreeMap::from([("schema", SourceValue::Text(SCHEMA.to_owned()))]);
+        let mut fields = BTreeMap::from([("schema", Value::Text(SCHEMA.to_owned()))]);
         if let Some(kind) = resource.fields.get("type") {
             fields.insert("graph.engine", kind.clone());
         }
@@ -91,47 +84,10 @@ pub(crate) fn manifest_registry(
         }
         let text = toml::to_string(&fields)
             .map_err(|error| refusal(&resource.path, "", error.to_string()))?;
-        produce(&mut producers, registry, &resource.path, &text, limits)?;
+        inputs.push((resource.path.clone(), text));
     }
-    let descriptors: Vec<_> = registry
-        .descriptors()
-        .map(|descriptor| {
-            let mut descriptor = descriptor.clone();
-            if let Some((_, value)) = producers.get(descriptor.key.as_ref()) {
-                descriptor.default = Cow::Owned(value.to_string());
-            }
-            descriptor
-        })
-        .collect();
-    Registry::new(&descriptors).map_err(|error| refusal(DEFAULTS_PATH, &error.key, &error.reason))
-}
-
-/// Validate whole inputs with S1, then record each producer once, even equal values.
-fn produce(
-    producers: &mut BTreeMap<String, (String, Value)>,
-    registry: &Registry,
-    path: &str,
-    text: &str,
-    limits: &Limits,
-) -> Result<(), Refusal> {
-    let layer = Layer::parse_preferences(
-        registry,
-        text,
-        limits.source_file_bytes.min(MAX_FILE_BYTES as u64),
-        limits.source_depth,
-    )
-    .map_err(|error| refusal(path, "", error.to_string()))?;
-    for (key, value) in layer.iter() {
-        if let Some((first, _)) = producers.get(key) {
-            return Err(refusal(
-                path,
-                key,
-                format!("duplicate default producer; also {first}"),
-            ));
-        }
-        producers.insert(key.to_owned(), (path.to_owned(), value.clone()));
-    }
-    Ok(())
+    manifest_registry(registry, &inputs, limits)
+        .map_err(|(path, key, message)| refusal(&path, &key, message))
 }
 
 /// Locate registry and producer errors at their manifest input.

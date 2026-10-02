@@ -4,9 +4,10 @@ use crate::{
     files::digest,
     limits::Limits,
     source::{
-        Catalog, Directory, Known, Registry, Resource, ResourceId, Snapshot, SourceTree as _,
-        Value,
+        BACKENDS, Catalog, DEFAULTS_PATH, Directory, Known, Registry, Resource, ResourceId,
+        Snapshot, SourceTree as _, Value,
         bootstrap_inventory::{Inventory, inventory_selector},
+        from_resources,
     },
 };
 use std::{
@@ -28,6 +29,10 @@ pub struct AreaInventories {
     snapshot: Snapshot,
     /// Aggregate bounds on sources used by composition.
     limits: Limits,
+    /// Checked lowest defaults slot captured from the same source snapshot.
+    defaults: maestro_settings::Registry,
+    /// Actual adapters supplied by the composition root, never source claims.
+    compiled: BTreeSet<String>,
 }
 
 impl AreaInventories {
@@ -40,13 +45,39 @@ impl AreaInventories {
         let (catalog, snapshot) = Directory::new(&root)
             .checked_snapshot(&registry, &Limits::PRODUCTION, known)
             .map_err(|error| error.to_string())?;
+        let settings = known.settings.registry().cloned().map_or_else(
+            maestro_settings::Registry::built_in,
+            Ok,
+        ).map_err(|error| error.to_string())?;
+        let defaults = from_resources(
+            &settings,
+            &catalog.resources,
+            catalog.common_defaults.as_deref(),
+            &Limits::PRODUCTION,
+        )
+        .map_err(|error| error.to_string())?;
         Ok(Self {
             root,
             registry,
             catalog,
             snapshot,
             limits: Limits::PRODUCTION,
+            defaults,
+            compiled: BTreeSet::new(),
         })
+    }
+
+    /// Bind the adapters linked by the composition root; `none` needs none.
+    #[must_use]
+    pub fn with_compiled_backends(mut self, compiled: BTreeSet<String>) -> Self {
+        self.compiled = compiled;
+        self
+    }
+
+    /// The immutable defaults checked when this adapter was constructed.
+    #[must_use]
+    pub const fn admitted_registry(&self) -> &maestro_settings::Registry {
+        &self.defaults
     }
 
     /// Exercise resolve-wide source budgets with small fixture bounds.
@@ -74,6 +105,45 @@ struct Loader<'a> {
 }
 
 impl PresetPort for AreaInventories {
+    fn defaults(&self) -> Result<maestro_settings::Registry, String> {
+        Ok(self.defaults.clone())
+    }
+
+    fn absent_inputs(&self) -> Vec<(PathBuf, String)> {
+        let mut paths = vec![DEFAULTS_PATH.to_owned()];
+        paths.extend(
+            BACKENDS
+                .iter()
+                .map(|backend| format!("core/backends/{}/config.toml", backend.role)),
+        );
+        paths
+            .into_iter()
+            .filter(|path| {
+                if path == DEFAULTS_PATH {
+                    self.catalog.common_defaults.is_none()
+                } else {
+                    self.snapshot.read(path, self.limits.source_file_bytes).is_err()
+                }
+            })
+            .map(|path| (self.root.clone(), path))
+            .collect()
+    }
+
+    fn backend_types(&self) -> BTreeSet<String> {
+        self.catalog
+            .resources
+            .iter()
+            .filter(|resource| resource.id.kind == "backend")
+            .filter_map(|resource| {
+                resource
+                    .fields
+                    .get("type")
+                    .and_then(Value::text)
+                    .map(str::to_owned)
+            })
+            .collect()
+    }
+
     fn resolve(&self, names: &[String]) -> Result<Vec<Preset>, String> {
         let selected: Vec<_> = names
             .iter()
@@ -85,7 +155,7 @@ impl PresetPort for AreaInventories {
             .collect();
         let closure = self
             .catalog
-            .selection(&selected, &self.registry)
+            .runtime_selection(&selected, &self.registry, &self.compiled)
             .map_err(|error| error.to_string())?;
         let area_ids = closure
             .iter()
@@ -118,6 +188,13 @@ impl PresetPort for AreaInventories {
             for path in resource.files.iter().chain(&resource.data) {
                 loader.capture(resource, path)?;
             }
+        }
+        if self.catalog.common_defaults.is_some() {
+            let common = closure
+                .iter()
+                .find(|resource| resource.id.to_string() == "package:common")
+                .ok_or("common defaults require package:common")?;
+            loader.capture(common, DEFAULTS_PATH)?;
         }
         let mut presets: Vec<_> = closure
             .into_iter()

@@ -1291,6 +1291,8 @@ measured tar dependency registration and adoption-time `maestro-quality.toml`/
 
 **Acceptance:** deterministic bytes, changed-input sensitivity and no script
 marker; authoring and bundle schemas are separate and versioned.
+C10/C11 `bundle_preserves_config_closure`: bundles preserve the checked
+non-resource config closure.
 
 ### C11 Hostile bundle reader [US2] (4 h)
 
@@ -2597,28 +2599,37 @@ S1 graph descriptors and integer kind validation.
 
 ### C47a Frozen defaults and complete non-resource locks [US1, US5] (4 h)
 
-When the session consumer arrives as a second caller, C47a decides whether
-`source/defaults.rs` moves to a shared home.
-
-The defaults producer refuses secret values through C60's guard.
+The source-only snapshot/backend adapter and session consumer share the
+S1 producer/freeze logic in `settings/defaults.rs`.
+Common defaults refuse secret values through S1 strict parsing with redacted
+refusal diagnostics; descriptor secret fields retain C60's reference guard.
 Runtime activation uses `Catalog::runtime_selection` with the composition root's
 compiled backend set, never build-independent offline `Catalog::selection`.
 
 **Phase:** P1/M3
 **After:** C46, C37.
-**Files:** crates/maestro-catalog/src/bootstrap/{project.rs,tests.rs}; crates/maestro-catalog/src/settings/{session.rs,tests/session.rs}; crates/maestro-catalog/src/bundle/{write.rs,read.rs}; existing S2 settings-consumer port.
+**Files:** `crates/maestro-catalog/src/bootstrap/{project.rs,inventory.rs,tests/}`;
+`crates/maestro-catalog/src/settings/{defaults.rs,session.rs,discovery.rs,tests/}`;
+`crates/maestro/src/{cli/init.rs,cli/session.rs,settings/session.rs}`;
+existing S2 settings-consumer port.
 **Requirements:** FR-S3-008, FR-S3-009, FR-S3-014, FR-S3-015, FR-S3-028, FR-S3-047, FR-S3-050, SC-S3-010, SC-S3-019.
 **Design coverage:** MD03, MD11 (approved design §8.4).
-**Named tests:** `nonresource_input_change_requires_preview`, `session_keeps_admitted_defaults`, `bundle_preserves_config_closure`; required cases, not reported results.
+**Named tests:** `nonresource_input_change_requires_preview`,
+`session_keeps_admitted_defaults`; required cases, not reported results.
+`bundle_preserves_config_closure` moves to C10/C11.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Init/session frozen defaults, complete non-resource locks/bundle preservation and S2 consumer seam. Changed config/lock cannot replay; no live engine needed for fixtures.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Init/session frozen defaults, complete non-resource locks
+  and S2 consumer seam. Changed config/lock cannot replay; no live engine needed
+  for fixtures.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** Init/session frozen defaults, complete non-resource locks/bundle preservation and S2 consumer seam. Changed config/lock cannot replay; no live engine needed for fixtures.
+**Acceptance:** Init/session frozen defaults, complete non-resource locks and
+S2 consumer seam. Changed config/lock cannot replay; no live engine needed
+for fixtures.
 
 ### C47b Vector and MCP configuration adapters [US1, US5] (4 h)
 

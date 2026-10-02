@@ -4,8 +4,8 @@ use super::{
     inspect::Inspection,
 };
 use crate::files::{FileInput, FilePlan, apply as apply_files, digest};
-use crate::limits::Limits;
 use crate::policy::workspace::CheckedTrust;
+use crate::{limits::Limits, settings::defaults::frozen};
 use maestro_filesystem::Directory;
 use serde::Serialize;
 use std::{
@@ -27,6 +27,8 @@ pub struct BootstrapPreview {
     pub bindings: Vec<String>,
     /// Fingerprints of filesystem inputs captured by the inventory adapter.
     sources: Vec<CapturedSource>,
+    /// Exact registered placements missing from the checked snapshot.
+    absent_sources: Vec<(PathBuf, String)>,
 }
 
 /// A captured input fingerprint, never installation or trust authority.
@@ -79,6 +81,10 @@ struct AuthoringLock {
     areas: Vec<String>,
     /// Complete selected source closure and its per-resource provenance.
     sources: Vec<LockedSource>,
+    /// Admitted lowest S1 defaults, frozen independently of preference overrides.
+    defaults: String,
+    /// Actual checked core base selections, rechecked against session build availability.
+    backend_types: BTreeSet<String>,
 }
 
 /// One selected input's qualified identity, declared revision and exact digest.
@@ -148,7 +154,12 @@ pub fn preview(
             })
         })
         .collect();
-    let files = project_files(presets, names)?;
+    let files = project_files(
+        presets,
+        names,
+        frozen(&port.defaults()?),
+        port.backend_types(),
+    )?;
     let plan = FilePlan::preview(root, files, trust)
         .map_err(|error| format!("{error}; run preview again; existing bytes were not rebound"))?;
     Ok(BootstrapPreview {
@@ -157,11 +168,17 @@ pub fn preview(
         prerequisites,
         bindings,
         sources: captured,
+        absent_sources: port.absent_inputs(),
     })
 }
 
 /// Emit descriptor and lock from the same resolved inputs used by composition.
-fn project_files(presets: Vec<Preset>, names: &[String]) -> Result<Vec<FileInput>, String> {
+fn project_files(
+    presets: Vec<Preset>,
+    names: &[String],
+    defaults: String,
+    backend_types: BTreeSet<String>,
+) -> Result<Vec<FileInput>, String> {
     let sources = presets
         .iter()
         .flat_map(|preset| preset.source_files.iter())
@@ -212,6 +229,8 @@ fn project_files(presets: Vec<Preset>, names: &[String]) -> Result<Vec<FileInput
         files: locked,
         areas,
         sources,
+        defaults,
+        backend_types,
     };
     let lock_bytes = serde_json::to_vec_pretty(&lock).map_err(|error| error.to_string())?;
     let limit = Limits::PRODUCTION.source_file_bytes;
@@ -235,6 +254,21 @@ pub fn apply(root: &Path, preview: &BootstrapPreview, trust: &CheckedTrust<'_>) 
         })?;
         if digest(&bytes) != source.sha256 {
             return Err(io::Error::other("input changed; run preview again"));
+        }
+    }
+    for (source_root, path) in &preview.absent_sources {
+        let path = Path::new(path);
+        let result = Directory::open(source_root, path.parent().unwrap_or(Path::new("")), false)
+            .and_then(|directory| {
+                directory.open_regular(
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or(""),
+                )
+            });
+        match result {
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            _ => return Err(io::Error::other("input changed; run preview again")),
         }
     }
     apply_files(root, &preview.plan, trust)

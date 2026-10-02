@@ -288,6 +288,7 @@ in place.
 │   │   │       ├── catalog_policy.rs                                        # Real Cedar through the effect-free policy CLI
 │   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
 │   │   │       ├── catalog_presentation.rs                                  # C05c keeps localized interface prose separate from English machine contracts
+│   │   │       ├── catalog_repair_lock.rs                                   # Session-independent repair commands never read an unadmitted project lock
 │   │   │       ├── catalog_session_preferences.rs                           # Every process pins the same safe preference snapshot before effects
 │   │   │       ├── catalog_trusted_files.rs                                 # Apply persists preferences only at the displayed, approved root
 │   │   │       ├── catalog_workspace_trust.rs                               # Explicit user trust changes never consult or rewrite preference files
@@ -499,8 +500,10 @@ in place.
 │   │   │   │   │   ├── lock_limits.rs                                       # Serialized authoring locks stay within their replay read bound
 │   │   │   │   │   ├── locks.rs                                             # Complete source locks, stale-input refusals and owned user-byte preservation
 │   │   │   │   │   ├── mod.rs                                               # Bootstrap contract tests, grouped by adapter
+│   │   │   │   │   ├── nonresource.rs                                       # Runtime inputs share the captured closure and C04 replay refusal
 │   │   │   │   │   ├── project.rs                                           # Rust source: project
 │   │   │   │   │   ├── selection.rs                                         # C36: composition admits only the source-checked mandatory closure
+│   │   │   │   │   ├── session_lock.rs                                      # Trusted session defaults reuse genuine C04 ownership, never lock self-authority
 │   │   │   │   │   ├── snapshot.rs                                          # Preview bytes and decoded declarations come from one checked source snapshot
 │   │   │   │   │   └── support.rs                                           # Synthetic checked trust shared by bootstrap contract tests
 │   │   │   │   ├── compose.rs                                               # Resolve explicit preset names through a replaceable source port
@@ -565,6 +568,7 @@ in place.
 │   │   │   │   └── schema.rs                                                # Normalized data, separate host facts, and bounded authoring test inputs
 │   │   │   ├── settings/                                                    # Typed restrictive resolution over the canonical S1 settings descriptors
 │   │   │   │   ├── tests/                                                   # Settings contracts over shared S1 descriptors and preference adapters
+│   │   │   │   │   ├── default_secrets.rs                                   # Common defaults have no secret setting; refusals never quote literal values
 │   │   │   │   │   ├── defaults.rs                                          # Manifest producers and the frozen four-layer registry contract
 │   │   │   │   │   ├── discovery.rs                                         # Real planted files on every host, with no mocked owner/write metadata
 │   │   │   │   │   ├── discovery_windows.rs                                 # Real Windows ACL, unreadability and reparse-point probes, run on the CI host
@@ -572,11 +576,13 @@ in place.
 │   │   │   │   │   ├── preferences.rs                                       # Strict init drafts use the same S1 file/parser API as all preference consumers
 │   │   │   │   │   ├── resolution.rs                                        # Rust source: resolution
 │   │   │   │   │   └── standards.rs                                         # Standard values override every C17 preference layer without duplicating resolution
+│   │   │   │   ├── defaults.rs                                              # One redacting S1 default producer, shared by source checking and sessions
 │   │   │   │   ├── discovery.rs                                             # Safe session snapshots over S1's bounded parser and discovery walk
 │   │   │   │   ├── mod.rs                                                   # Typed restrictive resolution over the canonical S1 settings descriptors
 │   │   │   │   ├── preferences.rs                                           # Side-effect-free init preferences over S1's registry, parser and file adapter
 │   │   │   │   ├── resolve.rs                                               # Typed restrictive resolution over four preference layers; storage and parsing stay in S1
 │   │   │   │   ├── resolve_round2.rs                                        # Rust source: resolve round2
+│   │   │   │   ├── session.rs                                               # Frozen project defaults admitted through checked trust and C04 committed ownership
 │   │   │   │   ├── standards.rs                                             # Standard values constrain the existing C17 resolver, never ordinary precedence
 │   │   │   │   └── types.rs                                                 # Resolution values and provenance shared by the single C17 resolver
 │   │   │   ├── source/                                                      # The strict checker of a catalog's authoring sources: a registry of
