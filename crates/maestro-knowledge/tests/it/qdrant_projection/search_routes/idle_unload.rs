@@ -117,7 +117,7 @@ async fn dense_runs_after_the_router_unloads_its_model_between_two_searches() {
         intent_expander: None,
         database: fixture.kernel.database.clone(),
         principal: "tester",
-        qdrant: &fixture.qdrant,
+        projection: &fixture.qdrant,
         embedder: Some(Embedder {
             port: &client,
             card: &fixture.embedder_card,

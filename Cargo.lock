@@ -1004,6 +1004,7 @@ name = "maestro-conventions"
 version = "0.1.0"
 dependencies = [
  "pulldown-cmark",
+ "toml",
 ]
 
 [[package]]
@@ -1029,6 +1030,7 @@ version = "0.1.0"
 dependencies = [
  "maestro-canonicalization",
  "maestro-kernel",
+ "maestro-test-clock",
  "maestro-test-scratch",
  "qdrant-client",
  "reqwest",
@@ -1054,6 +1056,14 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
+]
+
+[[package]]
+name = "maestro-test-clock"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

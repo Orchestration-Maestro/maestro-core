@@ -12,7 +12,7 @@ pub(super) fn payload_hit(point: &PointHit) -> Result<ScoredChunk, ProjectionErr
     let revision_id = required_text(point, "revision_id")?;
     if required_text(point, "identifier_profile")? != PROFILE {
         return Err(invalid_answer(
-            "Qdrant returned an invalid identifier profile",
+            "projection backend returned an invalid identifier profile",
         ));
     }
     let Some(values) = point
@@ -21,12 +21,12 @@ pub(super) fn payload_hit(point: &PointHit) -> Result<ScoredChunk, ProjectionErr
         .and_then(serde_json::Value::as_array)
     else {
         return Err(invalid_answer(
-            "Qdrant hit lacks a string-array identifiers field",
+            "projection backend hit lacks a string-array identifiers field",
         ));
     };
     if values.iter().any(|value| !value.is_string()) {
         return Err(invalid_answer(
-            "Qdrant hit has a malformed identifiers array",
+            "projection backend hit has a malformed identifiers array",
         ));
     }
     Ok(ScoredChunk {
@@ -41,11 +41,11 @@ pub(super) fn invalid_answer(reason: &str) -> ProjectionError {
     projection_invalid_answer(reason)
 }
 
-/// Reads and validates one required string field of a Qdrant payload.
+/// Reads and validates one required string field of a projection backend payload.
 fn required_text(point: &PointHit, field: &str) -> Result<String, ProjectionError> {
     payload_text(point, field)
         .map(str::to_owned)
-        .ok_or_else(|| invalid_answer(&format!("Qdrant hit lacks string {field}")))
+        .ok_or_else(|| invalid_answer(&format!("projection backend hit lacks string {field}")))
 }
 
 #[cfg(test)]

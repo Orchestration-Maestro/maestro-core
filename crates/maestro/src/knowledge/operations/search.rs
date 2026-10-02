@@ -52,7 +52,7 @@ pub(crate) struct SearchCards<'a> {
     pub(crate) intent: Option<&'a ModelCard>,
 }
 
-/// The local principal's search context over `database` and `qdrant`, with
+/// The local principal's search context over `database` and the projection, with
 /// the models of `cards`, all served by `port`.
 pub(crate) fn local_search_context<'a, P: ModelPort + Sync>(
     database: &Arc<Database>,
@@ -67,7 +67,7 @@ pub(crate) fn local_search_context<'a, P: ModelPort + Sync>(
             .map(|expander| Box::new(expander) as Box<dyn QueryExpander + 'a>),
         database: Arc::clone(database),
         principal: LOCAL,
-        qdrant,
+        projection: qdrant,
         embedder: cards.embedder.map(|card| Embedder { port, card }),
         reranker: cards.reranker.map(|card| Reranker { port, card }),
         source_classes: None,

@@ -12,7 +12,8 @@ use maestro_kernel::{
     scope::Scope,
 };
 use maestro_knowledge::index::{
-    CollectionLayout, Error, Progress, Projection, QdrantError, RetrievalProjectionPort, Unverified,
+    CollectionLayout, DenseDistance, DenseLayout, Error, Progress, Projection, QdrantError,
+    RetrievalProjectionPort, SparseModifier, Unverified,
 };
 use serde_json::json;
 use std::ops::ControlFlow;
@@ -28,11 +29,12 @@ async fn wrong_precreated_layout_fails_its_generation() {
         collection_of(&kernel, 1),
         FakeCollection {
             layout: Some(CollectionLayout {
-                dense_dimensions: 8,
-                dense_present: true,
-                dense_distance: "Euclid".to_owned(),
+                dense: Some(DenseLayout {
+                    dimensions: 8,
+                    distance: DenseDistance::Euclid,
+                }),
                 sparse_present: true,
-                sparse_modifier: Some("Idf".to_owned()),
+                sparse_modifier: Some(SparseModifier::Idf),
             }),
             ..FakeCollection::default()
         },

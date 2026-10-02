@@ -1,4 +1,5 @@
 use super::support::{control, fixture};
+use crate::search::tests::clock::{ManualClock, just_before};
 use crate::{
     prepare::tests::scratch::{corrupt_artifact, fail_revision, quarantine_revision, revision_of},
     search::evidence::{source::SourceCache, types::EvidenceError},
@@ -193,8 +194,8 @@ fn source_cache_refuses_an_already_cancelled_read() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nPrivate source.\n")]);
     let revision = revision_of(&fixture.database, &fixture.scopes, "guide.md");
     let read_control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(1),
         cancelled: Arc::new(AtomicBool::new(true)),
+        ..control()
     };
     let mut cache = SourceCache::new(&fixture.database, &fixture.scopes, &read_control);
 
@@ -224,17 +225,22 @@ fn parallel_source_loads_refuse_expiry_during_a_batch() {
         .map(|(path, _)| revision_of(&fixture.database, &fixture.scopes, path))
         .collect();
     let deadline = Instant::now() + Duration::from_millis(5);
+    let clock = ManualClock::at(just_before(deadline));
     let read_control = ReadControl {
         deadline,
+        clock: clock.clone(),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let mut cache = SourceCache::new(&fixture.database, &fixture.scopes, &read_control);
 
+    // Entry checks and worker reads begin before a later check expires the batch.
+    clock.advance_after_reads(10, deadline);
     let result = cache.load_many_with_workers(&revisions, &fixture.generation, 4);
 
-    assert!(
-        Instant::now() >= deadline,
-        "deadline did not expire mid-batch"
+    assert_eq!(read_control.now(), deadline);
+    assert_eq!(
+        cache.requested_revisions(),
+        revisions.iter().cloned().collect()
     );
     assert!(matches!(result, Err(EvidenceError::TimedOut)));
     assert!(

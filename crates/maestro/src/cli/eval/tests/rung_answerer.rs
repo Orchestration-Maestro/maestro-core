@@ -28,7 +28,7 @@ use maestro_kernel::{
     gateway::{ModelCard, Role, RouterClient, Url},
 };
 use maestro_knowledge::{
-    answer::{AnswerPrompt, PromptText, PromptVersion},
+    answer::{AnswerPrompt, DEFAULT_MODEL, PromptText, PromptVersion},
     index::Qdrant,
 };
 use maestro_test_scratch::scratch_directory;
@@ -188,7 +188,7 @@ fn a_named_card_is_the_rungs_answerer_and_its_router_entry_is_asked() {
     let kernel = scratch.kernel(None).unwrap();
     let (_, thinking) = register_reasoning_answerer(&kernel, b"thinking", true);
     let (_, bigger) = register_card(&kernel, "collection", Role::Answerer, "qwen3-8b", b"big");
-    let (_, default) = register_card(&kernel, "collection", Role::Answerer, "qwen3-4b", b"a");
+    let (_, default) = register_card(&kernel, "collection", Role::Answerer, DEFAULT_MODEL, b"a");
     let engine = engine(&kernel);
     let named = |card: &ModelCard| AskSettings {
         card: Some(card.digest().as_str().to_owned()),
@@ -265,7 +265,7 @@ fn a_named_card_of_another_role_collection_or_unregistered_is_refused() {
 fn a_rung_asking_for_more_output_tokens_than_its_answerer_card_allows_is_refused() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).unwrap();
-    register_card(&kernel, "collection", Role::Answerer, "qwen3-4b", b"a");
+    register_card(&kernel, "collection", Role::Answerer, DEFAULT_MODEL, b"a");
     let engine = engine(&kernel);
     let output = |tokens: u32| {
         engine.provenance(&asking(AskSettings {

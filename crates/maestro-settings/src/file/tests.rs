@@ -31,6 +31,23 @@ impl Drop for Scratch {
     }
 }
 
+#[test]
+fn scratch_leaves_nothing_behind_as_a_directory_or_a_file() -> Result<(), Box<dyn Error>> {
+    let directory = Scratch::new()?;
+    fs::write(directory.0.join("preferences.toml"), "held")?;
+    let directory_path = directory.0.clone();
+    drop(directory);
+    assert!(!directory_path.exists());
+
+    let file = Scratch::new()?;
+    fs::remove_dir(&file.0)?;
+    fs::write(&file.0, "not a directory")?;
+    let file_path = file.0.clone();
+    drop(file);
+    assert!(!file_path.exists());
+    Ok(())
+}
+
 /// Opens a user directory with no child path.
 fn open_directory(root: &Path) -> io::Result<Directory> {
     Directory::open_at(root, None, false)?

@@ -7,7 +7,7 @@ use maestro_kernel::{
     evidence::{Budget, Bundle, Passage, RequestBudget, RouteStatus, Schema, Trace},
     gateway::ModelCard,
     generation::Generation,
-    retrieval::{Error as RetrievalError, ReadControl, SearchRead},
+    retrieval::{Clock, Error as RetrievalError, ReadControl, SearchRead, SystemClock},
     scope::ScopeSet,
     store::Database,
 };
@@ -156,6 +156,7 @@ pub(super) fn retrieve(
         started: Instant::now(),
     };
     let deadline = time::Instant::from_std(attempt.started + DEADLINE);
+    let clock: Arc<dyn Clock> = Arc::new(SystemClock);
     let query = Query {
         generation: context.generation,
         scopes: context.scopes,
@@ -163,7 +164,8 @@ pub(super) fn retrieve(
         limit: ROUTE_LIMIT,
         identifier_limit: ROUTE_LIMIT,
         version: None,
-        qdrant: context.qdrant,
+        projection: context.qdrant,
+        clock: &clock,
     };
     let embedder = Embedder {
         port: context.models,
@@ -240,6 +242,7 @@ fn authorized_chunks(
     let ids: Vec<String> = ranked.iter().map(|hit| hit.chunk_id.clone()).collect();
     let control = ReadControl {
         deadline: attempt.started + DEADLINE,
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {

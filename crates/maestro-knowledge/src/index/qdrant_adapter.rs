@@ -2,8 +2,9 @@
 
 use super::{
     projection_port::{
-        CollectionLayout, PointHit, ProjectionCursor, ProjectionError, ProjectionFilter,
-        ProjectionPage, ProjectionPoint, RetrievalProjectionPort, SparseValues,
+        CollectionLayout, DenseDistance, DenseLayout, PayloadFieldKind, PointHit, ProjectionCursor,
+        ProjectionError, ProjectionFilter, ProjectionPage, ProjectionPoint,
+        RetrievalProjectionPort, SparseModifier, SparseValues,
     },
     qdrant::{DENSE, Qdrant, QdrantError, SPARSE},
 };
@@ -42,14 +43,16 @@ impl RetrievalProjectionPort for Qdrant {
         collection: &str,
         layout: CollectionLayout,
     ) -> Result<(), ProjectionError> {
-        if !layout.dense_present
-            || layout.dense_distance != "Cosine"
+        let Some(dense) = layout.dense else {
+            return Err(ProjectionError::new("unsupported retrieval vector layout"));
+        };
+        if dense.distance != DenseDistance::Cosine
             || !layout.sparse_present
-            || layout.sparse_modifier.as_deref() != Some("Idf")
+            || layout.sparse_modifier != Some(SparseModifier::Idf)
         {
             return Err(ProjectionError::new("unsupported retrieval vector layout"));
         }
-        self.create(collection, layout.dense_dimensions)
+        self.create(collection, dense.dimensions)
             .await
             .map_err(Into::into)
     }
@@ -77,19 +80,26 @@ impl RetrievalProjectionPort for Qdrant {
             .sparse_vectors_config
             .as_ref()
             .and_then(|config| config.map.get(SPARSE));
-        let dense_distance = dense.map_or_else(String::new, |dense| {
-            Distance::try_from(dense.distance)
-                .map_or("unknown", |distance| distance.as_str_name())
-                .to_owned()
+        let dense = dense.map(|dense| DenseLayout {
+            dimensions: dense.size,
+            distance: match Distance::try_from(dense.distance) {
+                Ok(Distance::Cosine) => DenseDistance::Cosine,
+                Ok(Distance::Euclid) => DenseDistance::Euclid,
+                Ok(Distance::Dot) => DenseDistance::Dot,
+                Ok(Distance::Manhattan) => DenseDistance::Manhattan,
+                Ok(Distance::UnknownDistance) => DenseDistance::Unknown,
+                Err(_) => DenseDistance::Other,
+            },
         });
         let sparse_modifier = sparse
             .and_then(|vector| vector.modifier)
             .and_then(|modifier| Modifier::try_from(modifier).ok())
-            .map(|modifier| modifier.as_str_name().to_owned());
+            .map(|modifier| match modifier {
+                Modifier::None => SparseModifier::None,
+                Modifier::Idf => SparseModifier::Idf,
+            });
         Ok(Some(CollectionLayout {
-            dense_dimensions: dense.map_or(0, |dense| dense.size),
-            dense_present: dense.is_some(),
-            dense_distance,
+            dense,
             sparse_present: sparse.is_some(),
             sparse_modifier,
         }))
@@ -104,16 +114,16 @@ impl RetrievalProjectionPort for Qdrant {
     async fn payload_fields(
         &self,
         collection: &str,
-    ) -> Result<BTreeMap<String, String>, ProjectionError> {
+    ) -> Result<BTreeMap<String, PayloadFieldKind>, ProjectionError> {
         Ok(self
             .payload_indexes(collection)
             .await?
             .into_iter()
             .map(|(field, kind)| {
                 let kind = if kind == i32::from(PayloadSchemaType::Keyword) {
-                    "keyword".to_owned()
+                    PayloadFieldKind::Keyword
                 } else {
-                    kind.to_string()
+                    PayloadFieldKind::Other
                 };
                 (field, kind)
             })

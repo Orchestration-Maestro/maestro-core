@@ -119,9 +119,11 @@ the router unloaded its models loads them again, which took up to 5 s each on a
 busy machine, and still runs every route); accepted maxima are `k: 50`,
 `evidence_bytes: 24000`, and `deadline_ms: 30000`.
 `evidence_bytes` counts UTF-8 bytes of evidence, about 4 bytes per English or
-French token: 12000 bytes is roughly 3,000 tokens, not 12,000. The answer budget
-stays at 6,000 bytes. About 24 KB of passages is the practical MCP maximum:
-MCP carries the evidence bundle twice in a tool result. `knowledge_ask` is
+French token: 12000 bytes is roughly 3,000 tokens, not 12,000. The default answer
+budget is 6,000 bytes. The registered answerer card supplies sampling and mode;
+`ask.model` names its router entry. In S1, `model select` does not choose the
+final answerer. About 24 KB of passages is the practical MCP maximum: MCP carries
+the evidence bundle twice in a tool result. `knowledge_ask` is
 grounded in returned evidence and can refuse when the evidence does not support
 an answer.
 

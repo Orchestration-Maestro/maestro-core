@@ -1,8 +1,12 @@
 use super::super::deadline::{
-    BlockingFailure, DeadlineElapsed, Deadlines, StageWindow, from_budget, open_at, run_blocking,
-    std_deadline, until,
+    BlockingFailure, DeadlineElapsed, Deadlines, RuntimeClock, StageWindow, from_budget, open_at,
+    run_blocking, until,
 };
-use maestro_kernel::{evidence::RequestBudget, retrieval::ReadControl};
+use super::clock::control_at;
+use maestro_kernel::{
+    evidence::RequestBudget,
+    retrieval::{Clock, ReadControl, SystemClock},
+};
 use std::{
     sync::{
         Arc,
@@ -20,10 +24,7 @@ use tokio::{
 fn enrichment_cutoff_is_exclusive_at_the_deadline() {
     let now = StdInstant::now();
     let deadline = now + StdDuration::from_secs(1);
-    let control = ReadControl {
-        deadline,
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control_at(deadline, now);
 
     assert!(open_at(&control, now));
     assert!(!open_at(&control, deadline));
@@ -154,31 +155,42 @@ fn a_fixed_route_window_past_the_deadline_is_the_deadline() {
     assert_eq!(unbounded.route_after(unbounded.setup), unbounded.routes_end);
 }
 
+#[tokio::test]
+async fn runtime_clock_tracks_system_clock_without_paused_time() {
+    let runtime_clock = RuntimeClock::current();
+    let runtime_now = runtime_clock.now();
+    let system_now = SystemClock.now();
+    let difference = if runtime_now >= system_now {
+        runtime_now.duration_since(system_now)
+    } else {
+        system_now.duration_since(runtime_now)
+    };
+    assert!(difference < StdDuration::from_secs(1));
+}
+
 #[tokio::test(start_paused = true)]
-async fn a_kernel_deadline_is_the_time_left_on_the_paused_clock_from_now() {
-    let deadline = Instant::now() + Duration::from_millis(300);
-    for _ in 0..2 {
-        // Real time passes between the two reads; the paused time left does
-        // not.
-        let before = StdInstant::now();
-        let kernel = std_deadline(deadline);
-        let after = StdInstant::now();
-        assert!(
-            before + StdDuration::from_millis(300) <= kernel,
-            "{kernel:?}"
-        );
-        assert!(
-            kernel <= after + StdDuration::from_millis(300),
-            "{kernel:?}"
-        );
-    }
-    advance(Duration::from_secs(1)).await;
-    let before = StdInstant::now();
-    let passed = std_deadline(deadline);
-    assert!(
-        before <= passed && passed <= StdInstant::now(),
-        "{passed:?}"
-    );
+async fn a_blocking_control_reads_the_paused_clock_not_real_time() {
+    let cutoff = Instant::now() + Duration::from_secs(3600);
+    let control = ReadControl {
+        deadline: cutoff.into_std(),
+        clock: Arc::new(RuntimeClock::current()),
+        cancelled: Arc::new(AtomicBool::new(false)),
+    };
+    assert_eq!(control.now(), Instant::now().into_std());
+    assert!(control.now() < control.deadline);
+
+    advance(Duration::from_secs(3600)).await;
+    assert_eq!(control.now(), control.deadline);
+}
+
+#[tokio::test(start_paused = true)]
+async fn runtime_clock_reads_the_paused_clock_from_a_thread_outside_the_runtime() {
+    let clock = RuntimeClock::current();
+    advance(Duration::from_secs(3600)).await;
+    let paused_now = Instant::now().into_std();
+
+    let read = thread::spawn(move || clock.now()).join().unwrap();
+    assert!(read >= paused_now, "{read:?} is before {paused_now:?}");
 }
 
 #[tokio::test(start_paused = true)]

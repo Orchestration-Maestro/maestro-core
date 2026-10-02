@@ -4,16 +4,17 @@ use super::{
     kernel::Kernel,
     models::{Embedder, embedder},
 };
+use maestro_kernel::retrieval::Clock;
 use maestro_knowledge::{
     index::{
-        CollectionLayout, PointHit, Projection, ProjectionCursor, ProjectionError,
-        ProjectionFilter, ProjectionPage, ProjectionPoint, RebuildGuard, RetrievalProjectionPort,
-        SparseValues,
+        CollectionLayout, PayloadFieldKind, PointHit, Projection, ProjectionCursor,
+        ProjectionError, ProjectionFilter, ProjectionPage, ProjectionPoint, RebuildGuard,
+        RetrievalProjectionPort, SparseValues,
     },
     publish::verify_generation,
     query::understand,
     search::{
-        Query,
+        Query, RuntimeClock,
         routes::{
             dense::{Embedder as SearchEmbedder, search_dense},
             identifier::search_identifiers,
@@ -21,10 +22,12 @@ use maestro_knowledge::{
         },
     },
 };
+use maestro_test_clock::on_stopped_clock;
+use std::future;
 use std::{
     collections::{BTreeMap, HashMap},
     ops::ControlFlow,
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::time::Instant;
@@ -40,7 +43,7 @@ pub(super) struct FakePort {
 pub(super) struct FakeCollection {
     pub(super) layout: Option<CollectionLayout>,
     pub(super) points: HashMap<String, PointHit>,
-    pub(super) fields: BTreeMap<String, String>,
+    pub(super) fields: BTreeMap<String, PayloadFieldKind>,
 }
 
 impl FakePort {
@@ -161,14 +164,14 @@ impl RetrievalProjectionPort for FakePort {
         let collection = collections.get_mut(name).ok_or_else(Self::error)?;
         collection.fields.extend(
             ["scope_tags", "identifiers", "identifier_profile", "version"]
-                .map(|field| (field.to_owned(), "keyword".to_owned())),
+                .map(|field| (field.to_owned(), PayloadFieldKind::Keyword)),
         );
         Ok(())
     }
     async fn payload_fields(
         &self,
         name: &str,
-    ) -> Result<BTreeMap<String, String>, ProjectionError> {
+    ) -> Result<BTreeMap<String, PayloadFieldKind>, ProjectionError> {
         self.collections
             .lock()
             .unwrap()
@@ -382,6 +385,7 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
         .generation(&kernel.scopes, rebuilt.generation)
         .unwrap()
         .unwrap();
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &generation,
         scopes: &kernel.scopes,
@@ -389,7 +393,8 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
         limit: 5,
         identifier_limit: 5,
         version: None,
-        qdrant: &fake,
+        projection: &fake,
+        clock: &clock,
     };
     let hits = search_bm25(&query).await.unwrap();
     assert!(!hits.is_empty());
@@ -405,16 +410,22 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
     );
 
     let understood = understand("ERR-042");
-    let identifier_query = Query {
-        text: "ERR-042",
-        ..query
-    };
-    let identifiers = search_identifiers(
-        &identifier_query,
-        kernel.database.clone(),
-        &understood,
-        Instant::now() + Duration::from_secs(2),
-    )
+    let identifiers = on_stopped_clock(future::pending(), || async {
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
+        let identifier_query = Query {
+            text: "ERR-042",
+            clock: &clock,
+            ..query
+        };
+
+        search_identifiers(
+            &identifier_query,
+            kernel.database.clone(),
+            &understood,
+            Instant::now() + Duration::from_secs(2),
+        )
+        .await
+    })
     .await;
     assert!(!identifiers.hits.is_empty());
 

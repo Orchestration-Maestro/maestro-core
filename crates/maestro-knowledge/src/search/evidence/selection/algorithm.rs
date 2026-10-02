@@ -66,7 +66,7 @@ pub(crate) fn select(
             let choices = unit_choices(candidates, &unit, budget)?;
             let admitted = admit_parent(candidates, &mut selected, &unit, &choices, budget)?;
             if let Some(tier) = admitted {
-                parent_accepted.push((unit, tier));
+                parent_accepted.push((unit, tier, choices));
             } else {
                 omissions.table_prefix_omissions += header_choices(&choices);
                 omit(&mut omissions, &unit);
@@ -82,8 +82,7 @@ pub(crate) fn select(
     for index in accepted {
         add_optional_siblings(candidates, index, &mut selected, budget)?;
     }
-    for (unit, admitted_tier) in parent_accepted {
-        let choices = unit_choices(candidates, &unit, budget)?;
+    for (unit, admitted_tier, choices) in parent_accepted {
         let tiers = choices.iter().map(Vec::len).max().unwrap_or(0);
         for tier in admitted_tier + 1..tiers {
             let trial = parent_trial(&selected.spans, &unit, &choices, tier);

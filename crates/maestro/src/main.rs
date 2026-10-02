@@ -355,9 +355,9 @@
 //! # `knowledge ask`
 //!
 //! Searches the visible collection once, assembles bounded evidence, and calls
-//! the registered answerer in free room. The default router entry is
-//! `qwen3-4b` (the `ask.model` setting); `--model` selects another registered
-//! answerer. The answer is in the question's language unless `language`
+//! the registered answerer in free room. The default router entry comes from
+//! the `ask.model` setting; `--model` selects another registered answerer.
+//! The answer is in the question's language unless `language`
 //! names one, which `lang` then reports. `--version`,
 //! `--k`, `--evidence-bytes`, `--search-deadline-ms`, and `--output-tokens` bound
 //! retrieval and generation.

@@ -10,7 +10,6 @@ use maestro_kernel::{evidence::Passage, retrieval::ReadControl};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::atomic::Ordering as AtomicOrdering,
-    time::Instant,
 };
 
 /// Limits and exact counter shared by every complete-trial measurement.
@@ -49,7 +48,7 @@ pub(crate) struct SelectionResult {
 
 /// Stops before or after trial work when cancellation or expiry fires.
 pub(super) fn check(control: &ReadControl) -> Result<(), EvidenceError> {
-    if control.cancelled.load(AtomicOrdering::Relaxed) || Instant::now() >= control.deadline {
+    if control.cancelled.load(AtomicOrdering::Relaxed) || control.now() >= control.deadline {
         Err(EvidenceError::TimedOut)
     } else {
         Ok(())
@@ -59,4 +58,21 @@ pub(super) fn check(control: &ReadControl) -> Result<(), EvidenceError> {
 /// Converts helper diagnostics to the stable, text-free integrity boundary.
 pub(super) fn integrity(reason: &str) -> EvidenceError {
     EvidenceError::Integrity(reason.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::search::tests::clock::{control_at, just_before};
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn check_times_out_exactly_when_the_clock_reaches_the_deadline() {
+        let deadline = Instant::now() + Duration::from_secs(3600);
+        assert!(check(&control_at(deadline, just_before(deadline))).is_ok());
+        assert!(matches!(
+            check(&control_at(deadline, deadline)),
+            Err(EvidenceError::TimedOut)
+        ));
+    }
 }

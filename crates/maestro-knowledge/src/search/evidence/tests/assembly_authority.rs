@@ -1,6 +1,7 @@
 use super::super::assemble::assemble_blocking;
+use super::support::assemble_on_stopped_clock;
 use super::{
-    super::{EvidenceCounter, EvidenceError, assemble_evidence},
+    super::{EvidenceCounter, EvidenceError},
     support::{Fixture, control, evidence_input, exact_evidence_input, fixture},
 };
 use crate::prepare::tests::scratch::{
@@ -22,7 +23,7 @@ use std::{
 };
 use tokio::task::spawn_blocking;
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn source_corruption_and_canonical_refusals_keep_exact_error_variants() {
     let initial_fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
     let revision_id = revision_of(
@@ -37,7 +38,7 @@ async fn source_corruption_and_canonical_refusals_keep_exact_error_variants() {
         .unwrap();
     let input = evidence_input(&initial_fixture, "What does the guide say?");
     corrupt_artifact(&initial_fixture.scratch, &revision.original_digest);
-    let error = assemble_evidence(
+    let error = assemble_on_stopped_clock(
         Arc::new(initial_fixture.database),
         input,
         EvidenceCounter::Utf8Bytes,
@@ -101,7 +102,7 @@ async fn source_corruption_and_canonical_refusals_keep_exact_error_variants() {
             &serde_json::to_vec(&canonical).unwrap(),
         );
         let input = evidence_input(&fixture, "What does the guide say?");
-        let error = assemble_evidence(
+        let error = assemble_on_stopped_clock(
             Arc::new(fixture.database),
             input,
             EvidenceCounter::Utf8Bytes,
@@ -115,7 +116,7 @@ async fn source_corruption_and_canonical_refusals_keep_exact_error_variants() {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn hidden_generations_and_changed_pinned_chunk_sets_are_refused() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
     let mut hidden_input = evidence_input(&fixture, "What does the guide say?");
@@ -125,12 +126,13 @@ async fn hidden_generations_and_changed_pinned_chunk_sets_are_refused() {
     changed_input.generation.chunk_set_id = "different-set".to_owned();
     let database = Arc::new(fixture.database);
 
-    let hidden = assemble_evidence(database.clone(), hidden_input, EvidenceCounter::Utf8Bytes)
-        .await
-        .unwrap_err();
+    let hidden =
+        assemble_on_stopped_clock(database.clone(), hidden_input, EvidenceCounter::Utf8Bytes)
+            .await
+            .unwrap_err();
     assert!(matches!(hidden, EvidenceError::NotVisible));
 
-    let changed = assemble_evidence(database, changed_input, EvidenceCounter::Utf8Bytes)
+    let changed = assemble_on_stopped_clock(database, changed_input, EvidenceCounter::Utf8Bytes)
         .await
         .unwrap_err();
     match changed {
@@ -258,7 +260,7 @@ fn near_duplicate_rows_outside_the_manifest_allowlist_do_not_join_families() {
     assert!(bundle.conflicts.is_empty());
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn rejects_each_changed_pinned_generation_profile() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
     let base = evidence_input(&fixture, "What does the guide say?");
@@ -275,7 +277,7 @@ async fn rejects_each_changed_pinned_generation_profile() {
         ("embedding", embedding),
         ("sparse", sparse),
     ] {
-        let error = assemble_evidence(database.clone(), input, EvidenceCounter::Utf8Bytes)
+        let error = assemble_on_stopped_clock(database.clone(), input, EvidenceCounter::Utf8Bytes)
             .await
             .unwrap_err();
         assert!(
@@ -288,7 +290,7 @@ async fn rejects_each_changed_pinned_generation_profile() {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn retired_generations_remain_readable_and_building_generations_do_not() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
     let old_generation = fixture.generation.clone();
@@ -327,18 +329,19 @@ async fn retired_generations_remain_readable_and_building_generations_do_not() {
     retired_input.generation = old_generation;
     building_input.generation = building_generation;
 
-    let retired = assemble_evidence(database.clone(), retired_input, EvidenceCounter::Utf8Bytes)
-        .await
-        .unwrap();
+    let retired =
+        assemble_on_stopped_clock(database.clone(), retired_input, EvidenceCounter::Utf8Bytes)
+            .await
+            .unwrap();
     assert_eq!(retired.passages.len(), 1);
 
-    let building = assemble_evidence(database, building_input, EvidenceCounter::Utf8Bytes)
+    let building = assemble_on_stopped_clock(database, building_input, EvidenceCounter::Utf8Bytes)
         .await
         .unwrap_err();
     assert!(matches!(building, EvidenceError::NotVisible));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn grants_added_before_assembly_are_detected() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
     let input = evidence_input(&fixture, "What does the guide say?");
@@ -348,20 +351,24 @@ async fn grants_added_before_assembly_are_detected() {
         .grant("tester", &added_scope, Right::Read, "test")
         .unwrap();
 
-    let error = assemble_evidence(database, input, EvidenceCounter::Utf8Bytes)
+    let error = assemble_on_stopped_clock(database, input, EvidenceCounter::Utf8Bytes)
         .await
         .unwrap_err();
 
     assert!(matches!(error, EvidenceError::PermissionsChanged));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn late_grant_or_eligibility_changes_abort_before_delivery() {
     let first_fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
     let input = exact_evidence_input(&first_fixture, "What does the guide say?");
     let database = Arc::new(first_fixture.database);
     let run = blocked_verify_counter();
-    let task = tokio::spawn(assemble_evidence(database.clone(), input, run.counter));
+    let task = tokio::spawn(assemble_on_stopped_clock(
+        database.clone(),
+        input,
+        run.counter,
+    ));
     wait_for(run.entered).await;
     let added_scope: Scope = "workspace/late-delivery".parse().unwrap();
     database
@@ -377,7 +384,7 @@ async fn late_grant_or_eligibility_changes_abort_before_delivery() {
     let input = exact_evidence_input(&fixture, "What does the guide say?");
     let revision_id = revision_of(&fixture.database, &fixture.scopes, "guide.md");
     let run = blocked_verify_counter();
-    let task = tokio::spawn(assemble_evidence(
+    let task = tokio::spawn(assemble_on_stopped_clock(
         Arc::new(fixture.database),
         input,
         run.counter,
@@ -393,12 +400,12 @@ async fn late_grant_or_eligibility_changes_abort_before_delivery() {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn a_panicking_counter_is_reported_as_worker_failed() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
     let input = exact_evidence_input(&fixture, "What does the guide say?");
 
-    let error = assemble_evidence(
+    let error = assemble_on_stopped_clock(
         Arc::new(fixture.database),
         input,
         EvidenceCounter::Exact(Arc::new(PanickingCounter)),

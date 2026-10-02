@@ -74,7 +74,7 @@ impl ModelPort for RecordingPort {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn an_expansion_sends_the_question_alone_with_the_cards_controls() {
     let port = RecordingPort::default();
     let card = reasoning_answerer(false);
@@ -142,7 +142,7 @@ impl QueryExpander for Scripted {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn search_bounds_and_guards_any_expander() {
     let question = understand("rerun a job without confirmation");
     let later = Instant::now() + Duration::from_secs(5);

@@ -301,7 +301,7 @@ async fn traced_search(
         intent_expander: None,
         database: published.database.clone(),
         principal: PRINCIPAL,
-        qdrant,
+        projection: qdrant,
         embedder: Some(Embedder {
             port: &published.models,
             card: &published.card,

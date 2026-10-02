@@ -1,4 +1,4 @@
-//! Exact identifier search from Qdrant payloads and the kernel identifier index.
+//! Exact identifier search from projection backend payloads and the kernel identifier index.
 
 use super::{
     identifier_cursor::advances,
@@ -17,7 +17,7 @@ use crate::{
 };
 use maestro_kernel::{
     evidence::RouteStatus,
-    retrieval::{self, ReadControl, SearchRead},
+    retrieval::{self, SearchRead},
     scope::ScopeSet,
     store::Database,
 };
@@ -301,15 +301,15 @@ async fn payload_leg<R: RetrievalProjectionPort>(
         let page = time::timeout_at(
             deadline,
             query
-                .qdrant
+                .projection
                 .scroll(&query.collection(), filter.clone(), offset.clone()),
         )
         .await
         .map_err(|_| DEADLINE_EXCEEDED.to_owned())?
-        .map_err(|_| "Qdrant payload search failed".to_owned())?;
+        .map_err(|_| "projection backend payload search failed".to_owned())?;
         for point in page.points {
             let hit = payload_hit(&point)
-                .map_err(|_| "Qdrant returned an invalid search payload".to_owned())?;
+                .map_err(|_| "projection backend returned an invalid search payload".to_owned())?;
             if !seen.insert(hit.chunk_id.clone()) {
                 continue;
             }
@@ -322,7 +322,9 @@ async fn payload_leg<R: RetrievalProjectionPort>(
             return Ok(order_payload_hits(hits, limit));
         };
         if !advances(offset.as_ref(), &next) {
-            return Err(invalid_answer("Qdrant scroll pagination did not advance").to_string());
+            return Err(
+                invalid_answer("projection backend scroll pagination did not advance").to_string(),
+            );
         }
         offset = Some(next);
     }
@@ -334,15 +336,15 @@ fn order_payload_hits(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> 
 }
 
 /// The exact kernel hits and the high-frequency identifiers it skipped.
-struct KernelOutcome {
+pub(in crate::search) struct KernelOutcome {
     /// Ranked chunks returned by the kernel identifier leg.
-    hits: Vec<ScoredChunk>,
+    pub(in crate::search) hits: Vec<ScoredChunk>,
     /// The identifiers the kernel skipped as above the route's fetch limit.
     too_common: Vec<String>,
 }
 
 /// Reads an exact, scope-filtered kernel leg on a cancellable blocking worker.
-async fn kernel_leg<R: RetrievalProjectionPort>(
+pub(in crate::search) async fn kernel_leg<R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
     database: Arc<Database>,
     identifiers: &[String],
@@ -353,11 +355,9 @@ async fn kernel_leg<R: RetrievalProjectionPort>(
     let scopes = query.scopes.clone();
     let version = query.version.map(str::to_owned);
     let identifiers = identifiers.to_vec();
+    let clock = query.clock.clone();
     match deadline::run_blocking(deadline, move |cancelled| {
-        let control = ReadControl {
-            deadline: deadline::std_deadline(deadline),
-            cancelled,
-        };
+        let control = deadline::read_control(deadline, cancelled, clock);
         let read = SearchRead {
             generation: &generation,
             scopes: &scopes,

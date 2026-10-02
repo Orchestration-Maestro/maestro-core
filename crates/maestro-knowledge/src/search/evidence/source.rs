@@ -20,7 +20,6 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::atomic::{AtomicUsize, Ordering},
     thread,
-    time::Instant,
 };
 
 /// Maximum number of scoped source-loading workers per assembly.
@@ -354,7 +353,8 @@ impl<'a> SourceCache<'a> {
 
     /// Stops before and after blocking work when cancellation or expiry fires.
     fn check(&self) -> Result<(), EvidenceError> {
-        if self.control.cancelled.load(Ordering::Relaxed) || Instant::now() >= self.control.deadline
+        if self.control.cancelled.load(Ordering::Relaxed)
+            || self.control.now() >= self.control.deadline
         {
             Err(EvidenceError::TimedOut)
         } else {

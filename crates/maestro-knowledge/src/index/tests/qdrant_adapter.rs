@@ -1,7 +1,8 @@
 //! Unit tests of the Qdrant adapter's hit conversion.
 
 use crate::index::{
-    CollectionLayout, ProjectionError, Qdrant, RetrievalProjectionPort, qdrant_adapter::point_hit,
+    CollectionLayout, DenseDistance, DenseLayout, ProjectionError, Qdrant, RetrievalProjectionPort,
+    SparseModifier, qdrant_adapter::point_hit,
 };
 use qdrant_client::qdrant::{Value, value::Kind};
 use std::collections::HashMap;
@@ -13,11 +14,12 @@ async fn adapter_rejects_invalid_layout_as_a_port_error_before_io() {
         .create_collection(
             "never-created",
             CollectionLayout {
-                dense_dimensions: 8,
-                dense_present: true,
-                dense_distance: "Euclid".to_owned(),
+                dense: Some(DenseLayout {
+                    dimensions: 8,
+                    distance: DenseDistance::Euclid,
+                }),
                 sparse_present: true,
-                sparse_modifier: Some("Idf".to_owned()),
+                sparse_modifier: Some(SparseModifier::Idf),
             },
         )
         .await
@@ -32,11 +34,12 @@ async fn adapter_rejects_an_invalid_sparse_modifier_before_io() {
         .create_collection(
             "never-created",
             CollectionLayout {
-                dense_dimensions: 8,
-                dense_present: true,
-                dense_distance: "Cosine".to_owned(),
+                dense: Some(DenseLayout {
+                    dimensions: 8,
+                    distance: DenseDistance::Cosine,
+                }),
                 sparse_present: true,
-                sparse_modifier: Some("None".to_owned()),
+                sparse_modifier: Some(SparseModifier::None),
             },
         )
         .await

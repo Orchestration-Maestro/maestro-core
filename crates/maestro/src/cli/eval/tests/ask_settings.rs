@@ -111,12 +111,21 @@ fn ask_settings_outside_asks_limits_are_refused() {
 
 #[test]
 fn a_rung_asks_up_to_the_24000_byte_evidence_ceiling_and_is_refused_past_it() {
-    let ceiling = parsed(&json!({"evidence_bytes": 24_000})).unwrap().unwrap();
+    let maximum = RequestBudget::MAX_EVIDENCE_BUDGET;
+    let ceiling = parsed(&json!({"evidence_bytes": maximum}))
+        .unwrap()
+        .unwrap();
 
-    assert_eq!(RequestBudget::from(ceiling.budget()).evidence_bytes, 24_000);
     assert_eq!(
-        refusal(&json!({"evidence_bytes": 24_001})),
-        "the rung `r0` asks for 24001 evidence bytes, over the 24000-byte ceiling"
+        RequestBudget::from(ceiling.budget()).evidence_bytes,
+        maximum
+    );
+    let past_ceiling = maximum + 1;
+    assert_eq!(
+        refusal(&json!({"evidence_bytes": past_ceiling})),
+        format!(
+            "the rung `r0` asks for {past_ceiling} evidence bytes, over the {maximum}-byte ceiling"
+        )
     );
 }
 

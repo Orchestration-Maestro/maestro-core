@@ -407,7 +407,7 @@ fn list(
 }
 
 /// Maps registration validation errors to refusals and I/O/storage errors to failures.
-fn registration_failure(error: &ModelCardRegistrationError) -> Failure {
+pub(super) fn registration_failure(error: &ModelCardRegistrationError) -> Failure {
     match error {
         ModelCardRegistrationError::Unauthorized | ModelCardRegistrationError::Invalid(_) => {
             Failure::refused_by(error)

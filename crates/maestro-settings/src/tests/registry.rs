@@ -80,6 +80,10 @@ fn measured_search_defaults_are_registered() {
         Some(&Value::Integer(6_000))
     );
     assert_eq!(
+        registry.default_of("ask.model"),
+        Some(&Value::Text("ask-gemma4-e4b-nonthinking".to_owned()))
+    );
+    assert_eq!(
         registry.default_of("evidence.expansion"),
         Some(&Value::Text("parent_chain".to_owned()))
     );

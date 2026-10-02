@@ -9,9 +9,9 @@ use crate::{
     },
     query::understand,
     search::{
-        CandidateContext, EvidenceInput, Hit, Ranked, Route, RouteList, SearchConfiguration,
-        SearchObservations, SectionClassSet, SectionPrior, SourceClassSet, SourceClassTable,
-        SourceClassifier, SourcePrior,
+        CandidateContext, EvidenceInput, Hit, Ranked, Route, RouteList, RuntimeClock,
+        SearchConfiguration, SearchObservations, SectionClassSet, SectionPrior, SourceClassSet,
+        SourceClassTable, SourceClassifier, SourcePrior,
         admission::AdmittedSearch,
         deadline,
         evidence::{EvidenceCounter, EvidenceSettings, assemble_evidence},
@@ -30,8 +30,10 @@ use maestro_kernel::{
     scope::ScopeSet,
     store::Database,
 };
+use maestro_test_clock::on_stopped_clock;
 use std::{
     collections::{BTreeMap, HashMap},
+    future,
     num::NonZeroUsize,
     sync::Arc,
 };
@@ -121,6 +123,7 @@ impl Corpus {
                 },
                 configuration.stage_window,
             ),
+            clock: Arc::new(RuntimeClock::current()),
             configuration,
             source_classes: None,
         }
@@ -211,43 +214,49 @@ async fn a_known_score_outside_rerank_depth_is_not_reused() {
         rerank_depth: NonZeroUsize::new(2).unwrap(),
         ..SearchConfiguration::default()
     };
-    let admitted = corpus.admitted("run a task", configuration);
-    let reranker_card = card(Role::Reranker, 8192);
-    let reranker = Reranker {
-        port: &port,
-        card: &reranker_card,
-    };
-    let mut pool = corpus.pool();
-    pool.known_scores.insert(corpus.id(2).to_owned(), 10.0);
+    on_stopped_clock(future::pending(), || async {
+        let admitted = corpus.admitted("run a task", configuration);
+        let reranker_card = card(Role::Reranker, 8192);
+        let reranker = Reranker {
+            port: &port,
+            card: &reranker_card,
+        };
+        let mut pool = corpus.pool();
+        pool.known_scores.insert(corpus.id(2).to_owned(), 10.0);
 
-    let ranking = rank_stage::rank(
-        corpus.database.clone(),
-        Some(&reranker),
-        &admitted,
-        "run a task",
-        pool,
-    )
-    .await
-    .unwrap();
+        let ranking = rank_stage::rank(
+            corpus.database.clone(),
+            Some(&reranker),
+            &admitted,
+            "run a task",
+            pool,
+        )
+        .await
+        .unwrap();
 
-    assert_eq!(order(&ranking), [corpus.id(0), corpus.id(1), corpus.id(2)]);
-    assert_eq!(ranking.ranked[2].score, None);
-    assert_eq!(port.calls.lock().unwrap()[0].documents.len(), 2);
+        assert_eq!(order(&ranking), [corpus.id(0), corpus.id(1), corpus.id(2)]);
+        assert_eq!(ranking.ranked[2].score, None);
+        assert_eq!(port.calls.lock().unwrap()[0].documents.len(), 2);
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn the_reranker_reads_chunk_text_by_default() {
     let corpus = Corpus::new();
     let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
-    let admitted = corpus.admitted("run a task", SearchConfiguration::default());
-    let ranking = corpus.rank(&port, &admitted, "run a task").await;
-    let calls = port.calls.lock().unwrap();
-    assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].documents, corpus.prepared());
-    assert_eq!(texts(&ranking), corpus.prepared());
-    assert_eq!(ranking.status, RouteStatus::Ok);
-    assert!(ranking.fallbacks.is_empty());
-    assert_eq!(ranking.context_gap(), None);
+    on_stopped_clock(future::pending(), || async {
+        let admitted = corpus.admitted("run a task", SearchConfiguration::default());
+        let ranking = corpus.rank(&port, &admitted, "run a task").await;
+        let calls = port.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].documents, corpus.prepared());
+        assert_eq!(texts(&ranking), corpus.prepared());
+        assert_eq!(ranking.status, RouteStatus::Ok);
+        assert!(ranking.fallbacks.is_empty());
+        assert_eq!(ranking.context_gap(), None);
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -258,16 +267,19 @@ async fn bounded_context_reaches_the_reranker_only_within_its_depth() {
         rerank_depth: NonZeroUsize::new(2).unwrap(),
         ..bounded()
     };
-    let admitted = corpus.admitted("run a task", configuration);
-    let ranking = corpus.rank(&port, &admitted, "run a task").await;
-    let sent = port.calls.lock().unwrap()[0].documents.clone();
-    assert_eq!(sent.len(), 2);
-    assert_ne!(sent[0], corpus.prepared()[0]);
-    assert!(sent[0].contains("Run was renamed in this release."));
-    assert!(sent[1].contains("Start here.\n\n1. Select a task.\n2. Press Run."));
-    assert_eq!(texts(&ranking)[..2], sent);
-    assert_eq!(texts(&ranking)[2], corpus.prepared()[2]);
-    assert!(ranking.fallbacks.is_empty());
+    on_stopped_clock(future::pending(), || async {
+        let admitted = corpus.admitted("run a task", configuration);
+        let ranking = corpus.rank(&port, &admitted, "run a task").await;
+        let sent = port.calls.lock().unwrap()[0].documents.clone();
+        assert_eq!(sent.len(), 2);
+        assert_ne!(sent[0], corpus.prepared()[0]);
+        assert!(sent[0].contains("Run was renamed in this release."));
+        assert!(sent[1].contains("Start here.\n\n1. Select a task.\n2. Press Run."));
+        assert_eq!(texts(&ranking)[..2], sent);
+        assert_eq!(texts(&ranking)[2], corpus.prepared()[2]);
+        assert!(ranking.fallbacks.is_empty());
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -281,29 +293,36 @@ async fn a_disabled_rerank_expands_nothing() {
         fusion_pool: 120,
         ..bounded()
     };
-    let admitted = corpus.admitted("run a task", configuration);
-    let ranking = corpus.rank(&port, &admitted, "run a task").await;
-    assert!(port.calls.lock().unwrap().is_empty());
-    assert_eq!(texts(&ranking), corpus.prepared());
-    assert!(ranking.fallbacks.is_empty());
+    on_stopped_clock(future::pending(), || async {
+        let admitted = corpus.admitted("run a task", configuration);
+        let ranking = corpus.rank(&port, &admitted, "run a task").await;
+        assert!(port.calls.lock().unwrap().is_empty());
+        assert_eq!(texts(&ranking), corpus.prepared());
+        assert!(ranking.fallbacks.is_empty());
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn bounded_context_leaves_the_bundle_byte_identical() {
     let corpus = Corpus::new();
-    let mut bundles = Vec::new();
-    for configuration in [SearchConfiguration::default(), bounded()] {
-        let port = FakePort::scores(vec![0.5, 0.5, 0.5]);
-        let admitted = corpus.admitted("run a task", configuration);
-        let ranking = corpus.rank(&port, &admitted, "run a task").await;
-        let input = evidence_input(&corpus, admitted, ranking.ranked);
-        let bundle = assemble_evidence(corpus.database.clone(), input, EvidenceCounter::Utf8Bytes)
-            .await
-            .unwrap();
-        assert!(!bundle.passages.is_empty());
-        bundles.push(serde_json::to_vec(&bundle.passages).unwrap());
-    }
-    assert_eq!(bundles[0], bundles[1]);
+    let port = FakePort::scores(vec![0.5, 0.5, 0.5]);
+    on_stopped_clock(future::pending(), || async {
+        let mut bundles = Vec::new();
+        for configuration in [SearchConfiguration::default(), bounded()] {
+            let admitted = corpus.admitted("run a task", configuration);
+            let ranking = corpus.rank(&port, &admitted, "run a task").await;
+            let input = evidence_input(&corpus, admitted, ranking.ranked);
+            let bundle =
+                assemble_evidence(corpus.database.clone(), input, EvidenceCounter::Utf8Bytes)
+                    .await
+                    .unwrap();
+            assert!(!bundle.passages.is_empty());
+            bundles.push(serde_json::to_vec(&bundle.passages).unwrap());
+        }
+        assert_eq!(bundles[0], bundles[1]);
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -315,23 +334,26 @@ async fn the_prior_demotes_a_release_note_for_a_generic_question_before_the_cap(
         ..SearchConfiguration::default()
     };
     let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
-    let admitted = corpus.admitted("run a task", configuration);
-    let demoted = corpus.rank(&port, &admitted, "run a task").await;
-    assert_eq!(order(&demoted), [intro, release, steps]);
-    assert_eq!(texts(&demoted)[0], corpus.prepared()[1]);
+    on_stopped_clock(future::pending(), || async {
+        let admitted = corpus.admitted("run a task", configuration);
+        let demoted = corpus.rank(&port, &admitted, "run a task").await;
+        assert_eq!(order(&demoted), [intro, release, steps]);
+        assert_eq!(texts(&demoted)[0], corpus.prepared()[1]);
 
-    let explicit = "show the release notes";
-    let admitted = corpus.admitted(explicit, configuration);
-    let exempt = corpus.rank(&port, &admitted, explicit).await;
-    assert_eq!(order(&exempt), [release, intro, steps]);
+        let explicit = "show the release notes";
+        let admitted = corpus.admitted(explicit, configuration);
+        let exempt = corpus.rank(&port, &admitted, explicit).await;
+        assert_eq!(order(&exempt), [release, intro, steps]);
 
-    let capped = SearchConfiguration {
-        rerank_demotion_cap: Some(0),
-        ..configuration
-    };
-    let admitted = corpus.admitted("run a task", capped);
-    let bounded_demotion = corpus.rank(&port, &admitted, "run a task").await;
-    assert_eq!(order(&bounded_demotion), [release, intro, steps]);
+        let capped = SearchConfiguration {
+            rerank_demotion_cap: Some(0),
+            ..configuration
+        };
+        let admitted = corpus.admitted("run a task", capped);
+        let bounded_demotion = corpus.rank(&port, &admitted, "run a task").await;
+        assert_eq!(order(&bounded_demotion), [release, intro, steps]);
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -342,17 +364,22 @@ async fn enrichment_past_its_cutoff_keeps_chunk_text_and_reports_a_gap() {
         section_prior: prior(0.5),
         ..bounded()
     };
-    let mut admitted = corpus.admitted("run a task", configuration);
-    admitted.cutoffs.setup = Instant::now() + admitted.cutoffs.window;
-    let ranking = corpus.rank(&port, &admitted, "run a task").await;
-    assert_eq!(texts(&ranking), corpus.prepared());
-    assert_eq!(order(&ranking), [corpus.id(0), corpus.id(1), corpus.id(2)]);
-    assert_eq!(ranking.fallbacks, order(&ranking));
-    assert_eq!(ranking.context_unavailable, 3);
-    assert_eq!(
-        ranking.context_gap().unwrap(),
-        "reranker context unavailable for 3 candidates; their chunk text was used"
-    );
+    on_stopped_clock(future::pending(), || async {
+        let mut admitted = corpus.admitted("run a task", configuration);
+        let enrichment_cutoff = Instant::now();
+        admitted.cutoffs.setup = enrichment_cutoff + admitted.cutoffs.window;
+        assert_eq!(admitted.cutoffs.enrichment(), enrichment_cutoff);
+        let ranking = corpus.rank(&port, &admitted, "run a task").await;
+        assert_eq!(texts(&ranking), corpus.prepared());
+        assert_eq!(order(&ranking), [corpus.id(0), corpus.id(1), corpus.id(2)]);
+        assert_eq!(ranking.fallbacks, order(&ranking));
+        assert_eq!(ranking.context_unavailable, 3);
+        assert_eq!(
+            ranking.context_gap().unwrap(),
+            "reranker context unavailable for 3 candidates; their chunk text was used"
+        );
+    })
+    .await;
 }
 
 /// Classifies documents whose path starts with `prefix` as community pages
@@ -383,45 +410,51 @@ async fn the_source_prior_ranks_an_official_page_before_a_community_page() {
         source_prior: official_first(0.5),
         ..SearchConfiguration::default()
     };
-    let mut admitted = corpus.admitted("run a task", configuration);
-    admitted.source_classes = Some(community("release"));
-    let demoted = corpus.rank(&port, &admitted, "run a task").await;
-    assert_eq!(order(&demoted), [intro, release, steps]);
-    assert_eq!(
-        texts(&demoted),
-        [1, 0, 2].map(|index| corpus.prepared()[index].clone())
-    );
-    assert_eq!(top_rerank_score(&demoted.ranked), Some(0.9));
+    on_stopped_clock(future::pending(), || async {
+        let mut admitted = corpus.admitted("run a task", configuration);
+        admitted.source_classes = Some(community("release"));
+        let demoted = corpus.rank(&port, &admitted, "run a task").await;
+        assert_eq!(order(&demoted), [intro, release, steps]);
+        assert_eq!(
+            texts(&demoted),
+            [1, 0, 2].map(|index| corpus.prepared()[index].clone())
+        );
+        assert_eq!(top_rerank_score(&demoted.ranked), Some(0.9));
 
-    let capped = SearchConfiguration {
-        rerank_demotion_cap: Some(0),
-        ..configuration
-    };
-    admitted.configuration = capped;
-    let bounded_demotion = corpus.rank(&port, &admitted, "run a task").await;
-    assert_eq!(order(&bounded_demotion), [release, intro, steps]);
+        let capped = SearchConfiguration {
+            rerank_demotion_cap: Some(0),
+            ..configuration
+        };
+        admitted.configuration = capped;
+        let bounded_demotion = corpus.rank(&port, &admitted, "run a task").await;
+        assert_eq!(order(&bounded_demotion), [release, intro, steps]);
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn without_a_table_or_with_the_prior_off_the_order_is_unchanged() {
     let corpus = Corpus::new();
     let fused = [corpus.id(0), corpus.id(1), corpus.id(2)];
-    for (prior, table) in [
-        (SourcePrior::Off, Some(community("release"))),
-        (official_first(0.5), None),
-        (SourcePrior::default(), None),
-    ] {
-        let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
-        let configuration = SearchConfiguration {
-            source_prior: prior,
-            ..SearchConfiguration::default()
-        };
-        let mut admitted = corpus.admitted("run a task", configuration);
-        admitted.source_classes = table;
-        let ranking = corpus.rank(&port, &admitted, "run a task").await;
-        assert_eq!(order(&ranking), fused);
-        assert_eq!(ranking.context_gap(), None);
-    }
+    let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
+    on_stopped_clock(future::pending(), || async {
+        for (prior, table) in [
+            (SourcePrior::Off, Some(community("release"))),
+            (official_first(0.5), None),
+            (SourcePrior::default(), None),
+        ] {
+            let configuration = SearchConfiguration {
+                source_prior: prior,
+                ..SearchConfiguration::default()
+            };
+            let mut admitted = corpus.admitted("run a task", configuration);
+            admitted.source_classes = table;
+            let ranking = corpus.rank(&port, &admitted, "run a task").await;
+            assert_eq!(order(&ranking), fused);
+            assert_eq!(ranking.context_gap(), None);
+        }
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -434,10 +467,13 @@ async fn the_source_prior_classifies_only_within_the_rerank_depth() {
         ..SearchConfiguration::default()
     };
     let port = FakePort::scores(vec![0.9, 0.5]);
-    let mut admitted = corpus.admitted("run a task", configuration);
-    admitted.source_classes = Some(community("guide"));
-    let ranking = corpus.rank(&port, &admitted, "run a task").await;
-    assert_eq!(order(&ranking), [release, steps, intro]);
+    on_stopped_clock(future::pending(), || async {
+        let mut admitted = corpus.admitted("run a task", configuration);
+        admitted.source_classes = Some(community("guide"));
+        let ranking = corpus.rank(&port, &admitted, "run a task").await;
+        assert_eq!(order(&ranking), [release, steps, intro]);
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -448,12 +484,17 @@ async fn source_classification_past_the_enrichment_cutoff_penalizes_nothing() {
         source_prior: official_first(0.5),
         ..SearchConfiguration::default()
     };
-    let mut admitted = corpus.admitted("run a task", configuration);
-    admitted.source_classes = Some(community("release"));
-    admitted.cutoffs.setup = Instant::now() + admitted.cutoffs.window;
-    let ranking = corpus.rank(&port, &admitted, "run a task").await;
-    assert_eq!(order(&ranking), [corpus.id(0), corpus.id(1), corpus.id(2)]);
-    assert_eq!(ranking.status, RouteStatus::Ok);
+    on_stopped_clock(future::pending(), || async {
+        let mut admitted = corpus.admitted("run a task", configuration);
+        admitted.source_classes = Some(community("release"));
+        let enrichment_cutoff = Instant::now();
+        admitted.cutoffs.setup = enrichment_cutoff + admitted.cutoffs.window;
+        assert_eq!(admitted.cutoffs.enrichment(), enrichment_cutoff);
+        let ranking = corpus.rank(&port, &admitted, "run a task").await;
+        assert_eq!(order(&ranking), [corpus.id(0), corpus.id(1), corpus.id(2)]);
+        assert_eq!(ranking.status, RouteStatus::Ok);
+    })
+    .await;
 }
 
 fn evidence_input(corpus: &Corpus, admitted: AdmittedSearch, ranked: Vec<Ranked>) -> EvidenceInput {
@@ -474,6 +515,7 @@ fn evidence_input(corpus: &Corpus, admitted: AdmittedSearch, ranked: Vec<Ranked>
         inventory: None,
         budget: RequestBudget::default(),
         deadline: Instant::now() + Duration::from_secs(10),
+        clock: Arc::new(RuntimeClock::current()),
         known_gaps: Vec::new(),
     }
 }

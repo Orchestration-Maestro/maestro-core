@@ -23,6 +23,7 @@ maestro-canonicalization = { path = "crates/maestro-canonicalization", version =
 maestro-kernel = { path = "crates/maestro-kernel", version = "0.1.0" }
 maestro-knowledge = { path = "crates/maestro-knowledge", version = "0.1.0" }
 maestro-settings = { path = "crates/maestro-settings", version = "0.1.0" }
+maestro-test-clock = { path = "crates/maestro-test-clock", version = "0.1.0" }
 maestro-test-scratch = { path = "crates/maestro-test-scratch", version = "0.1.0" }
 # S2 G25 spike only: the embedded LadybugDB graph engine, no optional feature
 # (so no extension installer and no OpenSSL; see [patch.crates-io] below).

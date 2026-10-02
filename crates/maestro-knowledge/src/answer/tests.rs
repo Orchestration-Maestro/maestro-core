@@ -11,7 +11,7 @@ use maestro_kernel::{
     evidence::{Budget, Bundle, Passage, RequestBudget, RouteStatus, Schema, Span, Trace},
     gateway::{
         CardIdentity, ChatRequest, Error, ModelCard, ModelPort, Room, RouterEntry, Speaker,
-        card_v2::{Capability, ControlValue},
+        card_v2::{Capability, ControlValue, Sampling, SamplingParameters},
     },
 };
 use maestro_test_scratch::scratch_directory;
@@ -149,17 +149,34 @@ impl Scratch {
 
     /// An answerer whose card allows `limit` output tokens.
     fn answerer_with_output_limit(&self, limit: u32) -> RegisteredAnswerer {
+        self.answerer_for_model("qwen3-4b", limit, false)
+    }
+
+    fn answerer_for_model(&self, entry: &str, limit: u32, thinking: bool) -> RegisteredAnswerer {
         let mut card_json: serde_json::Value =
             serde_json::from_str(v2_golden::CANONICAL_ANSWERER_CARD)
                 .expect("canonical v2 answerer card");
         card_json["identity"]["invocation"]["limits"]["output_tokens"] = serde_json::json!(limit);
         let mut identity: CardIdentity =
             serde_json::from_value(card_json["identity"].take()).expect("v2 identity");
-        identity.router_entry = RouterEntry::parse("qwen3-4b").expect("router entry");
+        identity.router_entry = RouterEntry::parse(entry).expect("router entry");
         identity.invocation.reasoning = Capability::Supported(BTreeMap::from([(
             "enable_thinking".to_owned(),
-            ControlValue::Boolean(false),
+            ControlValue::Boolean(thinking),
         )]));
+        if entry == "ask-gemma4-e4b-nonthinking" {
+            identity.invocation.sampling = Sampling::Configured(SamplingParameters {
+                temperature: 1.0,
+                top_p: 0.95,
+                top_k: 64,
+                min_p: 0.0,
+                typical_p: 1.0,
+                repeat_penalty: 1.0,
+                frequency_penalty: 0.0,
+                presence_penalty: 0.0,
+                seed: Some(0),
+            });
+        }
         let card = ModelCard::record_v2(&Store::new(&self.0), &identity).expect("answerer v2 card");
         RegisteredAnswerer {
             id: "01ARZ3NDEKTSV4RRFFQ69G5FAV".to_owned(),
@@ -392,8 +409,9 @@ fn ask_request_is_strict_and_defaults_to_the_bounded_local_model() {
         "question": "How is the service configured?"
     }))
     .expect("default ask request");
-    assert_eq!(request.model, "qwen3-4b");
-    assert_eq!(request.budget, AskBudget::default());
+    assert_eq!(request.model, "ask-gemma4-e4b-nonthinking");
+    assert_eq!(request.budget.evidence_bytes, 6_000);
+    assert_eq!(request.budget.output_tokens, None);
     assert!(
         serde_json::from_value::<AskRequest>(serde_json::json!({
             "collection": "docs",

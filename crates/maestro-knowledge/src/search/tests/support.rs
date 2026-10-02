@@ -1,6 +1,7 @@
 //! Scratch kernel records for the bounded candidate handoff.
 
-use crate::search::SearchConfiguration;
+use crate::query::{PROFILE, index_identifiers};
+use crate::search::{RuntimeClock, SearchConfiguration};
 use crate::search::{candidates, fusion::Fused};
 use maestro_kernel::{
     artifact::Digest,
@@ -8,6 +9,7 @@ use maestro_kernel::{
     document::{Collection, Disposition, Document, Outcome, Revision, RevisionStatus, Source},
     evidence::Span,
     generation::{Generation, NewGeneration},
+    retrieval::{SearchInput, SearchMember},
     scope::{Right, Scope, ScopeSet},
     store::Database,
 };
@@ -72,6 +74,57 @@ impl CandidateDb {
         }
     }
 
+    /// Grants the reader the whole collection, records the chunk's search
+    /// input and identifiers, marks the generation's search projection
+    /// ready, and publishes it.
+    pub(super) fn publish_searchable(&mut self) {
+        let collection: Scope = format!(
+            "workspace/default/collection/{}",
+            self.generation.collection_id
+        )
+        .parse()
+        .unwrap();
+        self.database
+            .grant("reader", &collection, Right::Read, "test")
+            .unwrap();
+        self.scopes = self.database.visible("reader").unwrap();
+        let chunk_set = &self.generation.chunk_set_id;
+        let prepared_input = String::from_utf8(self.database.get(&self.digest).unwrap()).unwrap();
+        self.database
+            .record_search_members(
+                &self.scopes,
+                chunk_set,
+                &[SearchMember {
+                    revision_id: self.revision_id.clone(),
+                    representative_revision_id: self.revision_id.clone(),
+                }],
+            )
+            .unwrap();
+        self.database
+            .record_search_inputs(
+                &self.scopes,
+                chunk_set,
+                &[SearchInput {
+                    chunk_id: self.chunk_id.clone(),
+                    identifiers: index_identifiers(&prepared_input),
+                    prepared_input,
+                }],
+            )
+            .unwrap();
+        self.database
+            .begin_generation_search(&self.scopes, self.generation.id, PROFILE)
+            .unwrap();
+        self.database
+            .complete_generation_search(&self.scopes, self.generation.id)
+            .unwrap();
+        self.database
+            .verify_generation(self.generation.id, 1)
+            .unwrap();
+        self.database
+            .publish_generation(self.generation.id)
+            .unwrap();
+    }
+
     /// Replaces the stored bytes without changing their recorded digest.
     pub(super) fn corrupt_artifact(&self) {
         fs::write(self.artifact_path(), b"corrupt").unwrap();
@@ -98,6 +151,7 @@ impl CandidateDb {
             expected_revisions: HashMap::from([(chunk_id.to_owned(), expected_revisions)]),
             deadline: Instant::now() + Duration::from_secs(2),
             context_deadline: Instant::now() + Duration::from_secs(2),
+            clock: Arc::new(RuntimeClock::current()),
         }
     }
 

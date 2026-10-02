@@ -1,5 +1,6 @@
+use super::support::assemble_on_stopped_clock;
 use super::{
-    super::{EvidenceCounter, assemble_evidence},
+    super::EvidenceCounter,
     support::{Fixture, evidence_input, fixture},
 };
 use crate::{
@@ -44,13 +45,13 @@ fn markdown(shared: &str, port: &str) -> String {
     )
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn identical_latest_sections_keep_older_provenance_and_conflicts() {
     let fixture = versioned_fixture();
     let input = evidence_input(&fixture, QUERY);
     let database = Arc::new(fixture.database);
 
-    let bundle = assemble_evidence(database, input, EvidenceCounter::Utf8Bytes)
+    let bundle = assemble_on_stopped_clock(database, input, EvidenceCounter::Utf8Bytes)
         .await
         .unwrap();
 
@@ -80,12 +81,12 @@ async fn identical_latest_sections_keep_older_provenance_and_conflicts() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn a_single_passage_budget_omits_conflicts_as_one_unit_with_exact_gaps() {
     let fixture = versioned_fixture();
     let input = table_only_input(&fixture);
 
-    let bundle = assemble_evidence(
+    let bundle = assemble_on_stopped_clock(
         Arc::new(fixture.database),
         input,
         EvidenceCounter::Utf8Bytes,
@@ -136,7 +137,7 @@ fn table_only_input(fixture: &Fixture) -> EvidenceInput {
     input
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn exact_filter_comparison_and_version_inventory_keep_their_distinct_versions() {
     let fixture = versioned_fixture();
     let mut filtered_input = evidence_input(&fixture, QUERY);
@@ -163,9 +164,10 @@ async fn exact_filter_comparison_and_version_inventory_keep_their_distinct_versi
     });
     let database = Arc::new(fixture.database);
 
-    let filtered = assemble_evidence(database.clone(), filtered_input, EvidenceCounter::Utf8Bytes)
-        .await
-        .unwrap();
+    let filtered =
+        assemble_on_stopped_clock(database.clone(), filtered_input, EvidenceCounter::Utf8Bytes)
+            .await
+            .unwrap();
     assert!(
         filtered
             .passages
@@ -183,7 +185,7 @@ async fn exact_filter_comparison_and_version_inventory_keep_their_distinct_versi
         ["One or more candidate passages could not be resolved in the current scopes."]
     );
 
-    let comparison = assemble_evidence(
+    let comparison = assemble_on_stopped_clock(
         database.clone(),
         comparison_input,
         EvidenceCounter::Utf8Bytes,
@@ -192,9 +194,10 @@ async fn exact_filter_comparison_and_version_inventory_keep_their_distinct_versi
     .unwrap();
     assert_distinct_versions(&comparison);
 
-    let inventory = assemble_evidence(database, inventory_input, EvidenceCounter::Utf8Bytes)
-        .await
-        .unwrap();
+    let inventory =
+        assemble_on_stopped_clock(database, inventory_input, EvidenceCounter::Utf8Bytes)
+            .await
+            .unwrap();
     assert_distinct_versions(&inventory);
     assert_eq!(
         inventory.inventory,

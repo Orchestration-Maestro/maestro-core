@@ -142,10 +142,9 @@ fn validate_context(group: &Group, part_order: &BTreeMap<&str, usize>) -> Result
         }),
         "context relations are not in source order",
     )?;
-    let mut seen = BTreeSet::new();
     for relation in &group.context_relations {
         require(
-            group.part_ids.contains(&relation.part_id) && seen.insert(relation.part_id.as_str()),
+            group.part_ids.contains(&relation.part_id),
             "context must reference a unique direct part",
         )?;
         match relation.kind {
@@ -232,7 +231,11 @@ fn validate_acyclic(groups: &BTreeMap<&str, &Group>) -> Result<(), Error> {
         let mut path = BTreeSet::new();
         let mut cursor = Some(*id);
         while let Some(current) = cursor {
-            require(path.insert(current), "ancestry cycle")?;
+            // Terminate here, not through `require`: a cycle must end the walk
+            // even if validation is ever bypassed.
+            if !path.insert(current) {
+                return Err(Error::Invalid("ancestry cycle"));
+            }
             cursor = groups
                 .get(current)
                 .and_then(|group| group.parent.as_deref());
@@ -403,7 +406,6 @@ mod tests {
             .groups
             .iter()
             .flat_map(|group| group.children.iter().cloned())
-            .filter(|child| child != "caption")
             .collect();
         assert!(validate_units(&graph, &groups, &children).is_err());
     }
@@ -424,6 +426,18 @@ mod tests {
             .flat_map(|group| group.children.iter().cloned())
             .collect();
         assert!(validate_units(&graph, &groups, &children).is_ok());
+    }
+
+    /// Context comes from the named unit's own ancestors, and an unknown
+    /// unit is not found.
+    #[test]
+    fn required_context_follows_the_named_unit() {
+        let graph = graph();
+        assert_eq!(required_context(&graph, "lead-in").unwrap(), ["part-6"]);
+        assert!(matches!(
+            required_context(&graph, "missing"),
+            Err(Error::NotFound)
+        ));
     }
 
     /// An ancestry cycle is rejected independently of other graph contracts.

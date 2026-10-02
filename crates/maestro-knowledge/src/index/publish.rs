@@ -348,11 +348,12 @@ impl<P: ModelPort, R: super::projection_port::RetrievalProjectionPort> Projectio
                 .create_collection(
                     collection,
                     super::projection_port::CollectionLayout {
-                        dense_dimensions: dimensions,
-                        dense_present: true,
-                        dense_distance: "Cosine".to_owned(),
+                        dense: Some(super::projection_port::DenseLayout {
+                            dimensions,
+                            distance: super::projection_port::DenseDistance::Cosine,
+                        }),
                         sparse_present: true,
-                        sparse_modifier: Some("Idf".to_owned()),
+                        sparse_modifier: Some(super::projection_port::SparseModifier::Idf),
                     },
                 )
                 .await

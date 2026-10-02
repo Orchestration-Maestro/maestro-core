@@ -15,7 +15,7 @@ use maestro_knowledge::{
     },
 };
 use maestro_settings::{
-    LayerName, PROJECT_DIRECTORY, PROJECT_FILE, Registry, SettingKind, Source, USER_FILE,
+    LayerName, PROJECT_DIRECTORY, PROJECT_FILE, Registry, SettingKind, Source, USER_FILE, Value,
 };
 use maestro_test_scratch::scratch_directory;
 use std::{
@@ -111,6 +111,16 @@ fn every_default_is_the_measured_default() {
     };
     assert_eq!(defaults(), today);
     assert_eq!(KnowledgeSettings::default(), today);
+    let registry = Registry::built_in().unwrap();
+    assert_eq!(
+        registry.default_of("ask.model"),
+        Some(&Value::Text(today.model.clone()))
+    );
+    assert_eq!(
+        registry.default_of("ask.evidence_bytes"),
+        Some(&Value::Integer(i64::from(today.ask_budget.evidence_bytes)))
+    );
+    assert_eq!(registry.default_of("ask.output_tokens"), Some(&Value::Off));
 }
 
 #[test]
@@ -119,6 +129,9 @@ fn rerank_depth_cannot_exceed_the_configured_fusion_pool() {
     scratch.user("[search]\nfusion_pool = 20\n[search.rerank]\ndepth = 21\n");
     let error = scratch.session(&[]).knowledge().unwrap_err().to_string();
     assert!(error.contains("search.rerank.depth (21) must not exceed search.fusion_pool (20)"));
+    scratch.user("[search]\nfusion_pool = 20\n[search.rerank]\ndepth = 20\n");
+    let search = scratch.session(&[]).knowledge().unwrap().search;
+    assert_eq!(search.rerank_depth.get(), search.fusion_pool);
 }
 
 #[test]
@@ -446,6 +459,12 @@ fn parent_chain_settings_round_trip_and_refuse_legacy_order() {
         serde_json::to_value(evidence).unwrap()["parent_chain_order"],
         "largest_fitting_parent"
     );
+    scratch.user(concat!(
+        "[evidence]\nexpansion = \"parent_chain\"\n",
+        "parent_chain_order = \"off\"\n"
+    ));
+    let evidence = scratch.session(&[]).knowledge().unwrap().evidence;
+    assert_eq!(evidence.parent_chain_order, None);
     scratch.user(concat!(
         "[evidence]\nexpansion = \"full_section\"\n",
         "parent_chain_order = \"largest_fitting_parent\"\n"

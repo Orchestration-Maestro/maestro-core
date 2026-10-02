@@ -10,10 +10,7 @@ use crate::{
     store::{self, Database},
 };
 use rusqlite::{Connection, OptionalExtension as _, Transaction, TransactionBehavior, params};
-use std::{
-    sync::atomic::Ordering,
-    time::{Duration, Instant},
-};
+use std::{sync::atomic::Ordering, time::Duration};
 
 /// The maximum busy wait on any kernel reader.
 const MAX_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
@@ -25,7 +22,7 @@ impl ReadControl {
     pub(super) fn check(&self) -> Result<(), Error> {
         if self.cancelled.load(Ordering::Relaxed) {
             Err(Error::Cancelled)
-        } else if Instant::now() >= self.deadline {
+        } else if self.now() >= self.deadline {
             Err(Error::TimedOut)
         } else {
             Ok(())
@@ -43,14 +40,15 @@ pub(super) fn controlled_reader(
     control.check()?;
     let remaining = control
         .deadline
-        .checked_duration_since(Instant::now())
+        .checked_duration_since(control.now())
         .ok_or(Error::TimedOut)?;
     reader.busy_timeout(remaining.min(MAX_BUSY_TIMEOUT))?;
     let cancelled = control.cancelled.clone();
     let deadline = control.deadline;
+    let clock = control.clock.clone();
     reader.progress_handler(
         PROGRESS_OPERATIONS,
-        Some(move || cancelled.load(Ordering::Relaxed) || Instant::now() >= deadline),
+        Some(move || cancelled.load(Ordering::Relaxed) || clock.now() >= deadline),
     )?;
     control.check()?;
     Ok(reader)
@@ -240,7 +238,7 @@ pub(super) fn search_chunks_sql() -> String {
 pub(super) fn classify(error: rusqlite::Error, control: &ReadControl) -> Error {
     if control.cancelled.load(Ordering::Relaxed) {
         Error::Cancelled
-    } else if Instant::now() >= control.deadline {
+    } else if control.now() >= control.deadline {
         Error::TimedOut
     } else {
         Error::Store(store::Error::Sqlite(error))

@@ -25,7 +25,6 @@ use maestro_kernel::{
 use std::{
     collections::BTreeSet,
     sync::{Arc, atomic::AtomicBool},
-    time::{Duration, Instant},
 };
 
 pub(in crate::search::evidence) fn prepared(
@@ -473,8 +472,8 @@ fn selection_refuses_an_already_cancelled_control() {
     let counter = EvidenceCounter::Utf8Bytes;
     let info = counter_info(&counter).unwrap();
     let control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(1),
         cancelled: Arc::new(AtomicBool::new(true)),
+        ..control()
     };
 
     assert!(matches!(

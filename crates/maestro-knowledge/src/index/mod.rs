@@ -80,8 +80,9 @@ pub(crate) use point::point_id;
 pub use progress::{Progress, Report};
 pub use projection::{Projection, ProjectionWithBatchSize};
 pub use projection_port::{
-    CollectionLayout, PointHit, ProjectionCursor, ProjectionError, ProjectionFilter,
-    ProjectionPage, ProjectionPoint, RetrievalProjectionPort, SparseValues,
+    CollectionLayout, DenseDistance, DenseLayout, PayloadFieldKind, PointHit, ProjectionCursor,
+    ProjectionError, ProjectionFilter, ProjectionPage, ProjectionPoint, RetrievalProjectionPort,
+    SparseModifier, SparseValues,
 };
 pub(crate) use projection_port::{invalid_answer, payload_text};
 pub use qdrant::{Qdrant, QdrantError};

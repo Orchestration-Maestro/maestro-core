@@ -5,6 +5,8 @@ use super::{Digest, Error, Store, store::NEXT_TEMPORARY};
 use maestro_test_scratch::scratch_directory;
 #[cfg(unix)]
 use std::os::unix::fs::{PermissionsExt as _, symlink};
+#[cfg(windows)]
+use std::os::windows::fs::symlink_file as symlink;
 use std::{
     env, error,
     fs::{self, File},
@@ -215,9 +217,7 @@ fn the_store_creates_what_is_missing_for_its_owner_only() {
     }
 }
 
-// Windows creates a symbolic link only with a privilege CI lacks; its
-// junctions are directories, which the directory test covers.
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 #[test]
 fn get_refuses_a_link_and_put_replaces_it_with_the_bytes() {
     let scratch = Scratch::new();

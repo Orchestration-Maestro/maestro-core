@@ -86,6 +86,7 @@ pub(super) async fn rank<P: ModelPort>(
             expected_revisions: pool.expected_revisions,
             deadline: admitted.cutoffs.work,
             context_deadline: admitted.cutoffs.enrichment(),
+            clock: admitted.clock.clone(),
             configuration,
             query: query.to_owned(),
             source_classes: admitted.source_classes.clone(),

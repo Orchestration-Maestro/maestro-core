@@ -36,8 +36,8 @@ pub enum RouteError {
     },
     /// The embedding response cannot be used as a dense query vector.
     InvalidVector(VectorError),
-    /// Qdrant refused the route query or returned an invalid hit.
-    Qdrant(ProjectionError),
+    /// The projection backend refused the route query or returned an invalid hit.
+    Projection(ProjectionError),
 }
 
 impl fmt::Display for RouteError {
@@ -64,7 +64,9 @@ impl fmt::Display for RouteError {
                 write!(formatter, "embedder unavailable: {reason}")
             }
             Self::InvalidVector(error) => write!(formatter, "invalid embedding vector: {error}"),
-            Self::Qdrant(error) => write!(formatter, "Qdrant route query failed: {error}"),
+            Self::Projection(error) => {
+                write!(formatter, "projection backend route query failed: {error}")
+            }
         }
     }
 }
@@ -73,7 +75,7 @@ impl error::Error for RouteError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::GenerationLookup(error) => Some(error),
-            Self::Qdrant(error) => Some(error),
+            Self::Projection(error) => Some(error),
             Self::InvalidVector(error) => Some(error),
             Self::UnknownGeneration { .. }
             | Self::UnpublishedGeneration { .. }

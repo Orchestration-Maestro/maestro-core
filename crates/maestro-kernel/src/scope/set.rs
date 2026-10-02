@@ -8,8 +8,8 @@ use std::collections::BTreeSet;
 /// The scopes a principal may read, as [`Database::visible`] found them for
 /// one request: each scope granted to it, and every scope below one. Keep it
 /// for that request and never longer, so a revocation applies to the next
-/// read. Outside the kernel only `visible` gives one, and an empty set sees
-/// nothing.
+/// read. Outside the kernel, visibility reads and atomic configuration refreshes
+/// give one, and an empty set sees nothing.
 ///
 /// [`Database::visible`]: crate::store::Database::visible
 #[derive(Debug, Clone, PartialEq, Eq)]

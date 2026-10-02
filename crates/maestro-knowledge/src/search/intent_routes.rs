@@ -61,7 +61,8 @@ pub(super) async fn execute<P: ModelPort, R: RetrievalProjectionPort>(
         limit: admitted.configuration.routes_limit,
         identifier_limit: admitted.configuration.identifier_limit,
         version: admitted.version.as_deref(),
-        qdrant: context.qdrant,
+        projection: context.projection,
+        clock: &admitted.clock,
     };
     let lexical_query = Query {
         text: &expansion.keywords,

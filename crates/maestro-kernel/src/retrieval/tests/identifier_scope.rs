@@ -1,15 +1,12 @@
 use super::super::identifiers::indexed_hits;
+use super::clock::control;
 use crate::{
     generation::{Generation, GenerationState},
-    retrieval::{ReadControl, SearchRead},
+    retrieval::SearchRead,
     scope::{Scope, ScopeSet},
 };
 use rusqlite::{Connection, TransactionBehavior};
-use std::{
-    collections::BTreeSet,
-    sync::{Arc, atomic::AtomicBool},
-    time::{Duration, Instant},
-};
+use std::collections::BTreeSet;
 
 #[test]
 fn identifier_index_filters_scope_before_its_hit_limit() {
@@ -96,10 +93,7 @@ fn identifier_index_filters_scope_before_its_hit_limit() {
         point_count: None,
         published_at: None,
     };
-    let control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control();
     let read = SearchRead {
         generation: &generation,
         scopes: &scopes,

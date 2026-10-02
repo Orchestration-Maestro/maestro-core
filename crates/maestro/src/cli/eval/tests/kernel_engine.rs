@@ -31,7 +31,9 @@ use maestro_knowledge::{
     answer::{AskBudget, AskError, AskRequest, DEFAULT_MODEL, PromptVersion},
     eval::{AskOutcome, RunError, SearchOutcome},
     index::Qdrant,
-    search::{SearchError, evidence::EvidenceError, routes::error::RouteError},
+    search::{
+        SearchConfiguration, SearchError, evidence::EvidenceError, routes::error::RouteError,
+    },
 };
 use std::{fs, io};
 
@@ -43,7 +45,7 @@ fn the_engine_names_the_generation_chunk_set_and_every_card_and_sees_drift() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).unwrap();
     let (_, reranker) = register_card(&kernel, "collection", Role::Reranker, "rerank", b"r");
-    let (_, answerer) = register_card(&kernel, "collection", Role::Answerer, "qwen3-4b", b"a");
+    let (_, answerer) = register_card(&kernel, "collection", Role::Answerer, DEFAULT_MODEL, b"a");
     let generation = kernel
         .database
         .published_generation(&kernel.scopes, "collection")
@@ -72,7 +74,7 @@ fn the_engine_names_the_generation_chunk_set_and_every_card_and_sees_drift() {
     assert!(context.embedder.is_none());
     assert_eq!(engine.provenance(&candidate).unwrap(), start);
 
-    let (_, later) = register_card(&kernel, "collection", Role::Answerer, "qwen3-4b", b"b");
+    let (_, later) = register_card(&kernel, "collection", Role::Answerer, DEFAULT_MODEL, b"b");
     let end = engine.provenance(&candidate).unwrap();
     assert_eq!(end.answerer.as_deref(), Some(later.digest().as_str()));
     assert_ne!(end, start);
@@ -137,6 +139,8 @@ fn search_only_rungs_keep_their_legacy_budget_and_expansion() {
     candidate.ask = None;
 
     let search = engine.search_request(&candidate, "question");
+    assert_eq!(search.configuration, candidate.configuration.search());
+    assert_ne!(search.configuration, SearchConfiguration::default());
     assert_eq!((search.budget.k, search.budget.evidence_bytes), (5, 6_000));
     assert_eq!(search.evidence.expansion, ExpansionMode::FullSection);
     assert_eq!(search.evidence.parent_chain_order, None);
@@ -243,7 +247,7 @@ fn only_a_failed_document_lookup_fails_the_start_of_a_rung() {
 fn with_the_services_down_each_search_and_ask_fails_once() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).unwrap();
-    register_card(&kernel, "collection", Role::Answerer, "qwen3-4b", b"a");
+    register_card(&kernel, "collection", Role::Answerer, DEFAULT_MODEL, b"a");
     let mut lexical = rung("r0");
     lexical.configuration.routes.dense = false;
     lexical.configuration.rerank = None;

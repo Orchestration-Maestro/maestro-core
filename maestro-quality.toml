@@ -12,6 +12,9 @@
 license-policy = "enforce"
 artifact-key = "maestro-core"
 platforms = "macos windows"
+# Split mutation testing across remote runners, the count chosen from the
+# mutants of the change (maestro-rust-workflows v4.4.0).
+mutation-shards = 0
 mutation-windows = [
   "crates/maestro-settings/src/file/windows.rs",
   "crates/maestro-canonicalization/src/filesystem/windows.rs",
@@ -342,3 +345,9 @@ rule = "ARC-005"
 path = "crates/maestro-kernel/src/unit_graph/mod.rs"
 item = "GraphKey"
 reason = "the public source-scoped graph read key belongs to graph storage; representation completion also reads each graph through this boundary"
+
+[[exception]]
+rule = "TST-001"
+path = "crates/maestro-test-clock/src/stopped.rs"
+item = "work_is_constructed_on_the_stopped_clock"
+reason = "proves paused Tokio time ignores real time; the assertion is equality on paused time, so it is deterministic whatever the sleep length; 20 ms"

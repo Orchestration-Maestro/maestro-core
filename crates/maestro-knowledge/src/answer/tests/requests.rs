@@ -1,9 +1,9 @@
 use super::*;
 use maestro_kernel::gateway::MAX_CHAT_OUTPUT_TOKENS;
-use std::error::Error as _;
+use std::{borrow::Cow, error::Error as _};
 
 /// A change to a valid request, and the error it must cause, if any.
-type BoundCase = (fn(&mut AskRequest), Option<&'static str>);
+type BoundCase = (fn(&mut AskRequest), Option<Cow<'static, str>>);
 
 /// The error `answer_bundle` returns for `request`, rendered, or `None` when
 /// the request passes its bounds and reaches the empty-bundle refusal.
@@ -34,42 +34,56 @@ async fn request_bounds_accept_their_limits_and_refuse_one_past_them() {
     let question = "invalid ask request: question must contain 1 to 8192 UTF-8 bytes";
     let version = "invalid ask request: version must contain 1 to 256 UTF-8 bytes";
     let budget = "invalid ask request: ask budget is outside accepted limits";
-    let evidence = "invalid ask request: evidence_bytes must be between 1 and 24000";
+    let evidence = format!(
+        "invalid ask request: evidence_bytes must be between 1 and {}",
+        RequestBudget::MAX_EVIDENCE_BUDGET
+    );
     let cases: [BoundCase; 14] = [
         (|_| {}, None),
-        (|request| request.question = " ".to_owned(), Some(question)),
+        (
+            |request| request.question = " ".to_owned(),
+            Some(Cow::Borrowed(question)),
+        ),
         (|request| request.question = "q".repeat(8192), None),
         (
             |request| request.question = "q".repeat(8193),
-            Some(question),
+            Some(Cow::Borrowed(question)),
         ),
         (
             |request| request.version = Some(String::new()),
-            Some(version),
+            Some(Cow::Borrowed(version)),
         ),
         (|request| request.version = Some("v".repeat(256)), None),
         (
             |request| request.version = Some("v".repeat(257)),
-            Some(version),
+            Some(Cow::Borrowed(version)),
         ),
-        (|request| request.budget.k = 0, Some(budget)),
-        (|request| request.budget.evidence_bytes = 0, Some(evidence)),
-        (|request| request.budget.evidence_bytes = 24_000, None),
+        (|request| request.budget.k = 0, Some(Cow::Borrowed(budget))),
         (
-            |request| request.budget.evidence_bytes = 24_001,
-            Some(evidence),
+            |request| request.budget.evidence_bytes = 0,
+            Some(Cow::Owned(evidence.clone())),
+        ),
+        (
+            |request| request.budget.evidence_bytes = RequestBudget::MAX_EVIDENCE_BUDGET,
+            None,
+        ),
+        (
+            |request| request.budget.evidence_bytes = RequestBudget::MAX_EVIDENCE_BUDGET + 1,
+            Some(Cow::Owned(evidence.clone())),
         ),
         (
             |request| request.budget.search_deadline_ms = 0,
-            Some(budget),
+            Some(Cow::Borrowed(budget)),
         ),
         (
             |request| request.budget.output_tokens = Some(0),
-            Some(budget),
+            Some(Cow::Borrowed(budget)),
         ),
         (
             |request| request.collection = " ".to_owned(),
-            Some("invalid ask request: collection must not be blank"),
+            Some(Cow::Borrowed(
+                "invalid ask request: collection must not be blank",
+            )),
         ),
     ];
     for (index, (change, expected)) in cases.into_iter().enumerate() {
@@ -77,7 +91,7 @@ async fn request_bounds_accept_their_limits_and_refuse_one_past_them() {
         change(&mut request);
         assert_eq!(
             bound_error(&request).await.as_deref(),
-            expected,
+            expected.as_deref(),
             "case {index}"
         );
     }

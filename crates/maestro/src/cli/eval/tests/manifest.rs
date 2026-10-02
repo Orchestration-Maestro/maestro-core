@@ -5,6 +5,7 @@ use super::{
     support::{RERANKER, rung, rung_json},
 };
 use crate::{cli::output::Output, failure::Failure};
+use maestro_kernel::evidence::RequestBudget;
 use maestro_knowledge::search::{
     CandidateContext, SearchConfiguration, SectionClassSet, SectionPrior, SourceClassSet,
     SourcePrior, StageWindow,
@@ -459,9 +460,14 @@ fn route_limits_and_fusion_pool_are_configurable_and_bounded() {
 #[test]
 fn search_budget_is_checked_during_manifest_parse() {
     let mut value = manifest();
+    let maximum = RequestBudget::MAX_EVIDENCE_BUDGET;
     value["rungs"][0]["search_budget"] =
-        json!({"k": 5, "evidence_bytes": 24001, "deadline_ms": 30000});
-    assert!(refusal(&value).contains("over the 24000-byte ceiling"));
+        json!({"k": 5, "evidence_bytes": maximum + 1, "deadline_ms": 30000});
+    assert!(refusal(&value).contains(&format!("over the {maximum}-byte ceiling")));
+    value["rungs"][0]["search_budget"] =
+        json!({"k": 5, "evidence_bytes": maximum, "deadline_ms": 30000});
+    let budget = parse(&value).unwrap().rungs[0].search_budget.unwrap();
+    assert_eq!(budget.evidence_bytes, maximum);
 
     value["rungs"][0]["search_budget"] =
         json!({"k": 5, "evidence_bytes": 6000, "deadline_ms": 30000});

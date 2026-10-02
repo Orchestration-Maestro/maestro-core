@@ -34,7 +34,6 @@ use maestro_kernel::{
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::atomic::Ordering,
-    time::Instant,
 };
 
 /// A request worker holding its pinned authority and source cache.
@@ -447,7 +446,7 @@ pub(super) fn invalid(reason: &str) -> EvidenceError {
 
 /// Checks cancellation and the original absolute deadline.
 pub(super) fn check(control: &ReadControl) -> Result<(), EvidenceError> {
-    if control.cancelled.load(Ordering::Relaxed) || Instant::now() >= control.deadline {
+    if control.cancelled.load(Ordering::Relaxed) || control.now() >= control.deadline {
         Err(EvidenceError::TimedOut)
     } else {
         Ok(())
@@ -466,18 +465,19 @@ fn map_kernel_error(error: RetrievalError) -> EvidenceError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        sync::{Arc, atomic::AtomicBool},
-        time::Duration,
-    };
+    use crate::search::tests::clock::{control_at, just_before};
+    use std::time::{Duration, Instant};
 
     #[test]
-    fn request_check_refuses_an_already_cancelled_read() {
-        let control = ReadControl {
-            deadline: Instant::now() + Duration::from_secs(1),
-            cancelled: Arc::new(AtomicBool::new(true)),
-        };
-
-        assert!(matches!(check(&control), Err(EvidenceError::TimedOut)));
+    fn request_check_refuses_a_cancelled_read_and_one_at_its_deadline() {
+        let deadline = Instant::now() + Duration::from_secs(3600);
+        let live = control_at(deadline, just_before(deadline));
+        assert!(check(&live).is_ok());
+        live.cancelled.store(true, Ordering::Relaxed);
+        assert!(matches!(check(&live), Err(EvidenceError::TimedOut)));
+        assert!(matches!(
+            check(&control_at(deadline, deadline)),
+            Err(EvidenceError::TimedOut)
+        ));
     }
 }

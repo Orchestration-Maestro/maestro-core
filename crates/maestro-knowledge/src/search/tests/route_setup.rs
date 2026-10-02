@@ -9,7 +9,7 @@ use crate::{
     index::{Qdrant, embedding_profile},
     query::understand,
     search::{
-        DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, Query, Reranker,
+        DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, Query, Reranker, RuntimeClock,
         deadline::{Deadlines, StageWindow, from_budget},
         rerank::rerank_candidates,
         route_execution::{dense_outcome, prepare_reranker},
@@ -19,11 +19,15 @@ use crate::{
 use maestro_kernel::{
     evidence::{RequestBudget, RouteStatus},
     gateway::{ChatRequest, Error, ModelCard, ModelPort, Role, Room},
+    retrieval::Clock,
 };
 use std::{
     future::{self, Future},
     num::NonZeroUsize,
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
 };
 use tokio::time::{Duration, Instant, sleep};
 
@@ -156,6 +160,7 @@ async fn dense_route(
     let embedder_card = card(Role::Embedder, 128);
     fixture.generation.embedding_profile = embedding_profile(&embedder_card);
     let qdrant = Qdrant::new("http://127.0.0.1:1").unwrap();
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &fixture.generation,
         scopes: &fixture.scopes,
@@ -163,7 +168,8 @@ async fn dense_route(
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
+        clock: &clock,
     };
     let port = LoadingModel::new(setup, hangs, refuses_setup);
     let embedder = Embedder {

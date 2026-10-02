@@ -11,18 +11,19 @@ use maestro_kernel::{
     document::{Disposition, Outcome},
     evidence::RouteStatus,
     generation::{Generation, GenerationState},
-    retrieval::IDENTIFIER_PROFILE,
+    retrieval::{Clock, IDENTIFIER_PROFILE},
 };
 use maestro_knowledge::{
     index::Qdrant,
     query::understand,
     search::{
-        Query, RouteOutcome,
+        Query, RouteOutcome, RuntimeClock,
         routes::{identifier::search_identifiers, lexical::search_bm25},
     },
 };
+use maestro_test_clock::on_stopped_clock;
 use qdrant_client::qdrant::{Condition, Filter, condition::ConditionOneOf, r#match::MatchValue};
-use std::time::Duration;
+use std::{future, sync::Arc, time::Duration};
 use tokio::time::Instant;
 use tonic::Code;
 
@@ -96,13 +97,16 @@ async fn identifier_search_with(
     limit: usize,
     version: Option<&str>,
 ) -> RouteOutcome {
-    identifier_search_until(
-        fixture,
-        text,
-        limit,
-        version,
-        Instant::now() + Duration::from_secs(5),
-    )
+    on_stopped_clock(future::pending(), || async {
+        identifier_search_until(
+            fixture,
+            text,
+            limit,
+            version,
+            Instant::now() + Duration::from_secs(5),
+        )
+        .await
+    })
     .await
 }
 
@@ -114,6 +118,7 @@ pub(super) async fn identifier_search_until(
     version: Option<&str>,
     deadline: Instant,
 ) -> RouteOutcome {
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &fixture.generation,
         scopes: &fixture.kernel.scopes,
@@ -121,7 +126,8 @@ pub(super) async fn identifier_search_until(
         limit,
         identifier_limit: limit,
         version,
-        qdrant: &fixture.qdrant,
+        projection: &fixture.qdrant,
+        clock: &clock,
     };
     search_identifiers(
         &query,
@@ -142,21 +148,27 @@ async fn empty_scopes_and_zero_limit_skip_both_identifier_legs() {
     let filters_before = backend.fake.as_ref().unwrap().scroll_filters().len();
 
     for (scopes, limit) in [(&empty_scopes, 20), (&fixture.kernel.scopes, 0)] {
-        let query = Query {
-            generation: &fixture.generation,
-            scopes,
-            text: "ERR-042",
-            limit,
-            identifier_limit: limit,
-            version: None,
-            qdrant: &fixture.qdrant,
-        };
-        let outcome = search_identifiers(
-            &query,
-            fixture.kernel.database.clone(),
-            &understood,
-            Instant::now() + Duration::from_secs(5),
-        )
+        let outcome = on_stopped_clock(future::pending(), || async {
+            let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
+            let query = Query {
+                generation: &fixture.generation,
+                scopes,
+                text: "ERR-042",
+                limit,
+                identifier_limit: limit,
+                version: None,
+                projection: &fixture.qdrant,
+                clock: &clock,
+            };
+
+            search_identifiers(
+                &query,
+                fixture.kernel.database.clone(),
+                &understood,
+                Instant::now() + Duration::from_secs(5),
+            )
+            .await
+        })
         .await;
         assert_eq!(outcome.status, RouteStatus::Ok);
         assert!(outcome.hits.is_empty());
@@ -180,24 +192,9 @@ async fn identifier_route_accepts_64_and_refuses_65_distinct_values() {
         .join(" ");
     let understood = understand(&text);
     assert_eq!(understood.identifiers.len(), 65);
-    let query = Query {
-        generation: &fixture.generation,
-        scopes: &fixture.kernel.scopes,
-        text: &text,
-        limit: 20,
-        identifier_limit: 20,
-        version: None,
-        qdrant: &fixture.qdrant,
-    };
     let filters_before = backend.fake.as_ref().unwrap().scroll_filters().len();
 
-    let outcome = search_identifiers(
-        &query,
-        fixture.kernel.database.clone(),
-        &understood,
-        Instant::now() + Duration::from_secs(5),
-    )
-    .await;
+    let outcome = identifier_search_with(&fixture, &text, 20, None).await;
     assert_eq!(
         outcome.status,
         RouteStatus::Unavailable("kernel: too many identifier values".to_owned())
@@ -215,22 +212,7 @@ async fn identifier_route_accepts_64_and_refuses_65_distinct_values() {
         .join(" ");
     let understood = understand(&text);
     assert_eq!(understood.identifiers.len(), 64);
-    let query = Query {
-        generation: &fixture.generation,
-        scopes: &fixture.kernel.scopes,
-        text: &text,
-        limit: 20,
-        identifier_limit: 20,
-        version: None,
-        qdrant: &fixture.qdrant,
-    };
-    let outcome = search_identifiers(
-        &query,
-        fixture.kernel.database.clone(),
-        &understood,
-        Instant::now() + Duration::from_secs(5),
-    )
-    .await;
+    let outcome = identifier_search_with(&fixture, &text, 20, None).await;
     assert_eq!(outcome.status, RouteStatus::Ok);
     assert!(
         backend.fake.as_ref().unwrap().scroll_filters().len() > filters_before,
@@ -430,6 +412,7 @@ async fn bare_plain_words_are_left_to_lexical_search() {
         let identifier = identifier_search(&fixture, "`ctm`").await;
         assert_eq!(identifier.status, RouteStatus::Ok, "{}", backend.name);
         assert!(identifier.hits.is_empty(), "{}", backend.name);
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
         let lexical = search_bm25(&Query {
             generation: &fixture.generation,
             scopes: &fixture.kernel.scopes,
@@ -437,7 +420,8 @@ async fn bare_plain_words_are_left_to_lexical_search() {
             limit: 20,
             identifier_limit: 20,
             version: None,
-            qdrant: &fixture.qdrant,
+            projection: &fixture.qdrant,
+            clock: &clock,
         })
         .await
         .unwrap();

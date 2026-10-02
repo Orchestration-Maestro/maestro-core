@@ -6,8 +6,10 @@
 //! door re-exports nothing from it: the journal takes the door's types, so a
 //! re-export from here would close an import cycle.
 
+#[cfg(test)]
+use super::config::ConfigError;
 use super::{
-    config::{CONFIG_FILE, Config, LOCAL},
+    config::{CONFIG_FILE, Config, ConfigRefreshError, LOCAL},
     path::Scope,
     right::Right,
     set::ScopeSet,
@@ -19,7 +21,11 @@ use crate::{
 };
 use rusqlite::{Connection, Transaction, params, types::Type};
 use serde_json::json;
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, path::Path};
+
+/// Injects a loader only into the atomic refresh's isolated unit tests.
+#[cfg(test)]
+pub(super) type ConfigLoader<'a> = Box<dyn FnOnce() -> Result<Config, ConfigError> + 'a>;
 
 /// The type of the event of a grant given.
 const ADDED: &str = "maestro.kernel.grant.added.v1";
@@ -118,18 +124,65 @@ impl Database {
     /// [`store::Error::Sqlite`] when the database cannot be read or written:
     /// nothing changes then.
     pub fn apply_config(&self, config: &Config) -> Result<Vec<Event>, store::Error> {
+        self.write(|transaction| reconcile(transaction, config))
+    }
+
+    /// Loads the local config, reconciles its grants and returns their snapshot.
+    ///
+    /// The load and reconciliation share one immediate write transaction, so
+    /// waiting openers cannot apply a config parsed before another revocation.
+    /// Deriving the snapshot from that same config removes the separate
+    /// visibility read into which a competing writer could insert stale grants.
+    ///
+    /// # Errors
+    /// [`ConfigRefreshError::Config`] for invalid or unreadable configuration;
+    /// [`ConfigRefreshError::Store`] when the database cannot reconcile it.
+    pub fn refresh_config(&self, config_dir: &Path) -> Result<ScopeSet, ConfigRefreshError> {
+        self.refresh_config_inner(
+            config_dir,
+            #[cfg(test)]
+            None,
+        )
+    }
+
+    /// Keeps the injectable loader private and absent from production builds.
+    pub(super) fn refresh_config_inner(
+        &self,
+        config_dir: &Path,
+        #[cfg(test)] loader: Option<ConfigLoader<'_>>,
+    ) -> Result<ScopeSet, ConfigRefreshError> {
         self.write(|transaction| {
-            let held = granted(transaction, LOCAL, Right::Read)?;
-            let added = config
-                .read
-                .difference(&held)
-                .map(|scope| add(transaction, &local(scope)));
-            let revoked = held
-                .difference(&config.read)
-                .map(|scope| remove(transaction, &local(scope)));
-            added.chain(revoked).filter_map(Result::transpose).collect()
+            #[cfg(test)]
+            let config = match loader {
+                Some(load) => load(),
+                None => Config::load(config_dir),
+            }
+            .map_err(ConfigRefreshError::Config)?;
+            #[cfg(not(test))]
+            let config = Config::load(config_dir).map_err(ConfigRefreshError::Config)?;
+            reconcile(transaction, &config)?;
+            let scopes = ScopeSet::new(config.read.clone());
+            #[cfg(test)]
+            assert_eq!(
+                scopes,
+                ScopeSet::new(granted(transaction, LOCAL, Right::Read)?)
+            );
+            Ok(scopes)
         })
     }
+}
+
+/// Reconciles one already-loaded configuration in the caller's transaction.
+fn reconcile(transaction: &Transaction<'_>, config: &Config) -> Result<Vec<Event>, store::Error> {
+    let held = granted(transaction, LOCAL, Right::Read)?;
+    let added = config
+        .read
+        .difference(&held)
+        .map(|scope| add(transaction, &local(scope)));
+    let revoked = held
+        .difference(&config.read)
+        .map(|scope| remove(transaction, &local(scope)));
+    added.chain(revoked).filter_map(Result::transpose).collect()
 }
 
 /// The local principal's read right on `scope`, as [`CONFIG_FILE`] gives it

@@ -9,7 +9,7 @@ use super::{
 };
 use maestro_kernel::{evidence::RouteStatus, generation::NewGeneration};
 use std::time::Duration;
-use tokio::time::Instant;
+use tokio::time::{self, Instant};
 
 #[tokio::test]
 async fn both_identifier_legs_succeed_empty_for_an_unknown_literal() {
@@ -101,6 +101,9 @@ async fn a_payload_timeout_keeps_the_completed_kernel_hit() {
     let backend = fake();
     let fixture = publish_command(&backend).await;
     let gate = backend.fake.as_ref().unwrap().gate_next_scroll();
+    // Blocking kernel work holds paused time until its hit is complete;
+    // only the deliberately pending payload can then reach its timer.
+    time::pause();
 
     let outcome = identifier_search_until(
         &fixture,
@@ -121,5 +124,6 @@ async fn a_payload_timeout_keeps_the_completed_kernel_hit() {
             .any(|hit| hit.chunk_id == "chunk-0-lead")
     );
     gate.notify_one();
+    time::resume();
     cleanup(&backend, &[&fixture.generation]).await;
 }
