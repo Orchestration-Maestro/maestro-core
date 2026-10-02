@@ -40,6 +40,7 @@ pub(super) fn current<'a>(
         controls,
         authority: grants,
         principal: "reader",
+        kernel_principal: "reader",
         scope: &SCOPE,
         account: "public",
         authorization: &fixture.envelope.authorization_context,

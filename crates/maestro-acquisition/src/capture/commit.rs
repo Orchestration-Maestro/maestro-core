@@ -180,6 +180,7 @@ pub fn cancel_run(
         cancellation.pages,
         cancellation.frontier,
     )?;
+    store.validate_finish(&terminal)?;
     store
         .release_source(cancellation.writer, cancellation.now)
         .map_err(|_| ReceiptError::Conflict)?;

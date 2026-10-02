@@ -52,6 +52,32 @@ pub struct Fetch<'a> {
     /// Narrow robots operation; cannot admit a content request to another path.
     pub robots: bool,
 }
+impl Fetch<'_> {
+    /// Recheck N05 for this exact hop, omitting query/fragment but never its path.
+    /// # Errors
+    /// Invalid targets or missing, revoked or expired current authority refuse.
+    pub fn authorize(
+        &self,
+        authority: &dyn Authority,
+        identity: &FetchIdentity,
+        now: SystemTime,
+    ) -> Result<(), Failure> {
+        let mut url = identity.url().clone();
+        url.set_query(None);
+        url.set_fragment(None);
+        let target = Target {
+            scope: self.scope.into(),
+            source: identity.source_id().into(),
+            account: self.account.into(),
+            resource: url.to_string(),
+        };
+        target.validate().map_err(Failure::Admission)?;
+        authority
+            .decide(self.principal, Operation::Fetch, &target, now)
+            .map_err(Failure::Authority)?;
+        Ok(())
+    }
+}
 /// Replaceable dependencies; no pool, proxy, implicit resolver or client defaults.
 #[derive(Debug)]
 pub struct Http<'a, T, L = OriginLedger> {
@@ -347,24 +373,11 @@ where
         started: StdInstant,
         accounting: &Accounting,
     ) -> Result<(), Failure> {
-        let mut url = identity.url().clone();
-        url.set_query(None);
-        url.set_fragment(None);
-        let target = Target {
-            scope: fetch.scope.into(),
-            source: identity.source_id().into(),
-            account: fetch.account.into(),
-            resource: url.to_string(),
-        };
-        target.validate().map_err(Failure::Admission)?;
         let now = fetch
             .authority_time
             .checked_add(elapsed(accounting, started)?)
             .ok_or(Failure::Configuration)?;
-        self.authority
-            .decide(fetch.principal, Operation::Fetch, &target, now)
-            .map_err(Failure::Authority)?;
-        Ok(())
+        fetch.authorize(self.authority, identity, now)
     }
     /// Drive HTTP alongside response consumption in the same owned future.
     /// Dropping this future drops the connection; no detached driver remains.

@@ -294,14 +294,6 @@ reason = "the MCP module owns bounded transport and server startup; the CLI disp
 # schedul, stems its golden test pins; flate, of flate2, the compression crate
 # qdrant-client's tonic brings, which supply-chain/config.toml exempts; nd,
 # the ordinal ending of 2nd that the intent guard reads as a quantity.
-# N09 HTTP is an admitted transport subsystem door, not capture-private code.
-# N13 discovery adds its next production caller; remove when that caller lands.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-acquisition/src/transport/mod.rs"
-item = "http"
-reason = "N09's public transport subsystem is consumed by capture and N13 discovery"
-
 # N11 resources is the shared reservation subsystem, not a capture-only ledger.
 # N40 depends on N11 and measures aggregate publication budgets; its caller is
 # the next in-crate consumer. Remove when that caller lands.

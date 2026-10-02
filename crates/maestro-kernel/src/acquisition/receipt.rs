@@ -187,6 +187,10 @@ pub trait Receipts: Send + Sync {
     /// # Errors
     /// Nonpending status, duplicate attempt, invalid reference/bound or storage failure.
     fn begin(&self, scope: &Scope, receipt: &Receipt) -> Result<(), ReceiptError>;
+    /// Validates finalization without releasing ownership or writing a terminal snapshot.
+    /// # Errors
+    /// Invalid status, stored receipt, frozen inputs or initial inventories refuse.
+    fn validate_finish(&self, receipt: &Receipt) -> Result<(), ReceiptError>;
     /// Finalizes an attempt exactly once, retaining its initial snapshot as well.
     /// # Errors
     /// Missing/terminal attempt, changed frozen inputs, false completion or storage failure.
@@ -271,25 +275,16 @@ impl Receipts for Database {
             publish(tx, scope, receipt.progress())
         })
     }
+    fn validate_finish(&self, receipt: &Receipt) -> Result<(), ReceiptError> {
+        terminal(self, receipt).map(|_| ())
+    }
     fn finish(&self, receipt: &Receipt) -> Result<(), ReceiptError> {
-        if receipt.status == Status::Pending {
-            return Err(ReceiptError::Invalid);
-        }
-        let Some((scope, initial)) = current(self, receipt.attempt)? else {
-            return Err(ReceiptError::Conflict);
-        };
-        let frozen: Receipt = serde_json::from_slice(&privacy::snapshot(self, &initial)?)?;
-        if frozen.run != receipt.run || frozen.inputs != receipt.inputs {
-            return Err(ReceiptError::Conflict);
-        }
-        let initial_items = validate_inventories(self, &frozen)?;
-        let terminal_items = validate_inventories(self, receipt)?;
-        if !initial_items.is_subset(&terminal_items) {
-            return Err(ReceiptError::Invalid);
-        }
-        let bytes = serde_json::to_vec(receipt)?;
-        let mut references = receipt.references();
-        privacy::validate(&scope, &bytes, &references)?;
+        let Terminal {
+            scope,
+            initial,
+            bytes,
+            mut references,
+        } = terminal(self, receipt)?;
         // History is a mandatory kernel edge outside the caller reference budget.
         references.push(initial.parse()?);
         let digest = self.put(&bytes, "application/octet-stream")?;
@@ -413,6 +408,44 @@ impl Receipts for Database {
         }
         Ok(result)
     }
+}
+/// Validated finalization bytes shared by preflight and the conditional terminal write.
+struct Terminal {
+    /// Stored scope, never a caller replacement.
+    scope: Scope,
+    /// Initial snapshot retained as immutable history.
+    initial: String,
+    /// Serialized terminal snapshot checked against the evidence bounds.
+    bytes: Vec<u8>,
+    /// Exact protected closure inherited by the terminal snapshot.
+    references: Vec<Handle>,
+}
+/// Validate stored receipt, frozen inputs and all initial counting stages before release.
+fn terminal(db: &Database, receipt: &Receipt) -> Result<Terminal, ReceiptError> {
+    if receipt.status == Status::Pending {
+        return Err(ReceiptError::Invalid);
+    }
+    let Some((scope, initial)) = current(db, receipt.attempt)? else {
+        return Err(ReceiptError::Conflict);
+    };
+    let frozen: Receipt = serde_json::from_slice(&privacy::snapshot(db, &initial)?)?;
+    if frozen.run != receipt.run || frozen.inputs != receipt.inputs {
+        return Err(ReceiptError::Conflict);
+    }
+    let initial_items = validate_inventories(db, &frozen)?;
+    let terminal_items = validate_inventories(db, receipt)?;
+    if !initial_items.is_subset(&terminal_items) {
+        return Err(ReceiptError::Invalid);
+    }
+    let bytes = serde_json::to_vec(receipt)?;
+    let references = receipt.references();
+    privacy::validate(&scope, &bytes, &references)?;
+    Ok(Terminal {
+        scope,
+        initial,
+        bytes,
+        references,
+    })
 }
 /// Finds the latest snapshot; finalization's conditional update owns the race guard.
 fn current(db: &Database, attempt: Handle) -> Result<Option<(Scope, String)>, ReceiptError> {

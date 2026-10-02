@@ -1,8 +1,14 @@
 //! Production retained-capture paths cannot bypass current authority on resume.
 use super::flow_fixture::{Fixture, clean};
-use maestro_acquisition::{lifecycle::full::Mode, policy::authority::UnqualifiedAuthority};
+use maestro_acquisition::{
+    Refusal,
+    lifecycle::full::Mode,
+    policy::authority::{
+        Authority, AuthorityRefusal, Operation, Permit, Target, UnqualifiedAuthority,
+    },
+};
 use maestro_kernel::acquisition::{InventoryPage, ItemDisposition, Receipts, Status};
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[test]
 fn n37_cli_current_authority_holds_previously_completed_captures() {
@@ -64,7 +70,7 @@ fn prepared_crash(changed: bool) {
         clean(value);
         value["sources"][0]["discovery"] = json!([]);
     };
-    let mut fixture = Fixture::new(edit);
+    let mut fixture = Fixture::mapped(edit, "1000", "reader");
     let sql = Connection::open(fixture.root.join("kernel.sqlite3")).unwrap();
     sql.execute_batch(
         "CREATE TRIGGER n37_crash BEFORE UPDATE OF capture ON acquisition_frontier
@@ -115,5 +121,52 @@ fn prepared_crash(changed: bool) {
         "prepared bytes adopted/refetched incorrectly (changed={changed})"
     );
     assert_eq!(resumed.completed.len(), 1);
+    fixture.finish();
+}
+
+/// Exact final-target revocation leaves the originally requested redirect admitted.
+#[derive(Debug)]
+struct WithoutFinal;
+impl Authority for WithoutFinal {
+    fn decide(
+        &self,
+        _: &str,
+        _: Operation,
+        target: &Target,
+        _: SystemTime,
+    ) -> Result<Permit, AuthorityRefusal> {
+        if target.resource == "https://garden.example/docs/final" {
+            return Err(Refusal::Access.into());
+        }
+        Ok(Permit {
+            grant_id: "synthetic".into(),
+        })
+    }
+}
+#[test]
+fn n37_revoked_redirect_final_holds_completed_capture() {
+    let fixture = Fixture::new(|value| {
+        value["sources"][0]["seeds"] = serde_json::json!(["https://garden.example/docs/redirect"]);
+        value["sources"][0]["discovery"] = serde_json::json!([]);
+    });
+    let time = UNIX_EPOCH + Duration::from_secs(2_000_000);
+    let first = fixture.sync_window(Mode::Full, time);
+    assert_eq!(first.status, Status::Complete, "{first:?}");
+    assert_eq!(first.completed.len(), 1);
+    let before = fixture.site.requests.lock().unwrap().len();
+    let resumed = fixture
+        .run_window(
+            2,
+            Mode::Incremental,
+            time + Duration::from_secs(1),
+            &WithoutFinal,
+        )
+        .unwrap();
+    assert_eq!(fixture.site.requests.lock().unwrap().len(), before);
+    assert!(
+        resumed.completed.is_empty(),
+        "revoked final target reused: {resumed:?}"
+    );
+    assert_ne!(resumed.status, Status::Complete);
     fixture.finish();
 }

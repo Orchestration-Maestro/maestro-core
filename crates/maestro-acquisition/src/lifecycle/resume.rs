@@ -2,14 +2,16 @@
 use crate::{
     CheckedPolicy, Refusal,
     policy::{
-        authority::{Authority, Operation, Target},
+        authority::Authority,
         decision::{AdmissionControls, ItemAttributes, Request, RequestKind, admit},
         format_time,
     },
+    transport::http::Fetch,
 };
 use maestro_kernel::{
     acquisition::{
         CaptureContext, CaptureEnvelope, Captures, Handle, Item, Receipts, RevisionLink,
+        SafeIdentity,
     },
     artifact::Digest,
     retrieval::Clock,
@@ -18,7 +20,9 @@ use maestro_kernel::{
 };
 use serde_json::Value;
 use std::{
+    iter::once,
     process::{Child, ExitStatus},
+    slice::from_ref,
     thread,
     time::{Duration, Instant, SystemTime},
 };
@@ -34,6 +38,8 @@ pub struct Current<'a> {
     pub authority: &'a dyn Authority,
     /// Host-authenticated principal.
     pub principal: &'a str,
+    /// Independently mapped kernel reader; never the OS authority principal.
+    pub kernel_principal: &'a str,
     /// Exact current collection scope.
     pub scope: &'a Scope,
     /// Explicit isolated account role.
@@ -50,16 +56,6 @@ impl Current<'_> {
     /// # Errors
     /// Revoked authority, tightened policy or changed request context refuses.
     pub fn check(&self, item: &Item) -> Result<(), Refusal> {
-        let now = format_time(self.now)?;
-        let request = Request {
-            source_id: &item.source,
-            url: &item.request.fetch_identity,
-            kind: RequestKind::Resume,
-            attributes: ItemAttributes::default(),
-            cache_bypass: false,
-            now: &now,
-        };
-        let admitted = admit(self.policy, &request, self.controls)?;
         let source = self
             .policy
             .policy()
@@ -72,20 +68,52 @@ impl Current<'_> {
         {
             return Err(Refusal::Access);
         }
-        let mut resource = admitted.identity().url().clone();
-        resource.set_query(None);
-        resource.set_fragment(None);
-        let target = Target {
-            scope: self.scope.to_string(),
-            source: item.source.clone(),
-            account: self.account.into(),
-            resource: resource.to_string(),
-        };
-        target.validate()?;
-        self.authority
-            .decide(self.principal, Operation::Fetch, &target, self.now)
-            .map_err(|_| Refusal::Access)?;
+        self.check_url(&item.source, &item.request.fetch_identity)
+    }
+    /// Reapply current admission to verified retained provenance, before reuse/adoption.
+    /// # Errors
+    /// Revoked hops or redacted identities that cannot prove current eligibility refuse.
+    pub fn check_envelope(&self, item: &Item, envelope: &CaptureEnvelope) -> Result<(), Refusal> {
+        let requested =
+            SafeIdentity::new(&item.request.fetch_identity).map_err(|_| Refusal::Invalid)?;
+        for identity in envelope
+            .redirects
+            .iter()
+            .map(|hop| &hop.identity)
+            .chain(once(&envelope.final_identity))
+        {
+            let url = if *identity == requested {
+                item.request.fetch_identity.as_str()
+            } else {
+                identity.unredacted().ok_or(Refusal::Access)?
+            };
+            self.check_url(&item.source, url)?;
+        }
         Ok(())
+    }
+    /// N07 admission and N09's exact per-hop N05 check share the fresh HTTP path.
+    fn check_url(&self, source: &str, url: &str) -> Result<(), Refusal> {
+        let now = format_time(self.now)?;
+        let fetch = Fetch {
+            request: Request {
+                source_id: source,
+                url,
+                kind: RequestKind::Resume,
+                attributes: ItemAttributes::default(),
+                cache_bypass: false,
+                now: &now,
+            },
+            principal: self.principal,
+            scope: self.scope.as_str(),
+            account: self.account,
+            authority_time: self.now,
+            credentials: None,
+            robots: false,
+        };
+        let admitted = admit(self.policy, &fetch.request, self.controls)?;
+        fetch
+            .authorize(self.authority, admitted.identity(), self.now)
+            .map_err(|_| Refusal::Access)
     }
 }
 
@@ -98,9 +126,17 @@ pub fn completed(
     item: &Item,
 ) -> Result<Option<Handle>, Refusal> {
     current.check(item)?;
-    captures
-        .capture_for(current.scope, item)
-        .map_err(|_| Refusal::Digest)
+    let observed = captures
+        .capture_page(current.scope, from_ref(item))
+        .map_err(|_| Refusal::Digest)?;
+    let Some(capture) = observed
+        .get(&item.id)
+        .filter(|capture| capture.acknowledged)
+    else {
+        return Ok(None);
+    };
+    current.check_envelope(item, &capture.envelope)?;
+    Ok(Some(capture.handle))
 }
 
 /// Resume prepared bytes through the current source/item epochs, without refetch.
@@ -129,7 +165,13 @@ pub fn prepared(
     let result = captures
         .read_capture(context, capture, max_bytes)
         .map_err(|_| Refusal::Digest)?;
-    if !same_inputs(captures, current.principal, result.0.inputs, current.inputs)? {
+    current.check_envelope(item, &result.0)?;
+    if !same_inputs(
+        captures,
+        current.kernel_principal,
+        result.0.inputs,
+        current.inputs,
+    )? {
         return Err(Refusal::Access);
     }
     Ok(result)
@@ -220,7 +262,7 @@ pub fn stop_owned(
     if let Some(status) = child.try_wait().map_err(|_| Refusal::Unsupported)? {
         return Ok(status);
     }
-    if clock.now() >= deadline {
+    if expired(deadline, clock) {
         return Err(Refusal::Deadline);
     }
     child.kill().map_err(|_| Refusal::Unsupported)?;
@@ -228,9 +270,43 @@ pub fn stop_owned(
         if let Some(status) = child.try_wait().map_err(|_| Refusal::Unsupported)? {
             return Ok(status);
         }
-        if clock.now() >= deadline {
+        if expired(deadline, clock) {
             return Err(Refusal::Deadline);
         }
         thread::sleep(Duration::from_millis(1));
+    }
+}
+
+/// Both stop boundaries use the same injected clock and inclusive deadline.
+fn expired(deadline: Instant, clock: &dyn Clock) -> bool {
+    clock.now() >= deadline
+}
+
+#[cfg(test)]
+mod tests {
+    use super::expired;
+    use maestro_kernel::retrieval::Clock;
+    use std::time::{Duration, Instant};
+
+    /// Frozen trusted monotonic time; no scheduler or wall-clock duration assertion.
+    #[derive(Debug)]
+    struct Frozen(Instant);
+    impl Clock for Frozen {
+        fn now(&self) -> Instant {
+            self.0
+        }
+    }
+    #[test]
+    fn n37_stop_deadline_is_inclusive_at_both_checks() {
+        let deadline = Instant::now();
+        assert!(!expired(
+            deadline,
+            &Frozen(deadline.checked_sub(Duration::from_nanos(1)).unwrap())
+        ));
+        assert!(expired(deadline, &Frozen(deadline)));
+        assert!(expired(
+            deadline,
+            &Frozen(deadline + Duration::from_nanos(1))
+        ));
     }
 }

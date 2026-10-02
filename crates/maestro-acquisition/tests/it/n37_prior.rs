@@ -3,9 +3,11 @@ use super::{n09_support::policy, n12_support::Fixture};
 use maestro_acquisition::lifecycle::resume::select_prior;
 use maestro_kernel::{
     acquisition::{Captures, Frontier, MappedRevision, Receipts, RevisionLink},
+    artifact::Digest,
     document::{Collection, Disposition, Document, Outcome, Revision, RevisionStatus, Source},
     scope::Scope,
 };
+use rusqlite::Connection;
 use std::{collections::BTreeMap, fs};
 
 /// Independently authored S1 revision with the existing N26 capture/fidelity edges.
@@ -175,17 +177,32 @@ fn n37_explicit_verified_prior_revision_is_reported_not_completed_or_fallback() 
 
 #[test]
 fn n37_prior_revision_rehashes_s1_and_capture_artifacts() {
-    for raw in [false, true] {
+    for artifact in ["raw", "original", "canonical", "fidelity", "inventory"] {
         let (fixture, revision, _) = prior();
-        let digest = if raw {
-            fixture.envelope.artifact.clone()
-        } else {
-            fixture
-                .db
-                .revision(&fixture.db.visible("reader").unwrap(), &revision)
-                .unwrap()
-                .unwrap()
-                .canonical_digest
+        let scopes = fixture.db.visible("reader").unwrap();
+        let record = fixture.db.revision(&scopes, &revision).unwrap().unwrap();
+        let link = fixture
+            .db
+            .revision_links(&scopes, &revision)
+            .unwrap()
+            .remove(0);
+        let digest = match artifact {
+            "raw" => fixture.envelope.artifact.clone(),
+            "original" => record.original_digest,
+            "canonical" => record.canonical_digest,
+            "inventory" => link.inventory,
+            "fidelity" => {
+                let sql = Connection::open(fixture.root.join("kernel.sqlite3")).unwrap();
+                let text: String = sql
+                    .query_row(
+                        "SELECT artifact FROM acquisition_evidence WHERE id = ?1",
+                        [link.fidelity.to_string()],
+                        |row| row.get(0),
+                    )
+                    .unwrap();
+                Digest::parse(&text).unwrap()
+            }
+            _ => panic!("unknown synthetic artifact"),
         };
         let hex = digest.as_str();
         let path = fixture
@@ -197,7 +214,7 @@ fn n37_prior_revision_rehashes_s1_and_capture_artifacts() {
         fs::write(path, b"damaged").unwrap();
         assert!(
             select_prior(&fixture.db, "reader", &revision).is_err(),
-            "corrupt prior artifact accepted ({raw})"
+            "corrupt prior artifact accepted ({artifact})"
         );
     }
 }

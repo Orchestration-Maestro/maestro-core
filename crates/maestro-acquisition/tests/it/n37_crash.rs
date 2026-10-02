@@ -19,7 +19,6 @@ use maestro_kernel::{
 use std::{
     env, fs,
     io::{BufRead as _, BufReader, Write as _, stdout},
-    ops::{Deref, DerefMut},
     path::Path,
     process::{Child, Command, Stdio},
     sync::atomic::{AtomicUsize, Ordering},
@@ -29,17 +28,6 @@ use std::{
 
 /// Independent fixture cleanup still reaps children when a hand mutant panics.
 struct OwnedChild(Child);
-impl Deref for OwnedChild {
-    type Target = Child;
-    fn deref(&self) -> &Child {
-        &self.0
-    }
-}
-impl DerefMut for OwnedChild {
-    fn deref_mut(&mut self) -> &mut Child {
-        &mut self.0
-    }
-}
 impl Drop for OwnedChild {
     fn drop(&mut self) {
         drop(self.0.kill());
@@ -123,14 +111,14 @@ fn n37_killed_capture_writer_resumes_like_reference_without_duplicate_occurrence
     let mut fixture = Fixture::new();
     let (mut child, capture) = capture_writer(&fixture);
     let status = stop_owned(
-        &mut child,
+        &mut child.0,
         Instant::now() + Duration::from_secs(30),
         &HostClock,
     )
     .unwrap();
     assert!(!status.success());
     assert!(
-        child.try_wait().unwrap().is_some(),
+        child.0.try_wait().unwrap().is_some(),
         "owned capture process was not reaped"
     );
     assert!(
@@ -234,7 +222,7 @@ fn capture_writer(fixture: &Fixture) -> (OwnedChild, Handle) {
             .spawn()
             .unwrap(),
     );
-    let reader = BufReader::new(child.stdout.take().unwrap());
+    let reader = BufReader::new(child.0.stdout.take().unwrap());
     let capture = reader
         .lines()
         .map(Result::unwrap)
@@ -276,7 +264,7 @@ fn n37_timeout_is_not_cancellation_and_stop_reaps_only_owned_child() {
                 .spawn()
                 .unwrap(),
         );
-        let reader = BufReader::new(child.stdout.take().unwrap());
+        let reader = BufReader::new(child.0.stdout.take().unwrap());
         assert!(
             reader
                 .lines()
@@ -294,7 +282,7 @@ fn n37_timeout_is_not_cancellation_and_stop_reaps_only_owned_child() {
         reads: AtomicUsize::new(0),
     };
     assert_eq!(
-        stop_owned(&mut owned, cutoff, &boundary),
+        stop_owned(&mut owned.0, cutoff, &boundary),
         Err(Refusal::Deadline)
     );
     assert_eq!(
@@ -303,28 +291,28 @@ fn n37_timeout_is_not_cancellation_and_stop_reaps_only_owned_child() {
         "expired budget entered cancellation loop"
     );
     assert!(
-        owned.try_wait().unwrap().is_none(),
+        owned.0.try_wait().unwrap().is_none(),
         "client deadline pretended cancellation"
     );
     let stopped = stop_owned(
-        &mut owned,
+        &mut owned.0,
         Instant::now() + Duration::from_secs(30),
         &HostClock,
     )
     .unwrap();
     assert!(!stopped.success());
-    assert!(owned.try_wait().unwrap().is_some());
+    assert!(owned.0.try_wait().unwrap().is_some());
     assert!(
-        foreign.try_wait().unwrap().is_none(),
+        foreign.0.try_wait().unwrap().is_none(),
         "foreign child stopped"
     );
     assert_eq!(
-        stop_owned(&mut owned, Instant::now(), &HostClock).unwrap(),
+        stop_owned(&mut owned.0, Instant::now(), &HostClock).unwrap(),
         stopped,
         "reaping replay not idempotent"
     );
     stop_owned(
-        &mut foreign,
+        &mut foreign.0,
         Instant::now() + Duration::from_secs(30),
         &HostClock,
     )

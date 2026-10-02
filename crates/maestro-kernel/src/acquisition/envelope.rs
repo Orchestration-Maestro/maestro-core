@@ -51,6 +51,15 @@ impl SafeIdentity {
     pub fn as_str(&self) -> &str {
         &self.url
     }
+    /// Full fetch spelling only when retained redaction removed no query evidence.
+    #[must_use]
+    pub fn unredacted(&self) -> Option<&str> {
+        if self.query_digest.is_some() {
+            None
+        } else {
+            Some(&self.url)
+        }
+    }
     /// Retained heap bytes, including capacity left by removed URL credentials.
     #[must_use]
     pub fn retained_bytes(&self) -> u64 {

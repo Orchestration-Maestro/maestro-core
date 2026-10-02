@@ -74,7 +74,11 @@ where
     T: PinnedTransport,
     T::Connection: AsyncRead + AsyncWrite + Unpin + Send,
 {
-    if (item.capture.is_some() || work.observed.is_some()) && recheck(work, item).is_err() {
+    let authorization = Digest::of(work.source.runtime.kernel_principal.as_bytes());
+    let controls = Readiness(work.source.runtime.controls);
+    let mut current = current(work, &controls, &authorization, SystemTime::now());
+    if (item.capture.is_some() || work.observed.is_some()) && recheck(work, item, &current).is_err()
+    {
         report.pending.push(Entry::new(
             &item.request.fetch_identity,
             "current_resume_admission",
@@ -101,7 +105,7 @@ where
         return Ok(stage);
     }
     if let Some(handle) = work.observed.map(|capture| capture.handle) {
-        return resume(work, item, handle, depth, report).await;
+        return resume(work, item, handle, (depth, &mut current), report).await;
     }
     let Some((context, response)) = fetch_item(work, item, report).await? else {
         return Ok(stage);
@@ -168,9 +172,10 @@ async fn resume<S: Frontier + Captures + Partitions + Receipts, T>(
     work: &mut CaptureWork<'_, '_, S, T>,
     item: &Item,
     handle: Handle,
-    depth: Option<u64>,
+    admission: (Option<u64>, &mut Current<'_>),
     report: &mut Report,
 ) -> Result<StageItem, Failure> {
+    let (depth, current) = admission;
     let now = SystemTime::now();
     let holder = work.source.receipt.attempt.to_string();
     let lease = work
@@ -198,22 +203,10 @@ async fn resume<S: Frontier + Captures + Partitions + Receipts, T>(
         item: lease,
         now,
     };
-    let authorization = Digest::of(work.source.runtime.kernel_principal.as_bytes());
-    let controls = Readiness(work.source.runtime.controls);
-    let current = Current {
-        policy: work.source.policy,
-        controls: &controls,
-        authority: work.source.runtime.authority,
-        principal: work.source.principal.id,
-        scope: work.source.scope,
-        account: "public",
-        authorization: &authorization,
-        now,
-        inputs: work.source.receipt.inputs,
-    };
+    current.now = now;
     let (envelope, _) = prepared(
         work.source.store,
-        &current,
+        current,
         (item, &context),
         handle,
         work.accounting.limits().dom_bytes.get(),
@@ -244,21 +237,36 @@ async fn resume<S: Frontier + Captures + Partitions + Receipts, T>(
     Ok(stage)
 }
 /// Offline retained bytes reapply current policy/authority, without fetching robots.
-fn recheck<S, T>(work: &CaptureWork<'_, '_, S, T>, item: &Item) -> Result<(), Refusal> {
-    let authorization = Digest::of(work.source.runtime.kernel_principal.as_bytes());
-    let controls = Readiness(work.source.runtime.controls);
+fn recheck<S, T>(
+    work: &CaptureWork<'_, '_, S, T>,
+    item: &Item,
+    current: &Current<'_>,
+) -> Result<(), Refusal> {
+    current.check(item)?;
+    if let Some(observed) = work.observed {
+        current.check_envelope(item, &observed.envelope)?;
+    }
+    Ok(())
+}
+/// One binding of OS authority and independently mapped kernel evidence readers.
+fn current<'a, S, T>(
+    work: &CaptureWork<'_, 'a, S, T>,
+    controls: &'a Readiness<'_>,
+    authorization: &'a Digest,
+    now: SystemTime,
+) -> Current<'a> {
     Current {
         policy: work.source.policy,
-        controls: &controls,
+        controls,
         authority: work.source.runtime.authority,
         principal: work.source.principal.id,
+        kernel_principal: work.source.runtime.kernel_principal,
         scope: work.source.scope,
         account: "public",
-        authorization: &authorization,
-        now: SystemTime::now(),
+        authorization,
+        now,
         inputs: work.source.receipt.inputs,
     }
-    .check(item)
 }
 /// Known checkpoint depths resume; unrelated historical HTML remains held.
 async fn interpret<S: Frontier + Captures + Partitions + Receipts, T>(
