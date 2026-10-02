@@ -1,7 +1,11 @@
 //! Preview immutable file bytes, validate relative names, and bind content digests.
 use super::{effects, names::ownership_name};
 use crate::file_input::FileInput;
-use crate::policy::workspace::CheckedTrust;
+use crate::{
+    limits::Limits,
+    policy::workspace::{Access, CheckedTrust, WorkspaceTrust as _},
+};
+use maestro_filesystem::Directory;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -23,21 +27,21 @@ pub struct FilePlan {
     pub(super) applied: bool,
 }
 
-/// Existing committed ownership fields needed for a replayed plan.
+/// Existing committed fields shared by full-plan replay and single-file admission.
 #[derive(Deserialize)]
 struct ExistingOwnership {
-    /// The immutable plan identity.
+    /// Immutable plan identity used in the committed filename.
     id: String,
-    /// Planned paths and their content digests.
+    /// Paths and digests committed after exclusive creation.
     files: Vec<ExistingOwnedFile>,
 }
 
-/// One file entry in an existing ownership record.
+/// One file's committed digest; filesystem identity is needed only for removal.
 #[derive(Deserialize)]
 struct ExistingOwnedFile {
-    /// Root-relative file name.
+    /// Normalized root-relative output path.
     path: String,
-    /// SHA-256 digest.
+    /// Original SHA-256 digest.
     digest: String,
 }
 
@@ -119,6 +123,90 @@ impl FilePlan {
         Ok(plan)
     }
 
+    /// Verify only the requested file against exactly one committed C04 record.
+    /// Other entries are returned as digests, not authority to read or change their files.
+    pub(crate) fn committed_file(
+        root: &Path,
+        relative: &str,
+        bytes: &[u8],
+        trust: &CheckedTrust<'_>,
+        limits: &Limits,
+    ) -> io::Result<Vec<(String, String)>> {
+        if trust.containing_root(root).is_none() {
+            return Err(io::Error::other(
+                "committed ownership requires a trusted containing root",
+            ));
+        }
+        validate_relative_path(relative)?;
+        let directory =
+            Directory::open(root, Path::new(".maestro-files"), false).map_err(|error| {
+                if error.kind() == io::ErrorKind::NotFound {
+                    io::Error::other("no committed ownership record")
+                } else {
+                    io::Error::other(format!(".maestro-files: {error}"))
+                }
+            })?;
+        let mut selected = None;
+        let mut total = 0_u64;
+        for entry in directory
+            .list_bounded(limits.archive_entries)
+            .map_err(|error| io::Error::other(format!(".maestro-files: {error}")))?
+        {
+            let name = entry
+                .name
+                .to_str()
+                .ok_or_else(|| io::Error::other("ownership filename is not UTF-8"))?;
+            if !name.starts_with("ownership-") {
+                continue;
+            }
+            let path = format!(".maestro-files/{name}");
+            // Metadata has its own production ceiling, independent of output-file limits.
+            let record_bytes = trust
+                .authorize(root, Path::new(&path), Access::Read)
+                .and_then(|lease| {
+                    lease.read_preferences(
+                        limits
+                            .archive_total_bytes
+                            .min(Limits::PRODUCTION.source_file_bytes),
+                    )
+                })
+                .map_err(|error| io::Error::other(format!("{path}: {error}")))?;
+            total += u64::try_from(record_bytes.len()).map_err(io::Error::other)?;
+            if total > limits.archive_total_bytes {
+                return Err(io::Error::other(format!(
+                    "{path}: committed ownership bytes exceed limit"
+                )));
+            }
+            let record = parse_ownership(&record_bytes)
+                .map_err(|error| io::Error::other(format!("{path}: {error}")))?;
+            if ownership_name(&record.id) != name || record.files.len() > limits.archive_entries {
+                return Err(io::Error::other(format!(
+                    "invalid committed ownership record: {path}"
+                )));
+            }
+            let Some(owned) = record.files.iter().find(|file| file.path == relative) else {
+                continue;
+            };
+            if selected.is_some() {
+                return Err(io::Error::other(
+                    "more than one committed ownership candidate",
+                ));
+            }
+            let expected = owned.digest.clone();
+            selected = Some((record, expected));
+        }
+        let (record, expected) = selected
+            .ok_or_else(|| io::Error::other("no committed ownership record with lock entry"))?;
+        if digest(bytes) != expected {
+            return Err(io::Error::other("project lock changed"));
+        }
+        Ok(record
+            .files
+            .into_iter()
+            .map(|file| (file.path, file.digest))
+            .collect())
+    }
+
     /// Stable digest identifying this exact plan.
     #[must_use]
     pub fn id(&self) -> &str {
@@ -159,12 +247,29 @@ fn is_committed_and_unchanged(
     Ok(true)
 }
 
+/// Parse the one C04 record format, never exposing raw parser diagnostics.
+fn parse_ownership(bytes: &[u8]) -> io::Result<ExistingOwnership> {
+    let invalid = || io::Error::other("malformed committed ownership record");
+    let text = str::from_utf8(bytes).map_err(|_| invalid())?;
+    let record: ExistingOwnership = toml::from_str(text).map_err(|_| invalid())?;
+    validate_id(&record.id)?;
+    let mut paths = BTreeSet::new();
+    if record.files.is_empty() {
+        return Err(invalid());
+    }
+    for file in &record.files {
+        validate_relative_path(&file.path)?;
+        validate_id(&file.digest)?;
+        if !paths.insert(file.path.to_ascii_lowercase()) {
+            return Err(invalid());
+        }
+    }
+    Ok(record)
+}
+
 /// Compare a committed ownership record's identity and planned byte digests.
 pub(super) fn ownership_matches(bytes: &[u8], plan: &FilePlan) -> io::Result<bool> {
-    let text =
-        str::from_utf8(bytes).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    let existing: ExistingOwnership =
-        toml::from_str(text).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    let existing = parse_ownership(bytes)?;
     Ok(existing.id == plan.id
         && existing.files.len() == plan.entries.len()
         && existing

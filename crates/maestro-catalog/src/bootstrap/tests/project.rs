@@ -355,7 +355,7 @@ fn authoring_lock_binds_every_generated_file_and_source() {
     let lock: serde_json::Value =
         serde_json::from_slice(&fs::read(scratch.0.join(".maestro/authoring.lock.json")).unwrap())
             .unwrap();
-    assert_eq!(lock["schema"], "maestro-authoring-lock/2");
+    assert_eq!(lock["schema"], "maestro-authoring-lock/3");
     for (field, root, expected) in [
         (
             "files",
@@ -496,7 +496,7 @@ fn old_authoring_lock_requires_fresh_preview() {
 fn authoring_lock_read_keeps_source_byte_bound() {
     let scratch = Scratch::new();
     fs::create_dir_all(scratch.0.join(".maestro")).unwrap();
-    let mut bytes = br#"{"schema":"maestro-authoring-lock/2"}"#.to_vec();
+    let mut bytes = br#"{"schema":"maestro-authoring-lock/3"}"#.to_vec();
     bytes.resize(
         usize::try_from(Limits::PRODUCTION.source_file_bytes).unwrap() + 1,
         b' ',

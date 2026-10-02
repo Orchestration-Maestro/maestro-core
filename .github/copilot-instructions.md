@@ -504,6 +504,7 @@ in place.
 │   │   │   │   │   ├── project.rs                                           # Rust source: project
 │   │   │   │   │   ├── selection.rs                                         # C36: composition admits only the source-checked mandatory closure
 │   │   │   │   │   ├── session_lock.rs                                      # Trusted session defaults reuse genuine C04 ownership, never lock self-authority
+│   │   │   │   │   ├── session_ownership.rs                                 # Lock-only C04 ownership admission and non-authority output drift
 │   │   │   │   │   ├── snapshot.rs                                          # Preview bytes and decoded declarations come from one checked source snapshot
 │   │   │   │   │   └── support.rs                                           # Synthetic checked trust shared by bootstrap contract tests
 │   │   │   │   ├── compose.rs                                               # Resolve explicit preset names through a replaceable source port
@@ -515,6 +516,7 @@ in place.
 │   │   │   │   ├── tests/                                                   # Integration tests
 │   │   │   │   │   ├── crashes.rs                                           # Rust source: crashes
 │   │   │   │   │   ├── mod.rs                                               # Rust source: mod
+│   │   │   │   │   ├── ownership.rs                                         # Committed metadata bounds are independent of injected output byte ceilings
 │   │   │   │   │   ├── races.rs                                             # Rust source: races
 │   │   │   │   │   ├── removal.rs                                           # Rust source: removal
 │   │   │   │   │   ├── support.rs                                           # Rust source: support

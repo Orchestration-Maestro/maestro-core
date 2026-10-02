@@ -5,7 +5,10 @@ use super::{
 };
 use crate::files::{FileInput, FilePlan, apply as apply_files, digest};
 use crate::policy::workspace::CheckedTrust;
-use crate::{limits::Limits, settings::defaults::frozen};
+use crate::{
+    limits::Limits,
+    settings::{defaults::frozen, lock_recovery},
+};
 use maestro_filesystem::Directory;
 use serde::Serialize;
 use std::{
@@ -225,7 +228,7 @@ fn project_files(
         })
         .collect();
     let lock = AuthoringLock {
-        schema: "maestro-authoring-lock/2",
+        schema: "maestro-authoring-lock/3",
         files: locked,
         areas,
         sources,
@@ -333,21 +336,35 @@ struct Envelope {
     schema: String,
 }
 
-/// Old authoring inputs cannot silently bind to the /2 source identity cutover.
+/// Old authoring inputs cannot silently acquire the /3 frozen-defaults shape.
 fn refuse_old_lock(root: &Path) -> Result<(), String> {
+    let path = root.join(".maestro/authoring.lock.json");
+
     let bytes = match Directory::open(root, Path::new(".maestro"), false).and_then(|directory| {
         directory.read_regular_bounded("authoring.lock.json", Limits::PRODUCTION.source_file_bytes)
     }) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
-        Err(error) => return Err(error.to_string()),
+        Err(error) => {
+            return Err(lock_recovery(
+                &path,
+                format!("authoring lock cannot be read: {error}"),
+            ));
+        }
     };
-    let envelope: Envelope = serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
-    if envelope.schema != "maestro-authoring-lock/2" {
-        return Err(format!(
-            "old or unsupported lock {}; maestro-source/2 cutover requires a fresh preview",
-            envelope.schema
-        ));
+    let envelope: Envelope = serde_json::from_slice(&bytes)
+        .map_err(|_| lock_recovery(&path, "invalid authoring lock"))?;
+    if envelope.schema != "maestro-authoring-lock/3" {
+        let reason = match envelope.schema.as_str() {
+            "maestro-authoring-lock/1" => {
+                "old or unsupported lock maestro-authoring-lock/1; /3 requires a fresh preview"
+            }
+            "maestro-authoring-lock/2" => {
+                "old or unsupported lock maestro-authoring-lock/2; /3 requires a fresh preview"
+            }
+            _ => "old or unsupported lock; /3 requires a fresh preview",
+        };
+        return Err(lock_recovery(&path, reason));
     }
     Ok(())
 }

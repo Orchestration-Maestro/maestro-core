@@ -259,3 +259,36 @@ fn make_other_writable(path: &Path) {
             .success()
     );
 }
+
+#[test]
+fn init_skips_unsafe_preferences_beside_an_unadmittable_lock() {
+    let home = Home::bare();
+    let root = project(&home, "malformed planted file");
+    make_other_writable(&root.join(".maestro/config.toml"));
+    // A directory under the lock name cannot supply any content on any host.
+    fs::create_dir(root.join(".maestro/authoring.lock.json")).unwrap();
+    let catalog = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/catalog/bootstrap/owner-local");
+    let output = home.run_in(
+        &root,
+        &[
+            "--json",
+            "init",
+            "--catalog-dir",
+            catalog.to_str().unwrap(),
+            "--preset",
+            "base",
+        ],
+    );
+    assert_eq!(output.code, Some(2), "{output:?}");
+    assert!(output.stderr.contains("skipped"), "{output:?}");
+    assert!(
+        output.stderr.contains("authoring lock cannot be read"),
+        "{output:?}"
+    );
+    assert!(!output.stderr.contains("TOML"), "{output:?}");
+    assert!(
+        !output.stderr.contains("invalid authoring lock"),
+        "{output:?}"
+    );
+}

@@ -19,3 +19,5 @@ pub use types::{Layer, ResolveDiagnostic, ResolvedSettings, ResolvedValue};
 mod resolve_round2;
 #[cfg(test)]
 mod tests;
+
+pub(crate) use discovery::recovery as lock_recovery;

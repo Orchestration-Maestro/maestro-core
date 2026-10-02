@@ -341,6 +341,20 @@ fn catalog_init_freezes_defaults_for_production_sessions() {
             .replace("max_num_threads = 2", "max_num_threads = 3"),
     )
     .unwrap();
+    for (role, text) in [
+        (
+            "vectordb",
+            include_str!("../../../../tests/fixtures/catalog/backends/vectordb.toml"),
+        ),
+        (
+            "mcp",
+            include_str!("../../../../tests/fixtures/catalog/backends/mcp.toml"),
+        ),
+    ] {
+        let path = catalog.join(format!("core/backends/{role}/config.toml"));
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, text).unwrap();
+    }
     approve(&home, &root);
     let args = [
         "init",
@@ -378,7 +392,14 @@ fn catalog_init_freezes_defaults_for_production_sessions() {
     fs::write(&lock, [original.as_slice(), b"\n"].concat()).unwrap();
     let refused = home.run_in(&root, &["--json", "config", "get", "graph.engine"]);
     assert_eq!(refused.code, Some(2), "{refused:?}");
-    assert!(refused.stderr.contains("preview again"), "{refused:?}");
+    assert!(
+        refused.stderr.contains(".maestro/authoring.lock.json"),
+        "{refused:?}"
+    );
+    assert!(
+        refused.stderr.contains("then run maestro init"),
+        "{refused:?}"
+    );
     fs::write(lock, original).unwrap();
     let revoked = home.run(&["trust", "remove", root.to_str().unwrap()]);
     assert_eq!(revoked.code, Some(0), "{revoked:?}");
@@ -422,4 +443,45 @@ fn catalog_runtime_engine_refuses_uncompiled_flags_without_effects() {
     assert_eq!(disabled.json()["value"], "none");
     assert!(!home.data().join("kernel.sqlite3").exists());
     assert_eq!(fs::read_dir(root).unwrap().count(), 0);
+}
+
+#[test]
+fn catalog_init_reaches_its_plan_with_an_unadmitted_lock() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    fs::create_dir_all(root.join(".maestro")).unwrap();
+    approve(&home, &root);
+    let lock = root.join(".maestro/authoring.lock.json");
+    fs::write(&lock, b"invalid synthetic lock").unwrap();
+    let session = home.run_in(&root, &["config", "get", "language"]);
+    assert_eq!(session.code, Some(2), "{session:?}");
+    let catalog = fixtures();
+    for apply in [false, true] {
+        let mut args = vec![
+            "init",
+            "--catalog-dir",
+            catalog.to_str().unwrap(),
+            "--preset",
+            "base",
+        ];
+        if apply {
+            args.push("--apply");
+        }
+        let result = home.run_in(&root, &args);
+        assert_eq!(result.code, Some(2), "{result:?}");
+        assert!(
+            result.stderr.contains("invalid authoring lock"),
+            "{result:?}"
+        );
+        assert!(
+            result.stderr.contains(".maestro/authoring.lock.json"),
+            "{result:?}"
+        );
+        assert!(
+            result.stderr.contains("then run maestro init"),
+            "{result:?}"
+        );
+        assert_eq!(fs::read(&lock).unwrap(), b"invalid synthetic lock");
+        assert!(!root.join(".github/copilot-instructions.md").exists());
+    }
 }

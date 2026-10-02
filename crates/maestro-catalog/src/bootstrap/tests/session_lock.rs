@@ -12,7 +12,7 @@ use crate::{
 use std::{collections::BTreeSet, fs};
 
 /// One genuine init lock, independent of live engines and machine settings.
-fn initialized() -> Fixture {
+pub(super) fn initialized() -> Fixture {
     let fixture = Fixture::new();
     fs::create_dir(fixture.catalog.join("settings")).unwrap();
     fs::write(
@@ -38,7 +38,7 @@ fn snapshot(fixture: &Fixture) -> SessionPreferences {
 }
 
 /// Production admission with fixture authority, returning the diagnostic for exact tests.
-fn admit(fixture: &Fixture, limits: &Limits) -> Result<SessionPreferences, String> {
+pub(super) fn admit(fixture: &Fixture, limits: &Limits) -> Result<SessionPreferences, String> {
     with_trust(&fixture.project, |trust| {
         snapshot(fixture).admit_defaults(trust, &BTreeSet::new(), limits)
     })
@@ -64,12 +64,6 @@ fn session_lock_requires_trust_beside_legacy_defaults() {
             .unwrap()
             .to_string(),
         "fr"
-    );
-    let legacy = Fixture::new();
-    assert!(
-        snapshot(&legacy)
-            .admit_defaults(&denied, &BTreeSet::new(), &Limits::PRODUCTION)
-            .is_ok()
     );
 }
 
@@ -98,7 +92,8 @@ fn session_lock_schema_and_output_bounds_refuse() {
     let path = fixture.project.join(".maestro/authoring.lock.json");
     let original = fs::read(&path).unwrap();
     let mut lock: serde_json::Value = serde_json::from_slice(&original).unwrap();
-    lock["schema"] = serde_json::json!("maestro-authoring-lock/1");
+    lock["schema"] = serde_json::json!("maestro-authoring-lock/2");
+    lock.as_object_mut().unwrap().remove("defaults");
     fs::write(&path, serde_json::to_vec(&lock).unwrap()).unwrap();
     assert!(
         admit(&fixture, &Limits::PRODUCTION)
@@ -141,19 +136,6 @@ fn session_lock_schema_and_output_bounds_refuse() {
         .contains("project lock cannot be read")
     );
     assert!(admit(&fixture, &Limits::PRODUCTION).is_ok());
-}
-
-#[test]
-fn session_changed_output_refuses_without_deletion() {
-    let fixture = initialized();
-    let output = fixture.project.join(".github/copilot-instructions.md");
-    fs::write(&output, b"user bytes").unwrap();
-    assert!(
-        admit(&fixture, &Limits::PRODUCTION)
-            .unwrap_err()
-            .contains("output changed")
-    );
-    assert_eq!(fs::read(&output).unwrap(), b"user bytes");
 }
 
 #[test]
@@ -308,7 +290,7 @@ fn source_and_session_default_secret_literals_are_redacted() {
         assert!(!error.contains(SENTINEL), "{error}");
         assert_eq!(fs::read_dir(&fixture.project).unwrap().count(), 0);
         let bytes = serde_json::to_vec(&serde_json::json!({
-            "schema":"maestro-authoring-lock/2", "defaults":defaults,
+            "schema":"maestro-authoring-lock/3", "defaults":defaults,
             "backend_types":[], "files":[]
         }))
         .unwrap();
@@ -352,7 +334,7 @@ fn session_lock_output_byte_limit_refuses() {
     let fixture = Fixture::new();
     let bytes = vec![b'a'; 5000];
     let lock = serde_json::to_vec(&serde_json::json!({
-        "schema":"maestro-authoring-lock/2", "defaults":"schema = 'maestro-preferences/1'\n",
+        "schema":"maestro-authoring-lock/3", "defaults":"schema = 'maestro-preferences/1'\n",
         "backend_types":[], "files":[{"path":"large.md", "sha256":digest(&bytes)}]
     }))
     .unwrap();
@@ -403,4 +385,38 @@ fn loaded_project_lock_cannot_bypass_admission() {
             .is_ok()
     );
     assert!(snapshot(&Fixture::new()).registry().is_ok());
+}
+
+#[test]
+fn session_aggregate_byte_boundary_counts_lock_and_outputs() {
+    let fixture = initialized();
+    let bytes = fs::read(fixture.project.join(".maestro/authoring.lock.json")).unwrap();
+    let lock: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let output_bytes: u64 = lock["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| {
+            fs::metadata(fixture.project.join(entry["path"].as_str().unwrap()))
+                .unwrap()
+                .len()
+        })
+        .sum();
+    let total = output_bytes + u64::try_from(bytes.len()).unwrap();
+    let limits = Limits {
+        archive_total_bytes: total - 1,
+        ..Limits::PRODUCTION
+    };
+    let error = admit(&fixture, &limits).unwrap_err();
+    assert!(error.contains("output bytes exceed limit"), "{error}");
+    assert!(
+        admit(
+            &fixture,
+            &Limits {
+                archive_total_bytes: total,
+                ..limits
+            }
+        )
+        .is_ok()
+    );
 }

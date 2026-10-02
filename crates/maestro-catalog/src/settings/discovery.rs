@@ -7,6 +7,7 @@ use maestro_settings::{
     Registry, discover_project_with,
 };
 use std::{
+    fmt::Display,
     io,
     path::{Path, PathBuf},
 };
@@ -53,6 +54,35 @@ impl SessionPreferences {
         trust: &dyn WorkspaceTrust,
         limits: &Limits,
     ) -> Result<Self, String> {
+        let mut preferences = Self::load_for_init(config_dir, start, home, trust, limits)?;
+        preferences.lock = start.and_then(|start| {
+            let (found, _) = discover(start, home, trust, |directory, path| {
+                lock_candidate(directory, path, limits.archive_entries)
+            });
+            if !found.skipped.is_empty() {
+                return Some(Err(format!(
+                    "{}; restore the file from version control, or remove .maestro \
+                     and the generated outputs, then run maestro init",
+                    found.skipped.join("; ")
+                )));
+            }
+            found.file.map(Ok)
+        });
+        Ok(preferences)
+    }
+
+    /// Capture only safe user/workspace preferences for independent init planning.
+    /// Does not discover or read authoring locks, and grants no runtime admission.
+    ///
+    /// # Errors
+    /// Refuses malformed selected safe preferences and their byte/depth limits.
+    pub fn load_for_init(
+        config_dir: &Path,
+        start: Option<&Path>,
+        home: Option<&Path>,
+        trust: &dyn WorkspaceTrust,
+        limits: &Limits,
+    ) -> Result<Self, String> {
         let registry = Registry::built_in().map_err(|error| error.to_string())?;
         let max_bytes = limits.source_file_bytes.min(MAX_FILE_BYTES as u64);
         let mut layers = FileLayers::new(config_dir, None)
@@ -72,31 +102,22 @@ impl SessionPreferences {
                 .map_err(|error| format!("{}: {error}", path.display()))?;
             layers.project = Some((path.clone(), layer));
         }
-        let lock = start.and_then(|start| {
-            let (found, _) = discover(start, home, trust, |directory, path| {
-                lock_candidate(directory, path, limits.archive_entries)
-            });
-            if !found.skipped.is_empty() {
-                return Some(Err(format!(
-                    "unsafe project lock; run preview again: {}",
-                    found.skipped.join("; ")
-                )));
-            }
-            found.file.map(Ok)
-        });
         Ok(Self {
             discovery,
             layers,
             registry,
-            lock,
+            lock: None,
         })
     }
 }
 
 impl WorkspacePreferences for SessionPreferences {
     fn registry(&self) -> Result<Registry, String> {
-        if self.lock.is_some() {
-            return Err("project defaults require checked admission".to_owned());
+        if let Some(lock) = &self.lock {
+            return Err(match lock {
+                Ok(path) => recovery(path, "project defaults require checked admission"),
+                Err(error) => error.clone(),
+            });
         }
         Ok(self.registry.clone())
     }
@@ -104,6 +125,15 @@ impl WorkspacePreferences for SessionPreferences {
     fn layers(&self, _registry: &Registry, _limits: &Limits) -> Result<Layers, String> {
         Ok(self.layers.clone())
     }
+}
+
+/// A named refusal with an executable recovery, shared by lock discovery and admission.
+pub(crate) fn recovery(path: &Path, reason: impl Display) -> String {
+    format!(
+        "{}: {reason}; restore the file from version control, or remove .maestro \
+         and the generated outputs, then run maestro init",
+        path.display()
+    )
 }
 
 /// Bound a canonical start by home or a containing journal-approved root.
@@ -175,20 +205,24 @@ fn lock_candidate(
     path: &Path,
     limit: usize,
 ) -> Result<Option<(PathBuf, ())>, String> {
+    let lock_path = path.join(PROJECT_DIRECTORY).join("authoring.lock.json");
     let child = match directory.child(PROJECT_DIRECTORY) {
         Ok(child) => child,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error.to_string()),
+        Err(error) => return Err(format!("{}: {error}", lock_path.display())),
     };
     if directory
         .is_mount_root()
-        .map_err(|error| error.to_string())?
+        .map_err(|error| format!("{}: {error}", lock_path.display()))?
     {
-        return Err("mount or drive root is never a workspace".to_owned());
+        return Err(format!(
+            "{}: mount or drive root is never a workspace",
+            lock_path.display()
+        ));
     }
     let entries = child
         .list_bounded(limit)
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| format!("{}: {error}", lock_path.display()))?;
     if entries
         .iter()
         .any(|entry| entry.name == "authoring.lock.json")
@@ -199,7 +233,7 @@ fn lock_candidate(
         )));
     }
     if entries.iter().any(|entry| entry.name == "project.toml") {
-        return Err("project lock is missing".to_owned());
+        return Err(format!("{}: project lock is missing", lock_path.display()));
     }
     Ok(None)
 }

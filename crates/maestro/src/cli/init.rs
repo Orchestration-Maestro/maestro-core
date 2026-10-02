@@ -11,7 +11,7 @@ use maestro_catalog::{
     policy::workspace::{
         Access, CheckedTrust, JournalTrust, WorkspaceTrust as _, write_preferences,
     },
-    settings::{PreferencesDraft, WorkspacePreferences, draft_preferences},
+    settings::{PreferencesDraft, WorkspacePreferences, draft_preferences, resolve},
     source::{Known, builtin, frozen_rows},
 };
 use maestro_kernel::workspace::WorkspaceAuthority;
@@ -73,9 +73,12 @@ pub(super) fn run(
     catalog_dir: &Path,
     presets: &[String],
     effects: ApplyChoices<'_>,
-    preference_choices: PreferenceChoices<'_>,
+    choices: &[String],
 ) -> Result<ExitCode, Failure> {
-    let PreferenceChoices { source, choices } = preference_choices;
+    let source = super::session::init_preferences()?;
+    let source = &source as &dyn WorkspacePreferences;
+    let output = preference_output(output, source, choices)?;
+    let preference_choices = PreferenceChoices { source, choices };
     let should_apply = effects.apply;
     let root = env::current_dir()
         .and_then(|root| root.canonicalize())
@@ -151,6 +154,25 @@ pub(super) fn run(
         output.result(&document, "")?;
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// Init localizes from its own preferences without a runtime session or admitted lock.
+fn preference_output(
+    output: Output,
+    source: &dyn WorkspacePreferences,
+    choices: &[String],
+) -> Result<Output, Failure> {
+    let registry = source.registry().map_err(Failure::refused)?;
+    let layers = source
+        .layers(&registry, &Limits::PRODUCTION)
+        .map_err(Failure::refused)?;
+    let flags = maestro_settings::parse_flags(&registry, choices)
+        .map_err(|error| Failure::refused_by(&error))?;
+    let resolved = resolve(
+        &registry,
+        &maestro_settings::resolve(&registry, &layers, &flags),
+    );
+    output.with_language(resolved.text("language").unwrap_or("auto"))
 }
 
 /// Existing config without explicit choices is checked but never adopted or rewritten.

@@ -26,3 +26,20 @@ fn manifest_default_secret_literals_are_redacted() {
         assert!(!format!("{error:?}").contains(SENTINEL));
     }
 }
+
+#[test]
+fn invalid_manifest_toml_redacts_secret_literal() {
+    let sentinel = "c60-synthetic-resolved-value-never-output";
+    let error = manifest_registry(
+        &Registry::built_in().unwrap(),
+        &[(
+            "settings/defaults.toml".to_owned(),
+            format!("schema = 'maestro-preferences/1'\ntone = '{sentinel}"),
+        )],
+        &Limits::PRODUCTION,
+    )
+    .unwrap_err();
+    assert_eq!(error.0, "settings/defaults.toml");
+    assert_eq!(error.2, "invalid TOML in manifest defaults");
+    assert!(!format!("{error:?}").contains(sentinel));
+}

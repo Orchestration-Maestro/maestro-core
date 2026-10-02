@@ -10,6 +10,7 @@ use maestro_catalog::{
 use maestro_kernel::{
     paths::{self, Environment},
     store::Database,
+    workspace::WorkspaceAuthority,
 };
 use std::{
     collections::BTreeSet,
@@ -32,6 +33,32 @@ pub(crate) fn for_cli(flags: &[String]) -> Result<Session, Failure> {
         env::home_dir().as_deref(),
         flags,
     )
+}
+
+/// Init reads its own user/root preferences without discovering or admitting a lock.
+pub(super) fn init_preferences() -> Result<SessionPreferences, Failure> {
+    let root = env::current_dir().map_err(|error| Failure::failed_by(&error))?;
+    let database = trust::existing_database()?;
+    let adapter = JournalTrust::optional(
+        database
+            .as_ref()
+            .map(|database| database as &dyn WorkspaceAuthority),
+    );
+    let snapshot = SessionPreferences::load_for_init(
+        &config_dir()?,
+        Some(&root),
+        env::home_dir().as_deref(),
+        &adapter,
+        &Limits::PRODUCTION,
+    )
+    .map_err(Failure::refused)?;
+    if let Some(note) = &snapshot.discovery.note {
+        eprintln!("{note}");
+    }
+    for skipped in &snapshot.discovery.skipped {
+        eprintln!("{skipped}");
+    }
+    Ok(snapshot)
 }
 
 /// The MCP server's session: the user file, the project file found from

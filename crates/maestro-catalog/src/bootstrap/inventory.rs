@@ -45,10 +45,12 @@ impl AreaInventories {
         let (catalog, snapshot) = Directory::new(&root)
             .checked_snapshot(&registry, &Limits::PRODUCTION, known)
             .map_err(|error| error.to_string())?;
-        let settings = known.settings.registry().cloned().map_or_else(
-            maestro_settings::Registry::built_in,
-            Ok,
-        ).map_err(|error| error.to_string())?;
+        let settings = known
+            .settings
+            .registry()
+            .cloned()
+            .map_or_else(maestro_settings::Registry::built_in, Ok)
+            .map_err(|error| error.to_string())?;
         let defaults = from_resources(
             &settings,
             &catalog.resources,
@@ -122,7 +124,9 @@ impl PresetPort for AreaInventories {
                 if path == DEFAULTS_PATH {
                     self.catalog.common_defaults.is_none()
                 } else {
-                    self.snapshot.read(path, self.limits.source_file_bytes).is_err()
+                    self.snapshot
+                        .read(path, self.limits.source_file_bytes)
+                        .is_err()
                 }
             })
             .map(|path| (self.root.clone(), path))

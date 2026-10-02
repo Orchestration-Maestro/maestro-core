@@ -72,6 +72,25 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Status => return health::status::run(output),
         Noun::Backup { to } => return backup::run_backup(output, to),
         Noun::Restore { from } => return backup::run_restore(output, from),
+        Noun::Init {
+            catalog_dir,
+            presets,
+            apply,
+            preferences_only,
+            confirm_path,
+        } => {
+            return init::run(
+                output,
+                catalog_dir,
+                presets,
+                init::ApplyChoices {
+                    apply: *apply,
+                    preferences_only: *preferences_only,
+                    confirm_path: confirm_path.as_deref(),
+                },
+                &flags,
+            );
+        }
         _ => {}
     }
     let session = match &arguments.noun {
@@ -131,29 +150,10 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             catalog::codeowners(output, catalog_dir, *check)
         }
         Noun::Policy(command) => policy::run(output, command),
-        Noun::Init {
-            catalog_dir,
-            presets,
-            apply,
-            preferences_only,
-            confirm_path,
-        } => init::run(
-            output,
-            catalog_dir,
-            presets,
-            init::ApplyChoices {
-                apply: *apply,
-                preferences_only: *preferences_only,
-                confirm_path: confirm_path.as_deref(),
-            },
-            init::PreferenceChoices {
-                source: &session,
-                choices: &flags,
-            },
-        ),
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
         Noun::Doctor => health::doctor::run(output, &session),
-        Noun::Setup { .. }
+        Noun::Init { .. }
+        | Noun::Setup { .. }
         | Noun::Status
         | Noun::Backup { .. }
         | Noun::Restore { .. }

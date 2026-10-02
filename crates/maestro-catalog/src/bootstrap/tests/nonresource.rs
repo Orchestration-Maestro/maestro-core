@@ -129,18 +129,6 @@ fn session_keeps_admitted_defaults() {
                 .unwrap()
                 .contains("language = \"fr\"")
         );
-        fs::write(
-            fixture.catalog.join("settings/defaults.toml"),
-            "schema = 'maestro-preferences/1'\nlanguage = 'ja'\n",
-        )
-        .unwrap();
-        let draft = draft_preferences(&fixture.project, &snapshot, &[], &Limits::PRODUCTION, trust)
-            .unwrap();
-        assert!(
-            String::from_utf8(draft.file.bytes)
-                .unwrap()
-                .contains("language = \"fr\"")
-        );
     });
 }
 
