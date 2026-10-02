@@ -52,6 +52,8 @@ mod sync_window;
 mod sync_drain;
 
 #[cfg(test)]
+mod window_budget_tests;
+#[cfg(test)]
 mod window_edges;
 
 #[cfg(test)]

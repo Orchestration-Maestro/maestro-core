@@ -162,6 +162,7 @@ pub(super) fn cover_history(fixture: &Fixture) {
             cursor: None,
             next: None,
             terminal: true,
+            verification_final: page.len() < 999,
             stable: true,
             truncated: false,
             expected: Some(u16::try_from(page.len()).unwrap()),

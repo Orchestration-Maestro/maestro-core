@@ -1,13 +1,18 @@
 //! Unique run attempts, immutable receipt snapshots and bounded stage inventories.
 use super::privacy::{self, Handle, Progress, ProtectedArtifact, Reason, ReceiptError, Status};
 use crate::{
+    job::lease::times,
     journal::{NewEvent, event},
     scope::{Scope, ScopeSet},
     store::Database,
 };
 use rusqlite::{OptionalExtension as _, Transaction, params};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, iter::once};
+use std::{
+    collections::BTreeSet,
+    iter::once,
+    time::{Duration, SystemTime},
+};
 
 /// Measured usage, separate from item and attempt counts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -140,6 +145,18 @@ impl Receipt {
         }
     }
 }
+/// Bounded scoped recovery read with an explicit trusted lease-liveness clock.
+#[derive(Debug)]
+pub struct UnfinalizedPage<'a> {
+    /// Exact collection scope, independently checked against current grants.
+    pub scope: &'a Scope,
+    /// Trusted authority clock; never the frozen verification target.
+    pub now: SystemTime,
+    /// Exclusive oldest-first attempt cursor.
+    pub after: Option<Handle>,
+    /// Page bound between one and one thousand.
+    pub limit: u16,
+}
 /// Kernel receipt port. Adapters preserve immutability, scope inheritance and
 /// fresh access checks. Writers are trusted kernel callers, never view principals.
 pub trait Receipts: Send + Sync {
@@ -178,6 +195,15 @@ pub trait Receipts: Send + Sync {
     /// # Errors
     /// Content-free storage/schema failure.
     fn inspect(&self, principal: &str, attempt: Handle) -> Result<Option<Receipt>, ReceiptError>;
+    /// Reads unfinalized scoped attempts oldest first, excluding live run leases.
+    /// Frozen caller and policy matching remains the acquisition caller's job.
+    /// # Errors
+    /// Invalid bound/clock or protected storage failure refuses.
+    fn unfinalized(
+        &self,
+        principal: &str,
+        page: &UnfinalizedPage<'_>,
+    ) -> Result<Vec<Receipt>, ReceiptError>;
     /// Reads at most 1–1,000 authorized attempts of a run in opaque ID order.
     /// # Errors
     /// Invalid page limit or content-free storage failure.
@@ -288,6 +314,57 @@ impl Receipts for Database {
         self.read(principal, handle)?
             .map(|artifact| serde_json::from_slice(artifact.bytes()).map_err(Into::into))
             .transpose()
+    }
+    fn unfinalized(
+        &self,
+        principal: &str,
+        page: &UnfinalizedPage<'_>,
+    ) -> Result<Vec<Receipt>, ReceiptError> {
+        if !(1..=1000).contains(&page.limit) {
+            return Err(ReceiptError::Invalid);
+        }
+        if !self.visible(principal)?.covers(page.scope) {
+            return Ok(vec![]);
+        }
+        let reader = self.reader()?;
+        let (now, _) =
+            times(&reader, page.now, Duration::ZERO).map_err(|_| ReceiptError::Invalid)?;
+        let scopes = self.visible(principal)?;
+        let query = format!(
+            "WITH RECURSIVE closure(root, id) AS (
+                SELECT initial, initial FROM acquisition_receipts
+                WHERE scope = ?1 AND terminal IS NULL AND (?2 IS NULL OR attempt > ?2)
+                UNION SELECT closure.root, child FROM acquisition_evidence_links
+                JOIN closure ON parent = closure.id)
+             SELECT attempt FROM acquisition_receipts r WHERE scope = ?1 AND terminal IS NULL
+             AND (?2 IS NULL OR attempt > ?2)
+             AND NOT EXISTS (SELECT 1 FROM jobs
+                WHERE lease_holder = r.attempt AND lease_expires > ?3)
+             AND NOT EXISTS (SELECT 1 FROM closure JOIN acquisition_evidence e ON e.id = closure.id
+                WHERE closure.root = r.initial AND NOT {})
+             ORDER BY attempt LIMIT ?5",
+            ScopeSet::condition("e.scope", 4)
+        );
+        let attempts: Vec<String> = reader
+            .prepare(&query)?
+            .query_map(
+                params![
+                    page.scope.as_str(),
+                    page.after.map(|id| id.to_string()),
+                    now,
+                    scopes.parameter(),
+                    page.limit
+                ],
+                |row| row.get(0),
+            )?
+            .collect::<Result<_, _>>()?;
+        let mut receipts = Vec::new();
+        for attempt in attempts {
+            if let Some(receipt) = self.inspect(principal, attempt.parse()?)? {
+                receipts.push(receipt);
+            }
+        }
+        Ok(receipts)
     }
     fn page(
         &self,

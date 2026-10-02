@@ -73,6 +73,10 @@ pub struct DiscoveredItem {
 /// Immutable pending checkpoint and exact coverage evidence.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent immutable terminal, stability, truncation and final-chunk evidence"
+)]
 pub struct Batch {
     /// Frozen partition descriptor.
     pub partition: Partition,
@@ -82,6 +86,10 @@ pub struct Batch {
     pub next: Option<Value>,
     /// Explicit terminal evidence from the enumeration contract.
     pub terminal: bool,
+    /// Last chunk of this run's complete source verification inventory.
+    /// Absent/false never proves that later chunks were written.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub verification_final: bool,
     /// Explicit source stability evidence.
     pub stable: bool,
     /// A cap or truncation prevents complete coverage.

@@ -300,8 +300,11 @@ where
                 term: Duration::from_millis(work.accounting.limits().elapsed_ms.get())
                     .min(Duration::from_hours(1)),
             },
-            max_attempts: u32::try_from(work.accounting.limits().requests.get())
-                .unwrap_or(u32::MAX),
+            max_attempts: u32::try_from(
+                item.attempts
+                    .saturating_add(work.accounting.limits().requests.get()),
+            )
+            .unwrap_or(u32::MAX),
         },
     );
     let Ok(dispatch) = dispatch else {

@@ -18,10 +18,13 @@ use maestro_kernel::{
 };
 use rusqlite::Connection;
 use serde_json::{Value, json};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    env::consts::OS,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 /// Local verification chunks, excluding offline Links inventories.
-fn windows(fixture: &Fixture) -> Vec<PartitionState> {
+pub(super) fn windows(fixture: &Fixture) -> Vec<PartitionState> {
     let scope: Scope = "workspace/default/collection/garden".parse().unwrap();
     fixture
         .db
@@ -94,15 +97,39 @@ fn n36_two_capped_runs_commit_original_target_without_refetch() {
 
 #[test]
 fn n36_chunk_commit_crash_does_not_publish_window_and_continues_without_fetch() {
-    let fixture = Fixture::new(clean);
+    chunk_crash(4, false);
+    chunk_crash(5, false);
+}
+
+#[test]
+fn n36_first_verification_crash_recovers_original_target_without_fetch() {
+    chunk_crash(3, false);
+}
+
+#[test]
+fn n36_first_verification_crash_does_not_adopt_foreign_policy() {
+    chunk_crash(3, true);
+}
+
+/// Fail either verification boundary or receipt finalization at a frozen target.
+fn chunk_crash(threshold: usize, change_policy: bool) {
+    let mut fixture = Fixture::new(clean);
     let connection = Connection::open(fixture.root.join("kernel.sqlite3")).unwrap();
     connection
-        .execute_batch(
+        .execute_batch(&format!(
             "CREATE TRIGGER fail_second_chunk BEFORE INSERT ON acquisition_partitions \
-        WHEN (SELECT count(*) FROM acquisition_partitions) >= 4 \
-        BEGIN SELECT RAISE(ABORT, 'synthetic chunk crash'); END;",
-        )
+        WHEN (SELECT count(*) FROM acquisition_partitions) >= {threshold} \
+        BEGIN SELECT RAISE(ABORT, 'synthetic chunk crash'); END;"
+        ))
         .unwrap();
+    if threshold == 5 {
+        connection
+            .execute_batch(
+                "CREATE TRIGGER fail_finish BEFORE UPDATE OF terminal ON acquisition_receipts
+             BEGIN SELECT RAISE(ABORT, 'synthetic receipt crash'); END;",
+            )
+            .unwrap();
+    }
     let now = UNIX_EPOCH + Duration::from_secs(2_000_000);
     let first = fixture.sync_window(Mode::Full, now);
     assert_eq!(first.status, Status::Failed, "{first:?}");
@@ -118,27 +145,48 @@ fn n36_chunk_commit_crash_does_not_publish_window_and_continues_without_fetch() 
             .iter()
             .filter(|window| window.accepted.is_some())
             .count(),
-        1,
-        "first chunk did not commit before crash"
+        threshold - 3,
+        "unexpected committed chunks before crash"
     );
     let requests = fixture.site.requests.lock().unwrap().len();
     connection
-        .execute_batch("DROP TRIGGER fail_second_chunk")
+        .execute_batch("DROP TRIGGER fail_second_chunk; DROP TRIGGER IF EXISTS fail_finish;")
         .unwrap();
     drop(connection);
+    if change_policy {
+        let (collection, files) = super::flow_tests::fixture_with(|policy| {
+            clean(policy);
+            policy["sources"][0]["limits"]["requests"] = json!(4);
+        });
+        fixture.policy = super::command::resolve(
+            &files,
+            &collection,
+            &maestro_acquisition::Principal {
+                id: "reader",
+                platform: OS,
+                scopes: &fixture.scopes,
+            },
+        )
+        .unwrap();
+    }
     let second = fixture.sync_window(Mode::Incremental, now + Duration::from_secs(5));
     assert_eq!(second.status, Status::Complete, "{second:?}");
     assert_eq!(
         fixture.site.requests.lock().unwrap().len(),
-        requests,
-        "chunk-one coverage refetched"
+        requests + if change_policy { 4 } else { 0 },
+        "unexpected continuation fetch count"
     );
     assert!(
         windows(&fixture)
             .iter()
             .filter_map(|window| window.accepted.as_ref())
-            .all(|window| window.watermark == 2_000_000_000),
-        "unfinalized chunk advanced watermark"
+            .all(|window| window.watermark
+                == if change_policy {
+                    2_000_005_000
+                } else {
+                    2_000_000_000
+                }),
+        "incorrect recovery target"
     );
     fixture.finish();
 }
@@ -265,6 +313,7 @@ fn n36_partial_terminal_receipt_requires_every_same_run_chunk_accepted() {
                 cursor: None,
                 next: None,
                 terminal: true,
+                verification_final: index == 1,
                 stable: !(incomplete && index == 1),
                 truncated: false,
                 expected: Some(0),

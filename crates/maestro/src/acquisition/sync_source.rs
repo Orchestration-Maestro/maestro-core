@@ -255,14 +255,6 @@ where
         partitions: vec![],
     };
     let drained = drain(work, &writer, &bounds, &mut state, report).await;
-    if let Some(reservation) = state.reservation.take() {
-        run.reservation = Some(reservation);
-    }
-    run.record(
-        state.attempted,
-        &state.accounting,
-        state.usage.staging_bytes,
-    )?;
     drained?;
     for (partition, _) in &state.partitions {
         if work
@@ -283,12 +275,15 @@ where
         work.runtime.frontier_page_size,
     )?;
     let complete = report.pending.len() == pending_before;
-    coverage(
-        work,
-        &writer,
-        &state.window,
-        (&items, &state.inventory),
-        complete,
+    coverage(work, &writer, &items, &mut state, (complete, report))?;
+    if let Some(reservation) = state.reservation.take() {
+        run.reservation = Some(reservation);
+    }
+    run.record(
+        state.attempted,
+        &state.accounting,
+        state.usage.staging_bytes,
+        state.partitions.len() as u64,
     )?;
     let pages = inventory_pages(work, state.inventory)?;
     Ok(SourceResult {

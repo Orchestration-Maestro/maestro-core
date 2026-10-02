@@ -88,6 +88,7 @@ pub async fn discover_with_captured(
         cursor: None,
         next: None,
         terminal: true,
+        verification_final: false,
         stable: true,
         truncated: bytes.is_none(),
         expected: None,

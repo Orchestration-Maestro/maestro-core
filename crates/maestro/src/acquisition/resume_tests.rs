@@ -4,7 +4,7 @@ use super::{
     flow_edges::{Fixture, clean},
     flow_tests::fixture_with,
 };
-use maestro_acquisition::Principal;
+use maestro_acquisition::{Principal, lifecycle::full::Mode};
 use maestro_kernel::{
     acquisition::{
         Enumeration, Frontier, LeaseRequest, NewItem, Partitions as _, Receipts as _, Status,
@@ -14,7 +14,7 @@ use maestro_kernel::{
 use serde_json::{Value, json};
 use std::{
     env,
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 #[test]
@@ -206,7 +206,8 @@ fn n14_requests_and_response_bytes_are_aggregate_across_sources() {
 #[test]
 fn n14_second_source_staging_includes_retained_first_source_bytes() {
     let ample = Fixture::new(two_sources);
-    let report = ample.sync();
+    let now = UNIX_EPOCH + Duration::from_secs(2_000_000);
+    let report = ample.sync_window(Mode::Full, now);
     let total = ample
         .db
         .inspect("reader", report.receipt.unwrap())
@@ -215,13 +216,34 @@ fn n14_second_source_staging_includes_retained_first_source_bytes() {
         .budget
         .staging_bytes;
     assert_eq!(report.completed.len(), 2);
+    let verification_bytes = ample
+        .db
+        .partition_page(&ample.scope, "other-notes", None, 100)
+        .unwrap()
+        .into_iter()
+        .map(|id| {
+            ample
+                .db
+                .partition(&ample.scope, id)
+                .unwrap()
+                .unwrap()
+                .batches
+                .into_iter()
+                .map(|batch| serde_json::to_vec(&batch).unwrap().len() as u64)
+                .sum::<u64>()
+        })
+        .sum::<u64>();
     ample.finish();
-    for (ceiling, expected) in [(total - 1, 1), (total, 2)] {
+    for (ceiling, expected, complete) in [
+        (total - verification_bytes - 1, 1, false),
+        (total - 1, 2, false),
+        (total, 2, true),
+    ] {
         let fixture = Fixture::new(|value| {
             two_sources(value);
             value["aggregate_limits"]["staging_bytes"] = json!(ceiling);
         });
-        let report = fixture.sync();
+        let report = fixture.sync_window(Mode::Full, now);
         assert_eq!(
             report.completed.len(),
             expected,
@@ -229,7 +251,7 @@ fn n14_second_source_staging_includes_retained_first_source_bytes() {
         );
         assert_eq!(
             report.status,
-            if expected == 2 {
+            if complete {
                 Status::Complete
             } else {
                 Status::Partial
@@ -241,6 +263,24 @@ fn n14_second_source_staging_includes_retained_first_source_bytes() {
             .unwrap()
             .unwrap();
         assert!(receipt.budget.staging_bytes <= ceiling);
+        if !complete {
+            assert!(!report.pending.is_empty());
+            assert!(
+                fixture
+                    .db
+                    .partition_page(&fixture.scope, "other-notes", None, 100)
+                    .unwrap()
+                    .into_iter()
+                    .all(|id| fixture
+                        .db
+                        .partition(&fixture.scope, id)
+                        .unwrap()
+                        .unwrap()
+                        .accepted
+                        .is_none()),
+                "held second-source verification advanced watermark"
+            );
+        }
         fixture.finish();
     }
 }

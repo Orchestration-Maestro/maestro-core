@@ -82,6 +82,7 @@ in place.
 │   │   │   │   ├── sync_reader_tests.rs                                                 # Deterministic reader costs and the opt-in N14 large-history profile
 │   │   │   │   ├── sync_source.rs                                                       # One source writer; frontier pages, never a second authoritative queue
 │   │   │   │   ├── sync_window.rs                                                       # Verification coverage reuses immutable bounded kernel partition checkpoints
+│   │   │   │   ├── window_budget_tests.rs                                               # Verification partition ceilings and per-run dispatch attempt rebasing
 │   │   │   │   ├── window_edges.rs                                                      # N36 pending targets, chunk crashes and non-text source revalidation
 │   │   │   │   └── window_tests.rs                                                      # N36 production sync revalidation with an injected frozen verification clock
 │   │   │   ├── cli/                                                                     # The commands, a module each, and what they share

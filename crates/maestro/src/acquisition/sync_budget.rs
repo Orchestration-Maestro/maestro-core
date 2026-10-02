@@ -12,6 +12,8 @@ use std::num::NonZeroU64;
 pub(crate) struct RunBudget {
     /// Eligible uncaptured attempts across all sources.
     pages: u64,
+    /// New discovery and verification checkpoints across sources.
+    partitions: u64,
     /// Every HTTP attempt, including robots, redirects and failures.
     requests: u64,
     /// Received response bytes across sources.
@@ -30,6 +32,8 @@ impl RunBudget {
     pub(crate) fn remaining(&self, aggregate: &Limits) -> Option<Limits> {
         let mut limits = aggregate.clone();
         limits.pages = NonZeroU64::new(aggregate.pages.get().saturating_sub(self.pages))?;
+        limits.partitions =
+            NonZeroU64::new(aggregate.partitions.get().saturating_sub(self.partitions))?;
         limits.requests = NonZeroU64::new(aggregate.requests.get().saturating_sub(self.requests))?;
         limits.wire_bytes = NonZeroU64::new(aggregate.wire_bytes.get().saturating_sub(self.wire))?;
         limits.decode.expanded_bytes = NonZeroU64::new(
@@ -68,7 +72,12 @@ impl RunBudget {
         pages: u64,
         accounting: &Accounting,
         staging: u64,
+        partitions: u64,
     ) -> Result<(), Failure> {
+        self.partitions = self
+            .partitions
+            .checked_add(partitions)
+            .ok_or_else(storage)?;
         self.pages = self.pages.checked_add(pages).ok_or_else(storage)?;
         self.requests = self
             .requests
@@ -90,6 +99,7 @@ impl RunBudget {
         let bounds = [resources::bounds(aggregate, false).map_err(|_| storage())?];
         Ok(Self {
             pages: 0,
+            partitions: 0,
             requests: 0,
             wire: 0,
             expanded: 0,

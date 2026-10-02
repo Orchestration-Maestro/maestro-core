@@ -10,7 +10,7 @@ use maestro_acquisition::{
     lifecycle::full::changed,
 };
 use maestro_kernel::{
-    acquisition::{Batch, ChangeKeys, Handle, Partitions, ReceiptError},
+    acquisition::{Batch, Captures, ChangeKeys, Frontier, Handle, Partitions, ReceiptError},
     artifact::Digest,
 };
 
@@ -25,6 +25,59 @@ fn links(fixture: &mut Fixture) -> Batch {
         (partition(), 0),
     ))
     .unwrap()
+}
+
+#[test]
+fn n36_stale_links_parent_cannot_enqueue_after_refresh() {
+    let mut fixture = link_fixture();
+    let batch = links(&mut fixture);
+    fixture
+        .db
+        .acknowledge_capture(&fixture.context, batch.capture.unwrap())
+        .unwrap();
+    fixture
+        .db
+        .refresh(
+            &fixture.context.writer,
+            fixture.context.item.item,
+            fixture.context.now,
+        )
+        .unwrap();
+    // Exact replay and historical evidence survive; new discovery must not.
+    fixture
+        .db
+        .checkpoint(&fixture.context.writer, &batch, fixture.context.now)
+        .unwrap();
+    let mut stale = batch.clone();
+    stale.partition.id = Handle::new();
+    stale.items.first_mut().unwrap().request.fetch_identity =
+        "https://garden.example/docs/fresh".into();
+    assert!(stale.items.first().unwrap().keys.links.is_none());
+    let scopes = fixture.db.visible("reader").unwrap();
+    let before = fixture.db.page(&scopes, "notes", None, 100).unwrap();
+    assert_eq!(
+        fixture
+            .db
+            .checkpoint(&fixture.context.writer, &stale, fixture.context.now),
+        Err(ReceiptError::Invalid),
+        "stale generation submitted discovery"
+    );
+    assert_eq!(
+        fixture.db.page(&scopes, "notes", None, 100).unwrap(),
+        before
+    );
+    assert_eq!(
+        fixture
+            .db
+            .partition(
+                &"workspace/default/collection/garden".parse().unwrap(),
+                batch.partition.id
+            )
+            .unwrap()
+            .unwrap()
+            .batches,
+        vec![batch]
+    );
 }
 
 #[test]

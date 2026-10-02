@@ -22,6 +22,7 @@ use maestro_test_scratch::scratch_directory;
 use std::{
     collections::BTreeMap,
     fs,
+    future::Future,
     ops::Deref,
     path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -181,6 +182,15 @@ pub(super) fn response() -> Response {
                 .await
                 .unwrap(),
         );
+    });
+    result.unwrap()
+}
+
+/// Existing synthetic Tokio boundary with a returned result.
+pub(super) fn run<T>(work: impl Future<Output = T>) -> T {
+    let mut result = None;
+    n09_support::run(async {
+        result = Some(work.await);
     });
     result.unwrap()
 }

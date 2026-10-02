@@ -138,8 +138,8 @@ where
     };
     let mut pages = Vec::new();
     let mut budget = RunBudget::new(&policy.policy().aggregate_limits)?;
+    let mut frontier = Vec::new();
     let performed = async {
-        let mut frontier = Vec::new();
         for source in &policy.policy().sources {
             let mut work = SourceWork {
                 store,
@@ -191,21 +191,43 @@ where
         Ok::<(), Failure>(())
     }
     .await;
-    if let Err(error) = performed {
-        report.status = if matches!(error, Failure::Refused(_)) {
-            Status::Blocked
-        } else {
-            Status::Failed
-        };
-        let reason = match error {
-            Failure::Refused(message) if message == SOURCE_OWNED => "source_lease_unavailable",
-            _ => "attempt_not_finalized",
-        };
-        report
-            .pending
-            .push(Entry::new(&receipt.attempt.to_string(), reason));
+    if let Err(error) = performed
+        && record_stop(&error, &mut report, !pages.is_empty())?
+    {
+        receipt.status = report.status;
+        receipt.reason = Reason::Unsupported;
+        finish(
+            store,
+            &scope,
+            &mut receipt,
+            (&pages, &frontier),
+            &mut report,
+        )?;
     }
     Ok(report)
+}
+/// Handled refusals are terminal; an unexpected storage failure remains recoverable.
+fn record_stop(error: &Failure, report: &mut Report, started: bool) -> Result<bool, Failure> {
+    let handled = matches!(error, Failure::Refused(_));
+    report.status = if handled {
+        if started {
+            Status::Partial
+        } else {
+            Status::Blocked
+        }
+    } else {
+        Status::Failed
+    };
+    let reason = match error {
+        Failure::Refused(message) if message == SOURCE_OWNED => "source_lease_unavailable",
+        Failure::Refused(_) => "verification_clock",
+        Failure::Failed(_) => "attempt_not_finalized",
+    };
+    report.pending.push(Entry::new(
+        &report.receipt.ok_or_else(storage)?.to_string(),
+        reason,
+    ));
+    Ok(handled)
 }
 /// Freeze original manifest and resource digests with the effective caller/scope.
 fn freeze<T>(

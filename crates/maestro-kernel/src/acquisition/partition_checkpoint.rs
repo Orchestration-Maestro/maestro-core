@@ -26,12 +26,12 @@ pub(super) fn checkpoint(
     let encoded = serde_json::to_vec(batch)?;
     let references: Vec<_> = batch.capture.into_iter().collect();
     privacy::validate(&scope, &encoded, &references)?;
-    if batch.capture.is_some() {
-        parent(db, &reader, &scope, writer, batch)?;
-    }
     let digest = db.put(&encoded, "application/json")?;
     db.write(|tx| {
         lease::held(tx, writer, now).map_err(|_| ReceiptError::Conflict)?;
+        if batch.capture.is_some() {
+            parent(db, tx, &scope, writer, batch)?;
+        }
         tx.execute(
             "INSERT INTO acquisition_partitions (id, source, scope)
              VALUES (?1, ?2, ?3) ON CONFLICT DO NOTHING",
@@ -181,7 +181,8 @@ fn parent(
     let found: bool = reader.query_row(
         "SELECT EXISTS (SELECT 1 FROM acquisition_capture_links l JOIN
         acquisition_evidence e ON e.id = l.envelope JOIN acquisition_frontier f ON
-        f.id = l.item WHERE l.envelope = ?1 AND e.scope = ?2 AND f.source = ?3)",
+        f.id = l.item AND l.generation = f.capture_generation
+        WHERE l.envelope = ?1 AND e.scope = ?2 AND f.source = ?3)",
         params![capture.to_string(), scope.as_str(), writer.source],
         |row| row.get(0),
     )?;

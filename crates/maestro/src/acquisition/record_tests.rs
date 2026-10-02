@@ -87,7 +87,7 @@ fn n14_unknown_media_retains_raw_capture_but_holds_discovery() {
 }
 
 #[test]
-fn n14_held_source_retains_unique_pending_attempt_without_zero_start_claim() {
+fn n14_held_source_retains_unique_blocked_attempt_without_zero_start_claim() {
     let fixture = Fixture::new(clean);
     let now = SystemTime::now();
     let scope = "workspace/default/collection/garden".parse().unwrap();
@@ -111,7 +111,28 @@ fn n14_held_source_retains_unique_pending_attempt_without_zero_start_claim() {
     );
     let durable = inspect(&fixture.db, "reader", report.receipt.unwrap()).unwrap();
     assert_eq!(durable.run, report.run);
-    assert_eq!(durable.status, Status::Pending);
+    assert_eq!(durable.status, Status::Blocked);
+    assert_eq!(durable.pending, report.pending);
+    assert!(
+        super::window_edges::windows(&fixture).is_empty(),
+        "held source published coverage"
+    );
+    assert!(
+        fixture
+            .db
+            .unfinalized(
+                "reader",
+                &maestro_kernel::acquisition::UnfinalizedPage {
+                    scope: &fixture.scope,
+                    now,
+                    after: None,
+                    limit: 100,
+                }
+            )
+            .unwrap()
+            .is_empty(),
+        "handled hold became a crash candidate"
+    );
     assert!(fixture.site.requests.lock().unwrap().is_empty());
     fixture.db.release_source(&writer, now).unwrap();
     fixture.finish();

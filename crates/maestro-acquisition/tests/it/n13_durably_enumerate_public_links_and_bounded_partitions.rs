@@ -65,6 +65,7 @@ pub(super) fn batch(fixture: &Fixture) -> Batch {
         cursor: None,
         next: None,
         terminal: true,
+        verification_final: false,
         stable: true,
         truncated: false,
         expected: Some(1),
@@ -306,14 +307,7 @@ pub(super) fn scope() -> Scope {
     "workspace/default/collection/garden".parse().unwrap()
 }
 
-/// Existing synthetic Tokio boundary with a returned result.
-pub(super) fn run<T>(work: impl Future<Output = T>) -> T {
-    let mut result = None;
-    super::n09_support::run(async {
-        result = Some(work.await);
-    });
-    result.unwrap()
-}
+pub(super) use super::n12_support::run;
 
 /// Generous but explicit source bounds for a synthetic link inventory.
 pub(super) fn link_fixture() -> Fixture {
