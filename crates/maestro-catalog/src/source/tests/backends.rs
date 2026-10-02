@@ -3,7 +3,7 @@
 use super::support::{MemoryTree, check_by};
 use crate::{
     limits::Limits,
-    source::{Catalog, builtin},
+    source::{Catalog, Known, Value, builtin, frozen_rows},
 };
 use std::collections::BTreeSet;
 
@@ -320,4 +320,48 @@ fn backend_non_table_and_unknown_placement_refuse() {
         "extra: unknown key",
     );
     refuses("other", BASES[0].1, "unknown backend role");
+}
+
+#[test]
+fn backend_control_validation_uses_s1_descriptors() {
+    let catalog = checked("graphdb", BASES[0].1).unwrap();
+    let mut backend = catalog
+        .resources
+        .iter()
+        .find(|resource| resource.id.kind == "backend")
+        .unwrap()
+        .clone();
+    let registry = builtin().unwrap();
+    let settings = maestro_settings::Registry::built_in().unwrap();
+    let rows = frozen_rows();
+    let rules = registry.kind("backend").unwrap().rules.unwrap();
+    let Value::Table(controls) = backend.fields.get_mut("graphdb").unwrap() else {
+        panic!("graph fixture must have a controls table");
+    };
+    controls.insert("max_num_threads".to_owned(), Value::Integer(65));
+    let mut problems = Vec::new();
+    rules.check_resource(
+        &backend,
+        None,
+        Known {
+            rows: &rows,
+            settings: &settings,
+            today: 0,
+        },
+        &mut problems,
+    );
+    assert_eq!(
+        problems,
+        vec![(
+            "graphdb.max_num_threads".to_owned(),
+            format!(
+                "expected {}",
+                settings
+                    .get("graphdb.max_num_threads")
+                    .unwrap()
+                    .kind
+                    .expectation()
+            )
+        )]
+    );
 }

@@ -57,6 +57,7 @@ const fn integer(min: i64, max: i64) -> SettingKind {
         min,
         max,
         off: false,
+        power_of_two: false,
     }
 }
 
@@ -66,6 +67,7 @@ const fn optional_integer(min: i64, max: i64) -> SettingKind {
         min,
         max,
         off: true,
+        power_of_two: false,
     }
 }
 
@@ -363,6 +365,39 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         "Where models run: gpu, the machine's GPU backend (CUDA or Metal), or off for code \
          only: search keeps its keyword, exact-name and structured routes without reranking, \
          and ask refuses. cpu comes after M1.",
+    ),
+    free!("graph.engine",
+        SettingKind::Choice {
+            ordered: false,
+            values: texts!["none", "ladybug"],
+            reserved: Cow::Borrowed(&[ReservedValue {
+                value: Cow::Borrowed("lbug"),
+                reason: Cow::Borrowed("replace graph.engine=lbug with graph.engine=ladybug"),
+            }]),
+        },
+        "none",
+        "The local knowledge graph: none makes no graph calls; ladybug selects the embedded \
+         LadybugDB adapter in a build with the engine feature. No server or download.",
+    ),
+    bounded!("graphdb.buffer_pool_size",
+        integer(16 * 1024 * 1024, 1024 * 1024 * 1024),
+        "268435456",
+        "Graph buffer pool bytes; zero/automatic sizing is not supported.",
+    ),
+    bounded!("graphdb.max_db_size",
+        SettingKind::Integer {
+            min: 16 * 1024 * 1024,
+            max: 1024 * 1024 * 1024 * 1024,
+            off: false,
+            power_of_two: true,
+        },
+        "17179869184",
+        "Maximum graph database address space in bytes, a power of two; not a disk quota.",
+    ),
+    bounded!("graphdb.max_num_threads",
+        integer(1, 64),
+        "2",
+        "Maximum graph query threads; unrelated to Cargo parallelism.",
     ),
     free!("chunking.profile",
         choice(texts![

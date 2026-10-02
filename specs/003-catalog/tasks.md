@@ -2574,21 +2574,29 @@ credentials and endpoints remain outside catalog defaults.
 
 **Phase:** P1/M3
 **After:** C45a, C17, C05b.
-**Files:** crates/maestro-catalog/src/settings/{defaults.rs,tests/defaults.rs}; crates/maestro-catalog/src/source/kinds/settings.rs; S1 registered graph setting descriptors at their integrated module.
+**Files:** `crates/maestro-catalog/src/source/{defaults.rs,check.rs,backends.rs}`,
+`crates/maestro-catalog/src/source/kinds/backend.rs`,
+`crates/maestro-catalog/src/settings/tests/defaults.rs`;
+S1 graph descriptors and integer kind validation.
 **Requirements:** FR-S3-014, FR-S3-015, FR-S3-027, FR-S3-028, FR-S3-029, FR-S3-030, FR-S3-031, FR-S3-050, SC-S3-010, SC-S3-019.
 **Design coverage:** MD03, MD11 (approved design §8.4).
 **Named tests:** `manifest_default_producer_is_unique`, `four_layers_keep_frozen_semantics`, `masked_invalid_default_refuses`, `graph_bounds_match_s2`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Catalog defaults feed S1 once; graph descriptor sync. Four layers, masked invalid input, locked fields and missing defaults/compiled adapters tested.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Catalog defaults feed S1 once; graph descriptor sync.
+  Four layers, masked invalid input, locked fields and missing defaults/compiled
+  adapters tested.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 
 **Acceptance:** Catalog defaults feed S1 once; graph descriptor sync. Four layers, masked invalid input, locked fields and missing defaults/compiled adapters tested.
 
 ### C47a Frozen defaults and complete non-resource locks [US1, US5] (4 h)
+
+When the session consumer arrives as a second caller, C47a decides whether
+`source/defaults.rs` moves to a shared home.
 
 The defaults producer refuses secret values through C60's guard.
 Runtime activation uses `Catalog::runtime_selection` with the composition root's

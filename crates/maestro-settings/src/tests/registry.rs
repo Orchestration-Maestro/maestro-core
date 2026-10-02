@@ -190,6 +190,7 @@ fn new_refuses_kinds_and_defaults_that_cannot_hold_together() {
         min: 5,
         max: 1,
         off: false,
+        power_of_two: false,
     };
     descriptor.default = Cow::Borrowed("3");
     assert_eq!(
@@ -288,7 +289,10 @@ fn every_built_in_description_is_one_line_and_classes_match_architecture() {
             | "cross_project_memory"
             | "mcp_apps"
             | "extensions"
-            | "schedules" => SettingClass::Bounded,
+            | "schedules"
+            | "graphdb.buffer_pool_size"
+            | "graphdb.max_db_size"
+            | "graphdb.max_num_threads" => SettingClass::Bounded,
             _ => SettingClass::Free,
         };
         assert_eq!(descriptor.class, expected, "{}", descriptor.key);
@@ -331,4 +335,20 @@ fn catalog_settings_are_appended_without_changing_existing_entries() {
 fn rerank_header_is_not_a_registered_setting() {
     let registry = Registry::built_in().unwrap();
     assert!(registry.get("search.rerank.header").is_none());
+}
+
+#[test]
+fn integer_power_of_two_preserves_existing_descriptor_output() {
+    let legacy = r#"{"type":"integer","min":1,"max":64,"off":false}"#;
+    let kind: SettingKind = serde_json::from_str(legacy).unwrap();
+    assert_eq!(serde_json::to_string(&kind).unwrap(), legacy);
+    let power = SettingKind::Integer {
+        min: 1,
+        max: 64,
+        off: false,
+        power_of_two: true,
+    };
+    let text = serde_json::to_string(&power).unwrap();
+    assert!(text.contains("\"power_of_two\":true"));
+    assert_eq!(serde_json::from_str::<SettingKind>(&text).unwrap(), power);
 }

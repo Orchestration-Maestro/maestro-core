@@ -567,6 +567,7 @@ in place.
 │   │   │   │   └── schema.rs                                                # Normalized data, separate host facts, and bounded authoring test inputs
 │   │   │   ├── settings/                                                    # Typed restrictive resolution over the canonical S1 settings descriptors
 │   │   │   │   ├── tests/                                                   # Settings contracts over shared S1 descriptors and preference adapters
+│   │   │   │   │   ├── defaults.rs                                          # Manifest producers and the frozen four-layer registry contract
 │   │   │   │   │   ├── discovery.rs                                         # Real planted files on every host, with no mocked owner/write metadata
 │   │   │   │   │   ├── discovery_windows.rs                                 # Real Windows ACL, unreadability and reparse-point probes, run on the CI host
 │   │   │   │   │   ├── mod.rs                                               # Settings contracts over shared S1 descriptors and preference adapters
@@ -634,6 +635,7 @@ in place.
 │   │   │   │   ├── bootstrap_inventory.rs                                   # Shared strict schema owned by the registered bootstrap inventory kind
 │   │   │   │   ├── check.rs                                                 # The checker: discovery, each resource read by its kind, then the checks
 │   │   │   │   ├── closure.rs                                               # The shared exact-ID forward traversal for topology and selection admission
+│   │   │   │   ├── defaults.rs                                              # Manifest producers replace declared defaults in the sole S1 lowest slot
 │   │   │   │   ├── descriptor.rs                                            # A kind described as data: where its files live, how they are written
 │   │   │   │   ├── discovered.rs                                            # Discovery records shared by the legacy and scoped descriptor walkers
 │   │   │   │   ├── graph.rs                                                 # The dependency graph across resources, its nodes numbered in ID order

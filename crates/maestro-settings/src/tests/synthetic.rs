@@ -15,6 +15,7 @@ const REPLY_CAP: SettingDescriptor = SettingDescriptor {
         min: 64,
         max: 4096,
         off: true,
+        power_of_two: false,
     },
     default: Cow::Borrowed("off"),
     description: Cow::Borrowed("A synthetic cap on each answerer reply."),

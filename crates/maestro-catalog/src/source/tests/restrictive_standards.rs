@@ -23,6 +23,7 @@ fn settings() -> Registry {
                 min: 1,
                 max: 100,
                 off: false,
+                power_of_two: false,
             },
             "100",
             SettingClass::Bounded,

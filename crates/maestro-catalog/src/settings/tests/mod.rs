@@ -1,4 +1,5 @@
 //! Settings contracts over shared S1 descriptors and preference adapters.
+mod defaults;
 mod discovery;
 #[cfg(windows)]
 mod discovery_windows;

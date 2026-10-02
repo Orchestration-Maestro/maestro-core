@@ -6,6 +6,7 @@
 use super::standards::check_references;
 use super::{
     area_walk,
+    defaults::{DEFAULTS_PATH, from_snapshot},
     descriptor::{Layout, Scope},
     graph,
     load::{Context, Loaded, load},
@@ -113,8 +114,23 @@ fn build_snapshot(
             }
         }
     }
+    let resources: Vec<_> = loaded
+        .iter()
+        .map(|loaded| loaded.resource.clone())
+        .collect();
+    let (settings, common) =
+        from_snapshot(snapshot, &resources, known.settings.registry(), limits)?;
+    if common {
+        claimed.insert(DEFAULTS_PATH.to_owned());
+    }
     diagnostics.extend(area_walk::unclaimed(snapshot, &claimed));
     if diagnostics.is_empty() {
+        let known = Known {
+            settings: settings
+                .as_ref()
+                .map_or(known.settings, |settings| settings),
+            ..known
+        };
         diagnostics = across(&loaded, registry, known);
     }
     if diagnostics.is_empty() {

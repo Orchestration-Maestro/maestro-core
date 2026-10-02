@@ -52,6 +52,9 @@ pub enum SettingKind {
         min: i64,
         /// The greatest accepted.
         max: i64,
+        /// Whether positive powers of two are the only accepted integers.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        power_of_two: bool,
         /// Whether `"off"` is accepted too.
         off: bool,
     },
