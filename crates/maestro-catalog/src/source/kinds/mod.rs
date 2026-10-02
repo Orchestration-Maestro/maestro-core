@@ -6,7 +6,7 @@ mod builtin;
 mod instructions;
 mod model_card;
 mod package;
-mod preset;
+pub(crate) mod preset;
 mod skill;
 mod standard;
 mod standard_check;

@@ -5,12 +5,12 @@ use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
-    path::Path,
+    path::{Path, PathBuf},
     str,
 };
 
 /// Relative file names mapped to exact inert bytes.
-type FileBytes = BTreeMap<String, Vec<u8>>;
+pub(super) type FileBytes = BTreeMap<String, Vec<u8>>;
 
 /// One named preset's root-relative file set.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -23,6 +23,10 @@ pub struct Preset {
     pub source_files: FileBytes,
     /// Executable names to report without invoking them.
     pub tools: Vec<String>,
+    /// Required binding references, reported without resolving or invoking them.
+    pub bindings: Vec<String>,
+    /// Captured catalog root for input revalidation; absent for non-filesystem ports.
+    pub source_root: Option<PathBuf>,
 }
 
 /// Replaceable source of preset definitions and their inert file bytes.
@@ -92,6 +96,8 @@ fn load_preset(root: &Path, name: &str) -> Result<Preset, String> {
         files,
         source_files,
         tools: manifest.tools,
+        bindings: Vec::new(),
+        source_root: None,
     })
 }
 
@@ -119,7 +125,7 @@ fn load_preset_files(
 }
 
 /// Read every manifest and template through held handles and refuse oversized bytes.
-fn read_preset_file(root: &Path, relative: &str) -> Result<Vec<u8>, String> {
+pub(super) fn read_preset_file(root: &Path, relative: &str) -> Result<Vec<u8>, String> {
     validate_source_path(relative)?;
     let path = Path::new(relative);
     let parent = path
@@ -137,7 +143,7 @@ fn read_preset_file(root: &Path, relative: &str) -> Result<Vec<u8>, String> {
 }
 
 /// An overlay or executable is a single name, not a path or command line.
-fn validate_top_level_name(name: &str) -> Result<(), String> {
+pub(super) fn validate_top_level_name(name: &str) -> Result<(), String> {
     validate_source_path(name)?;
     if name.contains('/') || name.chars().any(char::is_whitespace) {
         return Err(format!("expected a single top-level name: {name}"));
@@ -146,7 +152,7 @@ fn validate_top_level_name(name: &str) -> Result<(), String> {
 }
 
 /// Refuse path components that could leave a preset's overlay directory.
-fn validate_source_path(path: &str) -> Result<(), String> {
+pub(super) fn validate_source_path(path: &str) -> Result<(), String> {
     if path.is_empty()
         || path.contains(['\\', ':'])
         || path.split('/').any(|part| matches!(part, "" | "." | ".."))

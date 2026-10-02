@@ -39,6 +39,8 @@ impl PresetPort for Presets {
                     )]),
                     source_files: BTreeMap::new(),
                     tools: Vec::new(),
+                    bindings: Vec::new(),
+                    source_root: None,
                 }),
                 "rust-service" => Ok(Preset {
                     name: name.clone(),
@@ -48,6 +50,8 @@ impl PresetPort for Presets {
                     )]),
                     source_files: BTreeMap::new(),
                     tools: Vec::new(),
+                    bindings: Vec::new(),
+                    source_root: None,
                 }),
                 _ => Err(format!("unknown preset {name}")),
             })

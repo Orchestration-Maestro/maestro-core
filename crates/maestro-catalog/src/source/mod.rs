@@ -8,7 +8,7 @@ pub(crate) mod closure;
 mod descriptor;
 mod discovered;
 mod graph;
-mod kinds;
+pub(crate) mod kinds;
 mod load;
 mod metadata;
 mod naming;

@@ -1,0 +1,8 @@
+name = "starter"
+bindings = ["tool:rust/check"]
+tools = ["cargo"]
+
+[[files]]
+source = "recipes.json"
+output = ".maestro/recipes.json"
+sha256 = "sha256:1c038479303cb5e74bcd38923cbff61005b63d7b963d3f63409c107f1ec32453"

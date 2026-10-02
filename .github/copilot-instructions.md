@@ -494,11 +494,15 @@ in place.
 │   │   │   └── secret-paths.json                                            # JSON data: secret paths
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── bootstrap/                                                   # Inspect a project and plan a preset composition without executing its files
+│   │   │   │   ├── tests/                                                   # Bootstrap contract tests, grouped by adapter
+│   │   │   │   │   ├── inventory.rs                                         # Owner-local data inventories through the shared bootstrap composition
+│   │   │   │   │   ├── legacy.rs                                            # Rust source: legacy
+│   │   │   │   │   └── mod.rs                                               # Bootstrap contract tests, grouped by adapter
 │   │   │   │   ├── compose.rs                                               # Resolve explicit preset names through a replaceable source port
 │   │   │   │   ├── inspect.rs                                               # Read a project inventory as inert data; no script or build tool is launched
+│   │   │   │   ├── inventory.rs                                             # Explicit area-local inventory data behind the existing preset port
 │   │   │   │   ├── mod.rs                                                   # Inspect a project and plan a preset composition without executing its files
-│   │   │   │   ├── project.rs                                               # Preview and apply project files through C04's digest-bound writer
-│   │   │   │   └── tests.rs                                                 # Rust source: tests
+│   │   │   │   └── project.rs                                               # Preview and apply project files through C04's digest-bound writer
 │   │   │   ├── files/                                                       # Shared digest-bound file plans, durable ownership, and crash-safe removal
 │   │   │   │   ├── tests/                                                   # Integration tests
 │   │   │   │   │   ├── crashes.rs                                           # Rust source: crashes
@@ -1615,6 +1619,22 @@ in place.
 │       │   │   ├── base/                                                    # Base
 │       │   │   │   └── .github/                                             # GitHub metadata, templates and workflows
 │       │   │   │       └── copilot-instructions.md                          # This guide, written by rust-gate guide at every commit
+│       │   │   ├── owner-local/                                             # Owner local
+│       │   │   │   ├── bootstrap/                                           # Bootstrap
+│       │   │   │   │   ├── base/                                            # Base
+│       │   │   │   │   │   └── files/                                       # Files
+│       │   │   │   │   │       └── instructions.md                          # Sample document: instructions
+│       │   │   │   │   └── base.toml                                        # TOML settings: base
+│       │   │   │   ├── languages/                                           # Languages
+│       │   │   │   │   └── rust/                                            # Rust
+│       │   │   │   │       └── bootstrap/                                   # Bootstrap
+│       │   │   │   │           ├── starter/                                 # Starter
+│       │   │   │   │           │   └── files/                               # Files
+│       │   │   │   │           │       └── recipes.json                     # JSON data: recipes
+│       │   │   │   │           └── starter.toml                             # TOML settings: starter
+│       │   │   │   └── presets/                                             # Presets
+│       │   │   │       ├── base.toml                                        # TOML settings: base
+│       │   │   │       └── rust.toml                                        # TOML settings: rust
 │       │   │   ├── rust/                                                    # Rust
 │       │   │   │   └── .maestro/                                            # .maestro
 │       │   │   │       └── recipes.json                                     # JSON data: recipes

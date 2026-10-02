@@ -272,3 +272,35 @@ fn area_tree(area: &str) -> MemoryTree {
     };
     MemoryTree::default().with(&format!("{area}/package.toml"), &package_source(kind, name))
 }
+
+#[test]
+fn preset_template_selectors_refuse_paths_before_bootstrap() {
+    let valid = preset_source();
+    let registry = builtin().unwrap();
+    for selector in [
+        "common",
+        "common/base/extra",
+        "common/../base",
+        "Common/base",
+        "common/base.toml",
+    ] {
+        let result = check_by(
+            &MemoryTree::owned().with(
+                "presets/minimal.toml",
+                &valid.replace("common/base", selector),
+            ),
+            &registry,
+            &Limits::PRODUCTION,
+        );
+        assert!(result.is_err(), "accepted {selector}");
+        assert!(result.unwrap_err().to_string().contains("area/inventory"));
+    }
+    assert!(
+        check_by(
+            &MemoryTree::owned().with("presets/minimal.toml", &valid),
+            &registry,
+            &Limits::PRODUCTION
+        )
+        .is_ok()
+    );
+}

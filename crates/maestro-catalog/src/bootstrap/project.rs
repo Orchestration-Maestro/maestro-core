@@ -1,5 +1,8 @@
 //! Preview and apply project files through C04's digest-bound writer.
-use super::{compose::PresetPort, inspect::Inspection};
+use super::{
+    compose::{PresetPort, read_preset_file},
+    inspect::Inspection,
+};
 use crate::files::{FileInput, FilePlan, apply as apply_files, digest};
 use crate::limits::Limits;
 use crate::policy::workspace::CheckedTrust;
@@ -20,6 +23,21 @@ pub struct BootstrapPreview {
     pub inspection: Inspection,
     /// Availability of each manifest-declared prerequisite on the current PATH.
     pub prerequisites: Vec<Prerequisite>,
+    /// Inventory-required binding references, reported as inert data.
+    pub bindings: Vec<String>,
+    /// Fingerprints of filesystem inputs captured by the inventory adapter.
+    sources: Vec<CapturedSource>,
+}
+
+/// A captured input fingerprint, never installation or trust authority.
+#[derive(Debug)]
+struct CapturedSource {
+    /// Absolute catalog root captured during resolution.
+    root: PathBuf,
+    /// Catalog-relative source file.
+    path: String,
+    /// Digest of the exact bytes decoded at preview.
+    sha256: String,
 }
 
 /// A manifest-declared tool's availability, checked without executing it.
@@ -94,6 +112,25 @@ pub fn preview(
             found: tool_found(tool),
         })
         .collect();
+    let bindings = presets
+        .iter()
+        .flat_map(|preset| &preset.bindings)
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let captured = presets
+        .iter()
+        .flat_map(|preset| {
+            preset.source_files.iter().filter_map(|(path, bytes)| {
+                preset.source_root.as_ref().map(|root| CapturedSource {
+                    root: root.clone(),
+                    path: path.clone(),
+                    sha256: digest(bytes),
+                })
+            })
+        })
+        .collect();
     let sources = presets
         .iter()
         .flat_map(|preset| preset.source_files.iter())
@@ -139,6 +176,8 @@ pub fn preview(
         plan,
         inspection,
         prerequisites,
+        bindings,
+        sources: captured,
     })
 }
 
@@ -147,6 +186,14 @@ pub fn preview(
 /// # Errors
 /// Returns a changed-preview or filesystem error without modifying unowned files.
 pub fn apply(root: &Path, preview: &BootstrapPreview, trust: &CheckedTrust<'_>) -> io::Result<()> {
+    for source in &preview.sources {
+        let bytes = read_preset_file(&source.root, &source.path).map_err(|error| {
+            io::Error::other(format!("input changed; run preview again: {error}"))
+        })?;
+        if digest(&bytes) != source.sha256 {
+            return Err(io::Error::other("input changed; run preview again"));
+        }
+    }
     apply_files(root, &preview.plan, trust)
 }
 

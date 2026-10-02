@@ -2319,6 +2319,11 @@ source/runtime implementation or private-data read, and no delivered claim.
 
 ### C36 Area-based preset and inventory composition [US1, US5] (3–4 h)
 
+C36 wires the CLI to the checked closure through C50’s inventory adapter, then
+deletes the legacy `DirectoryPresets` overlay reader and migrates its fixtures.
+Hand the adapter the checked closure’s decoded presets and remove the temporary
+ARC-005 exception for `source::kinds`.
+
 **Phase:** P1/M3
 **After:** C34, C05, C50.
 **Files:** crates/maestro-catalog/src/bootstrap/{compose.rs,tests.rs}; crates/maestro-catalog/src/source/kinds/preset.rs; tests/fixtures/catalog/bootstrap/; crates/maestro/tests/it/catalog_init.rs.
@@ -2691,10 +2696,10 @@ No invented pin, duplicate server registry or extra seed charge; estimate stays 
 **Design coverage:** MD04 (approved design §8.4).
 **Named tests:** `selected_owner_inventory_accepts`, `unselected_inventory_refuses`, `inventory_escape_refuses`, `identical_output_collision_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Owner-local explicit inventories through PresetPort; unknown/unselected inventory, escape, changed input and identical-output collision refuse.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Owner-local explicit inventories through PresetPort; unknown/unselected inventory, escape, changed input and identical-output collision refuse.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 
