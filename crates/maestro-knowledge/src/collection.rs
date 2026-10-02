@@ -287,7 +287,7 @@ impl error::Error for Error {
 }
 
 /// A source-policy resource identity, not a path or an access grant.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PolicyReference {
     /// Logical resource identifier, validated by the source-policy resolver.

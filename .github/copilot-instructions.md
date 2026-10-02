@@ -491,6 +491,7 @@ in place.
 │   │   │       ├── n15_validation.rs                                                    # Independent boundary fixtures for registry guards and unmasked red proofs
 │   │   │       ├── n16_define_extraction_fidelity_and_cumulative_decode_contracts.rs    # Synthetic source-correspondence and core-owned parser preflight contracts
 │   │   │       ├── n16_fix_regressions.rs                                               # Review regressions for shared reservations, provenance and exact fidelity
+│   │   │       ├── n16_physical_order_index.rs                                          # Indexed physical-order matching preserves exact identity and first-match semantics
 │   │   │       ├── n16_stage_regressions.rs                                             # Counter-specific provenance and exact worst-ratio completion regressions
 │   │   │       ├── n30_additional_contracts.rs                                          # Typed proposal inputs, fresh CAS and scoped inheritance regressions
 │   │   │       ├── n30_implement_proposal_and_activation_manifest_write_port.rs         # Synthetic write-port conformance; no installed catalog admission is claimed

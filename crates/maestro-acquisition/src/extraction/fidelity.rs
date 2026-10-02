@@ -3,7 +3,7 @@ use super::contract::{Content, Extraction, MappedUnit, Measured, Measurement, St
 use crate::{Ref, policy::shape::valid_id};
 use maestro_kernel::{acquisition::Handle, artifact::Digest, document::Outcome};
 use serde::{Deserialize, Serialize};
-use std::cmp::Reverse;
+use std::{cmp::Reverse, collections::HashMap};
 
 /// Content-free findings; original evidence remains in the held document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -170,6 +170,13 @@ pub fn evaluate(document: Extraction) -> EvaluatedExtraction {
 }
 /// Physical order across all kinds follows the independent source spans.
 fn compare_physical_order(document: &Extraction, findings: &mut Vec<Finding>) {
+    let mut source_outputs = HashMap::with_capacity(document.units.len());
+    for mapped in &document.units {
+        // Preserve the first exact match, including an absent output range.
+        source_outputs
+            .entry(&mapped.source)
+            .or_insert(mapped.output);
+    }
     let mut ordered = Vec::new();
     for measurement in &document.measurements {
         let Measured::Known(source) = &measurement.source else {
@@ -179,13 +186,7 @@ fn compare_physical_order(document: &Extraction, findings: &mut Vec<Finding>) {
             let Some(span) = unit.span else {
                 continue;
             };
-            // ponytail: quadratic matching; index source units if inventories grow.
-            if let Some(output) = document
-                .units
-                .iter()
-                .find(|mapped| mapped.source == *unit)
-                .and_then(|mapped| mapped.output)
-            {
+            if let Some(output) = source_outputs.get(unit).copied().flatten() {
                 ordered.push((span, output, unit.kind));
             }
         }

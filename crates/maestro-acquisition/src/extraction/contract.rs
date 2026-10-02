@@ -5,7 +5,7 @@ use maestro_kernel::{acquisition::Handle, artifact::Digest};
 use serde::{Deserialize, Serialize};
 
 /// Half-open byte span in the immutable source or the extracted Markdown.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ByteSpan {
     /// Inclusive byte offset.
@@ -29,7 +29,7 @@ impl ByteSpan {
 }
 
 /// Required cohorts compare ordered correspondence and content, not just totals.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StructureKind {
     /// Heading text and order.
@@ -77,7 +77,7 @@ pub enum Measured<T> {
     Known(T),
 }
 /// Exact literal content or an immutable required asset identity.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
     content = "value",
@@ -91,7 +91,7 @@ pub enum Content {
     Asset(Ref),
 }
 /// One observed source unit, tied to the document's immutable source artifact.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SourceUnit {
     /// Typed structure cohort.

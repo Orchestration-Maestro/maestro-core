@@ -101,6 +101,7 @@ mod n13_review_discovery;
 mod n13_review_kernel;
 
 mod n16_define_extraction_fidelity_and_cumulative_decode_contracts;
+mod n16_physical_order_index;
 
 mod n16_fix_regressions;
 mod n16_stage_regressions;
