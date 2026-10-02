@@ -159,7 +159,7 @@
 //!   `es-419` (a 2-3 letter language, an optional script and region; others
 //!   are refused by name); code and documentation stay in English.
 //! - `tone`: `brief`, `normal` or `detailed` ("Very detailed"); it adds one
-//!   versioned instruction (`presentation/1`) to the answer prompt, prose
+//!   versioned instruction (`presentation/2`) to the answer prompt, prose
 //!   only.
 //! - `models.compute`: `gpu`, the machine's GPU backend, or `off`: no model
 //!   call; search keeps its keyword, exact-name and structured routes without

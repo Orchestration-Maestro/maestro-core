@@ -32,19 +32,12 @@ fn normal_tone_in_the_question_language_is_the_version_prompt_byte_for_byte() {
         PromptVersion::V2,
         PromptVersion::ProcedureFirst,
     ] {
-        assert!(
-            !messages(&presented(version, None, Tone::Normal))[0]
-                .content
-                .contains("stay English")
-        );
-        let system = &messages(&presented(version, None, Tone::Normal))[0].content;
+        let normal = messages(&presented(version, None, Tone::Normal));
+        let system = &normal[0].content;
+        assert!(!system.contains("stay English"));
         assert!(!system.contains("Keep the answer brief"));
         assert!(!system.contains("Give a detailed answer"));
-        assert_eq!(
-            messages(&presented(version, None, Tone::Normal)),
-            messages(&version.into()),
-            "{version:?}"
-        );
+        assert_eq!(normal, messages(&version.into()), "{version:?}");
     }
     assert_eq!(Tone::default(), Tone::Normal);
     assert_eq!(Presentation::default().language, None);
@@ -408,4 +401,12 @@ async fn assert_refusals(
     assert_eq!(answer.language_check, LanguageCheck::Unchecked);
     assert_eq!(answer.refusal.unwrap().message, expected[4]);
     assert_eq!(port.calls.load(Ordering::Relaxed), 0);
+}
+
+#[test]
+fn response_language_codes_name_each_host_language() {
+    use crate::answer::types::ResponseLanguage;
+    assert_eq!(ResponseLanguage::English.code(), "en");
+    assert_eq!(ResponseLanguage::French.code(), "fr");
+    assert_eq!(ResponseLanguage::Spanish.code(), "es");
 }

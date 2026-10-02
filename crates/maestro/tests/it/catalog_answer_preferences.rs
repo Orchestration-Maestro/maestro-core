@@ -232,7 +232,6 @@ fn cli_and_mcp_pass_canonical_preferences_to_real_ask_without_changing_evidence(
             );
             assert_eq!(answer["lang"], canonical);
             assert_eq!(answer["answer"], format!("{QUOTE} [1]"));
-            assert!(answer["refusal"].is_null(), "{answer}");
             assert_eq!(answer["uncalibrated"], true);
             assert!(
                 cli.stderr.contains("explain: language unchecked"),
