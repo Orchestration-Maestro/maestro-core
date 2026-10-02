@@ -135,6 +135,7 @@ fn check_install_explain_never_resolve_secrets() {
             String::from_utf8_lossy(&output.stderr)
         );
         assert!(!String::from_utf8_lossy(&output.stdout).contains(SENTINEL));
+        assert!(!String::from_utf8_lossy(&output.stderr).contains(SENTINEL));
         return;
     }
     // C18 adds the explain consumer and extends this test; no explain API exists yet.
@@ -179,6 +180,96 @@ fn check_install_explain_never_resolve_secrets() {
     }
     assert_no_sentinel(&scratch);
     fs::remove_dir_all(scratch).unwrap();
+}
+
+#[test]
+fn c60_review_probe_sequence_shapes_refuse() {
+    let registry = registry();
+    let mut accepted = Vec::new();
+    for kind in ["settings", "backend", "extension"] {
+        for value in [
+            "[\"NAME\"]",
+            "[[\"review\", \"token\"]]",
+            "[{ service = \"review\", account = \"token\" }]",
+            "{ keychain = [\"review\", \"token\"] }",
+            "[{ env = \"NAME\" }]",
+        ] {
+            let result = check_by(&tree(kind, value), &registry, &Limits::PRODUCTION);
+            println!("sequence probe {kind} {value}: {result:?}");
+            if result.is_ok() {
+                accepted.push(format!("{kind}: {value}"));
+            }
+        }
+    }
+    for value in [
+        "[\"NAME\"]",
+        "[[\"review\",\"token\"]]",
+        "[{\"service\":\"review\",\"account\":\"token\"}]",
+        "{\"keychain\":[\"review\",\"token\"]}",
+        "[{\"env\":\"NAME\"}]",
+    ] {
+        let result = serde_json::from_str::<SecretReference>(value);
+        println!("public decoder {value}: {result:?}");
+        if result.is_ok() {
+            accepted.push(format!("JSON: {value}"));
+        }
+    }
+    assert!(
+        accepted.is_empty(),
+        "non-map secret shapes accepted: {accepted:?}"
+    );
+}
+
+#[test]
+fn c60_review_probe_nested_secret_fields() {
+    let mut registry = builtin().unwrap();
+    let mut descriptor = glossary();
+    descriptor.kind = "nested-secret".to_owned();
+    descriptor.directory = "synthetic-nested-secret".to_owned();
+    descriptor.fields = vec![Field::required(
+        "outer",
+        FieldType::Table {
+            fields: vec![Field::required("credential", FieldType::SecretReference)],
+        },
+    )];
+    registry.register(descriptor).unwrap();
+    for (value, accepts) in [
+        ("{ env = \"NAME\" }", true),
+        (
+            "{ keychain = { service = \"review\", account = \"token\" } }",
+            true,
+        ),
+        ("\"synthetic-literal\"", false),
+        (
+            "{ env = \"NAME\", keychain = { service = \"review\", account = \"token\" } }",
+            false,
+        ),
+        ("{ default = \"synthetic-literal\" }", false),
+    ] {
+        for inline in [true, false] {
+            let source = if inline {
+                format!("outer = {{ credential = {value} }}\n{METADATA}")
+            } else {
+                format!("{METADATA}[outer]\ncredential = {value}\n")
+            };
+            let tree = MemoryTree::owned().with("synthetic-nested-secret/example.toml", &source);
+            let result = check_by(&tree, &registry, &Limits::PRODUCTION);
+            assert_eq!(
+                result.is_ok(),
+                accepts,
+                "inline={inline}: {value}: {result:?}"
+            );
+            if let Err(refusal) = result {
+                assert!(
+                    refusal
+                        .diagnostics
+                        .iter()
+                        .any(|diagnostic| diagnostic.key == "outer.credential")
+                );
+                assert!(!refusal.to_string().contains("synthetic-literal"));
+            }
+        }
+    }
 }
 
 /// Inspect every installed file and real durable ownership receipt, not just projections.

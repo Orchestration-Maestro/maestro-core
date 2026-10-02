@@ -212,6 +212,7 @@ pub enum FieldType {
     /// A nonempty string.
     Text,
     /// A typed environment-variable or keychain reference, never a literal secret.
+    /// Arrays of secret references cannot be described by `FieldType`.
     SecretReference,
     /// An integer.
     Integer,
