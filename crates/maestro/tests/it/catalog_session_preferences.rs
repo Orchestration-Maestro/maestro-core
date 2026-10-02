@@ -170,7 +170,8 @@ fn init_never_parses_an_unsafe_candidate_skipped_by_session() {
     let home = Home::bare();
     let root = project(&home, "malformed planted file");
     make_other_writable(&root.join(".maestro/config.toml"));
-    let catalog = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/catalog");
+    let catalog = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/catalog/bootstrap/owner-local");
     let output = home.run_in(
         &root,
         &[
@@ -181,7 +182,7 @@ fn init_never_parses_an_unsafe_candidate_skipped_by_session() {
             "--catalog-dir",
             catalog.to_str().unwrap(),
             "--preset",
-            "knowledge-client",
+            "base",
         ],
     );
     // File-plan preview may refuse replacing unowned bytes, but never as a TOML parse failure.

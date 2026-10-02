@@ -1,6 +1,6 @@
 //! Resolve-wide source capture and apply revalidation regressions.
 use super::{
-    super::{AreaInventories, PresetPort},
+    super::PresetPort,
     inventory::Fixture,
     support::{apply, preview},
 };
@@ -13,9 +13,19 @@ fn same_source_two_outputs_counts_once() {
     let fixture = Fixture::new();
     let manifest = fixture.catalog.join("bootstrap/base.toml");
     let text = fs::read_to_string(&manifest).unwrap();
-    let entry = text.split_once("[[files]]").unwrap().1;
+    let entry = text
+        .split_once("[[files]]")
+        .unwrap()
+        .1
+        .split_once("[metadata]")
+        .unwrap()
+        .0;
     let second = entry.replace(".github/copilot-instructions.md", "second.md");
-    fs::write(manifest, format!("{text}\n[[files]]{second}")).unwrap();
+    fs::write(
+        manifest,
+        text.replace("[metadata]", &format!("[[files]]{second}\n[metadata]")),
+    )
+    .unwrap();
     let bytes = [
         "presets/base.toml",
         "bootstrap/base.toml",
@@ -29,7 +39,7 @@ fn same_source_two_outputs_counts_once() {
         archive_total_bytes: bytes,
         ..Limits::PRODUCTION
     };
-    let port = AreaInventories::new(&fixture.catalog, &fixture.areas).with_limits(limits);
+    let port = fixture.port().unwrap().with_limits(limits);
     let resolved = port.resolve(&["base".into()]).unwrap();
     assert_eq!(resolved[0].files.len(), 2);
     assert_eq!(resolved[0].source_files.len(), 3);
@@ -46,7 +56,13 @@ fn same_source_different_digests_refuses() {
     let fixture = Fixture::new();
     let manifest = fixture.catalog.join("bootstrap/base.toml");
     let text = fs::read_to_string(&manifest).unwrap();
-    let entry = text.split_once("[[files]]").unwrap().1;
+    let entry = text
+        .split_once("[[files]]")
+        .unwrap()
+        .1
+        .split_once("[metadata]")
+        .unwrap()
+        .0;
     let old = entry
         .lines()
         .find(|line| line.starts_with("sha256 ="))
@@ -54,7 +70,11 @@ fn same_source_different_digests_refuses() {
     let second = entry
         .replace(".github/copilot-instructions.md", "second.md")
         .replace(old, &format!("sha256 = \"{}\"", digest(b"different\n")));
-    fs::write(manifest, format!("{text}\n[[files]]{second}")).unwrap();
+    fs::write(
+        manifest,
+        text.replace("[metadata]", &format!("[[files]]{second}\n[metadata]")),
+    )
+    .unwrap();
     fixture.refuses(
         &["base".into()],
         "inventory digest mismatch: bootstrap/base/files/instructions.md",
@@ -64,9 +84,9 @@ fn same_source_different_digests_refuses() {
 #[test]
 fn shared_source_across_presets_counts_once() {
     use crate::limits::Limits;
-    let mut fixture = Fixture::new();
-    fixture.areas.insert("alias".into(), String::new());
-    fixture.edit("presets/rust.toml", "rust/starter", "alias/base");
+    let fixture = Fixture::new();
+
+    fixture.edit("presets/rust.toml", ", \"rust/starter\"", "");
     let bytes = [
         "presets/base.toml",
         "presets/rust.toml",
@@ -81,14 +101,14 @@ fn shared_source_across_presets_counts_once() {
         archive_total_bytes: bytes,
         ..Limits::PRODUCTION
     };
-    let port = AreaInventories::new(&fixture.catalog, &fixture.areas).with_limits(limits);
+    let port = fixture.port().unwrap().with_limits(limits);
     let resolved = port.resolve(&["base".into(), "rust".into()]).unwrap();
     let path = "bootstrap/base/files/instructions.md";
     assert_eq!(resolved[0].source_files.len(), 3);
-    assert_eq!(resolved[1].source_files.len(), 3);
+    assert_eq!(resolved[1].source_files.len(), 1);
     assert_eq!(
         resolved[0].source_files[path],
-        resolved[1].source_files[path]
+        fs::read(fixture.catalog.join(path)).unwrap()
     );
 }
 
@@ -100,7 +120,7 @@ fn deleted_input_refuses_before_writes() {
         "bootstrap/base/files/instructions.md",
     ] {
         let fixture = Fixture::new();
-        let port = AreaInventories::new(&fixture.catalog, &fixture.areas);
+        let port = fixture.port().unwrap();
         let proposal = preview(&fixture.project, &port, &["base".into()]).unwrap();
         fs::remove_file(fixture.catalog.join(path)).unwrap();
         let error = apply(&fixture.project, &proposal).unwrap_err();
@@ -136,7 +156,9 @@ fn aggregate_bounds_cross_presets() {
     };
     let names = ["base".into(), "rust".into()];
     assert!(
-        AreaInventories::new(&fixture.catalog, &fixture.areas)
+        fixture
+            .port()
+            .unwrap()
             .with_limits(limits)
             .resolve(&names)
             .is_ok()
@@ -157,7 +179,9 @@ fn aggregate_bounds_cross_presets() {
             "source bytes exceed limit",
         ),
     ] {
-        let error = AreaInventories::new(&fixture.catalog, &fixture.areas)
+        let error = fixture
+            .port()
+            .unwrap()
             .with_limits(limits)
             .resolve(&names)
             .unwrap_err();

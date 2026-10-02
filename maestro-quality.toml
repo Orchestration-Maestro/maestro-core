@@ -393,19 +393,7 @@ path = "unicode-width@0.1.14"
 reason = "Cedar 4.13.0 adoption (C19, ADR-0020): miette 7.6 uses unicode-width 0.1 while Cedar formatter pretty 0.12.5 uses 0.2; remove when miette adopts unicode-width 0.2"
 
 [[exception]]
-rule = "ARC-005"
-path = "crates/maestro-catalog/src/source/mod.rs"
-item = "Directory"
-reason = "public source-tree adapter used by the CLI source checker and policy loader; keep the existing port instead of duplicating discovery (ARC-005 does not count cross-crate callers)"
-
-[[exception]]
 rule = "TST-001"
 path = "crates/maestro-test-clock/src/stopped.rs"
 item = "work_is_constructed_on_the_stopped_clock"
 reason = "proves paused Tokio time ignores real time; the assertion is equality on paused time, so it is deterministic whatever the sleep length; 20 ms"
-
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-catalog/src/source/mod.rs"
-item = "kinds"
-reason = "The preset kind owns the one decoder for presets/<name>.toml; the bootstrap inventory adapter reuses it rather than a second parser. Remove when bootstrap stops decoding presets itself: C36 hands the adapter the checked closure's decoded presets."

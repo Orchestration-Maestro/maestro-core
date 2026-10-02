@@ -18,7 +18,7 @@ fn add(home: &Home, root: &Path) -> super::support::Ended {
 
 fn init(home: &Home, root: &Path, extra: &[&str]) -> super::support::Ended {
     let catalog = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/catalog")
+        .join("../../tests/fixtures/catalog/bootstrap/owner-local")
         .canonicalize()
         .unwrap();
     let mut args = vec![
@@ -26,7 +26,7 @@ fn init(home: &Home, root: &Path, extra: &[&str]) -> super::support::Ended {
         "--catalog-dir",
         catalog.to_str().unwrap(),
         "--preset",
-        "knowledge-client",
+        "base",
         "--apply",
     ];
     args.extend(extra);

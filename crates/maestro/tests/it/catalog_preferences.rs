@@ -15,7 +15,7 @@ use std::{
 
 fn catalog() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/catalog")
+        .join("../../tests/fixtures/catalog/bootstrap/owner-local")
         .canonicalize()
         .unwrap()
 }
@@ -42,7 +42,7 @@ fn preview(
         "--catalog-dir",
         catalog.to_str().unwrap(),
         "--preset",
-        "knowledge-client",
+        "base",
     ];
     if apply {
         args.push("--apply");

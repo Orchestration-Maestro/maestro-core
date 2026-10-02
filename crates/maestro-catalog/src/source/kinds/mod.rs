@@ -2,11 +2,12 @@
 //! special, the hook it selects.
 
 mod agent;
+mod bootstrap_inventory;
 mod builtin;
 mod instructions;
 mod model_card;
 mod package;
-pub(crate) mod preset;
+mod preset;
 mod skill;
 mod standard;
 mod standard_check;

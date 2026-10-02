@@ -5,13 +5,14 @@ use crate::{
     presentation::messages::MessageKey,
 };
 use maestro_catalog::{
-    bootstrap::{self, DirectoryPresets, Prerequisite},
+    bootstrap::{self, AreaInventories, Prerequisite},
     files::{self, FilePlan},
     limits::Limits,
     policy::workspace::{
         Access, CheckedTrust, JournalTrust, WorkspaceTrust as _, write_preferences,
     },
     settings::{PreferencesDraft, WorkspacePreferences, draft_preferences},
+    source::{Known, builtin, frozen_rows},
 };
 use maestro_kernel::workspace::WorkspaceAuthority;
 use serde::Serialize;
@@ -35,6 +36,8 @@ struct InitDocument<'a> {
     already_applied: bool,
     /// Each manifest-declared prerequisite, checked without invocation.
     prerequisites: &'a [Prerequisite],
+    /// Inventory-required binding references, reported without resolving or executing.
+    bindings: &'a [String],
     /// The project root shown to the user.
     root: &'a Path,
     /// The C04 digest-bound file plan.
@@ -92,7 +95,19 @@ pub(super) fn run(
     );
     let checked = CheckedTrust::new(&adapter, &boundaries);
     let preferences = preference_draft(&root, source, choices, &checked)?;
-    let provider = DirectoryPresets::new(catalog_dir);
+    let registry = builtin().map_err(Failure::failed)?;
+    let settings = maestro_settings::Registry::built_in().map_err(Failure::failed)?;
+    let rows = frozen_rows();
+    let provider = AreaInventories::new(
+        catalog_dir,
+        registry,
+        Known {
+            rows: &rows,
+            settings: &settings,
+            today: super::catalog::today()?,
+        },
+    )
+    .map_err(Failure::refused)?;
     let preview =
         bootstrap::preview(&root, &provider, presets, &checked).map_err(Failure::refused)?;
     let already_applied = preview.plan.is_applied()
@@ -105,6 +120,7 @@ pub(super) fn run(
         applied: false,
         already_applied,
         prerequisites: &preview.prerequisites,
+        bindings: &preview.bindings,
         root: &root,
         files: &preview.plan,
         preferences: preferences.as_ref(),

@@ -6,3 +6,9 @@ tools = ["sh"]
 source = "instructions.md"
 output = ".github/copilot-instructions.md"
 sha256 = "sha256:ad16f6c9082647f5d74f4a56b1b7685e7dd98555a7381e18b8540d3ed4215ca5"
+
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["owner.catalog"]
+workflows = ["ctm-question"]

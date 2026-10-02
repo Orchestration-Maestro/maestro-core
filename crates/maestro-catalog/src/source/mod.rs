@@ -3,12 +3,13 @@
 //! then the checks across resources.
 
 mod area_walk;
+pub(crate) mod bootstrap_inventory;
 mod check;
 pub(crate) mod closure;
 mod descriptor;
 mod discovered;
 mod graph;
-pub(crate) mod kinds;
+mod kinds;
 mod load;
 mod metadata;
 mod naming;
@@ -39,3 +40,5 @@ pub use types::{
     Catalog, Cause, Diagnostic, Float, Known, KnownRows, KnownSettings, Maturity, Metadata,
     Problems, Refusal, Resource, ResourceId, SCHEMA, Value, frozen_rows,
 };
+
+pub(crate) use scan::Snapshot;

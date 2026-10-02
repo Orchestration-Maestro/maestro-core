@@ -17,6 +17,11 @@ pub(super) trait KindRules: fmt::Debug + Sync {
     ) {
     }
 
+    /// Exact inert payload paths owned by this decoded resource.
+    fn assets(&self, _resource: &Resource) -> Result<Vec<String>, String> {
+        Ok(Vec::new())
+    }
+
     /// The resources `resource` depends on beyond its `requires`.
     fn edges(&self, _resource: &Resource) -> Vec<ResourceId> {
         Vec::new()

@@ -167,7 +167,7 @@ pub(super) fn load(
         &mut primary
     };
     let declared = found.and_then(|found| metadata(&found, &prefix, rules, into));
-    let resource = table.zip(declared).map(|(fields, metadata)| Resource {
+    let mut resource = table.zip(declared).map(|(fields, metadata)| Resource {
         id: ResourceId {
             kind: unit.kind.clone(),
             namespace: unit.namespace.clone(),
@@ -183,8 +183,12 @@ pub(super) fn load(
         metadata,
         fields,
     });
-    if let (Some(resource), Some(rules)) = (&resource, registration.rules) {
+    if let (Some(resource), Some(rules)) = (&mut resource, registration.rules) {
         rules.check_resource(resource, body, context.known, &mut primary);
+        match rules.assets(resource) {
+            Ok(assets) => resource.data.extend(assets),
+            Err(message) => primary.push(("files".to_owned(), message)),
+        }
     }
     if let Some(resource) = &resource {
         local(resource, descriptor, &mut primary);

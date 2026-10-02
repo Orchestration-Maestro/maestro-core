@@ -1,7 +1,10 @@
 //! Bootstrap contract tests, grouped by adapter.
+mod discovery;
 mod inventory;
 mod inventory_reuse;
-mod legacy;
+mod project;
+mod selection;
+mod snapshot;
 mod support;
 
-use super::{DirectoryPresets, Preset, PresetPort, compose, inspect, project};
+use super::{Preset, PresetPort, compose, inspect};

@@ -75,7 +75,7 @@ pub(super) enum Noun {
         /// Reviewed authoring catalog directory.
         #[arg(long, value_name = "DIR")]
         catalog_dir: PathBuf,
-        /// Explicit preset name; repeat to compose overlays.
+        /// Explicit preset name; repeat to compose inventories.
         #[arg(long = "preset", required = true)]
         presets: Vec<String>,
         /// Apply the displayed digest-bound plan.

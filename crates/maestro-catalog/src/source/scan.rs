@@ -15,6 +15,7 @@ use std::{
 };
 
 /// The result of the only original read of a source file.
+#[derive(Debug)]
 enum CachedFile {
     /// Original bounded bytes.
     Bytes(Vec<u8>),
@@ -23,7 +24,8 @@ enum CachedFile {
 }
 
 /// Bounded listings, reused by discovery instead of walking the filesystem twice.
-pub(super) struct Snapshot {
+#[derive(Debug)]
+pub(crate) struct Snapshot {
     /// Counted original bytes or their original read failure, never reopened.
     files: BTreeMap<String, CachedFile>,
     /// Listings by relative directory; includes empty directories.

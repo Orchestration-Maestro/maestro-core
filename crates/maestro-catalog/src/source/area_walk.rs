@@ -56,7 +56,7 @@ pub(super) fn discover(
         }
     }
     walker.namespaces(registry);
-    walker.unclaimed();
+    walker.found.claimed = walker.consumed;
     Ok(walker.found)
 }
 
@@ -246,39 +246,6 @@ impl Walker<'_> {
         }
     }
 
-    /// Refuse names and unclaimed nonempty content, including shared support roots.
-    fn unclaimed(&mut self) {
-        for (directory, entries) in &self.snapshot.directories {
-            for entry in entries {
-                let path = join(directory, &entry.name);
-                self.check_path(&path, entry.kind);
-            }
-        }
-    }
-
-    /// Refuse product/native names and content without an exact inventory placement.
-    fn check_path(&mut self, path: &str, kind: EntryKind) {
-        if !naming::functional(path, kind) {
-            self.note(
-                path,
-                "must use a functional name, not a registered product or misplaced native filename",
-            );
-        }
-        if path == GENERATED_CODEOWNERS.path {
-            if kind != EntryKind::File {
-                self.note(path, "generated CODEOWNERS must be a regular file");
-            }
-            return;
-        }
-        if kind != EntryKind::Directory && !self.consumed.contains(path) {
-            self.note(
-                path,
-                "not a registered v4 placement; nested/unknown areas and unregistered trees \
-                 refuse; migrate old or mixed layouts to maestro-source/2",
-            );
-        }
-    }
-
     /// Add a located refusal without parsing any content.
     fn note(&mut self, path: &str, message: &str) {
         self.found
@@ -314,4 +281,46 @@ fn exists(snapshot: &Snapshot, path: &str) -> bool {
             .iter()
             .any(|entry| entry.name == name && entry.kind == EntryKind::File)
     })
+}
+
+/// Verify exact decoded/static claims; naming and link checks remain unconditional.
+pub(super) fn unclaimed(snapshot: &Snapshot, claimed: &BTreeSet<String>) -> Vec<Diagnostic> {
+    snapshot
+        .directories
+        .iter()
+        .flat_map(|(directory, entries)| {
+            entries
+                .iter()
+                .flat_map(|entry| path_problems(&join(directory, &entry.name), entry.kind, claimed))
+        })
+        .collect()
+}
+
+/// Naming, generated-file kind and unclaimed-file checks for one captured entry.
+fn path_problems(path: &str, kind: EntryKind, claimed: &BTreeSet<String>) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    if !naming::functional(path, kind) {
+        diagnostics.push(Diagnostic::new(
+            path,
+            "",
+            "must use a functional name, not a registered product or misplaced native filename",
+        ));
+    }
+    if path == GENERATED_CODEOWNERS.path {
+        if kind != EntryKind::File {
+            diagnostics.push(Diagnostic::new(
+                path,
+                "",
+                "generated CODEOWNERS must be a regular file",
+            ));
+        }
+    } else if kind != EntryKind::Directory && !claimed.contains(path) {
+        diagnostics.push(Diagnostic::new(
+            path,
+            "",
+            "not a registered v4 placement; nested/unknown areas and unregistered trees \
+             refuse; migrate old or mixed layouts to maestro-source/2",
+        ));
+    }
+    diagnostics
 }

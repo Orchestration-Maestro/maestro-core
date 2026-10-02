@@ -277,6 +277,7 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
             "standard-check",
             "standard-exception",
             "preset",
+            "bootstrap-inventory",
             "model-card"
         ]
     );

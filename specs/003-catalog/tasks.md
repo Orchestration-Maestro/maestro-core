@@ -2330,10 +2330,10 @@ ARC-005 exception for `source::kinds`.
 **Requirements:** FR-S3-004, FR-S3-042, FR-S3-047, SC-S3-004, SC-S3-016.
 **Named tests:** `mandatory_roots_selected_once`, `unselected_inventory_refuses`, `distinct_inventory_output_collision_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Extend PresetPort using C50 area/inventory selectors and explicit owner-local files. Include common and selected language starter inputs once; use the existing S1 registry and C04 writer. Preserve strict JSON, hostile input bounds, zero-write previews and inert scripts.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Extend PresetPort using C50 area/inventory selectors and explicit owner-local files. Include common and selected language starter inputs once; use the existing S1 registry and C04 writer. Preserve strict JSON, hostile input bounds, zero-write previews and inert scripts.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

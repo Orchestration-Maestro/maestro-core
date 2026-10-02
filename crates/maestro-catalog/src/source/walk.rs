@@ -21,5 +21,9 @@ pub(super) fn walk(
     limits: &Limits,
 ) -> Result<Found, Refusal> {
     let snapshot = super::scan::scan(tree, limits)?;
-    walk_snapshot(&snapshot, registry, limits)
+    let mut found = walk_snapshot(&snapshot, registry, limits)?;
+    found
+        .diagnostics
+        .extend(area_walk::unclaimed(&snapshot, &found.claimed));
+    Ok(found)
 }

@@ -309,7 +309,7 @@ pub struct Resource {
     pub path: String,
     /// Every file it owns, its primary file first, then its sidecar.
     pub files: Vec<String>,
-    /// The folders it keeps as data, never read: a later step copies them.
+    /// Exact inventoried inert asset paths; source checking captures their bytes as data.
     pub data: Vec<String>,
     /// Its Maestro data.
     pub metadata: Metadata,

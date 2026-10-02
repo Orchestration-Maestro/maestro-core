@@ -1,20 +1,21 @@
+//! Project composition and C04 writer regressions on checked owner-local fixtures.
 use super::compose as compose_module;
 use super::{
     Preset, PresetPort, inspect,
-    support::{apply, preview},
+    support::{apply, checked_port, checked_preview, copy_catalog, preview},
 };
 use crate::{
     files::{
-        FileInput,
+        FileInput, digest,
         tests::support::{apply_with_failure, recover, remove},
     },
     limits::Limits,
 };
+use maestro_test_scratch::scratch_directory;
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     path::{Path, PathBuf},
-    process,
 };
 
 struct Presets;
@@ -34,7 +35,7 @@ impl PresetPort for Presets {
         names
             .iter()
             .map(|name| match name.as_str() {
-                "knowledge-client" => Ok(Preset {
+                "base" => Ok(Preset {
                     name: name.clone(),
                     files: BTreeMap::from([(
                         ".github/copilot-instructions.md".to_owned(),
@@ -45,7 +46,7 @@ impl PresetPort for Presets {
                     bindings: Vec::new(),
                     source_root: None,
                 }),
-                "rust-service" => Ok(Preset {
+                "rust" => Ok(Preset {
                     name: name.clone(),
                     files: BTreeMap::from([(
                         ".maestro/recipes.json".to_owned(),
@@ -64,10 +65,7 @@ impl PresetPort for Presets {
 
 #[test]
 fn composes_base_and_rust_and_rejects_invalid_generated_json() {
-    let composed = compose(
-        &Presets,
-        &["knowledge-client".into(), "rust-service".into()],
-    );
+    let composed = compose(&Presets, &["base".into(), "rust".into()]);
     assert!(composed.is_ok(), "{composed:?}");
     let files = composed.unwrap_or_default();
     assert!(
@@ -84,9 +82,7 @@ fn composes_base_and_rust_and_rejects_invalid_generated_json() {
 
 #[test]
 fn inspection_does_not_execute_repository_scripts() {
-    let root = env::temp_dir().join(format!("maestro-bootstrap-{}", process::id()));
-    drop(fs::remove_dir_all(&root));
-    fs::create_dir_all(&root).expect("create repository");
+    let root = scratch_directory().unwrap();
     let marker = root.join("script-ran");
     fs::write(root.join("build.rs"), format!("touch {}", marker.display())).expect("script");
     let result = inspect(Path::new(&root));
@@ -98,24 +94,18 @@ fn inspection_does_not_execute_repository_scripts() {
 #[test]
 fn generated_recipe_json_is_strict_and_preset_collision_refuses() {
     assert!(compose_module::validate_json("recipes.json", br#"{"x":1,"x":2}"#).is_err());
-    let composed = compose(
-        &Presets,
-        &["knowledge-client".into(), "knowledge-client".into()],
-    );
+    let composed = compose(&Presets, &["base".into(), "base".into()]);
     assert!(composed.is_err());
 }
 
 #[test]
 fn core_fixture_presets_compose_from_the_replaceable_directory_adapter() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/catalog")
+        .join("../../tests/fixtures/catalog/bootstrap/owner-local")
         .canonicalize()
         .unwrap();
-    let provider = super::DirectoryPresets::new(&root);
-    let composed = compose(
-        &provider,
-        &["knowledge-client".into(), "rust-service".into()],
-    );
+    let provider = checked_port(&root).unwrap();
+    let composed = compose(&provider, &["base".into(), "rust".into()]);
     assert!(composed.is_ok(), "{composed:?}");
     let files = composed.unwrap_or_default();
     assert_eq!(files.len(), 2);
@@ -125,33 +115,54 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Self {
-        use std::sync::atomic::{AtomicUsize, Ordering};
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let root = env::temp_dir().join(format!(
-            "maestro-bootstrap-fix-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&root).unwrap();
-        Self(root)
+        Self(scratch_directory().unwrap())
     }
 
-    fn catalog(&self, overlay: &str) -> PathBuf {
+    fn catalog(&self, inventory: &str) -> PathBuf {
         let catalog = self.0.join("catalog");
-        fs::create_dir_all(catalog.join(format!("bootstrap/{overlay}"))).unwrap();
-        fs::write(
-            catalog.join("bootstrap/custom.toml"),
-            format!(
-                "name = \"custom\"\noverlay = \"{overlay}\"\n\
-             tools = []\nfiles = [\"{overlay}/target.md\"]\n"
+        copy_catalog(&catalog);
+        let preset = fs::read_to_string(catalog.join("presets/base.toml"))
+            .unwrap()
+            .replace(r#"name = "base""#, r#"name = "custom""#)
+            .replace("common/base", &format!("common/{inventory}"));
+        fs::write(catalog.join("presets/custom.toml"), preset).unwrap();
+        if inventory != "base" {
+            fs::rename(
+                catalog.join("bootstrap/base"),
+                catalog.join(format!("bootstrap/{inventory}")),
+            )
+            .unwrap();
+            fs::rename(
+                catalog.join("bootstrap/base.toml"),
+                catalog.join(format!("bootstrap/{inventory}.toml")),
+            )
+            .unwrap();
+            // No stale preset may name an inventory that no longer exists.
+            for name in ["base", "rust"] {
+                let path = catalog.join(format!("presets/{name}.toml"));
+                let text = fs::read_to_string(&path)
+                    .unwrap()
+                    .replace("common/base", &format!("common/{inventory}"));
+                fs::write(path, text).unwrap();
+            }
+        }
+        let files = catalog.join(format!("bootstrap/{inventory}/files"));
+        fs::remove_file(files.join("instructions.md")).unwrap();
+        fs::write(files.join("target.md"), b"inert").unwrap();
+        let manifest = catalog.join(format!("bootstrap/{inventory}.toml"));
+        let original = fs::read_to_string(&manifest).unwrap();
+        let metadata = original.split_once("[metadata]").unwrap().1;
+        let document = format!(
+            concat!(
+                "name = \"{}\"\nbindings = []\ntools = []\n[[files]]\n",
+                "source = \"target.md\"\noutput = \"target.md\"\n",
+                "sha256 = \"{}\"\n[metadata]{}"
             ),
-        )
-        .unwrap();
-        fs::write(
-            catalog.join(format!("bootstrap/{overlay}/target.md")),
-            b"inert",
-        )
-        .unwrap();
+            inventory,
+            digest(b"inert"),
+            metadata
+        );
+        fs::write(manifest, document).unwrap();
         catalog
     }
 }
@@ -169,20 +180,16 @@ fn symlinked_template_file_and_directory_are_refused_without_writes() {
     for directory in [false, true] {
         let scratch = Scratch::new();
         let catalog = scratch.catalog("base");
-        let overlay = catalog.join("bootstrap/base");
+        let files = catalog.join("bootstrap/base/files");
         if directory {
-            fs::rename(&overlay, catalog.join("secret")).unwrap();
-            symlink(catalog.join("secret"), &overlay).unwrap();
+            fs::rename(&files, catalog.join("secret")).unwrap();
+            symlink(catalog.join("secret"), &files).unwrap();
         } else {
-            fs::remove_file(overlay.join("target.md")).unwrap();
+            fs::remove_file(files.join("target.md")).unwrap();
             fs::write(catalog.join("secret"), b"SECRET").unwrap();
-            symlink(catalog.join("secret"), overlay.join("target.md")).unwrap();
+            symlink(catalog.join("secret"), files.join("target.md")).unwrap();
         }
-        let result = preview(
-            &scratch.0,
-            &super::DirectoryPresets::new(&catalog),
-            &["custom".into()],
-        );
+        let result = checked_preview(&scratch.0, &catalog, &["custom".into()]);
         assert!(result.is_err(), "followed symlink: {result:?}");
         assert!(!scratch.0.join("target.md").exists());
         assert!(!scratch.0.join(".maestro").exists());
@@ -197,23 +204,16 @@ fn symlinked_manifest_is_refused_without_writes() {
     let scratch = Scratch::new();
     let catalog = scratch.catalog("base");
     fs::rename(
-        catalog.join("bootstrap/custom.toml"),
+        catalog.join("bootstrap/base.toml"),
         catalog.join("secret.toml"),
     )
     .unwrap();
     symlink(
         catalog.join("secret.toml"),
-        catalog.join("bootstrap/custom.toml"),
+        catalog.join("bootstrap/base.toml"),
     )
     .unwrap();
-    assert!(
-        preview(
-            &scratch.0,
-            &super::DirectoryPresets::new(&catalog),
-            &["custom".into()]
-        )
-        .is_err()
-    );
+    assert!(checked_preview(&scratch.0, &catalog, &["custom".into()]).is_err());
     assert!(!scratch.0.join(".maestro").exists());
 }
 
@@ -223,18 +223,20 @@ fn template_size_at_limit_is_complete_and_one_past_is_refused() {
     let catalog = scratch.catalog("base");
     let limit = usize::try_from(Limits::PRODUCTION.source_file_bytes).unwrap();
     let bytes = vec![b'x'; limit];
-    let template = catalog.join("bootstrap/base/target.md");
+    let template = catalog.join("bootstrap/base/files/target.md");
     fs::write(&template, &bytes).unwrap();
-    let provider = super::DirectoryPresets::new(&catalog);
+    let manifest = catalog.join("bootstrap/base.toml");
+    let text = fs::read_to_string(&manifest)
+        .unwrap()
+        .replace(&digest(b"inert"), &digest(&bytes));
+    fs::write(manifest, text).unwrap();
+    let provider = checked_port(&catalog).unwrap();
     let selected = ["custom".into()];
     let presets = provider.resolve(&selected).unwrap();
     assert_eq!(presets[0].files["target.md"], bytes);
     fs::write(&template, vec![b'x'; limit + 1]).unwrap();
-    let error = preview(&scratch.0, &provider, &selected).unwrap_err();
-    assert!(
-        error.starts_with("cannot read bootstrap/base/target.md:"),
-        "{error}"
-    );
+    let error = checked_preview(&scratch.0, &catalog, &selected).unwrap_err();
+    assert!(error.contains("bootstrap/base/files/target.md"), "{error}");
     assert!(error.contains("larger than"), "{error}");
     assert_eq!(fs::read_dir(&scratch.0).unwrap().count(), 1);
     assert!(!scratch.0.join("target.md").exists());
@@ -246,36 +248,26 @@ fn template_size_at_limit_is_complete_and_one_past_is_refused() {
 fn manifest_size_at_limit_parses_and_one_past_is_refused() {
     let scratch = Scratch::new();
     let catalog = scratch.catalog("base");
-    let path = catalog.join("bootstrap/custom.toml");
+    let path = catalog.join("bootstrap/base.toml");
     let mut bytes = fs::read(&path).unwrap();
     bytes.resize(
         usize::try_from(Limits::PRODUCTION.source_file_bytes).unwrap(),
         b' ',
     );
     fs::write(&path, &bytes).unwrap();
-    let provider = super::DirectoryPresets::new(&catalog);
+    let provider = checked_port(&catalog).unwrap();
     assert!(provider.resolve(&["custom".into()]).is_ok());
     bytes.push(b' ');
     fs::write(&path, bytes).unwrap();
-    let error = provider.resolve(&["custom".into()]).unwrap_err();
+    let error = checked_port(&catalog).unwrap_err();
     assert!(error.contains("larger than"), "{error}");
 }
 
 #[test]
-fn new_overlay_is_manifest_data_not_a_code_change() {
+fn new_inventory_is_manifest_data_not_a_code_change() {
     let scratch = Scratch::new();
     let catalog = scratch.catalog("python");
-    fs::write(
-        catalog.join("bootstrap/custom.toml"),
-        "name = \"custom\"\noverlay = \"python\"\ntools = []\nfiles = [\"python/target.md\"]\n",
-    )
-    .unwrap();
-    let preview = preview(
-        &scratch.0,
-        &super::DirectoryPresets::new(&catalog),
-        &["custom".into()],
-    )
-    .unwrap();
+    let preview = checked_preview(&scratch.0, &catalog, &["custom".into()]).unwrap();
     apply(&scratch.0, &preview).unwrap();
     assert_eq!(fs::read(scratch.0.join("target.md")).unwrap(), b"inert");
 }
@@ -284,20 +276,24 @@ fn new_overlay_is_manifest_data_not_a_code_change() {
 fn different_presets_shipping_the_same_path_are_refused() {
     let scratch = Scratch::new();
     let catalog = scratch.catalog("base");
-    let manifest = fs::read_to_string(catalog.join("bootstrap/custom.toml"))
+    let manifest = fs::read_to_string(catalog.join("bootstrap/base.toml"))
         .unwrap()
-        .replace("custom", "second");
+        .replace(r#"name = "base""#, r#"name = "second""#);
     fs::write(catalog.join("bootstrap/second.toml"), manifest).unwrap();
-    let error = preview(
-        &scratch.0,
-        &super::DirectoryPresets::new(&catalog),
-        &["custom".into(), "second".into()],
+    fs::create_dir_all(catalog.join("bootstrap/second/files")).unwrap();
+    fs::copy(
+        catalog.join("bootstrap/base/files/target.md"),
+        catalog.join("bootstrap/second/files/target.md"),
     )
-    .unwrap_err();
-    assert!(
-        error.contains("preset file collision: target.md"),
-        "{error}"
-    );
+    .unwrap();
+    let preset = fs::read_to_string(catalog.join("presets/custom.toml"))
+        .unwrap()
+        .replace("custom", "second")
+        .replace("common/base", "common/second");
+    fs::write(catalog.join("presets/second.toml"), preset).unwrap();
+    let error =
+        checked_preview(&scratch.0, &catalog, &["custom".into(), "second".into()]).unwrap_err();
+    assert!(error.contains("file collision: target.md"), "{error}");
     assert!(!scratch.0.join(".maestro").exists());
 }
 
@@ -305,15 +301,10 @@ fn different_presets_shipping_the_same_path_are_refused() {
 fn base_only_descriptor_has_exact_authoring_keys_and_lock_reference() {
     let scratch = Scratch::new();
     let catalog = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/catalog")
+        .join("../../tests/fixtures/catalog/bootstrap/owner-local")
         .canonicalize()
         .unwrap();
-    let preview = preview(
-        &scratch.0,
-        &super::DirectoryPresets::new(&catalog),
-        &["knowledge-client".into()],
-    )
-    .unwrap();
+    let preview = checked_preview(&scratch.0, &catalog, &["base".into()]).unwrap();
     assert!(!scratch.0.join(".maestro").exists());
     apply(&scratch.0, &preview).unwrap();
     let descriptor: toml::Table =
@@ -338,11 +329,11 @@ fn base_only_descriptor_has_exact_authoring_keys_and_lock_reference() {
     );
     assert_eq!(
         descriptor["presets"].as_array().unwrap(),
-        &[toml::Value::String("preset:knowledge-client".into())]
+        &[toml::Value::String("preset:base".into())]
     );
     assert_eq!(
         fs::read(scratch.0.join(".github/copilot-instructions.md")).unwrap(),
-        fs::read(catalog.join("bootstrap/base/.github/copilot-instructions.md")).unwrap()
+        fs::read(catalog.join("bootstrap/base/files/instructions.md")).unwrap()
     );
     assert!(!scratch.0.join(".maestro/recipes.json").exists());
 }
@@ -353,15 +344,10 @@ fn authoring_lock_binds_every_generated_file_and_source() {
     use std::fmt::Write as _;
     let scratch = Scratch::new();
     let catalog = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/catalog")
+        .join("../../tests/fixtures/catalog/bootstrap/owner-local")
         .canonicalize()
         .unwrap();
-    let preview = preview(
-        &scratch.0,
-        &super::DirectoryPresets::new(&catalog),
-        &["knowledge-client".into(), "rust-service".into()],
-    )
-    .unwrap();
+    let preview = checked_preview(&scratch.0, &catalog, &["base".into(), "rust".into()]).unwrap();
     apply(&scratch.0, &preview).unwrap();
     let lock: serde_json::Value =
         serde_json::from_slice(&fs::read(scratch.0.join(".maestro/authoring.lock.json")).unwrap())
@@ -381,10 +367,12 @@ fn authoring_lock_binds_every_generated_file_and_source() {
             "sources",
             &catalog,
             vec![
-                "bootstrap/base/.github/copilot-instructions.md",
-                "bootstrap/knowledge-client.toml",
-                "bootstrap/rust-service.toml",
-                "bootstrap/rust/.maestro/recipes.json",
+                "bootstrap/base.toml",
+                "bootstrap/base/files/instructions.md",
+                "languages/rust/bootstrap/starter.toml",
+                "languages/rust/bootstrap/starter/files/recipes.json",
+                "presets/base.toml",
+                "presets/rust.toml",
             ],
         ),
     ] {
@@ -421,7 +409,7 @@ fn compose(port: &dyn PresetPort, names: &[String]) -> Result<Vec<FileInput>, St
 fn bootstrap_interrupted_apply_recovers_and_replay_journal_is_ephemeral() {
     let scratch = Scratch::new();
     let catalog = scratch.catalog("base");
-    let provider = super::DirectoryPresets::new(&catalog);
+    let provider = checked_port(&catalog).unwrap();
     let names = ["custom".into()];
     let first = preview(&scratch.0, &provider, &names).unwrap();
     apply(&scratch.0, &first).unwrap();
@@ -442,7 +430,7 @@ fn bootstrap_interrupted_apply_recovers_and_replay_journal_is_ephemeral() {
 
 #[test]
 fn path_tool_candidates_cover_unix_and_windows_extensions() {
-    use super::project::tool_candidates;
+    use super::super::project::tool_candidates;
     assert_eq!(tool_candidates("shell", ""), [PathBuf::from("shell")]);
     assert_eq!(
         tool_candidates("shell", ".EXE;.CMD"),
@@ -459,24 +447,19 @@ fn path_tool_candidates_cover_unix_and_windows_extensions() {
 }
 
 #[test]
-fn overlays_and_tools_are_single_top_level_names() {
+fn inventories_and_tools_are_single_top_level_names() {
     let scratch = Scratch::new();
     let catalog = scratch.catalog("base");
-    let provider = super::DirectoryPresets::new(&catalog);
-    for (overlay, tool) in [
-        ("nested/overlay", "tool"),
-        ("..", "tool"),
-        ("base", "../tool"),
-        ("base", "tool --install"),
-    ] {
-        let manifest = format!(
-            "name = \"custom\"\noverlay = \"{overlay}\"\ntools = [\"{tool}\"]\nfiles = []\n"
-        );
-        fs::write(catalog.join("bootstrap/custom.toml"), manifest).unwrap();
-        assert!(
-            provider.resolve(&["custom".into()]).is_err(),
-            "accepted {overlay}/{tool}"
-        );
+    for tool in ["../tool", "tool --install"] {
+        let manifest = catalog.join("bootstrap/base.toml");
+        let original = fs::read_to_string(&manifest).unwrap();
+        fs::write(
+            &manifest,
+            original.replace("tools = []", &format!("tools = [\"{tool}\"]")),
+        )
+        .unwrap();
+        assert!(checked_port(&catalog).is_err(), "accepted {tool}");
+        fs::write(manifest, original).unwrap();
     }
     assert!(!scratch.0.join(".maestro").exists());
 }
@@ -490,7 +473,7 @@ fn old_authoring_lock_requires_fresh_preview() {
         br#"{"schema":"maestro-authoring-lock/1","files":[],"sources":[]}"#,
     )
     .unwrap();
-    let result = preview(&scratch.0, &Presets, &["knowledge-client".into()]);
+    let result = preview(&scratch.0, &Presets, &["base".into()]);
     assert!(result.is_err());
     let error = result.unwrap_err();
     assert!(
@@ -509,7 +492,7 @@ fn authoring_lock_read_keeps_source_byte_bound() {
         b' ',
     );
     fs::write(scratch.0.join(".maestro/authoring.lock.json"), bytes).unwrap();
-    let result = preview(&scratch.0, &Presets, &["knowledge-client".into()]);
+    let result = preview(&scratch.0, &Presets, &["base".into()]);
     assert!(
         result
             .unwrap_err()

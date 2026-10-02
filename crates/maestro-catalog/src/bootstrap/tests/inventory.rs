@@ -5,14 +5,13 @@ use super::{
 };
 use crate::files::digest;
 use maestro_test_scratch::scratch_directory;
-use std::{collections::BTreeMap, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 /// Synthetic catalog and empty project with automatic scratch cleanup.
 pub(super) struct Fixture {
     pub(super) root: PathBuf,
     pub(super) catalog: PathBuf,
     pub(super) project: PathBuf,
-    pub(super) areas: BTreeMap<String, String>,
 }
 
 impl Fixture {
@@ -21,29 +20,16 @@ impl Fixture {
         let catalog = root.join("catalog");
         let project = root.join("project");
         fs::create_dir(&project).unwrap();
-        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/fixtures/catalog/bootstrap/owner-local");
-        for file in [
-            "presets/base.toml",
-            "presets/rust.toml",
-            "bootstrap/base.toml",
-            "bootstrap/base/files/instructions.md",
-            "languages/rust/bootstrap/starter.toml",
-            "languages/rust/bootstrap/starter/files/recipes.json",
-        ] {
-            let target = catalog.join(file);
-            fs::create_dir_all(target.parent().unwrap()).unwrap();
-            fs::copy(fixture.join(file), target).unwrap();
-        }
+        super::support::copy_catalog(&catalog);
         Self {
             root,
             catalog,
             project,
-            areas: BTreeMap::from([
-                ("common".into(), String::new()),
-                ("rust".into(), "languages/rust".into()),
-            ]),
         }
+    }
+
+    pub(super) fn port(&self) -> Result<AreaInventories, String> {
+        super::support::checked_port(&self.catalog)
     }
 
     pub(super) fn edit(&self, path: &str, old: &str, new: &str) {
@@ -54,12 +40,10 @@ impl Fixture {
     }
 
     pub(super) fn refuses(&self, names: &[String], message: &str) {
-        let error = preview(
-            &self.project,
-            &AreaInventories::new(&self.catalog, &self.areas),
-            names,
-        )
-        .unwrap_err();
+        let error = self
+            .port()
+            .and_then(|port| preview(&self.project, &port, names))
+            .unwrap_err();
         assert!(error.contains(message), "{error}");
         assert_eq!(fs::read_dir(&self.project).unwrap().count(), 0);
     }
@@ -74,7 +58,7 @@ impl Drop for Fixture {
 #[test]
 fn selected_owner_inventory_accepts() {
     let fixture = Fixture::new();
-    let port = AreaInventories::new(&fixture.catalog, &fixture.areas);
+    let port = fixture.port().unwrap();
     for names in [vec!["base".into()], vec!["base".into(), "rust".into()]] {
         let resolved = port.resolve(&names).unwrap();
         let files: Vec<_> = resolved
@@ -119,39 +103,23 @@ fn selected_owner_inventory_accepts() {
 
 #[test]
 fn unselected_inventory_refuses() {
-    let mut fixture = Fixture::new();
-    assert!(
-        AreaInventories::new(&fixture.catalog, &fixture.areas)
-            .resolve(&["rust".into()])
-            .is_ok()
+    let fixture = Fixture::new();
+    assert!(fixture.port().unwrap().resolve(&["rust".into()]).is_ok());
+    fixture.edit(
+        "presets/rust.toml",
+        r#"requires = ["language:rust"]"#,
+        "requires = []",
     );
-    fixture.areas.remove("rust");
-    // An unselected inventory must not be opened or parsed.
-    fs::write(
-        fixture
-            .catalog
-            .join("languages/rust/bootstrap/starter.toml"),
-        "bad TOML",
-    )
-    .unwrap();
     fixture.refuses(&["rust".into()], "unselected area: rust");
-    assert!(
-        AreaInventories::new(&fixture.catalog, &fixture.areas)
-            .resolve(&["base".into()])
-            .is_ok()
-    );
+    assert!(fixture.port().unwrap().resolve(&["base".into()]).is_ok());
 }
 
 #[test]
 fn unknown_inventory_refuses() {
     let fixture = Fixture::new();
-    assert!(
-        AreaInventories::new(&fixture.catalog, &fixture.areas)
-            .resolve(&["base".into()])
-            .is_ok()
-    );
+    assert!(fixture.port().unwrap().resolve(&["base".into()]).is_ok());
     fixture.edit("presets/base.toml", "common/base", "common/missing");
-    fixture.refuses(&["base".into()], "unknown inventory: common/missing");
+    fixture.refuses(&["base".into()], "bootstrap-inventory:common/missing");
 }
 
 #[test]
@@ -164,11 +132,7 @@ fn inventory_escape_refuses() {
             "C:\\outside",
         ] {
             let fixture = Fixture::new();
-            assert!(
-                AreaInventories::new(&fixture.catalog, &fixture.areas)
-                    .resolve(&["base".into()])
-                    .is_ok()
-            );
+            assert!(fixture.port().unwrap().resolve(&["base".into()]).is_ok());
             let old = if field == "source" {
                 "instructions.md"
             } else {
@@ -187,11 +151,7 @@ fn inventory_escape_refuses() {
 #[test]
 fn identical_output_collision_refuses() {
     let fixture = Fixture::new();
-    assert!(
-        AreaInventories::new(&fixture.catalog, &fixture.areas)
-            .resolve(&["rust".into()])
-            .is_ok()
-    );
+    assert!(fixture.port().unwrap().resolve(&["rust".into()]).is_ok());
     let bytes = fs::read(fixture.catalog.join("bootstrap/base/files/instructions.md")).unwrap();
     fs::write(
         fixture
@@ -231,7 +191,7 @@ fn changed_inventory_input_requires_fresh_preview() {
         "bootstrap/base/files/instructions.md",
     ] {
         let fixture = Fixture::new();
-        let port = AreaInventories::new(&fixture.catalog, &fixture.areas);
+        let port = fixture.port().unwrap();
         let proposal = preview(&fixture.project, &port, &["base".into()]).unwrap();
         let original = fs::read(fixture.catalog.join(path)).unwrap();
         let mut changed = original.clone();
@@ -253,11 +213,7 @@ fn changed_inventory_input_requires_fresh_preview() {
 #[test]
 fn inventory_digest_name_tools_and_strict_fields_refuse() {
     for (old, new, message) in [
-        (
-            "name = \"base\"",
-            "name = \"wrong\"",
-            "inventory name mismatch",
-        ),
+        ("name = \"base\"", "name = \"wrong\"", "file stem"),
         ("sha256:", "wrong:", "inventory digest mismatch"),
         (
             "tools = [\"sh\"]",
@@ -272,20 +228,16 @@ fn inventory_digest_name_tools_and_strict_fields_refuse() {
         (
             r#"tools = ["sh"]"#,
             "tools = [\"sh\"]\nextra = true",
-            "unknown field",
+            "unknown",
         ),
         (
             r#"source = "instructions.md""#,
             "extra = true\nsource = \"instructions.md\"",
-            "unknown field",
+            "unknown",
         ),
     ] {
         let fixture = Fixture::new();
-        assert!(
-            AreaInventories::new(&fixture.catalog, &fixture.areas)
-                .resolve(&["base".into()])
-                .is_ok()
-        );
+        assert!(fixture.port().unwrap().resolve(&["base".into()]).is_ok());
         fixture.edit("bootstrap/base.toml", old, new);
         fixture.refuses(&["base".into()], message);
     }
@@ -296,9 +248,19 @@ fn duplicate_output_inside_inventory_refuses() {
     let fixture = Fixture::new();
     let path = fixture.catalog.join("bootstrap/base.toml");
     let text = fs::read_to_string(&path).unwrap();
-    let entry = text.split_once("[[files]]").unwrap().1;
-    fs::write(path, format!("{text}\n[[files]]{entry}")).unwrap();
-    fixture.refuses(&["base".into()], "file collision");
+    let entry = text
+        .split_once("[[files]]")
+        .unwrap()
+        .1
+        .split_once("[metadata]")
+        .unwrap()
+        .0;
+    fs::write(
+        path,
+        text.replace("[metadata]", &format!("[[files]]{entry}\n[metadata]")),
+    )
+    .unwrap();
+    fixture.refuses(&["base".into()], "duplicate inventory source/output");
 }
 
 #[test]
@@ -332,7 +294,7 @@ fn owner_inventory_links_refuse_without_writes() {
         let outside = fixture.root.join("outside");
         fs::rename(&target, &outside).unwrap();
         symlink(&outside, target).unwrap();
-        fixture.refuses(&["base".into()], "cannot read");
+        fixture.refuses(&["base".into()], "links and special files");
     }
 }
 
@@ -354,7 +316,9 @@ fn inventory_aggregate_bounds_have_passing_neighbours() {
         ..Limits::PRODUCTION
     };
     assert!(
-        AreaInventories::new(&fixture.catalog, &fixture.areas)
+        fixture
+            .port()
+            .unwrap()
             .with_limits(limits)
             .resolve(&["base".into()])
             .is_ok()
@@ -375,7 +339,9 @@ fn inventory_aggregate_bounds_have_passing_neighbours() {
             "source bytes exceed limit",
         ),
     ] {
-        let error = AreaInventories::new(&fixture.catalog, &fixture.areas)
+        let error = fixture
+            .port()
+            .unwrap()
             .with_limits(limits)
             .resolve(&["base".into()])
             .unwrap_err();
@@ -412,23 +378,20 @@ fn owner_inventory_generated_json_remains_strict() {
 
 #[test]
 fn owner_inventory_paths_and_requirements_are_data() {
-    let mut fixture = Fixture::new();
+    let fixture = Fixture::new();
     fs::rename(
         fixture.catalog.join("languages/rust"),
         fixture.catalog.join("languages/python"),
     )
     .unwrap();
-    fixture.areas.remove("rust");
-    fixture
-        .areas
-        .insert("python".into(), "languages/python".into());
+    fixture.edit(
+        "languages/python/package.toml",
+        r#"name = "rust""#,
+        r#"name = "python""#,
+    );
+    fixture.edit("presets/rust.toml", "language:rust", "language:python");
     fixture.edit("presets/rust.toml", "rust/starter", "python/starter");
-    let proposal = preview(
-        &fixture.project,
-        &AreaInventories::new(&fixture.catalog, &fixture.areas),
-        &["rust".into()],
-    )
-    .unwrap();
+    let proposal = preview(&fixture.project, &fixture.port().unwrap(), &["rust".into()]).unwrap();
     assert_eq!(
         proposal.bindings,
         ["tool:common/inspect", "tool:rust/check"]
@@ -441,8 +404,12 @@ fn owner_inventory_paths_and_requirements_are_data() {
             .collect::<Vec<_>>(),
         ["cargo", "sh"]
     );
-    fixture.areas.insert("python".into(), "../outside".into());
-    fixture.refuses(&["rust".into()], "unsafe preset file path");
+    fixture.edit(
+        "languages/python/package.toml",
+        r#"name = "python""#,
+        r#"name = "wrong""#,
+    );
+    fixture.refuses(&["rust".into()], "area name");
 }
 
 #[test]
@@ -485,11 +452,7 @@ fn inventory_file_byte_bound_refuses_one_past() {
         text.replace(old, &format!("sha256 = \"{}\"", digest(&bytes))),
     )
     .unwrap();
-    assert!(
-        AreaInventories::new(&fixture.catalog, &fixture.areas)
-            .resolve(&["base".into()])
-            .is_ok()
-    );
+    assert!(fixture.port().unwrap().resolve(&["base".into()]).is_ok());
     let mut oversized = bytes;
     oversized.push(b'x');
     fs::write(file, oversized).unwrap();
@@ -505,6 +468,6 @@ fn preset_names_are_functional_not_paths() {
         text.replace(r#"name = "base""#, r#"name = "Bad""#),
     )
     .unwrap();
-    fixture.refuses(&["Bad".into()], "invalid preset name");
-    fixture.refuses(&["../base".into()], "unsafe preset file path");
+    fixture.refuses(&["Bad".into()], "functional name");
+    fixture.refuses(&["../base".into()], "functional name");
 }

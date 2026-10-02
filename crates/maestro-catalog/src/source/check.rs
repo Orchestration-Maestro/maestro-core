@@ -5,14 +5,15 @@
 
 use super::standards::check_references;
 use super::{
+    area_walk,
     descriptor::{Layout, Scope},
     graph,
     load::{Context, Loaded, load},
     ownership::{GENERATED_CODEOWNERS, area_path},
     placements::{directories, fits},
     registry::Registry,
-    scan::scan,
-    tree::SourceTree,
+    scan::{Snapshot, scan},
+    tree::{Directory, SourceTree},
     types::{Catalog, Diagnostic, Known, Maturity, Refusal, Resource, ResourceId},
     walk::walk_snapshot,
 };
@@ -58,10 +59,35 @@ pub fn build(
     known: Known<'_>,
 ) -> Result<(Catalog, Option<Vec<u8>>), Refusal> {
     let snapshot = scan(tree, limits)?;
-    let found = walk_snapshot(&snapshot, registry, limits)?;
+    build_snapshot(&snapshot, registry, limits, known)
+}
+
+impl Directory {
+    /// Check and retain the one bounded snapshot used to decode this directory.
+    pub(crate) fn checked_snapshot(
+        &self,
+        registry: &Registry,
+        limits: &Limits,
+        known: Known<'_>,
+    ) -> Result<(Catalog, Snapshot), Refusal> {
+        let snapshot = scan(self, limits)?;
+        let (catalog, generated) = build_snapshot(&snapshot, registry, limits, known)?;
+        catalog.verify_generated(generated.as_deref())?;
+        Ok((catalog, snapshot))
+    }
+}
+
+/// Load registered resources and then verify their exact static/dynamic claims.
+fn build_snapshot(
+    snapshot: &Snapshot,
+    registry: &Registry,
+    limits: &Limits,
+    known: Known<'_>,
+) -> Result<(Catalog, Option<Vec<u8>>), Refusal> {
+    let found = walk_snapshot(snapshot, registry, limits)?;
     let mut diagnostics = found.diagnostics;
     let context = Context {
-        tree: &snapshot,
+        tree: snapshot,
         limits,
         known,
     };
@@ -75,6 +101,19 @@ pub fn build(
             Err(found) => diagnostics.extend(found),
         }
     }
+    let mut claimed = found.claimed;
+    for resource in &loaded {
+        for path in &resource.resource.data {
+            claimed.insert(path.clone());
+            if let Err(error) = snapshot.read(path, limits.source_file_bytes) {
+                diagnostics.push(Diagnostic::unreadable(
+                    path,
+                    format!("cannot read inventoried asset: {error}"),
+                ));
+            }
+        }
+    }
+    diagnostics.extend(area_walk::unclaimed(snapshot, &claimed));
     if diagnostics.is_empty() {
         diagnostics = across(&loaded, registry, known);
     }

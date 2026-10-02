@@ -495,10 +495,13 @@ in place.
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── bootstrap/                                                   # Inspect a project and plan a preset composition without executing its files
 │   │   │   │   ├── tests/                                                   # Bootstrap contract tests, grouped by adapter
+│   │   │   │   │   ├── discovery.rs                                         # Inventory claims remain exact and owner-local in the checked source tree
 │   │   │   │   │   ├── inventory.rs                                         # Owner-local data inventories through the shared bootstrap composition
 │   │   │   │   │   ├── inventory_reuse.rs                                   # Resolve-wide source capture and apply revalidation regressions
-│   │   │   │   │   ├── legacy.rs                                            # Rust source: legacy
 │   │   │   │   │   ├── mod.rs                                               # Bootstrap contract tests, grouped by adapter
+│   │   │   │   │   ├── project.rs                                           # Rust source: project
+│   │   │   │   │   ├── selection.rs                                         # C36: composition admits only the source-checked mandatory closure
+│   │   │   │   │   ├── snapshot.rs                                          # Preview bytes and decoded declarations come from one checked source snapshot
 │   │   │   │   │   └── support.rs                                           # Synthetic checked trust shared by bootstrap contract tests
 │   │   │   │   ├── compose.rs                                               # Resolve explicit preset names through a replaceable source port
 │   │   │   │   ├── inspect.rs                                               # Read a project inventory as inert data; no script or build tool is launched
@@ -578,6 +581,7 @@ in place.
 │   │   │   ├── source/                                                      # The strict checker of a catalog's authoring sources: a registry of
 │   │   │   │   ├── kinds/                                                   # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── agent.rs                                             # agent: a Copilot custom agent profile and its <name>.maestro.toml
+│   │   │   │   │   ├── bootstrap_inventory.rs                               # Strict owner-local inventories and their exact inert payload claims
 │   │   │   │   │   ├── builtin.rs                                           # The registry of the built-in kinds and the fixed table of hooks their
 │   │   │   │   │   ├── instructions.rs                                      # instructions: a Copilot .instructions.md file and its
 │   │   │   │   │   ├── mod.rs                                               # The built-in kinds: each a descriptor and, where a rule is truly
@@ -622,6 +626,7 @@ in place.
 │   │   │   │   │   ├── support.rs                                           # An in-memory [SourceTree] adapter holding the valid synthetic catalog
 │   │   │   │   │   └── yaml.rs                                              # YAML read node by node at injected limits: the exact node budget and
 │   │   │   │   ├── area_walk.rs                                             # Scoped discovery over the bounded snapshot
+│   │   │   │   ├── bootstrap_inventory.rs                                   # Shared strict schema owned by the registered bootstrap inventory kind
 │   │   │   │   ├── check.rs                                                 # The checker: discovery, each resource read by its kind, then the checks
 │   │   │   │   ├── closure.rs                                               # The shared exact-ID forward traversal for topology and selection admission
 │   │   │   │   ├── descriptor.rs                                            # A kind described as data: where its files live, how they are written
@@ -1618,30 +1623,34 @@ in place.
 │   └── fixtures/                                                            # Test fixtures
 │       ├── catalog/                                                         # Catalog
 │       │   ├── bootstrap/                                                   # Bootstrap
-│       │   │   ├── base/                                                    # Base
-│       │   │   │   └── .github/                                             # GitHub metadata, templates and workflows
-│       │   │   │       └── copilot-instructions.md                          # This guide, written by rust-gate guide at every commit
-│       │   │   ├── owner-local/                                             # Owner local
-│       │   │   │   ├── bootstrap/                                           # Bootstrap
-│       │   │   │   │   ├── base/                                            # Base
-│       │   │   │   │   │   └── files/                                       # Files
-│       │   │   │   │   │       └── instructions.md                          # Sample document: instructions
-│       │   │   │   │   └── base.toml                                        # TOML settings: base
-│       │   │   │   ├── languages/                                           # Languages
-│       │   │   │   │   └── rust/                                            # Rust
-│       │   │   │   │       └── bootstrap/                                   # Bootstrap
-│       │   │   │   │           ├── starter/                                 # Starter
-│       │   │   │   │           │   └── files/                               # Files
-│       │   │   │   │           │       └── recipes.json                     # JSON data: recipes
-│       │   │   │   │           └── starter.toml                             # TOML settings: starter
-│       │   │   │   └── presets/                                             # Presets
-│       │   │   │       ├── base.toml                                        # TOML settings: base
-│       │   │   │       └── rust.toml                                        # TOML settings: rust
-│       │   │   ├── rust/                                                    # Rust
-│       │   │   │   └── .maestro/                                            # .maestro
-│       │   │   │       └── recipes.json                                     # JSON data: recipes
-│       │   │   ├── knowledge-client.toml                                    # TOML settings: knowledge client
-│       │   │   └── rust-service.toml                                        # TOML settings: rust service
+│       │   │   └── owner-local/                                             # Owner local
+│       │   │       ├── bootstrap/                                           # Bootstrap
+│       │   │       │   ├── base/                                            # Base
+│       │   │       │   │   └── files/                                       # Files
+│       │   │       │   │       └── instructions.md                          # Sample document: instructions
+│       │   │       │   └── base.toml                                        # TOML settings: base
+│       │   │       ├── core/                                                # Core
+│       │   │       │   ├── agents/                                          # Agents
+│       │   │       │   │   ├── maestro.agent.md                             # Synthetic agent that answers from the public synthetic glossary
+│       │   │       │   │   └── maestro.maestro.toml                         # TOML settings: maestro.maestro
+│       │   │       │   └── package.toml                                     # TOML settings: package
+│       │   │       ├── languages/                                           # Languages
+│       │   │       │   └── rust/                                            # Rust
+│       │   │       │       ├── bootstrap/                                   # Bootstrap
+│       │   │       │       │   ├── starter/                                 # Starter
+│       │   │       │       │   │   └── files/                               # Files
+│       │   │       │       │   │       └── recipes.json                     # JSON data: recipes
+│       │   │       │       │   └── starter.toml                             # TOML settings: starter
+│       │   │       │       └── package.toml                                 # TOML settings: package
+│       │   │       ├── presets/                                             # Presets
+│       │   │       │   ├── base.toml                                        # TOML settings: base
+│       │   │       │   └── rust.toml                                        # TOML settings: rust
+│       │   │       ├── standards/                                           # Standards
+│       │   │       │   ├── quality/                                         # Quality
+│       │   │       │   │   └── package.toml                                 # TOML settings: package
+│       │   │       │   └── security/                                        # Security
+│       │   │       │       └── package.toml                                 # TOML settings: package
+│       │   │       └── package.toml                                         # TOML settings: package
 │       │   ├── codeowners/                                                  # Codeowners
 │       │   │   └── CODEOWNERS                                               # Who reviews each path
 │       │   ├── graphs/                                                      # Graphs

@@ -144,7 +144,7 @@ pub(in crate::cli) fn run(output: Output, catalog_dir: &Path) -> Result<ExitCode
 }
 
 /// Supply UTC epoch days at the CLI composition root, never inside catalog checking.
-pub(super) fn today() -> Result<i64, Failure> {
+pub(in crate::cli) fn today() -> Result<i64, Failure> {
     let duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(Failure::failed)?;

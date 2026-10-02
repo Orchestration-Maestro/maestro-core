@@ -22,13 +22,13 @@ fn plain(home: &Home, root: &Path, args: &[&str]) -> Ended {
     command.env("MAESTRO_ROUTER_URL", "http://127.0.0.1:0");
     command.env("MAESTRO_QDRANT_URL", "http://127.0.0.1:0");
     if args.contains(&"init") {
-        let catalog =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/catalog");
+        let catalog = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fixtures/catalog/bootstrap/owner-local");
         command.args([
             "--catalog-dir",
             catalog.to_str().unwrap(),
             "--preset",
-            "knowledge-client",
+            "base",
         ]);
         if !args.contains(&"--apply") {
             command.arg("--apply");

@@ -1,4 +1,0 @@
-name = "rust-service"
-files = ["rust/.maestro/recipes.json"]
-overlay = "rust"
-tools = ["cargo"]

@@ -1,5 +1,7 @@
 //! Discovery records for scoped descriptor discovery.
 
+use std::collections::BTreeSet;
+
 use super::{
     descriptor::{KindDescriptor, Layout, Scope},
     placements::{directories, fits},
@@ -42,6 +44,8 @@ impl Unit {
 pub(super) struct Found {
     /// Discovered resources.
     pub(super) units: Vec<Unit>,
+    /// Exact static paths claimed by descriptor discovery.
+    pub(super) claimed: BTreeSet<String>,
     /// Discovery refusals.
     pub(super) diagnostics: Vec<Diagnostic>,
 }

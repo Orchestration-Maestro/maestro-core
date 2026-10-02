@@ -31,7 +31,7 @@ fn deliverables(root: &Path) -> BTreeMap<String, Vec<u8>> {
 
 fn init(home: &Home, root: &Path, choices: &[String]) -> super::support::Ended {
     let catalog = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/catalog")
+        .join("../../tests/fixtures/catalog/bootstrap/owner-local")
         .canonicalize()
         .unwrap();
     let mut args = vec![
@@ -40,7 +40,7 @@ fn init(home: &Home, root: &Path, choices: &[String]) -> super::support::Ended {
         "--catalog-dir",
         catalog.to_str().unwrap(),
         "--preset",
-        "knowledge-client",
+        "base",
         "--apply",
     ];
     for choice in choices {

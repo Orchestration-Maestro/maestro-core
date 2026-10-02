@@ -7,3 +7,4 @@ schema = "maestro-source/2"
 maturity = "reviewed"
 rows = ["owner.catalog"]
 workflows = ["ctm-question"]
+requires = ["language:rust"]
