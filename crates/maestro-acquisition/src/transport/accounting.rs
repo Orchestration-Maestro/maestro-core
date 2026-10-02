@@ -34,9 +34,15 @@ pub struct Accounting {
     /// Cumulative decoded image pixels across all owned stages.
     pixels: u64,
     /// First parser refusal/crash prevents a fresh session promoting partial data.
-    held: Option<(DecodeStage, Failure)>,
-    /// Current fixed parser/codec workspaces; never hidden in body buffers.
+    held: Option<(Option<DecodeStage>, Failure)>,
+    /// Current HTTP-hop parser/codec workspace, replaced on the next hop.
     workspace: u64,
+    /// Cumulative parser IPC reservations, never replaced by HTTP setup.
+    reservations: u64,
+    /// Worst admitted per-step ratio and its charging stage, retained exactly.
+    step_ratio: Option<(u64, u64, DecodeStage)>,
+    /// Charging provenance survives recreation of the borrowing parser hook.
+    stages: ChargeStages,
     /// Owned redacted metadata retained across hops.
     metadata: u64,
     /// Trusted clock port; production Tokio time remains pausable in tests.
@@ -64,6 +70,9 @@ impl Accounting {
             pixels: 0,
             held: None,
             workspace: 0,
+            reservations: 0,
+            step_ratio: None,
+            stages: ChargeStages::default(),
             metadata: 0,
             clock,
         }
@@ -98,6 +107,7 @@ impl Accounting {
     /// Bound each owned dispatch, with a retained monotonic document deadline.
     pub(super) fn request(&mut self) -> Result<(), Failure> {
         self.requests = self.requests.checked_add(1).ok_or(Failure::Requests)?;
+        self.stages.latest = Some(DecodeStage::Http);
         if self.requests > self.limits.requests.get() {
             return Err(Failure::Requests);
         }
@@ -143,8 +153,9 @@ impl Accounting {
         if self.expanded > self.limits.decode.expanded_bytes.get() {
             return Err(Failure::ExpandedBytes);
         }
-        if u128::from(self.expanded)
-            > u128::from(self.wire) * u128::from(self.limits.decode.expansion_ratio.get())
+        if self.step_ratio_exceeded()
+            || u128::from(self.expanded)
+                > u128::from(self.wire) * u128::from(self.limits.decode.expansion_ratio.get())
         {
             return Err(Failure::ExpansionRatio);
         }
@@ -172,6 +183,8 @@ impl Accounting {
             self.metadata = old;
             return Err(error);
         }
+        self.stages.memory = Some(DecodeStage::Http);
+        self.stages.latest = Some(DecodeStage::Http);
         Ok(())
     }
     /// Admit one member before allocating or starting its decoder.
@@ -185,17 +198,29 @@ impl Accounting {
             return Err(Failure::Members);
         }
         self.members = members;
+        self.stages.members = Some(DecodeStage::Http);
+        self.stages.latest = Some(DecodeStage::Http);
         Ok(())
     }
     /// Reserve bounded parser and decoder workspaces before allocation.
     pub(super) fn workspace(&mut self, bytes: u64) -> Result<(), Failure> {
         self.workspace = bytes;
-        self.retained(self.expanded)
+        self.retained(self.expanded)?;
+        self.stages.memory = Some(DecodeStage::Http);
+        self.stages.latest = Some(DecodeStage::Http);
+        Ok(())
     }
-    /// Add an independently owned fixed reservation before allocation.
-    pub(super) fn reserve(&mut self, bytes: u64) -> Result<(), Failure> {
-        let total = self.workspace.checked_add(bytes).ok_or(Failure::Memory)?;
-        self.workspace(total)
+    /// Add a cumulative parser reservation before allocation.
+    fn reserve(&mut self, bytes: u64, stage: DecodeStage) -> Result<(), Failure> {
+        let old = self.reservations;
+        self.reservations = old.checked_add(bytes).ok_or(Failure::Memory)?;
+        if let Err(error) = self.retained(self.expanded) {
+            self.reservations = old;
+            return Err(error);
+        }
+        self.stages.memory = Some(stage);
+        self.stages.latest = Some(stage);
+        Ok(())
     }
     /// Conservative realloc/copy peak: two copies of cumulative wire/output.
     pub(super) fn retained(&self, expanded: u64) -> Result<(), Failure> {
@@ -204,6 +229,7 @@ impl Accounting {
             .checked_add(expanded)
             .and_then(|bytes| bytes.checked_mul(2))
             .and_then(|bytes| bytes.checked_add(self.workspace))
+            .and_then(|bytes| bytes.checked_add(self.reservations))
             .and_then(|bytes| bytes.checked_add(self.metadata))
             .ok_or(Failure::Memory)?;
         self.memory(bytes)
@@ -242,6 +268,11 @@ impl Accounting {
             return Err(Failure::EncodedBytes);
         }
         self.wire = total;
+        if bytes > 0 {
+            self.stages.wire = Some(DecodeStage::Http);
+            self.stages.memory = Some(DecodeStage::Http);
+            self.stages.latest = Some(DecodeStage::Http);
+        }
         Ok(())
     }
     /// Admit every decode-stage output before growing its intermediate buffer.
@@ -249,6 +280,10 @@ impl Accounting {
     /// # Errors
     /// Cumulative expanded, ratio, memory or time ceilings refuse.
     pub fn decoded(&mut self, bytes: u64) -> Result<(), Failure> {
+        self.decoded_at(bytes, DecodeStage::Http)
+    }
+    /// Charge output with the operation that actually produced it.
+    fn decoded_at(&mut self, bytes: u64, stage: DecodeStage) -> Result<(), Failure> {
         self.check_time()?;
         let total = self
             .expanded
@@ -264,27 +299,40 @@ impl Accounting {
         }
         self.retained(total)?;
         self.expanded = total;
+        if bytes > 0 {
+            self.stages.expanded = Some(stage);
+            self.stages.memory = Some(stage);
+            self.stages.latest = Some(stage);
+        }
         Ok(())
     }
-    /// Existing workspaces, including HTTP codecs and parser reservations.
+    /// Current HTTP-hop workspace, excluding cumulative parser reservations.
     pub(super) fn workspace_bytes(&self) -> u64 {
         self.workspace
     }
     /// Admit layers before constructing decoders; handoffs cannot reset depth.
     pub(crate) fn nesting(&mut self, levels: u64) -> Result<(), Failure> {
+        self.nesting_at(levels, DecodeStage::Http)
+    }
+    /// Charge depth with its originating operation, not the latest hook.
+    fn nesting_at(&mut self, levels: u64, stage: DecodeStage) -> Result<(), Failure> {
         let total = self.levels.checked_add(levels).ok_or(Failure::Nesting)?;
         if total > self.limits.decode.nested_levels.get() {
             return Err(Failure::Nesting);
         }
         self.levels = total;
+        if levels > 0 {
+            self.stages.levels = Some(stage);
+            self.stages.latest = Some(stage);
+        }
         Ok(())
     }
     /// First parser refusal survives re-creating the borrowing IPC hook.
-    pub(crate) fn decode_hold(&self) -> Option<(DecodeStage, Failure)> {
+    pub(crate) fn decode_hold(&self) -> Option<(Option<DecodeStage>, Failure)> {
         self.held.clone()
     }
     /// Preserve the first precise stage/reason, including parser crashes.
-    pub(crate) fn hold_decode(&mut self, stage: DecodeStage, reason: Failure) {
+    pub(crate) fn hold_decode(&mut self, stage: Option<DecodeStage>, reason: Failure) {
         if self.held.is_none() {
             self.held = Some((stage, reason));
         }
@@ -301,7 +349,7 @@ impl Accounting {
         if charge.entities > 0 {
             return Err(Failure::Entities);
         }
-        self.nesting(charge.levels)?;
+        self.nesting_at(charge.levels, charge.stage)?;
         let members = self
             .members
             .checked_add(charge.members)
@@ -316,11 +364,63 @@ impl Accounting {
         if pixels > self.limits.decode.decoded_pixels.get() {
             return Err(Failure::Pixels);
         }
-        self.reserve(charge.memory_bytes)?;
-        self.decoded(charge.expanded_bytes)?;
+        self.reserve(charge.memory_bytes, charge.stage)?;
+        self.decoded_at(charge.expanded_bytes, charge.stage)?;
         self.members = members;
         self.pixels = pixels;
+        if charge.members > 0 {
+            self.stages.members = Some(charge.stage);
+        }
+        if charge.pixels > 0 {
+            self.stages.pixels = Some(charge.stage);
+        }
+        self.admit_step_ratio(charge.expanded_bytes, charge.input_bytes, charge.stage)?;
+        self.stages.latest = Some(charge.stage);
         Ok(())
+    }
+    /// Retain the worst admitted operation ratio without rounding or floats.
+    pub(crate) fn admit_step_ratio(
+        &mut self,
+        output: u64,
+        input: u64,
+        stage: DecodeStage,
+    ) -> Result<(), Failure> {
+        if u128::from(output)
+            > u128::from(input) * u128::from(self.limits.decode.expansion_ratio.get())
+        {
+            return Err(Failure::ExpansionRatio);
+        }
+        if output > 0
+            && self.step_ratio.is_none_or(|(old_output, old_input, _)| {
+                u128::from(output) * u128::from(old_input)
+                    > u128::from(old_output) * u128::from(input)
+            })
+        {
+            self.step_ratio = Some((output, input, stage));
+        }
+        Ok(())
+    }
+    /// Recheck the retained worst ratio after effective policy tightening.
+    fn step_ratio_exceeded(&self) -> bool {
+        self.step_ratio.is_some_and(|(output, input, _)| {
+            u128::from(output)
+                > u128::from(input) * u128::from(self.limits.decode.expansion_ratio.get())
+        })
+    }
+    /// Completion reports the operation that charged the failing counter.
+    pub(crate) fn refusal_stage(&self, reason: &Failure) -> Option<DecodeStage> {
+        match reason {
+            Failure::EncodedBytes => self.stages.wire,
+            Failure::ExpansionRatio if self.step_ratio_exceeded() => {
+                self.step_ratio.map(|(_, _, stage)| stage)
+            }
+            Failure::ExpandedBytes | Failure::ExpansionRatio => self.stages.expanded,
+            Failure::Members => self.stages.members,
+            Failure::Nesting => self.stages.levels,
+            Failure::Pixels => self.stages.pixels,
+            Failure::Memory => self.stages.memory,
+            _ => self.stages.latest,
+        }
     }
     /// Bound decoder workspaces and retained/intermediate storage before growth.
     ///
@@ -339,6 +439,24 @@ impl Accounting {
         Ok(())
     }
 }
+/// Per-counter charging stages; zero-cost work does not replace provenance.
+#[derive(Debug, Default)]
+struct ChargeStages {
+    /// Raw bytes supplied by HTTP.
+    wire: Option<DecodeStage>,
+    /// Latest operation producing expanded bytes.
+    expanded: Option<DecodeStage>,
+    /// Latest operation opening members.
+    members: Option<DecodeStage>,
+    /// Latest operation adding decode depth.
+    levels: Option<DecodeStage>,
+    /// Latest operation producing pixels.
+    pixels: Option<DecodeStage>,
+    /// Latest operation charging retained storage.
+    memory: Option<DecodeStage>,
+    /// Latest charged operation, used for time refusals.
+    latest: Option<DecodeStage>,
+}
 /// Tokio's monotonic clock honors paused time while satisfying the kernel port.
 #[derive(Debug)]
 struct TokioClock;
@@ -351,6 +469,8 @@ impl Clock for TokioClock {
 /// Proposed incremental costs, never a serialized replacement ledger.
 #[derive(Debug)]
 pub(crate) struct DecodeCharge {
+    /// Operation that charged these costs.
+    pub stage: DecodeStage,
     /// Encoded bytes supplied to this individual decode operation.
     pub input_bytes: u64,
     /// New expanded bytes, admitted before growing the output buffer.

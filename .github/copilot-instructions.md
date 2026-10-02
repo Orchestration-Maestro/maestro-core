@@ -457,6 +457,8 @@ in place.
 │   │   │       ├── n15_support.rs                                                       # Independently authored synthetic registry resources, never catalog trust
 │   │   │       ├── n15_validation.rs                                                    # Independent boundary fixtures for registry guards and unmasked red proofs
 │   │   │       ├── n16_define_extraction_fidelity_and_cumulative_decode_contracts.rs    # Synthetic source-correspondence and core-owned parser preflight contracts
+│   │   │       ├── n16_fix_regressions.rs                                               # Review regressions for shared reservations, provenance and exact fidelity
+│   │   │       ├── n16_stage_regressions.rs                                             # Counter-specific provenance and exact worst-ratio completion regressions
 │   │   │       ├── n30_additional_contracts.rs                                          # Typed proposal inputs, fresh CAS and scoped inheritance regressions
 │   │   │       ├── n30_implement_proposal_and_activation_manifest_write_port.rs         # Synthetic write-port conformance; no installed catalog admission is claimed
 │   │   │       ├── n30_lineage_regressions.rs                                           # Digest-consistent payload substitutions must not break effective ancestry

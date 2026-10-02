@@ -73,10 +73,7 @@ impl Decoder {
             let produced = usize::try_from(self.codec.total_out() - before_out)
                 .map_err(|_| Failure::Content)?;
             input = input.get(consumed..).ok_or(Failure::Content)?;
-            self.output(
-                produced as u64,
-                accounting.limits().decode.expansion_ratio.get(),
-            )?;
+            self.output(produced as u64, accounting)?;
             accounting.decoded(produced as u64)?;
             append(
                 &mut output,
@@ -95,14 +92,12 @@ impl Decoder {
         }
     }
     /// A decode step cannot borrow ratio headroom from another hop or layer.
-    fn output(&mut self, bytes: u64, ratio: u64) -> Result<(), Failure> {
+    fn output(&mut self, bytes: u64, accounting: &mut Accounting) -> Result<(), Failure> {
         let output = self
             .output_bytes
             .checked_add(bytes)
             .ok_or(Failure::ExpansionRatio)?;
-        if u128::from(output) > u128::from(self.input_bytes) * u128::from(ratio) {
-            return Err(Failure::ExpansionRatio);
-        }
+        accounting.admit_step_ratio(output, self.input_bytes, DecodeStage::Http)?;
         self.output_bytes = output;
         Ok(())
     }

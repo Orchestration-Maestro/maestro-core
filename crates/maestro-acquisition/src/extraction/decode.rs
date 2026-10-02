@@ -31,7 +31,8 @@ pub struct DecodeRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecodeRefusal {
     /// Operation that first refused or crashed.
-    pub stage: DecodeStage,
+    /// `None`: no decode operation was charged before the refusal.
+    pub stage: Option<DecodeStage>,
     /// Exact reason, including encoded versus expanded byte limits.
     pub reason: Failure,
 }
@@ -76,13 +77,15 @@ impl<'a> ParserDecode<'a> {
             .memory_bytes
             .checked_add(size_of::<DecodeReceipt>() as u64)
         else {
-            self.accounting.hold_decode(request.stage, Failure::Memory);
+            self.accounting
+                .hold_decode(Some(request.stage), Failure::Memory);
             return Err(DecodeRefusal {
-                stage: request.stage,
+                stage: Some(request.stage),
                 reason: Failure::Memory,
             });
         };
         let charge = DecodeCharge {
+            stage: request.stage,
             input_bytes: request.input_bytes,
             expanded_bytes: request.expanded_bytes,
             levels: request.levels,
@@ -92,16 +95,18 @@ impl<'a> ParserDecode<'a> {
             memory_bytes,
         };
         if let Err(reason) = self.accounting.parser_charge(&charge) {
-            self.accounting.hold_decode(request.stage, reason.clone());
+            self.accounting
+                .hold_decode(Some(request.stage), reason.clone());
             return Err(DecodeRefusal {
-                stage: request.stage,
+                stage: Some(request.stage),
                 reason,
             });
         }
         if self.receipts.try_reserve_exact(1).is_err() {
-            self.accounting.hold_decode(request.stage, Failure::Memory);
+            self.accounting
+                .hold_decode(Some(request.stage), Failure::Memory);
             return Err(DecodeRefusal {
-                stage: request.stage,
+                stage: Some(request.stage),
                 reason: Failure::Memory,
             });
         }
@@ -113,7 +118,8 @@ impl<'a> ParserDecode<'a> {
     }
     /// Mark an owned parser crash without discarding any admitted receipts.
     pub fn crashed(&mut self, stage: DecodeStage) {
-        self.accounting.hold_decode(stage, Failure::ParserCrash);
+        self.accounting
+            .hold_decode(Some(stage), Failure::ParserCrash);
     }
     /// All admitted proposals remain available even when completion holds.
     #[must_use]
@@ -128,10 +134,7 @@ impl<'a> ParserDecode<'a> {
             return Err(DecodeRefusal { stage, reason });
         }
         if let Err(reason) = self.accounting.validate() {
-            let stage = self
-                .receipts
-                .last()
-                .map_or(DecodeStage::Http, |receipt| receipt.request.stage);
+            let stage = self.accounting.refusal_stage(&reason);
             self.accounting.hold_decode(stage, reason.clone());
             return Err(DecodeRefusal { stage, reason });
         }

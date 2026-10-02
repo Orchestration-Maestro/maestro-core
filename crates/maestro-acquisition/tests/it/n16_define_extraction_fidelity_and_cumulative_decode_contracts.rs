@@ -31,7 +31,7 @@ fn pin(id: &str) -> Ref {
     }
 }
 /// One source cell and its exact Markdown correspondence.
-fn document() -> Extraction {
+pub(super) fn document() -> Extraction {
     let unit = SourceUnit {
         kind: StructureKind::Cell,
         span: Some(ByteSpan { start: 0, end: 3 }),
@@ -207,7 +207,7 @@ fn n16_mapping_ranges_provenance_and_receipt_survive_holds() {
 }
 
 /// Shared envelope with room for independent one-guard tests.
-fn accounting() -> Accounting {
+pub(super) fn accounting() -> Accounting {
     let mut limits = policy().policy().sources[0].limits.clone();
     limits.decode.expanded_bytes = 100.try_into().unwrap();
     limits.decode.expansion_ratio = 10.try_into().unwrap();
@@ -220,7 +220,7 @@ fn accounting() -> Accounting {
     accounting
 }
 /// IPC proposal, not a replacement serialized accounting counter.
-fn request() -> DecodeRequest {
+pub(super) fn request() -> DecodeRequest {
     DecodeRequest {
         stage: DecodeStage::Office,
         input_bytes: 10,
@@ -268,7 +268,7 @@ fn n16_parser_preflight_enforces_every_cumulative_hook() {
         next.stage = DecodeStage::Attachment;
         let refusal = parser.admit(next).unwrap_err();
         assert_eq!(refusal.reason, reason, "{field}");
-        assert_eq!(refusal.stage, DecodeStage::Attachment);
+        assert_eq!(refusal.stage, Some(DecodeStage::Attachment));
         parser.crashed(DecodeStage::Pdf);
         assert_eq!(parser.receipts().len(), 1);
         assert_eq!(parser.finish(), Err(refusal.clone()));

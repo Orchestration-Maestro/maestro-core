@@ -3,6 +3,7 @@ use super::contract::{Content, Extraction, MappedUnit, Measured, Measurement, St
 use crate::{Ref, policy::shape::valid_id};
 use maestro_kernel::{acquisition::Handle, artifact::Digest, document::Outcome};
 use serde::{Deserialize, Serialize};
+use std::cmp::Reverse;
 
 /// Content-free findings; original evidence remains in the held document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -105,6 +106,7 @@ pub fn evaluate(document: Extraction) -> EvaluatedExtraction {
     for measurement in &document.measurements {
         compare(&document, measurement, &mut findings);
     }
+    compare_physical_order(&document, &mut findings);
     let mut units = Vec::new();
     for unit in &document.units {
         if !document.measurements.iter().any(|measurement| {
@@ -166,7 +168,38 @@ pub fn evaluate(document: Extraction) -> EvaluatedExtraction {
         outcome,
     }
 }
-/// Typed unit order and physical Markdown order must both preserve the source.
+/// Physical order across all kinds follows the independent source spans.
+fn compare_physical_order(document: &Extraction, findings: &mut Vec<Finding>) {
+    let mut ordered = Vec::new();
+    for measurement in &document.measurements {
+        let Measured::Known(source) = &measurement.source else {
+            continue;
+        };
+        for unit in source {
+            let Some(span) = unit.span else {
+                continue;
+            };
+            // ponytail: quadratic matching; index source units if inventories grow.
+            if let Some(output) = document
+                .units
+                .iter()
+                .find(|mapped| mapped.source == *unit)
+                .and_then(|mapped| mapped.output)
+            {
+                ordered.push((span, output, unit.kind));
+            }
+        }
+    }
+    // A containing source span precedes its children at the same start offset.
+    ordered.sort_by_key(|(source, _, _)| (source.start, Reverse(source.end)));
+    for (before, after) in ordered.iter().zip(ordered.iter().skip(1)) {
+        let nested = before.1.start <= after.1.start && after.1.end <= before.1.end;
+        if before.1.end > after.1.start && !nested {
+            findings.push(Finding::Correspondence(after.2));
+        }
+    }
+}
+/// Typed per-kind correspondence must preserve the independent inventory.
 fn compare(document: &Extraction, measurement: &Measurement, findings: &mut Vec<Finding>) {
     let Measured::Known(source) = &measurement.source else {
         if document.required.contains(&measurement.kind) {
@@ -181,19 +214,6 @@ fn compare(document: &Extraction, measurement: &Measurement, findings: &mut Vec<
         .map(|unit| &unit.source)
         .collect();
     if source.iter().collect::<Vec<_>>() != mapped {
-        findings.push(Finding::Correspondence(measurement.kind));
-    }
-    let output: Vec<_> = document
-        .units
-        .iter()
-        .filter(|unit| unit.source.kind == measurement.kind)
-        .filter_map(|unit| unit.output)
-        .collect();
-    if output
-        .iter()
-        .zip(output.iter().skip(1))
-        .any(|(before, after)| before.end > after.start)
-    {
         findings.push(Finding::Correspondence(measurement.kind));
     }
 }

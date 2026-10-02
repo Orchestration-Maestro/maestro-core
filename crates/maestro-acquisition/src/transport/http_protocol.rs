@@ -142,8 +142,7 @@ const PARSER_WORKSPACE: u64 = 32_768;
 pub(super) fn parser(
     accounting: &mut Accounting,
 ) -> Result<(http1::Builder, HeaderLimits), Failure> {
-    accounting.workspace(PARSER_WORKSPACE)?;
-    accounting.reserve(TRAILER_MAX_BYTES)?;
+    accounting.workspace(PARSER_WORKSPACE + TRAILER_MAX_BYTES)?;
     let memory = accounting
         .limits()
         .memory_bytes
