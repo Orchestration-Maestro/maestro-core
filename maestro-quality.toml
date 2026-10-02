@@ -394,9 +394,3 @@ rule = "ARC-005"
 path = "crates/maestro-catalog/src/source/mod.rs"
 item = "Directory"
 reason = "public source-tree adapter used by the CLI source checker and policy loader; keep the existing port instead of duplicating discovery (ARC-005 does not count cross-crate callers)"
-
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-catalog/src/policy/mod.rs"
-item = "workspace"
-reason = "C05h shared workspace authority port is composed by CLI trust/init/session across crates; discovery is its in-crate consumer"

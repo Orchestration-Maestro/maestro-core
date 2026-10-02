@@ -1,6 +1,6 @@
 //! Exact-path or default-no terminal approval; preferences-only writes stay separate.
-use crate::files::FileInput;
-use maestro_filesystem::Directory;
+use super::port::{CheckedTrust, JournalTrust};
+use crate::file_input::FileInput;
 use maestro_kernel::{
     artifact::Digest,
     store::Database,
@@ -8,7 +8,7 @@ use maestro_kernel::{
 };
 use std::{
     io::{BufRead, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 /// Obtain a real user confirmation for the canonical path, defaulting to no.
@@ -49,6 +49,50 @@ pub fn confirmation(
     }
 }
 
+/// Non-cloneable, single-use confirmation for exactly one root-local preferences write.
+/// Its private fields cannot be supplied by a model or catalog. Only the trusted IO
+/// confirmation adapter constructs it; consumption never records workspace approval.
+///
+/// ```compile_fail
+/// use maestro_catalog::{files::FileInput, policy::workspace::{
+///     CheckedTrust, PreferencesConfirmation, write_preferences,
+/// }};
+/// use maestro_kernel::store::Database;
+/// fn reuse(database: &Database, trust: &CheckedTrust<'_>, file: &FileInput,
+///     permit: PreferencesConfirmation) {
+///     write_preferences(database, trust, file, permit).unwrap();
+///     write_preferences(database, trust, file, permit).unwrap(); // already consumed
+/// }
+/// ```
+#[derive(Debug)]
+pub struct PreferencesConfirmation {
+    /// Exact canonical root repeated or confirmed at the user-only IO boundary.
+    root: PathBuf,
+    /// Kernel receipt provenance, not a caller-selected bypass boolean.
+    confirmation: Confirmation,
+}
+
+/// Confirm only the root-local config through the trusted user-only IO adapter.
+///
+/// # Errors
+/// Refuses unresolved paths and missing or mismatched user confirmation.
+pub fn preferences_confirmation(
+    canonical: &Path,
+    confirm_path: Option<&Path>,
+    terminal: bool,
+    prompt: &str,
+    io: (&mut dyn BufRead, &mut dyn Write),
+) -> Result<Option<PreferencesConfirmation>, String> {
+    let resolved = canonical
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    let accepted = confirmation(canonical, confirm_path, terminal, prompt, io)?;
+    Ok(accepted.map(|confirmation| PreferencesConfirmation {
+        root: resolved,
+        confirmation,
+    }))
+}
+
 /// Write only the separately approved preferences file with kernel-local digest receipts.
 /// No C04 workspace state, template, projection or broad HOME grant is created.
 ///
@@ -56,13 +100,17 @@ pub fn confirmation(
 /// Refuses any other target, existing bytes, links and failed durable writes or journal records.
 pub fn write_preferences(
     database: &Database,
-    root: &Path,
+    trust: &CheckedTrust<'_>,
     file: &FileInput,
-    confirmation: Confirmation,
+    permit: PreferencesConfirmation,
 ) -> Result<(), String> {
-    if file.path != ".maestro/config.toml" {
-        return Err("preferences-only approval cannot write another file".to_owned());
-    }
+    let PreferencesConfirmation { root, confirmation } = permit;
+    let root = root.as_path();
+    let adapter = JournalTrust::optional(None);
+    let narrow = CheckedTrust::preferences(&adapter, trust.boundaries, root)?;
+    narrow
+        .check_write(root, Path::new(&file.path))
+        .map_err(|error| error.to_string())?;
     let digest = format!("sha256:{}", Digest::of(&file.bytes).as_str());
     let record = |answer| {
         database
@@ -78,15 +126,9 @@ pub fn write_preferences(
         confirmation,
         completed: false,
     })?;
-    let directory =
-        Directory::open(root, Path::new(".maestro"), true).map_err(|error| error.to_string())?;
-    let mut output = directory
-        .create_new("config.toml")
-        .map_err(|error| error.to_string())?;
-    output
-        .write_all(&file.bytes)
-        .and_then(|()| output.sync_all())
-        .and_then(|()| directory.sync())
+    narrow
+        .authorize_create(root, Path::new(&file.path))
+        .and_then(|path| path.write_new(&file.bytes))
         .map_err(|error| error.to_string())?;
     record(Answer::Preferences {
         digest,

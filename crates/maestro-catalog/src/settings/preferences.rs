@@ -3,6 +3,7 @@ use super::resolve::resolve;
 use crate::{
     files::{FileInput, FilePlan},
     limits::Limits,
+    policy::workspace::CheckedTrust,
 };
 use maestro_settings::{FileLayers, Layer, Layers, MAX_FILE_BYTES, Registry, Value, parse_flags};
 use serde::Serialize;
@@ -67,6 +68,7 @@ pub fn draft_preferences(
     port: &dyn WorkspacePreferences,
     choices: &[String],
     limits: &Limits,
+    trust: &CheckedTrust<'_>,
 ) -> Result<PreferencesDraft, String> {
     let registry = Registry::built_in().map_err(|error| error.to_string())?;
     let layers = port.layers(&registry, limits)?;
@@ -132,7 +134,8 @@ pub fn draft_preferences(
     )
     .map_err(|error| error.to_string())?;
     let file = FileInput::new(".maestro/config.toml", text.into_bytes());
-    let files = FilePlan::preview(root, [file.clone()]).map_err(|error| error.to_string())?;
+    let files =
+        FilePlan::preview(root, [file.clone()], trust).map_err(|error| error.to_string())?;
     Ok(PreferencesDraft {
         file,
         files,

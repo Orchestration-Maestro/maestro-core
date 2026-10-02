@@ -680,7 +680,7 @@ no adapter may weaken the mandatory policy floor.
 **Requirements:** FR-S3-005, FR-S3-027, FR-S3-035, FR-S3-036,
 SC-S3-010, SC-S3-012.
 
-- [ ] **Step 1: Red.** Prove trusted --apply writes expected config bytes at the
+- [x] **Step 1: Red.** Prove trusted --apply writes expected config bytes at the
   displayed root, nested init leaves the ancestor's `.maestro/` byte-identical,
   and identical rerun writes nothing. Across en/fr/es/ja × all three tones,
   every generated workspace/host deliverable is byte-identical except config

@@ -9,7 +9,7 @@ use super::{
 };
 use rustix::fd::OwnedFd;
 use rustix::fs::{
-    AtFlags, Dir, FileType, Mode, OFlags, RenameFlags, fstat, linkat, mkdirat, open, openat,
+    AtFlags, Dir, FileType, Mode, OFlags, RenameFlags, linkat, mkdirat, open, openat,
     renameat_with, statat, unlinkat,
 };
 #[cfg(target_os = "linux")]
@@ -26,7 +26,7 @@ use std::{
 };
 
 /// The next process-local suffix for a collision-free quarantine name.
-static NEXT_QUARANTINE: AtomicUsize = AtomicUsize::new(0);
+pub(super) static NEXT_QUARANTINE: AtomicUsize = AtomicUsize::new(0);
 
 /// Read only, reject links, avoid FIFO blocking, and keep the descriptor out of child processes.
 const READ_REGULAR_FLAGS: OFlags = OFlags::RDONLY
@@ -56,7 +56,7 @@ const OPEN_NOFOLLOW_FLAGS: OFlags = OFlags::RDONLY
 
 /// An open directory: names inside it resolve against the handle, never against a path.
 #[derive(Debug)]
-pub struct Directory(File, PathBuf);
+pub struct Directory(pub(super) File, pub(super) PathBuf);
 
 impl Directory {
     /// Open the directory `below` names under the caller's `root`: the root resolves once, then
@@ -345,16 +345,45 @@ impl Directory {
         expected: &[u8],
         expected_identity: Option<(u64, u64)>,
     ) -> io::Result<()> {
-        self.remove_verified_with(name, expected, expected_identity, || {})
+        self.remove_verified_checked(name, expected, expected_identity, || Ok(()))
     }
 
-    /// Remove a verified file, invoking `after_quarantine` immediately after its rename.
+    /// Remove through quarantine, restoring the original name if the policy callback refuses.
+    ///
+    /// # Errors
+    /// Refuses policy changes, mismatched bytes/identity and filesystem failures.
+    pub fn remove_verified_checked(
+        &self,
+        name: &str,
+        expected: &[u8],
+        expected_identity: Option<(u64, u64)>,
+        policy: impl FnOnce() -> io::Result<()>,
+    ) -> io::Result<()> {
+        self.remove_verified_impl(name, expected, expected_identity, policy)
+    }
+
+    /// Inject scheduling without overriding the production policy callback.
+    #[cfg(test)]
     pub(crate) fn remove_verified_with(
         &self,
         name: &str,
         expected: &[u8],
         expected_identity: Option<(u64, u64)>,
         after_quarantine: impl FnOnce(),
+    ) -> io::Result<()> {
+        self.remove_verified_impl(name, expected, expected_identity, || {
+            after_quarantine();
+            Ok(())
+        })
+    }
+
+    /// One shared removal path for policy callbacks and byte/identity verification.
+    fn remove_verified_impl(
+        &self,
+        name: &str,
+        expected: &[u8],
+        expected_identity: Option<(u64, u64)>,
+        policy: impl FnOnce() -> io::Result<()>,
     ) -> io::Result<()> {
         if name.is_empty()
             || name.contains('/')
@@ -371,60 +400,35 @@ impl Directory {
         if !File::from(original).metadata()?.is_file() {
             return Err(io::Error::other("artifact is not a regular file"));
         }
-        self.remove_quarantined(name, after_quarantine, |quarantine| {
-            let fd = openat(&self.0, quarantine, READ_REGULAR_FLAGS, Mode::empty())?;
-            let mut file = File::from(fd);
-            let metadata = file.metadata()?;
-            if !metadata.is_file() {
-                return Err(io::Error::other("artifact is not a regular file"));
-            }
-            let identity_matches = expected_identity.is_none_or(|(device, inode)| {
-                use std::os::unix::fs::MetadataExt;
-                metadata.dev() == device && metadata.ino() == inode
-            });
-            let mut bytes = Vec::new();
-            file.read_to_end(&mut bytes)?;
-            if bytes != expected || !identity_matches {
-                return Err(io::Error::other(
-                    "verified removal refused: file bytes changed",
-                ));
-            }
-            Ok(())
-        })
-    }
-
-    /// Remove an empty created file using its still-held identity, without reopening it.
-    /// Use a regular-file handle returned by `create_new` and keep it open until removal
-    /// completes to prevent inode reuse.
-    ///
-    /// # Errors
-    /// Refuses non-empty entries, replacements and failed cleanup.
-    pub fn remove_created(&self, name: &str, created: &File) -> io::Result<()> {
-        self.remove_created_with(name, created, || {})
-    }
-
-    /// Verify the created identity after the quarantine scheduling hook.
-    pub(crate) fn remove_created_with(
-        &self,
-        name: &str,
-        created: &File,
-        after_quarantine: impl FnOnce(),
-    ) -> io::Result<()> {
-        leaf_name(name)?;
-        let held = fstat(created)?;
-        self.remove_quarantined(name, after_quarantine, |quarantine| {
-            let named = statat(&self.0, quarantine, AtFlags::SYMLINK_NOFOLLOW)?;
-            if named.st_size != 0 || named.st_dev != held.st_dev || named.st_ino != held.st_ino {
-                return Err(io::Error::other(
-                    "created file changed; replacement not deleted",
-                ));
-            }
-            Ok(())
-        })
+        self.remove_quarantined(
+            name,
+            || {},
+            |quarantine| {
+                policy()?;
+                let fd = openat(&self.0, quarantine, READ_REGULAR_FLAGS, Mode::empty())?;
+                let mut file = File::from(fd);
+                let metadata = file.metadata()?;
+                if !metadata.is_file() {
+                    return Err(io::Error::other("artifact is not a regular file"));
+                }
+                let identity_matches = expected_identity.is_none_or(|(device, inode)| {
+                    use std::os::unix::fs::MetadataExt;
+                    metadata.dev() == device && metadata.ino() == inode
+                });
+                let mut bytes = Vec::new();
+                file.read_to_end(&mut bytes)?;
+                if bytes != expected || !identity_matches {
+                    return Err(io::Error::other(
+                        "verified removal refused: file bytes changed",
+                    ));
+                }
+                Ok(())
+            },
+        )
     }
 
     /// Share the non-replacing quarantine and restoration for byte and held-identity checks.
-    fn remove_quarantined(
+    pub(super) fn remove_quarantined(
         &self,
         name: &str,
         after_quarantine: impl FnOnce(),

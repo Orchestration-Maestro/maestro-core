@@ -8,15 +8,20 @@ mod bounded_tests;
 mod canonical_identity_tests;
 #[cfg(all(test, windows))]
 mod canonical_windows_identity_tests;
+#[cfg(test)]
+mod created_identity_tests;
 mod listing;
 #[cfg(test)]
 mod listing_tests;
+mod publication;
 mod read;
 mod root;
 #[cfg(test)]
 mod tests;
 #[cfg(unix)]
 mod unix;
+#[cfg(unix)]
+mod unix_creation;
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
@@ -27,3 +32,5 @@ pub use unix::{Directory, open_nofollow};
 pub use windows::{Directory, open_nofollow};
 
 pub use listing::{Entry, EntryKind};
+
+pub use publication::PublicationChecks;

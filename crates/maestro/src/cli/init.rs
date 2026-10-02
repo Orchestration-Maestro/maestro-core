@@ -11,6 +11,7 @@ use maestro_catalog::{
     policy::workspace::{CheckedTrust, JournalTrust, WorkspaceTrust as _, write_preferences},
     settings::{PreferencesDraft, WorkspacePreferences, draft_preferences},
 };
+use maestro_kernel::workspace::WorkspaceAuthority;
 use serde::Serialize;
 use std::{
     env,
@@ -80,17 +81,25 @@ pub(super) fn run(
     if effects.preferences_only {
         return preferences_only(output, &root, &effects, preference_choices);
     }
-    let preferences = if choices.is_empty() {
-        None
-    } else {
-        Some(
-            draft_preferences(&root, source, choices, &Limits::PRODUCTION)
-                .map_err(Failure::refused)?,
-        )
-    };
+    let boundaries = trust::boundaries()?;
+    let database = trust::existing_database()?;
+    let adapter = JournalTrust::optional(
+        database
+            .as_ref()
+            .map(|database| database as &dyn WorkspaceAuthority),
+    );
+    let checked = CheckedTrust::new(&adapter, &boundaries);
+    let preferences = Some(
+        draft_preferences(&root, source, choices, &Limits::PRODUCTION, &checked)
+            .map_err(Failure::refused)?,
+    );
     let provider = DirectoryPresets::new(catalog_dir);
-    let preview = bootstrap::preview(&root, &provider, presets).map_err(Failure::refused)?;
-    let already_applied = preview.plan.is_applied();
+    let preview =
+        bootstrap::preview(&root, &provider, presets, &checked).map_err(Failure::refused)?;
+    let already_applied = preview.plan.is_applied()
+        && preferences
+            .as_ref()
+            .is_some_and(|draft| draft.files.is_applied());
     let mut document = InitDocument {
         schema: "maestro-cli/init/1",
         mode: "authoring convenience; not a verified install",
@@ -105,9 +114,11 @@ pub(super) fn run(
         serde_json::to_string_pretty(&document).map_err(|error| Failure::failed_by(&error))?;
     output.text(&text)?;
     if should_apply {
-        bootstrap::apply(&root, &preview).map_err(|error| Failure::refused(error.to_string()))?;
+        bootstrap::apply(&root, &preview, &checked)
+            .map_err(|error| Failure::refused(error.to_string()))?;
         if let Some(preferences) = &preferences {
-            files::apply(&root, &preferences.files).map_err(|error| Failure::refused_by(&error))?;
+            files::apply(&root, &preferences.files, &checked)
+                .map_err(|error| Failure::refused_by(&error))?;
         }
         document.applied = true;
         output.text(if already_applied {
@@ -183,7 +194,7 @@ fn preferences_only_with_io(
         MessageKey::InitApprovePrompt,
         &[("path", &trust_path::visible_path(root))],
     )?;
-    let confirmation = match trust::approve_with_io(
+    let confirmation = match trust::approve_preferences_with_io(
         root,
         effects.confirm_path,
         &prompt,
@@ -212,14 +223,23 @@ fn preferences_only_with_io(
             output.wording(MessageKey::InitPreferencesDeclined, &[])?,
         ));
     };
+    let boundaries = trust::boundaries()?;
+    let database = trust::existing_database()?;
+    let adapter = JournalTrust::optional(
+        database
+            .as_ref()
+            .map(|database| database as &dyn WorkspaceAuthority),
+    );
+    let checked = CheckedTrust::new(&adapter, &boundaries);
     let draft = draft_preferences(
         root,
         preferences.source,
         preferences.choices,
         &Limits::PRODUCTION,
+        &checked,
     )
     .map_err(Failure::refused)?;
-    write_preferences(&trust::database()?, root, &draft.file, confirmation)
+    write_preferences(&trust::database()?, &checked, &draft.file, confirmation)
         .map_err(Failure::refused)?;
     output.result(
         &draft,

@@ -6,6 +6,8 @@ mod port;
 #[cfg(test)]
 mod tests;
 
-pub use approval::{confirmation, write_preferences};
+pub use approval::{
+    PreferencesConfirmation, confirmation, preferences_confirmation, write_preferences,
+};
 pub use paths::{Access, AuthorizedPath};
 pub use port::{CheckedTrust, JournalTrust, TrustBoundaries, WorkspaceTrust};

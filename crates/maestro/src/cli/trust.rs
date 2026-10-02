@@ -2,11 +2,13 @@
 use super::{output::Output, trust_path};
 use crate::failure::Failure;
 use clap::Subcommand;
-use maestro_catalog::policy::workspace::{TrustBoundaries, confirmation};
+use maestro_catalog::policy::workspace::{
+    PreferencesConfirmation, TrustBoundaries, confirmation, preferences_confirmation,
+};
 use maestro_kernel::{
     paths::{self, Environment},
     store::Database,
-    workspace::{Answer, Confirmation, WorkspaceAnswer},
+    workspace::{Answer, Confirmation, ReadOnlyDatabase, WorkspaceAnswer},
 };
 use std::{
     env,
@@ -51,6 +53,22 @@ pub(super) fn database() -> Result<Database, Failure> {
     Database::open_in(&data).map_err(|error| Failure::failed_by(&error))
 }
 
+/// Read existing user-local authority without creating a database during preview.
+pub(super) fn existing_database() -> Result<Option<ReadOnlyDatabase>, Failure> {
+    let data =
+        paths::data_dir(&Environment::current()).map_err(|error| Failure::failed_by(&error))?;
+    if !data
+        .join("kernel.sqlite3")
+        .try_exists()
+        .map_err(|error| Failure::failed_by(&error))?
+    {
+        return Ok(None);
+    }
+    Database::open_read_only_in(&data)
+        .map(Some)
+        .map_err(Failure::refused)
+}
+
 /// Confirm through trusted terminal IO or the exact repeated canonical path.
 pub(super) fn approve(
     root: &Path,
@@ -76,13 +94,29 @@ pub(super) fn approve_with_io(
     terminal: bool,
     io: (&mut dyn BufRead, &mut dyn Write),
 ) -> Result<Option<Confirmation>, Failure> {
-    let visible = PathBuf::from(trust_path::visible_path(root));
-    let canonical = if path.is_some_and(|path| path.as_os_str() == root.as_os_str()) {
-        root
+    let canonical = approval_path(root, path);
+    confirmation(&canonical, path, terminal, prompt, io).map_err(Failure::refused)
+}
+
+/// The same trusted user-only adapter constructs the consumed config-only capability.
+pub(super) fn approve_preferences_with_io(
+    root: &Path,
+    path: Option<&Path>,
+    prompt: &str,
+    terminal: bool,
+    io: (&mut dyn BufRead, &mut dyn Write),
+) -> Result<Option<PreferencesConfirmation>, Failure> {
+    preferences_confirmation(&approval_path(root, path), path, terminal, prompt, io)
+        .map_err(Failure::refused)
+}
+
+/// Preserve the exact canonical Windows spelling the CLI displays to the user.
+fn approval_path(root: &Path, path: Option<&Path>) -> PathBuf {
+    if path.is_some_and(|path| path.as_os_str() == root.as_os_str()) {
+        root.to_path_buf()
     } else {
-        visible.as_path()
-    };
-    confirmation(canonical, path, terminal, prompt, io).map_err(Failure::refused)
+        PathBuf::from(trust_path::visible_path(root))
+    }
 }
 
 /// Run administration without reading or rewriting any workspace preference bytes.

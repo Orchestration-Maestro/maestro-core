@@ -203,7 +203,7 @@ fn traversal_absolute_and_non_regular_targets_refuse_beside_plain_leaf() {
     );
 }
 
-fn directory_link(target: &Path, link: &Path) {
+pub(super) fn directory_link(target: &Path, link: &Path) {
     #[cfg(unix)]
     symlink(target, link).unwrap();
     #[cfg(windows)]

@@ -1,6 +1,8 @@
 //! Shared digest-bound file plans, durable ownership, and crash-safe removal.
 /// Exclusive writes and the final ownership commit.
 mod apply;
+/// Checked held-handle effects shared by owned-file adapters.
+mod effects;
 /// Portable names for ID-derived state records.
 mod names;
 /// Immutable previews and hostile relative-path validation.
@@ -11,10 +13,11 @@ mod recovery;
 mod remove;
 /// Contract tests for owned-file operations.
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
+pub use crate::file_input::FileInput;
 pub use apply::{apply, recover};
-pub use plan::{FileInput, FilePlan};
+pub use plan::FilePlan;
 pub use remove::remove;
 
 #[cfg(test)]

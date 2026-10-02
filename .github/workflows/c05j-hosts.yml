@@ -1,0 +1,55 @@
+name: C05j native own-file trust
+"on":
+  push:
+    branches: [test/s3-c05j-hosts]
+permissions:
+  contents: read
+concurrency:
+  group: c05j-native-files
+  cancel-in-progress: false
+jobs:
+  native:
+    name: Native owned files (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    env:
+      CARGO_BUILD_JOBS: 3
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+    steps:
+      - name: Check out the exact disposable source snapshot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use the pinned preinstalled toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal --component clippy
+      - name: Native affected-crate Clippy
+        run: cargo clippy --locked -p maestro-catalog -p maestro-filesystem -p maestro --all-targets -- -D warnings
+      - name: Native workspace trust and owned-file regressions
+        run: cargo test --locked -p maestro-catalog
+      - name: Native filesystem identities and dispositions
+        run: cargo test --locked -p maestro-filesystem
+      - name: Native CLI default, nested and full language-tone matrix
+        run: cargo test --locked -p maestro --test it catalog_trusted_files
+      - name: Kill the native guard mutants
+        run: python host_proof.py
+      - name: Restored native owned-file green
+        run: cargo test --locked -p maestro-catalog files::tests::workspace_trust
+      - name: Restored native filesystem green
+        run: cargo test --locked -p maestro-filesystem created_identity_tests
+      - name: Persist exact patches, commands and outcomes
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: c05j-native-${{ matrix.os }}
+          path: native-proof/
+          if-no-files-found: warn
