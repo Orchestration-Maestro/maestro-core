@@ -1,17 +1,17 @@
-use super::super::apply::apply_with_failure;
 use super::super::{
     names::{journal_name, ownership_name},
     plan::validate_relative_path,
 };
 use super::support::Scratch;
-use crate::files::{FileInput, FilePlan, apply, recover, remove};
+use super::support::{apply, apply_with_failure, preview, recover, remove};
+use crate::files::FileInput;
 use std::fs;
 
 #[test]
 fn every_id_derived_state_component_is_windows_safe() {
     for point in [0, 100, 101] {
         let scratch = Scratch::new();
-        let plan = FilePlan::preview(
+        let plan = preview(
             &scratch.path,
             [FileInput::new("target", b"planned".to_vec())],
         )
@@ -37,11 +37,11 @@ fn every_id_derived_state_component_is_windows_safe() {
 fn portable_state_names_preserve_distinct_plan_ids_and_record_bytes() {
     let scratch = Scratch::new();
     let inputs = [FileInput::new("target", b"planned".to_vec())];
-    let plan = FilePlan::preview(&scratch.path, inputs.clone()).unwrap();
+    let plan = preview(&scratch.path, inputs.clone()).unwrap();
     // Hand-computed SHA-256 of length-prefixed "target" and "planned".
     let id = "sha256:f2f4a7d30e5f1bd26ee8accf0d8be8bfdb80c0523cc245e9b869b895286db70d";
     assert_eq!(plan.id(), id);
-    let changed = FilePlan::preview(
+    let changed = preview(
         &scratch.path,
         [FileInput::new("target", b"changed".to_vec())],
     )
@@ -67,11 +67,7 @@ fn portable_state_names_preserve_distinct_plan_ids_and_record_bytes() {
         ownership["files"][0]["digest"],
         journal["entries"][0]["digest"]
     );
-    assert!(
-        FilePlan::preview(&scratch.path, inputs)
-            .unwrap()
-            .is_applied()
-    );
+    assert!(preview(&scratch.path, inputs).unwrap().is_applied());
     remove(&scratch.path, id).unwrap();
     assert!(!state.join(ownership_name(id)).exists());
     assert!(!scratch.path.join("target").exists());
@@ -81,7 +77,7 @@ fn portable_state_names_preserve_distinct_plan_ids_and_record_bytes() {
 fn every_interrupted_write_or_ownership_commit_recovers_idempotently() {
     for point in 0..=6 {
         let scratch = Scratch::new();
-        let plan = FilePlan::preview(
+        let plan = preview(
             &scratch.path,
             [
                 FileInput::new("nested/one", b"first".to_vec()),
@@ -114,7 +110,7 @@ fn every_interrupted_write_or_ownership_commit_recovers_idempotently() {
 #[test]
 fn interrupted_temporary_records_do_not_block_retry_or_leave_torn_published_files() {
     let scratch = Scratch::new();
-    let plan = FilePlan::preview(
+    let plan = preview(
         &scratch.path,
         [FileInput::new("target", b"planned".to_vec())],
     )
@@ -124,8 +120,7 @@ fn interrupted_temporary_records_do_not_block_retry_or_leave_torn_published_file
     apply(&scratch.path, &plan).unwrap();
     remove(&scratch.path, plan.id()).unwrap();
 
-    let second =
-        FilePlan::preview(&scratch.path, [FileInput::new("other", b"owned".to_vec())]).unwrap();
+    let second = preview(&scratch.path, [FileInput::new("other", b"owned".to_vec())]).unwrap();
     assert!(apply_with_failure(&scratch.path, &second, Some(101)).is_err());
     assert!(recover(&scratch.path, second.id()).is_err());
     assert!(remove(&scratch.path, second.id()).is_err());
@@ -142,7 +137,7 @@ fn interrupted_temporary_records_do_not_block_retry_or_leave_torn_published_file
 #[test]
 fn a_stale_preview_never_overwrites_a_new_file() {
     let scratch = Scratch::new();
-    let plan = FilePlan::preview(
+    let plan = preview(
         &scratch.path,
         [FileInput::new("target", b"planned".to_vec())],
     )
@@ -157,7 +152,7 @@ fn a_stale_preview_never_overwrites_a_new_file() {
 #[test]
 fn recovery_refuses_an_identical_user_file_without_committing_ownership() {
     let scratch = Scratch::new();
-    let plan = FilePlan::preview(
+    let plan = preview(
         &scratch.path,
         [FileInput::new("target", b"planned".to_vec())],
     )
@@ -176,9 +171,9 @@ fn replay_preview_requires_complete_unchanged_ownership_and_applies_as_noop() {
         FileInput::new("one", b"one".to_vec()),
         FileInput::new("two", b"two".to_vec()),
     ];
-    let first = FilePlan::preview(&scratch.path, inputs.clone()).unwrap();
+    let first = preview(&scratch.path, inputs.clone()).unwrap();
     apply(&scratch.path, &first).unwrap();
-    let replay = FilePlan::preview(&scratch.path, inputs.clone()).unwrap();
+    let replay = preview(&scratch.path, inputs.clone()).unwrap();
     assert!(replay.is_applied());
     apply(&scratch.path, &replay).unwrap();
     assert!(
@@ -191,12 +186,12 @@ fn replay_preview_requires_complete_unchanged_ownership_and_applies_as_noop() {
 
     fs::remove_file(scratch.path.join("two")).unwrap();
     assert!(
-        FilePlan::preview(&scratch.path, inputs.clone()).is_err(),
+        preview(&scratch.path, inputs.clone()).is_err(),
         "partial owned set accepted"
     );
     fs::write(scratch.path.join("two"), b"changed").unwrap();
     assert!(
-        FilePlan::preview(&scratch.path, inputs).is_err(),
+        preview(&scratch.path, inputs).is_err(),
         "changed owned bytes accepted"
     );
 }
@@ -205,13 +200,13 @@ fn replay_preview_requires_complete_unchanged_ownership_and_applies_as_noop() {
 fn identical_unowned_files_and_different_plan_records_are_refused() {
     let scratch = Scratch::new();
     let input = FileInput::new("target", b"same".to_vec());
-    let first = FilePlan::preview(&scratch.path, [input.clone()]).unwrap();
+    let first = preview(&scratch.path, [input.clone()]).unwrap();
     fs::write(scratch.path.join("target"), b"same").unwrap();
-    assert!(FilePlan::preview(&scratch.path, [input.clone()]).is_err());
+    assert!(preview(&scratch.path, [input.clone()]).is_err());
     fs::remove_file(scratch.path.join("target")).unwrap();
     apply(&scratch.path, &first).unwrap();
     let changed_plan = FileInput::new("target", b"different".to_vec());
-    assert!(FilePlan::preview(&scratch.path, [changed_plan]).is_err());
+    assert!(preview(&scratch.path, [changed_plan]).is_err());
 }
 
 #[test]
@@ -232,12 +227,12 @@ fn path_validation_rejects_aliases_on_case_insensitive_and_windows_filesystems()
         ".MAESTRO-FILES/state",
     ] {
         assert!(
-            FilePlan::preview(&scratch.path, [FileInput::new(path, b"no".to_vec())]).is_err(),
+            preview(&scratch.path, [FileInput::new(path, b"no".to_vec())]).is_err(),
             "accepted ambiguous path {path:?}"
         );
     }
     assert!(
-        FilePlan::preview(
+        preview(
             &scratch.path,
             [
                 FileInput::new("README.md", b"one".to_vec()),
@@ -252,10 +247,10 @@ fn path_validation_rejects_aliases_on_case_insensitive_and_windows_filesystems()
 fn traversal_and_reserved_paths_are_rejected_before_a_file_is_created() {
     let scratch = Scratch::new();
     for path in ["../outside", "a/../outside", ".maestro-files/journal"] {
-        assert!(FilePlan::preview(&scratch.path, [FileInput::new(path, b"no".to_vec())]).is_err());
+        assert!(preview(&scratch.path, [FileInput::new(path, b"no".to_vec())]).is_err());
     }
     assert!(
-        FilePlan::preview(
+        preview(
             &scratch.path,
             [
                 FileInput::new("node", b"file".to_vec()),
@@ -273,9 +268,9 @@ fn traversal_and_reserved_paths_are_rejected_before_a_file_is_created() {
 fn replay_journal_recovers_after_owned_files_are_removed() {
     let scratch = Scratch::new();
     let inputs = [FileInput::new("target", b"planned".to_vec())];
-    let first = FilePlan::preview(&scratch.path, inputs.clone()).unwrap();
+    let first = preview(&scratch.path, inputs.clone()).unwrap();
     apply(&scratch.path, &first).unwrap();
-    let replay = FilePlan::preview(&scratch.path, inputs).unwrap();
+    let replay = preview(&scratch.path, inputs).unwrap();
     assert!(replay.is_applied());
     remove(&scratch.path, replay.id()).unwrap();
     assert!(apply_with_failure(&scratch.path, &replay, Some(1)).is_err());

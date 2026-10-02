@@ -1,5 +1,6 @@
 //! Preference drafts stay side-effect-free; CLI apply requires journal-backed trust.
 use super::support::Home;
+use maestro_catalog::policy::workspace::{CheckedTrust, JournalTrust, TrustBoundaries};
 use maestro_catalog::{
     limits::Limits,
     settings::{FilePreferences, draft_preferences},
@@ -87,6 +88,10 @@ fn catalog_preferences_scripted_drafts_match_for_language_tone_matrix() {
                     "routing_candidates=2".into(),
                 ],
                 &Limits::PRODUCTION,
+                &CheckedTrust::new(
+                    &JournalTrust::optional(None),
+                    &TrustBoundaries::new(home.root(), &[]).unwrap(),
+                ),
             )
             .unwrap();
             assert_eq!(bytes, draft.file.bytes);

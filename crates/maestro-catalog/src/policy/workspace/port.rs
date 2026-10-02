@@ -128,20 +128,27 @@ impl TrustBoundaries {
 /// Read the existing kernel journal afresh, so revocation affects subsequent decisions.
 pub struct JournalTrust<'a> {
     /// User-local kernel authority; no preference file is consulted.
-    database: &'a dyn WorkspaceAuthority,
+    database: Option<&'a dyn WorkspaceAuthority>,
 }
 
 impl<'a> JournalTrust<'a> {
     /// Bind the replaceable default adapter to its user-local database.
     #[must_use]
     pub const fn new(database: &'a dyn WorkspaceAuthority) -> Self {
+        Self {
+            database: Some(database),
+        }
+    }
+    /// Preview can consult an existing journal without creating one for an unapproved workspace.
+    #[must_use]
+    pub const fn optional(database: Option<&'a dyn WorkspaceAuthority>) -> Self {
         Self { database }
     }
 }
 
 impl WorkspaceTrust for JournalTrust<'_> {
     fn containing_root(&self, canonical_start: &Path) -> Option<PathBuf> {
-        self.database
+        self.database?
             .read_trusted_workspaces()
             .ok()?
             .into_iter()
@@ -157,6 +164,8 @@ pub struct CheckedTrust<'a> {
     pub(super) adapter: &'a dyn WorkspaceTrust,
     /// Mandatory refusal floor.
     pub(super) boundaries: &'a TrustBoundaries,
+    /// Only a consumed, exact-path preferences confirmation can populate this narrow exception.
+    pub(super) preferences: Option<PathBuf>,
 }
 
 impl<'a> CheckedTrust<'a> {
@@ -166,7 +175,22 @@ impl<'a> CheckedTrust<'a> {
         Self {
             adapter,
             boundaries,
+            preferences: None,
         }
+    }
+
+    /// A private single-config effect lease, never a containing-root grant.
+    pub(super) fn preferences(
+        adapter: &'a dyn WorkspaceTrust,
+        boundaries: &'a TrustBoundaries,
+        root: &Path,
+    ) -> Result<Self, String> {
+        boundaries.check_root(root)?;
+        Ok(Self {
+            adapter,
+            boundaries,
+            preferences: Some(root.to_path_buf()),
+        })
     }
 }
 

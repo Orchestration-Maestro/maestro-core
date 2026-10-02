@@ -291,6 +291,7 @@ in place.
 │   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
 │   │   │       ├── catalog_presentation.rs                                  # C05c keeps localized interface prose separate from English machine contracts
 │   │   │       ├── catalog_session_preferences.rs                           # Every process pins the same safe preference snapshot before effects
+│   │   │       ├── catalog_trusted_files.rs                                 # Apply persists preferences only at the displayed, approved root
 │   │   │       ├── catalog_workspace_trust.rs                               # Explicit user trust changes never consult or rewrite preference files
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
 │   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
@@ -504,8 +505,12 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Rust source: mod
 │   │   │   │   │   ├── races.rs                                             # Rust source: races
 │   │   │   │   │   ├── removal.rs                                           # Rust source: removal
-│   │   │   │   │   └── support.rs                                           # Rust source: support
+│   │   │   │   │   ├── support.rs                                           # Rust source: support
+│   │   │   │   │   ├── workspace_trust.rs                                   # Owned effects must not turn a preview or ownership record into path authority
+│   │   │   │   │   ├── workspace_trust_effects.rs                           # Scheduling proofs for the shared owned-effect port and native rollback identities
+│   │   │   │   │   └── workspace_trust_publication.rs                       # Publication checkpoints and held-source/target substitution proofs
 │   │   │   │   ├── apply.rs                                                 # Apply exclusive file plans, commit ownership last, and recover proven states
+│   │   │   │   ├── effects.rs                                               # Owned-file adapters use only the shared policy's held-handle effects
 │   │   │   │   ├── mod.rs                                                   # Shared digest-bound file plans, durable ownership, and crash-safe removal
 │   │   │   │   ├── names.rs                                                 # Portable state-file names; plan identities inside records keep their original bytes
 │   │   │   │   ├── plan.rs                                                  # Preview immutable file bytes, validate relative names, and bind content digests
@@ -634,6 +639,7 @@ in place.
 │   │   │   │   ├── walk.rs                                                  # Discovery: the catalog's top level, then each registered kind's
 │   │   │   │   └── yaml.rs                                                  # YAML frontmatter read node by node, never as a whole generic tree first
 │   │   │   ├── adapters.rs                                                  # Shared reviewed adapter naming metadata
+│   │   │   ├── file_input.rs                                                # Plain owned-file inputs contain data, never a filesystem capability
 │   │   │   └── lib.rs                                                       # The Maestro catalog: its shared security limits and the strict checker of
 │   │   └── Cargo.toml                                                       # Crate manifest: The Maestro catalog: strict, bounded checks of its authoring sources
 │   ├── maestro-conventions/                                                 # Maestro conventions
@@ -656,13 +662,16 @@ in place.
 │   │   │   ├── bounded_tests.rs                                             # Rust source: bounded tests
 │   │   │   ├── canonical_identity_tests.rs                                  # Held-object canonical spelling, including a transient link swap on Unix
 │   │   │   ├── canonical_windows_identity_tests.rs                          # Windows full-volume/full-file identities from real held files
+│   │   │   ├── created_identity_tests.rs                                    # Created-object identity is shared by publication, writes and verified rollback
 │   │   │   ├── lib.rs                                                       # Filesystem access that never follows a link below the root its caller names, which resolves
 │   │   │   ├── listing.rs                                                   # Shared bounded listing records; platform adapters classify without following links
 │   │   │   ├── listing_tests.rs                                             # Bounded directory listing on held handles
+│   │   │   ├── publication.rs                                               # Complete-record publication keeps its temporary source open through identity-checked rollback
 │   │   │   ├── read.rs                                                      # Platform-independent byte limit for reads through an already-held file handle
 │   │   │   ├── root.rs                                                      # The root a caller names, resolved once, and the names the store appends below it
 │   │   │   ├── tests.rs                                                     # Rust source: tests
 │   │   │   ├── unix.rs                                                      # Unix filesystem access: every name resolves against an open directory, never a path
+│   │   │   ├── unix_creation.rs                                             # Unix created objects retain identity through hardening, publication and rollback
 │   │   │   ├── windows.rs                                                   # Windows filesystem access: held directories and open flags that never follow a link
 │   │   │   └── windows_security.rs                                          # The sole unsafe boundary: security information belongs to an already-held handle
 │   │   └── Cargo.toml                                                       # Crate manifest

@@ -1,4 +1,5 @@
 mod crashes;
 mod races;
 mod removal;
-mod support;
+pub(crate) mod support;
+mod workspace_trust;

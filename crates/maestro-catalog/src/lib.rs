@@ -5,6 +5,7 @@
 pub mod adapters;
 /// Digest-bound, recoverable writes and removal for catalog-owned files.
 pub mod bootstrap;
+mod file_input;
 pub mod files;
 mod graph;
 pub mod limits;

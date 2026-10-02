@@ -680,7 +680,7 @@ no adapter may weaken the mandatory policy floor.
 **Requirements:** FR-S3-005, FR-S3-027, FR-S3-035, FR-S3-036,
 SC-S3-010, SC-S3-012.
 
-- [ ] **Step 1: Red.** Prove trusted --apply writes expected config bytes at the
+- [x] **Step 1: Red.** Prove trusted --apply writes expected config bytes at the
   displayed root, nested init leaves the ancestor's `.maestro/` byte-identical,
   and identical rerun writes nothing. Across en/fr/es/ja × all three tones,
   every generated workspace/host deliverable is byte-identical except config
@@ -690,12 +690,12 @@ SC-S3-010, SC-S3-012.
   only timestamps and IDs. Drive apply/remove/recovery through outside-write, secret-read and swapped-path
   denials with zero writer calls and intact bytes. Test the narrow declined-trust
   config write and kernel-internal operations without granting agents those paths.
-- [ ] **Step 2: Green.** Gate owned-file effects through `WorkspaceTrust` at the
+- [x] **Step 2: Green.** Gate owned-file effects through `WorkspaceTrust` at the
   held-handle write/read boundary. Supply trusted local actor/operation facts,
   not model text. C06/C07/C16/C16d consume this same port for external host
   targets, asking once to trust an exact managed directory at first installation.
   Kernel-owned XDG config/data/state writes keep kernel rules, not agent grants.
-- [ ] **Step 3: Check.** Run capped nextest filters `files::tests::workspace_trust`
+- [x] **Step 3: Check.** Run capped nextest filters `files::tests::workspace_trust`
   and `catalog_trusted_files`, then the existing race/crash/removal suite.
 
 **Acceptance:** one controlled file-effect gate serves init, projection and

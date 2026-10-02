@@ -1,9 +1,10 @@
 //! Read and validate write-ahead journals through the shared held-handle filesystem.
+use super::effects;
 use super::{
     names::journal_name,
     plan::{FilePlan, PlannedFile, validate_id, validate_plan},
 };
-use maestro_filesystem::Directory;
+use crate::policy::workspace::CheckedTrust;
 use std::{io, path::Path, str};
 
 /// Serialized form of one write-ahead file plan.
@@ -15,14 +16,6 @@ struct Journal {
     entries: Vec<PlannedFile>,
 }
 
-/// Hidden directory for journals and ownership records.
-const STATE_DIR: &str = ".maestro-files";
-
-/// Open the private state directory through the shared held-handle implementation.
-pub(super) fn state_directory(root: &Path) -> io::Result<Directory> {
-    Directory::open(root, Path::new(STATE_DIR), true)
-}
-
 /// Encode one internal state record as TOML bytes.
 pub(super) fn record_bytes<T: serde::Serialize>(value: &T) -> io::Result<Vec<u8>> {
     toml::to_string(value)
@@ -31,8 +24,12 @@ pub(super) fn record_bytes<T: serde::Serialize>(value: &T) -> io::Result<Vec<u8>
 }
 
 /// Read a regular state file, distinguishing absence from every other failure.
-pub(super) fn read_optional(directory: &Directory, name: &str) -> io::Result<Option<Vec<u8>>> {
-    match directory.read_regular(name) {
+pub(super) fn read_optional(
+    root: &Path,
+    name: &str,
+    trust: &CheckedTrust<'_>,
+) -> io::Result<Option<Vec<u8>>> {
+    match effects::read(root, name, trust) {
         Ok(bytes) => Ok(Some(bytes)),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error),
@@ -43,12 +40,16 @@ pub(super) fn read_optional(directory: &Directory, name: &str) -> io::Result<Opt
 ///
 /// # Errors
 /// Returns an error for absent, malformed, or mismatched journal contents.
-pub(super) fn read_journal(root: &Path, id: &str) -> io::Result<FilePlan> {
+pub(super) fn read_journal(
+    root: &Path,
+    id: &str,
+    trust: &CheckedTrust<'_>,
+) -> io::Result<FilePlan> {
     validate_id(id)?;
-    let state = state_directory(root)?;
-    let bytes = state.read_regular(&journal_name(id)).map_err(|error| {
-        io::Error::new(error.kind(), format!("no recoverable file plan: {error}"))
-    })?;
+    let bytes = effects::read(root, &format!(".maestro-files/{}", journal_name(id)), trust)
+        .map_err(|error| {
+            io::Error::new(error.kind(), format!("no recoverable file plan: {error}"))
+        })?;
     let journal: Journal = toml::from_str(str::from_utf8(&bytes).map_err(|error| {
         io::Error::new(
             io::ErrorKind::InvalidData,

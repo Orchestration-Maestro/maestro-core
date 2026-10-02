@@ -1,7 +1,10 @@
 //! Windows filesystem access: held directories and open flags that never follow a link.
 //! Names resolve by path, but every directory on the way is held open without
-//! `FILE_SHARE_DELETE`, so none can be renamed, deleted or replaced while the store works under
-//! it, and every open carries `FILE_FLAG_OPEN_REPARSE_POINT`, so a symbolic link or junction is
+//! `FILE_SHARE_DELETE`, so ordinary held parents cannot be renamed or replaced during effects.
+//! A newly created child temporarily permits deletion for rollback, then is hardened.
+//! Regular-file reads retain the verified object even if another process renames its name.
+//! Every open carries
+//! `FILE_FLAG_OPEN_REPARSE_POINT`, so a symbolic link or junction is
 //! opened itself and refused, never followed. The standard library exposes these flags safely;
 //! the single-bit constants are Win32's documented values, and each combined value is checked
 //! against its bits at compile time. The local filesystem must support hard links; directories
@@ -10,7 +13,7 @@ use super::{
     listing::{self, Entry},
     read::{read_limited, read_prefix},
     root::{leaf_name, resolve},
-    windows_security::{private_metadata, same_file},
+    windows_security::{private_metadata, remove_created_directory, same_file},
 };
 use std::{
     ffi::OsStr,
@@ -143,6 +146,56 @@ impl Directory {
                 .collect::<io::Result<_>>()?,
         };
         open_child(clone, OsStr::new(name), false)
+    }
+
+    /// Exclusively create and hold a child; only the new child allows delete sharing for rollback.
+    ///
+    /// # Errors
+    /// Refuses existing names, reparse points and failed creation or opens.
+    pub fn create_child(&self, name: &str) -> io::Result<Self> {
+        leaf_name(name)?;
+        let path = self.path.join(name);
+        fs::create_dir(&path)?;
+        let child = OpenOptions::new()
+            .read(true)
+            .share_mode(7)
+            .custom_flags(OPEN_REPARSE_DIRECTORY_FLAGS)
+            .open(&path)?;
+        refuse_reparse_point(&child)?;
+        let mut held = self
+            .held
+            .iter()
+            .map(File::try_clone)
+            .collect::<io::Result<Vec<_>>>()?;
+        held.push(child);
+        Ok(Self { path, held })
+    }
+
+    /// Replace temporary delete sharing with the normal non-renamable ancestor lease.
+    ///
+    /// # Errors
+    /// Refuses a full-identity mismatch, reparse points and failed opens.
+    pub fn harden_created_child(&self, name: &str, created: &Self) -> io::Result<Self> {
+        let child = self.child(name)?;
+        let held = created
+            .held
+            .last()
+            .ok_or_else(|| io::Error::other("no created handle"))?;
+        self.verify_created(name, held)?;
+        Ok(child)
+    }
+
+    /// Delete the still-empty created directory by a full-identity checked native handle.
+    ///
+    /// # Errors
+    /// Refuses replacements, non-empty directories and failed native disposition.
+    pub fn remove_created_child(&self, name: &str, created: &Self) -> io::Result<()> {
+        leaf_name(name)?;
+        let held = created
+            .held
+            .last()
+            .ok_or_else(|| io::Error::other("no created handle"))?;
+        remove_created_directory(&self.path.join(name), held)
     }
 
     /// List at most `limit` entries below held, non-renamable ancestors.
@@ -306,6 +359,22 @@ impl Directory {
         Ok(file)
     }
 
+    /// Compare a no-follow named object to its retained full volume and 128-bit file identity.
+    ///
+    /// # Errors
+    /// Refuses reparse points, replacements and failed opens or identity queries.
+    pub fn verify_created(&self, name: &str, created: &File) -> io::Result<()> {
+        leaf_name(name)?;
+        let named = hold(&self.path.join(name), OPEN_REPARSE_DIRECTORY_FLAGS)?;
+        refuse_reparse_point(&named)?;
+        if !same_file(created, &named)? {
+            return Err(io::Error::other(
+                "created object changed; replacement not deleted",
+            ));
+        }
+        Ok(())
+    }
+
     /// Create a file the name must not already hold, link or not.
     ///
     /// # Errors
@@ -350,16 +419,45 @@ impl Directory {
         expected: &[u8],
         expected_identity: Option<(u64, u64)>,
     ) -> io::Result<()> {
-        self.remove_verified_with(name, expected, expected_identity, || {})
+        self.remove_verified_checked(name, expected, expected_identity, || Ok(()))
     }
 
-    /// Remove a verified file, invoking `after_quarantine` immediately after its rename.
+    /// Restore the quarantined name on policy refusal before unlinking its bytes.
+    ///
+    /// # Errors
+    /// Refuses changed policy, bytes, unsupported identity and filesystem failures.
+    pub fn remove_verified_checked(
+        &self,
+        name: &str,
+        expected: &[u8],
+        expected_identity: Option<(u64, u64)>,
+        policy: impl FnOnce() -> io::Result<()>,
+    ) -> io::Result<()> {
+        self.remove_verified_impl(name, (expected, expected_identity), None, policy)
+    }
+
+    /// Test scheduling seam through the same quarantine implementation.
+    #[cfg(test)]
     pub(crate) fn remove_verified_with(
         &self,
         name: &str,
         expected: &[u8],
         expected_identity: Option<(u64, u64)>,
         after_quarantine: impl FnOnce(),
+    ) -> io::Result<()> {
+        self.remove_verified_impl(name, (expected, expected_identity), None, || {
+            after_quarantine();
+            Ok(())
+        })
+    }
+
+    /// Shared policy-and-byte verification before unlink or non-replacing restore.
+    fn remove_verified_impl(
+        &self,
+        name: &str,
+        (expected, expected_identity): (&[u8], Option<(u64, u64)>),
+        created: Option<&File>,
+        policy: impl FnOnce() -> io::Result<()>,
     ) -> io::Result<()> {
         if expected_identity.is_some() {
             return Err(io::Error::new(
@@ -397,8 +495,20 @@ impl Directory {
             fs::remove_dir(self.path.join(&quarantine))?;
             return Err(error);
         }
-        after_quarantine();
-        match self.read_regular(&quarantine_file) {
+        let verification = policy().and_then(|()| {
+            let mut file = self.open_regular_path(&quarantine_file)?;
+            if let Some(created) = created
+                && !same_file(created, &file)?
+            {
+                return Err(io::Error::other(
+                    "created file changed; replacement not deleted",
+                ));
+            }
+            let mut bytes = Vec::new();
+            file.read_to_end(&mut bytes)?;
+            Ok(bytes)
+        });
+        match verification {
             Ok(bytes) if bytes == expected => {
                 self.remove_file(&quarantine_file)?;
                 fs::remove_dir(self.path.join(&quarantine))
@@ -416,6 +526,14 @@ impl Directory {
                 ))
             }
         }
+    }
+
+    /// Roll back only the bytes and full identity of a file created by this operation.
+    ///
+    /// # Errors
+    /// Refuses replaced names, edited bytes and cleanup failures.
+    pub fn remove_created_bytes(&self, name: &str, created: &File, bytes: &[u8]) -> io::Result<()> {
+        self.remove_verified_impl(name, (bytes, None), Some(created), || Ok(()))
     }
 
     /// Remove a name from the directory; a link is removed, never followed.

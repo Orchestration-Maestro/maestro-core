@@ -1,10 +1,10 @@
 //! Remove only committed, digest-matching owned file names.
 use super::{
+    effects,
     names::ownership_name,
-    plan::{digest, split_path, validate_id, validate_relative_path},
-    recovery::state_directory,
+    plan::{digest, validate_id, validate_relative_path},
 };
-use maestro_filesystem::Directory;
+use crate::policy::workspace::CheckedTrust;
 use serde::Deserialize;
 use std::{io, path::Path, str};
 
@@ -49,11 +49,11 @@ struct FileIdentity {
 ///
 /// # Errors
 /// Returns an error for malformed ownership, edited content, unsafe paths, or filesystem failure.
-pub fn remove(root: &Path, id: &str) -> io::Result<()> {
+pub fn remove(root: &Path, id: &str, trust: &CheckedTrust<'_>) -> io::Result<()> {
     validate_id(id)?;
-    let state = state_directory(root)?;
-    let name = ownership_name(id);
-    let bytes = state.read_regular(&name)?;
+    let name = format!(".maestro-files/{}", ownership_name(id));
+    effects::check(root, &name, trust)?;
+    let bytes = effects::read(root, &name, trust)?;
     let ownership: Ownership = toml::from_str(str::from_utf8(&bytes).map_err(|error| {
         io::Error::new(
             io::ErrorKind::InvalidData,
@@ -76,17 +76,11 @@ pub fn remove(root: &Path, id: &str) -> io::Result<()> {
     let mut verified = Vec::new();
     for owned in &ownership.files {
         validate_relative_path(&owned.path)?;
-        let (parent, file_name) = split_path(&owned.path)?;
-        let directory = match Directory::open(root, &parent, false) {
-            Ok(directory) => directory,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
-            Err(error) => return Err(error),
-        };
-        match directory.read_regular(file_name) {
+        effects::check(root, &owned.path, trust)?;
+        match effects::read(root, &owned.path, trust) {
             Ok(current) if digest(&current) == owned.digest => {
                 verified.push((
-                    directory,
-                    file_name.to_owned(),
+                    owned.path.clone(),
                     current,
                     owned
                         .identity
@@ -104,9 +98,9 @@ pub fn remove(root: &Path, id: &str) -> io::Result<()> {
             Err(error) => return Err(error),
         }
     }
-    for (directory, file_name, current, identity) in verified {
-        directory.remove_verified(&file_name, &current, identity)?;
+    for (path, current, identity) in verified {
+        effects::remove(root, &path, &current, identity, trust)?;
     }
-    state.remove_verified(&name, &bytes, None)?;
+    effects::remove(root, &name, &bytes, None, trust)?;
     Ok(())
 }

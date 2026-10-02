@@ -1,12 +1,13 @@
 //! Strict init drafts use the same S1 file/parser API as all preference consumers.
 use crate::{
+    files::tests::support::with_trust,
     limits::Limits,
-    settings::{FilePreferences, WorkspacePreferences, draft_preferences},
+    settings::{self, FilePreferences, PreferencesDraft, WorkspacePreferences},
 };
 use maestro_settings::{Layer, Layers, Registry, Value};
 use std::{
     env, fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process, str,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -326,4 +327,16 @@ fn draft_choices_are_typed_and_the_source_port_is_replaceable() {
             draft_preferences(&root.0, &MemoryPreferences, &choices, &Limits::PRODUCTION).is_err()
         );
     }
+}
+
+/// The original draft contracts now supply a checked synthetic authority port.
+fn draft_preferences(
+    root: &Path,
+    source: &dyn WorkspacePreferences,
+    choices: &[String],
+    limits: &Limits,
+) -> Result<PreferencesDraft, String> {
+    with_trust(root, |trust| {
+        settings::draft_preferences(root, source, choices, limits, trust)
+    })
 }

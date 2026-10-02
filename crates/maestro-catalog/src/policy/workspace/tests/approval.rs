@@ -193,11 +193,25 @@ fn declined_preferences_write_only_config_and_internal_digest_receipts() {
         ".maestro/config.toml",
         b"schema = 'maestro-preferences/1'\nlanguage = 'fr'\n".to_vec(),
     );
+    let boundaries = TrustBoundaries::new(root.parent().unwrap(), &[]).unwrap();
+    let adapter = JournalTrust::new(&database);
+    let checked = CheckedTrust::new(&adapter, &boundaries);
+    let permit = || {
+        super::super::preferences_confirmation(
+            &root,
+            Some(&root),
+            false,
+            "",
+            (&mut &b""[..], &mut Vec::new()),
+        )
+        .unwrap()
+        .unwrap()
+    };
     let other = FileInput::new("template.md", b"unapproved".to_vec());
-    assert!(write_preferences(&database, &root, &other, Confirmation::ConfirmPath).is_err());
+    assert!(write_preferences(&database, &checked, &other, permit()).is_err());
     assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
     assert!(database.workspace_answers().unwrap().is_empty());
-    write_preferences(&database, &root, &file, Confirmation::ConfirmPath).unwrap();
+    write_preferences(&database, &checked, &file, permit()).unwrap();
     assert_eq!(fs::read(root.join(&file.path)).unwrap(), file.bytes);
     assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
     assert_eq!(fs::read_dir(root.join(".maestro")).unwrap().count(), 1);
@@ -214,8 +228,56 @@ fn declined_preferences_write_only_config_and_internal_digest_receipts() {
     );
     assert!(database.trusted_workspaces().unwrap().is_empty());
     assert!(!root.join("template.md").exists());
-    assert!(write_preferences(&database, &root, &file, Confirmation::ConfirmPath).is_err());
+    assert!(write_preferences(&database, &checked, &file, permit()).is_err());
     assert_eq!(fs::read(root.join(&file.path)).unwrap(), file.bytes);
     drop(database);
     fs::remove_dir_all(scratch).unwrap();
+}
+
+#[test]
+fn preferences_capability_floor_is_one_file_one_root_never_home_or_alias() {
+    let home = scratch_directory().unwrap().canonicalize().unwrap();
+    let root = home.join("project");
+    let other = home.join("other");
+    fs::create_dir(&root).unwrap();
+    fs::create_dir(&other).unwrap();
+    let boundaries = TrustBoundaries::new(&home, &[]).unwrap();
+    let adapter = JournalTrust::optional(None);
+    assert!(CheckedTrust::preferences(&adapter, &boundaries, &home).is_err());
+    let narrow = CheckedTrust::preferences(&adapter, &boundaries, &root).unwrap();
+    for path in [
+        "sibling",
+        ".maestro/other",
+        "../config.toml",
+        ".maestro/../config.toml",
+    ] {
+        assert!(narrow.authorize_create(&root, Path::new(path)).is_err());
+    }
+    assert!(
+        narrow
+            .authorize_create(&other, Path::new(".maestro/config.toml"))
+            .is_err()
+    );
+    assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+    assert_eq!(fs::read_dir(&other).unwrap().count(), 0);
+    let alias = home.join("alias");
+    super::paths::directory_link(&root, &alias);
+    assert!(
+        narrow
+            .authorize_create(&alias, Path::new(".maestro/config.toml"))
+            .is_err()
+    );
+    #[cfg(unix)]
+    {
+        fs::rename(&root, home.join("original")).unwrap();
+        super::paths::directory_link(&other, &root);
+        assert!(
+            narrow
+                .authorize_create(&root, Path::new(".maestro/config.toml"))
+                .is_err()
+        );
+        assert_eq!(fs::read_dir(&other).unwrap().count(), 0);
+    }
+    drop(narrow);
+    fs::remove_dir_all(home).unwrap();
 }

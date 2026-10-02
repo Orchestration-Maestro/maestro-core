@@ -8,9 +8,13 @@
 use std::slice;
 use std::{
     ffi::c_void,
-    fs::File,
+    fs::{File, OpenOptions},
     io,
-    os::windows::io::{AsRawHandle as _, FromRawHandle as _, OwnedHandle},
+    os::windows::{
+        fs::OpenOptionsExt as _,
+        io::{AsRawHandle as _, FromRawHandle as _, OwnedHandle},
+    },
+    path::Path,
     ptr,
 };
 #[cfg(test)]
@@ -31,9 +35,9 @@ use windows_sys::Win32::{
         TOKEN_USER, TokenUser, WELL_KNOWN_SID_TYPE, WinBuiltinAdministratorsSid, WinLocalSystemSid,
     },
     Storage::FileSystem::{
-        DELETE, FILE_APPEND_DATA, FILE_DELETE_CHILD, FILE_ID_INFO, FILE_WRITE_ATTRIBUTES,
-        FILE_WRITE_DATA, FILE_WRITE_EA, FileIdInfo, GetFileInformationByHandleEx, WRITE_DAC,
-        WRITE_OWNER,
+        DELETE, FILE_APPEND_DATA, FILE_DELETE_CHILD, FILE_DISPOSITION_INFO, FILE_ID_INFO,
+        FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA, FileDispositionInfo, FileIdInfo,
+        GetFileInformationByHandleEx, SetFileInformationByHandle, WRITE_DAC, WRITE_OWNER,
     },
     System::{
         SystemServices::{
@@ -50,6 +54,41 @@ type FileIdentity = (u64, [u8; 16]);
 /// The shared equality check for original names and canonical spellings.
 pub(super) fn same_file(left: &File, right: &File) -> io::Result<bool> {
     Ok(file_identity(left)? == file_identity(right)?)
+}
+
+/// Open the created directory for native deletion and compare its full held identity.
+/// No reparse point is followed; the API refuses a non-empty directory.
+pub(super) fn remove_created_directory(path: &Path, created: &File) -> io::Result<()> {
+    let file = OpenOptions::new()
+        .read(true)
+        .access_mode(DELETE | 0x8000_0000)
+        .share_mode(3)
+        .custom_flags(0x0220_0000)
+        .open(path)?;
+    if !same_file(&file, created)? {
+        return Err(io::Error::other(
+            "rollback failed: created directory changed",
+        ));
+    }
+    let mut disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
+    let bytes = u32::try_from(size_of::<FILE_DISPOSITION_INFO>()).map_err(io::Error::other)?;
+    // SAFETY: file owns a live DELETE-capable no-follow directory handle; disposition is
+    // aligned initialized storage of exactly bytes, exclusively borrowed for this call.
+    if unsafe {
+        SetFileInformationByHandle(
+            file.as_raw_handle(),
+            FileDispositionInfo,
+            ptr::from_mut(&mut disposition).cast(),
+            bytes,
+        )
+    } == 0
+    {
+        return Err(io::Error::other(format!(
+            "rollback failed: {}",
+            io::Error::last_os_error()
+        )));
+    }
+    Ok(())
 }
 
 /// Query identity from a live held handle, using the already-enabled Win32 filesystem API.

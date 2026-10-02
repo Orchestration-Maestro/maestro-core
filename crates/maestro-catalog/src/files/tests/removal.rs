@@ -1,12 +1,13 @@
 use super::support::Scratch;
-use crate::files::{FileInput, FilePlan, apply, remove};
+use super::support::{apply, preview, remove};
+use crate::files::FileInput;
 use maestro_filesystem::Directory;
 use std::{fs, path::Path};
 
 #[test]
 fn edited_owned_file_refuses_removal_before_any_owned_bytes_are_removed() {
     let scratch = Scratch::new();
-    let plan = FilePlan::preview(
+    let plan = preview(
         &scratch.path,
         [
             FileInput::new("first", b"one".to_vec()),
@@ -24,8 +25,7 @@ fn edited_owned_file_refuses_removal_before_any_owned_bytes_are_removed() {
 #[test]
 fn removing_an_owned_hard_link_name_keeps_the_other_name() {
     let scratch = Scratch::new();
-    let plan =
-        FilePlan::preview(&scratch.path, [FileInput::new("owned", b"bytes".to_vec())]).unwrap();
+    let plan = preview(&scratch.path, [FileInput::new("owned", b"bytes".to_vec())]).unwrap();
     apply(&scratch.path, &plan).unwrap();
     fs::hard_link(scratch.path.join("owned"), scratch.path.join("external")).unwrap();
     remove(&scratch.path, plan.id()).unwrap();
@@ -37,7 +37,7 @@ fn removing_an_owned_hard_link_name_keeps_the_other_name() {
 #[test]
 fn removal_refuses_an_identical_byte_file_recreated_at_an_owned_path() {
     let scratch = Scratch::new();
-    let plan = FilePlan::preview(
+    let plan = preview(
         &scratch.path,
         [FileInput::new("owned", b"same bytes".to_vec())],
     )
@@ -55,7 +55,7 @@ fn removal_refuses_an_identical_byte_file_recreated_at_an_owned_path() {
 #[test]
 fn interrupted_removal_resumes_from_the_committed_ownership_record() {
     let scratch = Scratch::new();
-    let plan = FilePlan::preview(
+    let plan = preview(
         &scratch.path,
         [
             FileInput::new("first", b"one".to_vec()),

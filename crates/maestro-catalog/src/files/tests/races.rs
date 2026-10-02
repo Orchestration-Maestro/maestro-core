@@ -1,5 +1,6 @@
 use super::support::Scratch;
-use crate::files::{FileInput, FilePlan, apply};
+use super::support::{apply, preview};
+use crate::files::FileInput;
 use std::{
     fs,
     sync::{Arc, Barrier},
@@ -9,10 +10,8 @@ use std::{
 #[test]
 fn simultaneous_creates_never_replace_the_winning_bytes() {
     let scratch = Scratch::new();
-    let first =
-        FilePlan::preview(&scratch.path, [FileInput::new("same", b"first".to_vec())]).unwrap();
-    let second =
-        FilePlan::preview(&scratch.path, [FileInput::new("same", b"second".to_vec())]).unwrap();
+    let first = preview(&scratch.path, [FileInput::new("same", b"first".to_vec())]).unwrap();
+    let second = preview(&scratch.path, [FileInput::new("same", b"second".to_vec())]).unwrap();
     let barrier = Arc::new(Barrier::new(2));
     let (left, right) = thread::scope(|scope| {
         let first_barrier = Arc::clone(&barrier);
@@ -43,7 +42,7 @@ fn ancestor_link_swap_cannot_redirect_a_write_outside_the_root() {
         let scratch = Scratch::new();
         let outside = Scratch::new();
         fs::create_dir(scratch.path.join("parent")).unwrap();
-        let plan = FilePlan::preview(
+        let plan = preview(
             &scratch.path,
             [FileInput::new("parent/file", b"planned".to_vec())],
         )

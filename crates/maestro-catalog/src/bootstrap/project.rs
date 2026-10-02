@@ -2,6 +2,7 @@
 use super::{compose::PresetPort, inspect::Inspection};
 use crate::files::{FileInput, FilePlan, apply as apply_files, digest};
 use crate::limits::Limits;
+use crate::policy::workspace::CheckedTrust;
 use maestro_filesystem::Directory;
 use serde::Serialize;
 use std::{
@@ -75,6 +76,7 @@ pub fn preview(
     root: &Path,
     port: &dyn PresetPort,
     names: &[String],
+    trust: &CheckedTrust<'_>,
 ) -> Result<BootstrapPreview, String> {
     if names.is_empty() {
         return Err("select at least one preset".to_owned());
@@ -132,7 +134,7 @@ pub fn preview(
         ".maestro/authoring.lock.json",
         serde_json::to_vec_pretty(&lock).map_err(|error| error.to_string())?,
     ));
-    let plan = FilePlan::preview(root, files).map_err(|error| error.to_string())?;
+    let plan = FilePlan::preview(root, files, trust).map_err(|error| error.to_string())?;
     Ok(BootstrapPreview {
         plan,
         inspection,
@@ -144,8 +146,8 @@ pub fn preview(
 ///
 /// # Errors
 /// Returns a changed-preview or filesystem error without modifying unowned files.
-pub fn apply(root: &Path, preview: &BootstrapPreview) -> io::Result<()> {
-    apply_files(root, &preview.plan)
+pub fn apply(root: &Path, preview: &BootstrapPreview, trust: &CheckedTrust<'_>) -> io::Result<()> {
+    apply_files(root, &preview.plan, trust)
 }
 
 /// Look up executable names on PATH without running any tool or installer.

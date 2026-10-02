@@ -41,3 +41,5 @@ mod settings_config;
 mod setup_installs;
 mod status_summaries;
 mod support;
+
+mod catalog_trusted_files;

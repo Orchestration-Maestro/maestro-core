@@ -1,23 +1,15 @@
 //! Preview immutable file bytes, validate relative names, and bind content digests.
-use super::names::ownership_name;
-use maestro_filesystem::Directory;
+use super::{effects, names::ownership_name};
+use crate::file_input::FileInput;
+use crate::policy::workspace::CheckedTrust;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeSet,
     io,
-    path::{Component, Path, PathBuf},
+    path::{Component, Path},
     str,
 };
-
-/// One intended file and its bytes at preview time.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FileInput {
-    /// Root-relative, slash-separated file name.
-    pub path: String,
-    /// The complete bytes to write.
-    pub bytes: Vec<u8>,
-}
 
 /// An immutable, digest-bound set of files previewed against an empty target set.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -61,22 +53,16 @@ pub(super) struct PlannedFile {
     pub(super) digest: String,
 }
 
-impl FileInput {
-    /// Construct a file input for a root-relative path.
-    pub fn new(path: impl Into<String>, bytes: impl Into<Vec<u8>>) -> Self {
-        Self {
-            path: path.into(),
-            bytes: bytes.into(),
-        }
-    }
-}
-
 impl FilePlan {
     /// Preview new files, refusing collisions and paths that are not normalized relatives.
     ///
     /// # Errors
     /// Returns an error for invalid paths, collisions, duplicate names, or filesystem failures.
-    pub fn preview(root: &Path, inputs: impl IntoIterator<Item = FileInput>) -> io::Result<Self> {
+    pub fn preview(
+        root: &Path,
+        inputs: impl IntoIterator<Item = FileInput>,
+        trust: &CheckedTrust<'_>,
+    ) -> io::Result<Self> {
         let mut inputs: Vec<_> = inputs.into_iter().collect();
         inputs.sort_by(|left, right| left.path.cmp(&right.path));
         let mut paths = BTreeSet::new();
@@ -100,13 +86,8 @@ impl FilePlan {
         let mut has_existing_target = false;
         for input in inputs {
             validate_no_ancestor_conflicts(&input.path, &paths)?;
-            let (parent, name) = split_path(&input.path)?;
-            match Directory::open(root, &parent, false) {
-                Ok(directory) => match directory.read_regular(name) {
-                    Ok(_) => has_existing_target = true,
-                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-                    Err(error) => return Err(error),
-                },
+            match effects::read(root, &input.path, trust) {
+                Ok(_) => has_existing_target = true,
                 Err(error) if error.kind() == io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error),
             }
@@ -128,7 +109,7 @@ impl FilePlan {
             entries,
             applied: false,
         };
-        plan.applied = is_committed_and_unchanged(root, &plan)?;
+        plan.applied = is_committed_and_unchanged(root, &plan, trust)?;
         if has_existing_target && !plan.applied {
             return Err(io::Error::new(
                 io::ErrorKind::AlreadyExists,
@@ -153,14 +134,13 @@ impl FilePlan {
 
 /// Check the committed record and held-handle bytes for an exact plan replay.
 /// This only returns an already applied state; removal separately checks identity before unlinking.
-fn is_committed_and_unchanged(root: &Path, plan: &FilePlan) -> io::Result<bool> {
-    let state = match Directory::open(root, Path::new(".maestro-files"), false) {
-        Ok(state) => state,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
-        Err(error) => return Err(error),
-    };
-    let name = ownership_name(&plan.id);
-    let record = match state.read_regular(&name) {
+fn is_committed_and_unchanged(
+    root: &Path,
+    plan: &FilePlan,
+    trust: &CheckedTrust<'_>,
+) -> io::Result<bool> {
+    let name = format!(".maestro-files/{}", ownership_name(&plan.id));
+    let record = match effects::read(root, &name, trust) {
         Ok(record) => record,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
         Err(error) => return Err(error),
@@ -169,9 +149,7 @@ fn is_committed_and_unchanged(root: &Path, plan: &FilePlan) -> io::Result<bool> 
         return Ok(false);
     }
     for entry in &plan.entries {
-        let (parent, name) = split_path(&entry.path)?;
-        let directory = Directory::open(root, &parent, false)?;
-        if digest(&directory.read_regular(name)?) != entry.digest {
+        if digest(&effects::read(root, &entry.path, trust)?) != entry.digest {
             return Err(io::Error::other(format!(
                 "owned file changed: {}",
                 entry.path
@@ -204,17 +182,6 @@ pub(crate) fn digest(bytes: &[u8]) -> String {
         digest.push(char::from_digit(u32::from(byte & 0x0f), 16).unwrap_or('0'));
     }
     digest
-}
-
-/// Split a validated slash-separated file name into parent and leaf components.
-pub(super) fn split_path(path: &str) -> io::Result<(PathBuf, &str)> {
-    let target = Path::new(path);
-    let name = target
-        .file_name()
-        .and_then(|name| name.to_str())
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid planned path"))?;
-    let parent = target.parent().unwrap_or_else(|| Path::new(""));
-    Ok((parent.to_path_buf(), name))
 }
 
 /// Encode arbitrary file bytes as journal-safe hexadecimal text.

@@ -5,7 +5,10 @@ use super::{
     support::{MemoryTree, check_by},
 };
 use crate::{
-    files::{FileInput, FilePlan, apply},
+    files::{
+        FileInput,
+        tests::support::{apply, preview},
+    },
     limits::Limits,
     source::{Field, FieldType, Known, Registry, SecretReference, build, builtin, frozen_rows},
 };
@@ -168,7 +171,7 @@ fn check_install_explain_never_resolve_secrets() {
         assert!(!String::from_utf8_lossy(&bytes).contains(SENTINEL));
         assert!(String::from_utf8_lossy(&bytes).contains(VARIABLE));
         assert!(!format!("{checked:?}\n{built:?}").contains(SENTINEL));
-        let plan = FilePlan::preview(
+        let plan = preview(
             &scratch,
             [
                 FileInput::new(format!("{kind}.json"), bytes.clone()),

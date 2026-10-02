@@ -1,12 +1,15 @@
 use super::compose as compose_module;
 use super::{Preset, PresetPort, inspect};
 use crate::{
-    files::{FileInput, apply_with_failure, recover, remove},
+    files::{
+        FileInput,
+        tests::support::{apply_with_failure, recover, remove, with_trust},
+    },
     limits::Limits,
 };
 use std::{
     collections::BTreeMap,
-    env, fs,
+    env, fs, io,
     path::{Path, PathBuf},
     process,
 };
@@ -168,7 +171,7 @@ fn symlinked_template_file_and_directory_are_refused_without_writes() {
             fs::write(catalog.join("secret"), b"SECRET").unwrap();
             symlink(catalog.join("secret"), overlay.join("target.md")).unwrap();
         }
-        let result = super::preview(
+        let result = preview(
             &scratch.0,
             &super::DirectoryPresets::new(&catalog),
             &["custom".into()],
@@ -197,7 +200,7 @@ fn symlinked_manifest_is_refused_without_writes() {
     )
     .unwrap();
     assert!(
-        super::preview(
+        preview(
             &scratch.0,
             &super::DirectoryPresets::new(&catalog),
             &["custom".into()]
@@ -220,7 +223,7 @@ fn template_size_at_limit_is_complete_and_one_past_is_refused() {
     let presets = provider.resolve(&selected).unwrap();
     assert_eq!(presets[0].files["target.md"], bytes);
     fs::write(&template, vec![b'x'; limit + 1]).unwrap();
-    let error = super::preview(&scratch.0, &provider, &selected).unwrap_err();
+    let error = preview(&scratch.0, &provider, &selected).unwrap_err();
     assert!(
         error.starts_with("cannot read bootstrap/base/target.md:"),
         "{error}"
@@ -260,13 +263,13 @@ fn new_overlay_is_manifest_data_not_a_code_change() {
         "name = \"custom\"\noverlay = \"python\"\ntools = []\nfiles = [\"python/target.md\"]\n",
     )
     .unwrap();
-    let preview = super::preview(
+    let preview = preview(
         &scratch.0,
         &super::DirectoryPresets::new(&catalog),
         &["custom".into()],
     )
     .unwrap();
-    super::apply(&scratch.0, &preview).unwrap();
+    apply(&scratch.0, &preview).unwrap();
     assert_eq!(fs::read(scratch.0.join("target.md")).unwrap(), b"inert");
 }
 
@@ -278,7 +281,7 @@ fn different_presets_shipping_the_same_path_are_refused() {
         .unwrap()
         .replace("custom", "second");
     fs::write(catalog.join("bootstrap/second.toml"), manifest).unwrap();
-    let error = super::preview(
+    let error = preview(
         &scratch.0,
         &super::DirectoryPresets::new(&catalog),
         &["custom".into(), "second".into()],
@@ -298,14 +301,14 @@ fn base_only_descriptor_has_exact_authoring_keys_and_lock_reference() {
         .join("../../tests/fixtures/catalog")
         .canonicalize()
         .unwrap();
-    let preview = super::preview(
+    let preview = preview(
         &scratch.0,
         &super::DirectoryPresets::new(&catalog),
         &["knowledge-client".into()],
     )
     .unwrap();
     assert!(!scratch.0.join(".maestro").exists());
-    super::apply(&scratch.0, &preview).unwrap();
+    apply(&scratch.0, &preview).unwrap();
     let descriptor: toml::Table =
         toml::from_str(&fs::read_to_string(scratch.0.join(".maestro/project.toml")).unwrap())
             .unwrap();
@@ -346,13 +349,13 @@ fn authoring_lock_binds_every_generated_file_and_source() {
         .join("../../tests/fixtures/catalog")
         .canonicalize()
         .unwrap();
-    let preview = super::preview(
+    let preview = preview(
         &scratch.0,
         &super::DirectoryPresets::new(&catalog),
         &["knowledge-client".into(), "rust-service".into()],
     )
     .unwrap();
-    super::apply(&scratch.0, &preview).unwrap();
+    apply(&scratch.0, &preview).unwrap();
     let lock: serde_json::Value =
         serde_json::from_slice(&fs::read(scratch.0.join(".maestro/authoring.lock.json")).unwrap())
             .unwrap();
@@ -413,9 +416,9 @@ fn bootstrap_interrupted_apply_recovers_and_replay_journal_is_ephemeral() {
     let catalog = scratch.catalog("base");
     let provider = super::DirectoryPresets::new(&catalog);
     let names = ["custom".into()];
-    let first = super::preview(&scratch.0, &provider, &names).unwrap();
-    super::apply(&scratch.0, &first).unwrap();
-    let replay = super::preview(&scratch.0, &provider, &names).unwrap();
+    let first = preview(&scratch.0, &provider, &names).unwrap();
+    apply(&scratch.0, &first).unwrap();
+    let replay = preview(&scratch.0, &provider, &names).unwrap();
     assert!(replay.plan.is_applied());
     remove(&scratch.0, replay.plan.id()).unwrap();
     assert!(apply_with_failure(&scratch.0, &replay.plan, Some(1)).is_err());
@@ -423,7 +426,7 @@ fn bootstrap_interrupted_apply_recovers_and_replay_journal_is_ephemeral() {
     recover(&scratch.0, replay.plan.id()).unwrap();
     assert_eq!(fs::read(scratch.0.join("target.md")).unwrap(), b"inert");
     assert!(
-        super::preview(&scratch.0, &provider, &names)
+        preview(&scratch.0, &provider, &names)
             .unwrap()
             .plan
             .is_applied()
@@ -480,7 +483,7 @@ fn old_authoring_lock_requires_fresh_preview() {
         br#"{"schema":"maestro-authoring-lock/1","files":[],"sources":[]}"#,
     )
     .unwrap();
-    let result = super::preview(&scratch.0, &Presets, &["knowledge-client".into()]);
+    let result = preview(&scratch.0, &Presets, &["knowledge-client".into()]);
     assert!(result.is_err());
     let error = result.unwrap_err();
     assert!(
@@ -499,10 +502,24 @@ fn authoring_lock_read_keeps_source_byte_bound() {
         b' ',
     );
     fs::write(scratch.0.join(".maestro/authoring.lock.json"), bytes).unwrap();
-    let result = super::preview(&scratch.0, &Presets, &["knowledge-client".into()]);
+    let result = preview(&scratch.0, &Presets, &["knowledge-client".into()]);
     assert!(
         result
             .unwrap_err()
             .contains("file is larger than 1048576 bytes")
     );
+}
+
+/// Bind the legacy bootstrap contracts to explicit synthetic authority, not a bypass.
+fn preview(
+    root: &Path,
+    port: &dyn PresetPort,
+    names: &[String],
+) -> Result<super::BootstrapPreview, String> {
+    with_trust(root, |trust| super::preview(root, port, names, trust))
+}
+
+/// Exercise the production checked writer with the fixture's approved root.
+fn apply(root: &Path, preview: &super::BootstrapPreview) -> io::Result<()> {
+    with_trust(root, |trust| super::apply(root, preview, trust))
 }
