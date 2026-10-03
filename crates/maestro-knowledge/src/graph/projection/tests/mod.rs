@@ -3,6 +3,7 @@
 mod content_fields;
 pub(in crate::graph::projection) mod contract;
 pub(in crate::graph::projection) mod contract_reads;
+mod import;
 mod port;
 mod projection_writer;
 

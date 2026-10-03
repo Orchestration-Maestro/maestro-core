@@ -1346,6 +1346,7 @@ in place.
 │   │   │   │   │   │   ├── content_fields.rs                                # Each full-record field must affect durable projection verification
 │   │   │   │   │   │   ├── contract.rs                                      # Backend-generic projection writer contract; adapters call this unchanged
 │   │   │   │   │   │   ├── contract_reads.rs                                # Ordered application-ID reads and exact scope/family pin contract for every backend
+│   │   │   │   │   │   ├── import.rs                                        # Frozen snapshot membership and endpoint derivation for the single loader
 │   │   │   │   │   │   ├── lifecycle.rs                                     # Public lifecycle refusals paired with valid neighboring configurations
 │   │   │   │   │   │   ├── mod.rs                                           # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── port.rs                                          # Rust source: port
@@ -1358,6 +1359,7 @@ in place.
 │   │   │   │   │   ├── content.rs                                           # Frozen application-ID encodings for projection content and receipt names
 │   │   │   │   │   ├── handle.rs                                            # Backend-neutral immutable handle retaining the backend's native ownership and guard
 │   │   │   │   │   ├── health.rs                                            # Application health ports and typed failures, independent of the optional engine
+│   │   │   │   │   ├── import.rs                                            # Frozen authoritative inputs for the one parameterized projection loader
 │   │   │   │   │   ├── lifecycle.rs                                         # Public factory for lease-bound producers and immutable, guarded readers
 │   │   │   │   │   ├── mod.rs                                               # Public typed-edge and literal-fact projection ports and unpublished build writer
 │   │   │   │   │   ├── operations.rs                                        # Backend-neutral public operations on opaque lifecycle handles
