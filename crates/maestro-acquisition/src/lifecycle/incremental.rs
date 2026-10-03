@@ -32,3 +32,16 @@ pub fn due(mode: Mode, watermark: Option<u64>, observed: Option<u64>, window: &W
     }
     observed.is_none_or(|time| time < window.start)
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    #[test]
+    fn s6t_incremental_equal_watermark_is_valid() {
+        let window = super::window(Some(100), 100, 10, 5).unwrap();
+        assert_eq!((window.start, window.end), (85, 100));
+        assert_eq!(
+            super::window(Some(101), 100, 10, 5),
+            Err(crate::Refusal::Invalid)
+        );
+    }
+}

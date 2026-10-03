@@ -27,3 +27,14 @@ impl fmt::Display for Refusal {
     }
 }
 impl Error for Refusal {}
+
+#[cfg(test)]
+mod mutation_tests {
+    #[test]
+    fn s6t_refusal_display_preserves_code() {
+        assert_eq!(
+            super::Refusal::Digest.to_string(),
+            "source policy refused: Digest"
+        );
+    }
+}

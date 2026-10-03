@@ -308,3 +308,27 @@ fn capture_bound(limits: &Limits) -> u64 {
         .min(limits.dom_bytes.get())
         .min(limits.memory_bytes.get())
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::{NotEnqueuedReason, depth_reason};
+    use crate::policy::{schema::SourcePolicy, source::Discovery};
+    #[test]
+    fn s6t_discovery_declared_and_run_depth_are_distinct() {
+        let mut policy: SourcePolicy =
+            serde_json::from_slice(include_bytes!("../../tests/fixtures/policy.json")).unwrap();
+        let source = policy.sources.first_mut().unwrap();
+        source.discovery = vec![Discovery::Links {
+            depth: 3.try_into().unwrap(),
+        }];
+        assert_eq!(depth_reason(source, 2, 1), Ok(None));
+        assert_eq!(
+            depth_reason(source, 2, 2),
+            Ok(Some(NotEnqueuedReason::RunDepthLimit))
+        );
+        assert_eq!(
+            depth_reason(source, 2, 3),
+            Ok(Some(NotEnqueuedReason::BeyondDeclaredDepth))
+        );
+    }
+}

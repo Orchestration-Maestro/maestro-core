@@ -208,3 +208,72 @@ fn n09_invalid_host_authority_context_refuses_without_dispatch() {
         assert!(wire.requests.lock().unwrap().is_empty());
     });
 }
+
+#[test]
+fn s6t_http_equal_pacing_cutoff_is_a_refusal_not_a_wait() {
+    use maestro_acquisition::{
+        policy::identity::FetchIdentity,
+        transport::pacing::{Demand, OriginPacing, OriginPermit, PacingLimits, Pending},
+    };
+    #[derive(Debug)]
+    struct EqualCutoff;
+    impl OriginPacing for EqualCutoff {
+        type Permit = OriginPermit;
+        fn acquire(
+            &self,
+            _: &FetchIdentity,
+            _: PacingLimits,
+            demand: Demand<'_>,
+        ) -> Result<OriginPermit, Pending> {
+            Err(Pending::Delay {
+                until_ms: demand.now_ms,
+            })
+        }
+    }
+    run(async {
+        let policy = policy();
+        let controls = Controls::default();
+        let grants = Grants::default();
+        let dns = Dns::default();
+        let wire = Wire::default();
+        let client = http(&policy, &controls, &grants, &dns, &wire);
+        let ledger = EqualCutoff;
+        let client = maestro_acquisition::transport::http::Http {
+            policy: client.policy,
+            controls: client.controls,
+            authority: client.authority,
+            resolver: client.resolver,
+            transport: client.transport,
+            pacing: &ledger,
+            pacing_context: client.pacing_context,
+        };
+        let mut accounting =
+            Accounting::new(policy.policy().sources.first().unwrap().limits.clone());
+        assert_eq!(
+            client
+                .fetch(&fetch("https://garden.example/docs/start"), &mut accounting)
+                .await
+                .unwrap_err(),
+            Failure::Pacing(Pending::Delay { until_ms: 0 })
+        );
+        assert!(wire.requests.lock().unwrap().is_empty());
+    });
+}
+
+#[test]
+fn s6t_http_response_debug_preserves_status_without_identity() {
+    run(async {
+        let policy = policy();
+        let controls = Controls::default();
+        let grants = Grants::default();
+        let dns = Dns::default();
+        let wire = Wire::new(vec![response(200, "", b"body")]);
+        let mut accounting =
+            Accounting::new(policy.policy().sources.first().unwrap().limits.clone());
+        let response = http(&policy, &controls, &grants, &dns, &wire)
+            .fetch(&fetch("https://garden.example/docs/start"), &mut accounting)
+            .await
+            .unwrap();
+        assert_eq!(format!("{response:?}"), "Response { status: 200, .. }");
+    });
+}

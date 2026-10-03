@@ -99,3 +99,25 @@ fn n15_core_rejects_an_admitted_alternative_to_policy_profiles() {
         Some(RegistryUnavailable::Access)
     );
 }
+
+#[test]
+fn s6t_registry_scope_mismatch_with_matching_visibility_refuses() {
+    let (mut collection, mut catalog, _) = fixture::registry_fixture();
+    let mut registry = support::value(&catalog, "extraction");
+    registry["scope_tags"] = json!(["workspace/default/collection/garden/source/notes"]);
+    let reference = fixture::update(&mut collection, &mut catalog, &registry);
+    let scopes = support::scopes();
+    let principal = support::principal(&scopes);
+    let adapter = LocalRegistry::new(&catalog);
+    assert!(adapter.resolve(&reference, &principal).is_ok());
+    assert_eq!(
+        checked_resolve(
+            &adapter,
+            &reference,
+            &principal,
+            &fixture::policy(&collection, &catalog)
+        )
+        .err(),
+        Some(RegistryUnavailable::Access)
+    );
+}

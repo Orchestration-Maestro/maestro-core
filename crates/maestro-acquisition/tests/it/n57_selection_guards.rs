@@ -167,3 +167,42 @@ fn n57_external_qualification_claims_are_current() {
         );
     }
 }
+
+#[test]
+fn s6t_selection_exact_evidence_ceiling_is_admitted() {
+    let fixture = Fixture::new();
+    let mut snapshot = initial(&fixture);
+    let key = selection_key("notes");
+    let original = snapshot.effective.protected_resources.get(&key).unwrap();
+    let selection: ProfileSelection =
+        storage::artifact(&fixture.db, "synthetic-reader", original).unwrap();
+    let ProfileSelection::Selected { profile, evidence } = selection else {
+        panic!("selected fixture")
+    };
+    let evidence = vec![evidence.first().unwrap().clone(); 1000];
+    let selection = support::retain(
+        &fixture.db,
+        &ProfileSelection::Selected { profile, evidence },
+        &[],
+    );
+    snapshot
+        .effective
+        .protected_resources
+        .insert(key, selection);
+    assert!(check(&fixture, &snapshot));
+}
+
+#[test]
+fn s6t_snapshot_qualified_pin_still_requires_source_eligibility() {
+    let fixture = Fixture::new();
+    let mut snapshot = initial(&fixture);
+    snapshot
+        .effective
+        .policy
+        .sources
+        .first_mut()
+        .unwrap()
+        .selected_profiles
+        .clear();
+    assert!(!check(&fixture, &snapshot));
+}

@@ -200,3 +200,37 @@ pub(super) fn clear(root: &Path) -> Result<(), WriteError> {
     filesystem::sync_directory(root, |_, error| error)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::{read, strict_json};
+    use maestro_test_scratch::scratch_directory;
+    use std::fs;
+    #[test]
+    fn s6t_pointer_read_preserves_overlimit_sentinel() {
+        let root = scratch_directory().unwrap();
+        fs::create_dir_all(&root).unwrap();
+        let bytes = vec![b'x'; strict_json::MAX_BYTES + 2];
+        fs::write(root.join("pointer"), &bytes).unwrap();
+        assert_eq!(
+            read(&root, "pointer").map(|bytes| bytes.map(|bytes| bytes.len())),
+            Ok(Some(strict_json::MAX_BYTES + 1))
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn s6t_lock_directory_preserves_creation_error_variant() {
+        let root = scratch_directory().unwrap();
+        fs::create_dir_all(root.join("writer.lock")).unwrap();
+        let error = super::filesystem::new_file()
+            .open(root.join("writer.lock"))
+            .unwrap_err();
+        let expected = if error.kind() == super::ErrorKind::AlreadyExists {
+            super::WriteError::Refused(super::Refusal::Invalid)
+        } else {
+            super::WriteError::Storage
+        };
+        assert_eq!(super::lock(&root).err(), Some(expected));
+        fs::remove_dir_all(root).unwrap();
+    }
+}

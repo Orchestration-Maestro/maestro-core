@@ -99,3 +99,24 @@ impl CheckedRegistry {
             .map(|profile| &profile.definition)
     }
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::RegistryUnavailable;
+    use crate::Refusal;
+    #[test]
+    fn s6t_registry_refusal_variants_remain_distinct() {
+        assert_eq!(
+            RegistryUnavailable::from(Refusal::Unqualified),
+            RegistryUnavailable::Unqualified
+        );
+        assert_eq!(
+            RegistryUnavailable::from(Refusal::Access),
+            RegistryUnavailable::Access
+        );
+        assert_eq!(
+            RegistryUnavailable::from(Refusal::Invalid),
+            RegistryUnavailable::Corrupt
+        );
+    }
+}

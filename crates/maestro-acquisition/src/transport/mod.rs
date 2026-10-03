@@ -16,3 +16,6 @@ mod wire_quota;
 
 #[cfg(test)]
 mod http_history_tests;
+
+#[cfg(test)]
+mod mutation_tests;

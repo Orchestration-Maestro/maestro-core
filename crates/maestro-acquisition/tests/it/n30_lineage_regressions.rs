@@ -192,3 +192,49 @@ fn n30_rollback_validates_target_before_pointer_exposure() {
     assert_eq!(fs::read(root.join("manifest.json")).unwrap(), before);
     assert!(!root.join("recovery.json").exists());
 }
+
+#[test]
+fn s6t_writer_and_snapshot_debug_redaction_has_names() {
+    let fixture = Fixture::new();
+    let principal = support::principal(&fixture.scopes);
+    let events = Events::default();
+    let context = fixture.context(&principal, &events, &Grant, &AtomicCommit);
+    assert_eq!(format!("{context:?}"), "WriterContext { .. }");
+    let writer =
+        LocalWriter::open(&fixture.root.join("overlay"), context, &fixture.manifest).unwrap();
+    assert_eq!(format!("{writer:?}"), "LocalWriter { .. }");
+    let reader = super::n57_support::reader(
+        &fixture.db,
+        &fixture.collection,
+        &fixture.catalog,
+        &principal,
+    );
+    assert_eq!(format!("{reader:?}"), "SnapshotReader { .. }");
+}
+
+#[test]
+fn s6t_direct_files_exact_byte_limit_and_overlimit() {
+    use maestro_acquisition::{DirectFiles, LocalResource, ResourceSource};
+    use maestro_knowledge::strict_json::MAX_BYTES;
+    use std::collections::BTreeMap;
+    let fixture = Fixture::new();
+    let principal = support::principal(&fixture.scopes);
+    let resource = fixture.catalog.0.get("policy").unwrap();
+    let path = fixture.root.join("byte-boundary");
+    let files = DirectFiles::new(BTreeMap::from([(
+        resource.reference.id.clone(),
+        LocalResource {
+            path: path.clone(),
+            admission: resource.admission.clone(),
+        },
+    )]));
+    for count in [MAX_BYTES, MAX_BYTES + 2] {
+        fs::write(&path, vec![b'x'; count]).unwrap();
+        let read = files.read(&resource.reference, &principal);
+        if count == MAX_BYTES {
+            assert_eq!(read.unwrap().bytes.len(), MAX_BYTES);
+        } else {
+            assert_eq!(read.err(), Some(Refusal::Invalid));
+        }
+    }
+}

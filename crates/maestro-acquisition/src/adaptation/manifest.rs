@@ -222,3 +222,14 @@ pub trait ConfigurationWriter: fmt::Debug {
         current_authority: Handle,
     ) -> Result<Ref, WriteError>;
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    #[test]
+    fn s6t_write_error_display_preserves_code() {
+        assert_eq!(
+            super::WriteError::Conflict.to_string(),
+            "configuration write refused: Conflict"
+        );
+    }
+}

@@ -303,3 +303,39 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::{ItemDisposition, ReceiptError, Stage, check_evidence, counts, record};
+    #[test]
+    fn s6t_capture_disposition_counts_and_evidence() {
+        let mut counts = counts(Stage::Capture);
+        for disposition in [
+            ItemDisposition::Unchanged,
+            ItemDisposition::Denied,
+            ItemDisposition::Blocked,
+            ItemDisposition::Refused,
+            ItemDisposition::Withdrawn,
+        ] {
+            record(&mut counts, disposition);
+            record(&mut counts, disposition);
+            assert_eq!(
+                check_evidence(disposition, None),
+                Err(ReceiptError::Invalid)
+            );
+        }
+        assert_eq!(
+            (
+                counts.unchanged,
+                counts.denied,
+                counts.blocked,
+                counts.refused,
+                counts.withdrawn
+            ),
+            (2, 2, 2, 2, 2)
+        );
+        assert_eq!(counts.items, 10);
+        assert_eq!(check_evidence(ItemDisposition::Discovered, None), Ok(()));
+        assert_eq!(check_evidence(ItemDisposition::Pending, None), Ok(()));
+    }
+}

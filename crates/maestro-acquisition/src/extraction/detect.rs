@@ -373,3 +373,35 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::{Observation, Structure, observation_valid};
+    use crate::policy::acquisition::{Attribute, DomStep};
+    #[test]
+    fn s6t_structure_exact_depth_and_attribute_halves() {
+        let leaf = Structure::Observed {
+            observation: Observation::Block {
+                id: "heading".into(),
+            },
+        };
+        assert!(leaf.validate(32, &mut 0));
+        assert!(leaf.validate(1, &mut 999));
+        assert!(!leaf.validate(1, &mut 1000));
+        assert!(!leaf.validate(1, &mut 1001));
+        assert!(!leaf.validate(33, &mut 0));
+        assert!(!leaf.validate(34, &mut 0));
+        for (name, value) in [("../bad", "text"), ("title", "nul\0text")] {
+            let observation = Observation::Dom {
+                path: vec![DomStep {
+                    tag: "p".into(),
+                    attributes: vec![Attribute {
+                        name: name.into(),
+                        value: value.into(),
+                    }],
+                }],
+            };
+            assert!(!observation_valid(&observation));
+        }
+    }
+}

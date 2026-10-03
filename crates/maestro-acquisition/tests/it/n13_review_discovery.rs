@@ -289,3 +289,42 @@ fn n13_review_malformed_reference_still_holds() {
     );
     assert_unacknowledged(&fixture);
 }
+
+#[test]
+fn s6t_discovery_exact_excluded_inventory_ceiling_is_not_truncated() {
+    #[derive(Debug)]
+    struct ExcludedLinks;
+    impl LinkExtractor for ExcludedLinks {
+        fn contract(&self) -> &'static str {
+            "synthetic-excluded-links"
+        }
+        fn extract<'a>(
+            &'a self,
+            _: &'a str,
+            _: &'a [u8],
+        ) -> Pin<Box<dyn Future<Output = Result<LinkExtraction, ReceiptError>> + Send + 'a>>
+        {
+            Box::pin(async {
+                Ok(LinkExtraction {
+                    contract: self.contract().into(),
+                    links: (0..1000)
+                        .map(|i| format!("https://outside.example/{i}"))
+                        .collect(),
+                    limit_hit: false,
+                })
+            })
+        }
+    }
+    let mut fixture = Fixture::new();
+    let capture = capture(&mut fixture, b"<html></html>");
+    let batch = run(discover(
+        &fixture.db,
+        &ExcludedLinks,
+        (&fixture.context, capture),
+        &fixture.policy,
+        (partition(), 0),
+    ))
+    .unwrap();
+    assert_eq!(batch.not_enqueued.len(), 1000);
+    assert!(!batch.truncated);
+}

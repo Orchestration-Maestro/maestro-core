@@ -299,3 +299,17 @@ fn n11_host_reserve_floors_apply_to_every_new_allocation() {
         Err(Pending::Gpu)
     );
 }
+
+#[test]
+fn s6t_cpu_only_zero_gpu_allocation_is_admitted() {
+    let (controls, resources) = resources();
+    change(&controls, |snapshot| {
+        snapshot.aggregate.gpu_bytes = 0;
+        snapshot.per_run.gpu_bytes = 0;
+    });
+    let mut bound = limits();
+    bound.gpu_bytes = 0;
+    let reservation = resources.reserve(&[bound], Usage::default()).unwrap();
+    drop(reservation);
+    assert_eq!(resources.usage().unwrap(), Usage::default());
+}

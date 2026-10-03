@@ -7,7 +7,8 @@ use super::{n15_support as fixture, support};
 use maestro_acquisition::extraction::{
     detect::{DetectionEvidence, Observation},
     registry::{
-        LocalRegistry, ProfileSelection, RegistryUnavailable, checked_resolve, checked_select,
+        HeldReason, LocalRegistry, ProfileSelection, RegistryUnavailable, checked_resolve,
+        checked_select,
     },
 };
 use maestro_acquisition::{ProfileRegistry, Ref};
@@ -243,4 +244,63 @@ fn n15_invalid_evidence_atoms_text_and_refs_refuse() {
         }
         assert!(DetectionEvidence::new(input).is_err(), "{field}");
     }
+}
+
+#[test]
+fn s6t_registry_exact_list_ceilings_and_profile_lookup() {
+    for (field, value) in [
+        ("languages", json!(vec!["en"; 1000])),
+        (
+            "detectors",
+            json!(vec![
+                json!({"kind":"magic","offset":0,"hex_bytes":"23"});
+                1000
+            ]),
+        ),
+        (
+            "artifacts",
+            json!(vec![json!({"id":"plugin","digest":"0".repeat(64)}); 1000]),
+        ),
+        (
+            "qualification_evidence",
+            json!(vec![json!({"id":"gold","digest":"0".repeat(64)}); 1000]),
+        ),
+    ] {
+        let (_, catalog, reference) = changed(field, value);
+        let checked = LocalRegistry::new(&catalog)
+            .resolve(&reference, &support::principal(&support::scopes()))
+            .unwrap();
+        let markdown = catalog.0.get("markdown").unwrap().reference.clone();
+        assert_eq!(checked.profile(&markdown).unwrap().id, "markdown");
+        let mut wrong = markdown;
+        wrong.digest = Digest::of(b"wrong definition");
+        assert!(checked.profile(&wrong).is_none());
+    }
+}
+
+#[test]
+fn s6t_registry_exact_eligible_ceiling_and_single_unknown_candidate() {
+    let (collection, catalog, reference) = fixture::registry_fixture();
+    let adapter = LocalRegistry::new(&catalog);
+    let checked = checked_resolve(
+        &adapter,
+        &reference,
+        &support::principal(&support::scopes()),
+        &fixture::policy(&collection, &catalog),
+    )
+    .unwrap();
+    let markdown = catalog.0.get("markdown").unwrap().reference.clone();
+    let make = super::n15_route_content_through_one_extensible_profile_registry::evidence;
+    let eligible = vec![markdown; 1000];
+    assert!(matches!(
+        checked_select(&adapter, &checked, &make(b"# text"), &eligible).unwrap(),
+        ProfileSelection::Selected { .. }
+    ));
+    assert!(matches!(
+        checked_select(&adapter, &checked, &make(b"no content match"), &eligible).unwrap(),
+        ProfileSelection::Held {
+            reason: HeldReason::Unknown,
+            ..
+        }
+    ));
 }

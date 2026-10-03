@@ -224,3 +224,153 @@ pub(super) fn charge_quota(quota: &Quota, accounting: &mut Accounting) -> Result
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::{Accounting, Decoder, Failure};
+    use crate::transport::mutation_tests::limits;
+    use flate2::{Compression, Decompress, write::GzEncoder};
+    use std::{io::Write as _, sync::mpsc, thread, time::Duration};
+
+    /// Detached call allows an endless decode mutation to fail an assertion.
+    fn checked(input: Vec<u8>, split: usize, expected: Vec<u8>, members: u64) {
+        let (sender, receiver) = mpsc::channel();
+        thread::spawn(move || {
+            let mut limits = limits();
+            limits.wire_bytes = 100_000.try_into().unwrap();
+            limits.decode.expanded_bytes = 100_000.try_into().unwrap();
+            limits.decode.expansion_ratio = 10_000.try_into().unwrap();
+            let mut accounting = Accounting::new(limits);
+            accounting.encoded(input.len() as u64).unwrap();
+            let mut decoder = Decoder {
+                codec: Decompress::new_gzip(15),
+                ended: false,
+                gzip: true,
+                started: false,
+                input_bytes: 0,
+                output_bytes: 0,
+            };
+            let mut output = decoder
+                .push(input.get(..split).unwrap(), false, &mut accounting)
+                .unwrap();
+            output.extend(
+                decoder
+                    .push(input.get(split..).unwrap(), false, &mut accounting)
+                    .unwrap(),
+            );
+            assert_eq!(output, expected, "complete input must drain pending output");
+            assert!(decoder.push(&[], true, &mut accounting).unwrap().is_empty());
+            sender.send(accounting.members()).unwrap();
+        });
+        assert_eq!(receiver.recv_timeout(Duration::from_secs(10)), Ok(members));
+    }
+    #[test]
+    fn s6t_stream_split_and_exact_scratch_completion() {
+        for size in [0, 40, 8192, 8193, 32768] {
+            let expected: Vec<u8> = (0..=250).cycle().take(size).collect();
+            let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+            encoder.write_all(&expected).unwrap();
+            let compressed = encoder.finish().unwrap();
+            for split in [0, 1, compressed.len() - 1, compressed.len()] {
+                checked(compressed.clone(), split, expected.clone(), 1);
+            }
+        }
+    }
+    #[test]
+    fn s6t_stream_concatenated_members_preserve_all_output() {
+        let mut compressed = Vec::new();
+        for text in [b"first".as_slice(), b"second".as_slice()] {
+            let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+            encoder.write_all(text).unwrap();
+            compressed.extend(encoder.finish().unwrap());
+        }
+        checked(compressed, 0, b"firstsecond".to_vec(), 2);
+    }
+    #[test]
+    fn s6t_stream_unfinished_input_is_not_completion() {
+        let (sender, receiver) = mpsc::channel();
+        thread::spawn(move || {
+            let mut accounting = Accounting::new(limits());
+            accounting.encoded(2).unwrap();
+            let mut decoder = Decoder {
+                codec: Decompress::new_gzip(15),
+                ended: false,
+                gzip: true,
+                started: false,
+                input_bytes: 0,
+                output_bytes: 0,
+            };
+            assert_eq!(decoder.push(&[0x1f], false, &mut accounting), Ok(vec![]));
+            sender
+                .send(decoder.push(&[], true, &mut accounting))
+                .unwrap();
+        });
+        assert_eq!(
+            receiver.recv_timeout(Duration::from_secs(10)),
+            Ok(Err(Failure::Content))
+        );
+    }
+}
+
+#[cfg(test)]
+mod clock_mutation_tests {
+    use super::{Accounting, Decoder};
+    use crate::transport::mutation_tests::limits;
+    use flate2::Decompress;
+    use maestro_kernel::retrieval::Clock;
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+        time::{Duration, Instant},
+    };
+    #[derive(Debug)]
+    struct Cutoff {
+        start: Instant,
+        calls: AtomicUsize,
+    }
+    impl Clock for Cutoff {
+        fn now(&self) -> Instant {
+            if self.calls.fetch_add(1, Ordering::SeqCst) >= 5 {
+                self.start + Duration::from_secs(1)
+            } else {
+                self.start
+            }
+        }
+    }
+    #[test]
+    fn s6t_stream_deadline_and_partial_frame_boundaries() {
+        use flate2::{Compression, write::GzEncoder};
+        use std::io::Write as _;
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&[b'x'; 8192]).unwrap();
+        let mut compressed = encoder.finish().unwrap();
+        compressed.pop().unwrap();
+        for (input, finish, expected) in [
+            (vec![0x1f], false, Ok(Vec::<u8>::new())),
+            (vec![0x1f], true, Err(super::Failure::Timeout)),
+            (compressed, false, Err(super::Failure::Timeout)),
+        ] {
+            let mut limits = limits();
+            limits.elapsed_ms = 1000.try_into().unwrap();
+            limits.decode.elapsed_ms = limits.elapsed_ms;
+            limits.decode.expansion_ratio = 10_000.try_into().unwrap();
+            let clock = Arc::new(Cutoff {
+                start: Instant::now(),
+                calls: AtomicUsize::new(0),
+            });
+            let mut accounting = Accounting::with_clock(limits, clock);
+            accounting.encoded(input.len() as u64).unwrap();
+            let mut decoder = Decoder {
+                codec: Decompress::new_gzip(15),
+                ended: false,
+                gzip: true,
+                started: false,
+                input_bytes: 0,
+                output_bytes: 0,
+            };
+            assert_eq!(decoder.push(&input, finish, &mut accounting), expected);
+        }
+    }
+}

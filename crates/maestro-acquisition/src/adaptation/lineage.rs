@@ -139,4 +139,27 @@ mod tests {
             assert!(bindings(&manifest, &reference, &activation, &proposal).is_err());
         }
     }
+    #[test]
+    fn s6t_lineage_restores_exact_earlier_activation() {
+        let mut manifest: AcquisitionManifest =
+            storage::decode(include_bytes!("golden-manifest.json")).unwrap();
+        let mut proposal: Proposal =
+            storage::decode(include_bytes!("golden-proposal.json")).unwrap();
+        let mut activation: Activation =
+            storage::decode(include_bytes!("golden-activation.json")).unwrap();
+        let earlier = Ref {
+            id: "earlier".into(),
+            digest: manifest.baseline.digest.clone(),
+        };
+        let reference = Ref {
+            id: "current".into(),
+            digest: manifest.baseline.digest.clone(),
+        };
+        manifest.activations = vec![earlier.clone(), reference.clone()];
+        activation.previous = earlier.clone();
+        activation.restores = Some(earlier.clone());
+        proposal.expected_active = earlier;
+        proposal.expected_baseline = manifest.baseline.clone();
+        assert!(bindings(&manifest, &reference, &activation, &proposal).is_ok());
+    }
 }

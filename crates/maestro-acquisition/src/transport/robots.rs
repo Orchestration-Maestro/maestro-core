@@ -439,3 +439,77 @@ impl RobotsCache {
         }
     }
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::{product_token, wildcard_match};
+    #[test]
+    fn s6t_robots_tokens_and_multiple_wildcards() {
+        for token in ["Maestro", "My_Bot", "My-Bot"] {
+            assert!(product_token(token));
+        }
+        assert!(!product_token("My1Bot"));
+        assert!(wildcard_match("/a*b*c", "/axybzc"));
+        assert!(!wildcard_match("/a*b*c", "/axby"));
+        assert!(!wildcard_match("/a*bc*cb", "/axbcb"));
+    }
+}
+
+#[cfg(test)]
+mod cache_mutation_tests {
+    use super::{DenyOverrides, Refusal, Rfc9309, RobotsBinding, RobotsCache};
+    use crate::{
+        policy::{identity::FetchIdentity, schema::SourcePolicy},
+        transport::robots_store::RobotsStore,
+    };
+    use maestro_kernel::artifact::Digest;
+    #[test]
+    fn s6t_robots_cache_byte_boundaries_and_absent_bodies() {
+        let policy: SourcePolicy =
+            serde_json::from_slice(include_bytes!("../../tests/fixtures/policy.json")).unwrap();
+        let source = policy.sources.first().unwrap();
+        let target = FetchIdentity::parse(source, "https://garden.example/docs/page").unwrap();
+        let digest = Digest::of(b"synthetic");
+        let body = b"User-agent: *\nAllow: /\n";
+        let mut robots = source.robots.clone();
+        robots.rules_max_bytes = (body.len() as u64).try_into().unwrap();
+        let bound = RobotsBinding {
+            policy: &robots,
+            digest: &digest,
+        };
+        let mut tighter = robots.clone();
+        tighter.rules_max_bytes = (body.len() as u64 - 1).try_into().unwrap();
+        let tight = RobotsBinding {
+            policy: &tighter,
+            digest: &digest,
+        };
+        let mut store = RobotsStore::new(2.try_into().unwrap());
+        assert!(store.is_empty());
+        for status in [200, 404, 410] {
+            let cache = RobotsCache::response(&target, bound, status, body, 0);
+            assert_eq!(cache.check(&target, bound, 0, &DenyOverrides), Ok(()));
+            assert_eq!(
+                cache.check(&target, tight, 0, &DenyOverrides),
+                if status == 200 {
+                    Err(Refusal::Access)
+                } else {
+                    Ok(())
+                }
+            );
+            store.insert(cache);
+            assert!(!store.is_empty());
+        }
+        let parsed = RobotsCache::parsed(
+            &target,
+            bound,
+            Box::new(Rfc9309::parse(body, body.len() as u64).unwrap()),
+            body.len() as u64,
+            0,
+        );
+        assert_eq!(parsed.check(&target, bound, 0, &DenyOverrides), Ok(()));
+        assert_eq!(
+            parsed.check(&target, tight, 0, &DenyOverrides),
+            Err(Refusal::Access)
+        );
+    }
+}

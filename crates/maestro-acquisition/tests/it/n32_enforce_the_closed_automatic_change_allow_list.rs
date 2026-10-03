@@ -363,3 +363,19 @@ fn n32_disabled_classes_and_unresolved_selections_hold() {
     old.approved_cleanup.clear();
     assert_eq!(apply(&old, &old, &[cleanup()], NOW), Err(WriteError::Held));
 }
+
+#[test]
+fn s6t_exclusion_effective_at_exact_now_is_admitted() {
+    let old = disjoint_fixture();
+    let (mut candidate, change) = disjoint_exclusion(&old, Action::ExcludeFromKnowledge);
+    candidate
+        .decisions
+        .get_mut("new-exclusion")
+        .unwrap()
+        .1
+        .effective_at = NOW.into();
+    assert_eq!(
+        apply(&old, &candidate, from_ref(&change), NOW),
+        Ok(candidate.clone())
+    );
+}

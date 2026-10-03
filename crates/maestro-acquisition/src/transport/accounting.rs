@@ -491,3 +491,83 @@ pub(crate) struct DecodeCharge {
     /// Additional owned parser workspaces; retained conservatively across IPC.
     pub memory_bytes: u64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Accounting, DecodeCharge, DecodeStage, Failure};
+    use crate::transport::mutation_tests::limits;
+
+    #[test]
+    fn s6t_accounting_exact_wire_and_request_counts() {
+        let mut accounting = Accounting::new(limits());
+        assert_eq!(accounting.requests(), 0);
+        accounting.request().unwrap();
+        accounting.request().unwrap();
+        assert_eq!(accounting.requests(), 2);
+        accounting.encoded(1000).unwrap();
+        assert_eq!(accounting.wire_bytes(), 1000);
+        assert_eq!(accounting.encoded(1), Err(Failure::EncodedBytes));
+    }
+
+    #[test]
+    fn s6t_accounting_ratio_products_and_stage_provenance() {
+        let mut accounting = Accounting::new(limits());
+        accounting
+            .admit_step_ratio(0, 0, DecodeStage::Attachment)
+            .unwrap();
+        accounting.encoded(100).unwrap();
+        accounting.decoded(500).unwrap();
+        assert_eq!(accounting.validate(), Ok(()));
+        accounting
+            .parser_charge(&DecodeCharge {
+                stage: DecodeStage::Office,
+                input_bytes: 10,
+                expanded_bytes: 50,
+                levels: 0,
+                members: 0,
+                entities: 0,
+                pixels: 0,
+                memory_bytes: 10,
+            })
+            .unwrap();
+        accounting
+            .admit_step_ratio(60, 10, DecodeStage::Pdf)
+            .unwrap();
+        assert_eq!(accounting.step_ratio, Some((60, 10, DecodeStage::Pdf)));
+        accounting
+            .admit_step_ratio(12, 2, DecodeStage::Image)
+            .unwrap();
+        assert_eq!(accounting.step_ratio, Some((60, 10, DecodeStage::Pdf)));
+        accounting
+            .admit_step_ratio(50, 10, DecodeStage::Attachment)
+            .unwrap();
+        assert_eq!(accounting.step_ratio, Some((60, 10, DecodeStage::Pdf)));
+        assert_eq!(
+            accounting.admit_step_ratio(100, 10, DecodeStage::Image),
+            Ok(())
+        );
+        assert_eq!(accounting.step_ratio, Some((100, 10, DecodeStage::Image)));
+        assert_eq!(
+            accounting.refusal_stage(&Failure::ExpansionRatio),
+            Some(DecodeStage::Office)
+        );
+        accounting.encoded(0).unwrap();
+        assert_eq!(
+            accounting.refusal_stage(&Failure::Memory),
+            Some(DecodeStage::Office)
+        );
+        accounting.request().unwrap();
+        assert_eq!(
+            accounting.refusal_stage(&Failure::Memory),
+            Some(DecodeStage::Office)
+        );
+        let mut tighter = limits();
+        tighter.decode.expansion_ratio = 9.try_into().unwrap();
+        accounting.tighten(&tighter);
+        assert_eq!(accounting.validate(), Err(Failure::ExpansionRatio));
+        assert_eq!(
+            accounting.refusal_stage(&Failure::ExpansionRatio),
+            Some(DecodeStage::Image)
+        );
+    }
+}

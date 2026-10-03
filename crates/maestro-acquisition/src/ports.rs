@@ -208,3 +208,65 @@ impl CheckedPolicy {
         &self.acquisition_profiles
     }
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::{
+        Admission, AdmissionStatus, ImmutableResource, Principal, Ref, ResourceSource,
+        read_resource,
+    };
+    use crate::Refusal;
+    use maestro_kernel::{artifact::Digest, store::Database};
+    use maestro_knowledge::strict_json::MAX_BYTES;
+    use std::{collections::BTreeMap, fs};
+    #[derive(Debug)]
+    struct Source(ImmutableResource);
+    impl ResourceSource for Source {
+        fn read(&self, _: &Ref, _: &Principal<'_>) -> Result<ImmutableResource, Refusal> {
+            Ok(self.0.clone())
+        }
+    }
+    #[test]
+    fn s6t_resource_exact_byte_ceiling_is_admitted() {
+        let bytes = vec![b'x'; MAX_BYTES];
+        let digest = Digest::of(&bytes);
+        let reference = Ref {
+            id: "boundary".into(),
+            digest: digest.clone(),
+        };
+        let source = Source(ImmutableResource {
+            reference: reference.clone(),
+            bytes,
+            admission: Admission {
+                digest,
+                platform: "synthetic".into(),
+                capabilities: vec![],
+                status: AdmissionStatus::Reviewed,
+                references: vec![],
+            },
+        });
+        let root = maestro_test_scratch::scratch_directory().unwrap();
+        let database = Database::open_in(&root).unwrap();
+        let scopes = database.visible("reader").unwrap();
+        let principal = Principal {
+            id: "reader",
+            platform: "synthetic",
+            scopes: &scopes,
+        };
+        assert_eq!(
+            read_resource(
+                &source,
+                &principal,
+                &mut BTreeMap::new(),
+                &reference,
+                &|_| Ok(())
+            )
+            .unwrap()
+            .bytes
+            .len(),
+            MAX_BYTES
+        );
+        drop(database);
+        fs::remove_dir_all(root).unwrap();
+    }
+}

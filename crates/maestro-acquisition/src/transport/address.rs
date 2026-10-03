@@ -144,3 +144,19 @@ fn mask128(width: u32) -> u128 {
         .checked_shl(128_u32.saturating_sub(width))
         .unwrap_or(0)
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::AddressResource;
+    #[test]
+    fn s6t_address_resource_exact_snapshot_and_prefix_ceilings() {
+        let mut resource =
+            AddressResource::parse(include_bytes!("../../tests/fixtures/address-table.json"))
+                .unwrap();
+        resource.snapshot = "x".repeat(4096);
+        resource.deny_prefixes = (0..1000)
+            .map(|i| format!("10.{}.{}.0/24", i / 256, i % 256))
+            .collect();
+        assert!(resource.compile().is_ok());
+    }
+}

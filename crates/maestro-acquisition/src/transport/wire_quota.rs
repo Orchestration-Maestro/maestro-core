@@ -257,3 +257,61 @@ impl<T: AsyncWrite + Unpin> AsyncWrite for BoundedIo<T> {
         Pin::new(&mut self.get_mut().inner).poll_shutdown(cx)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Failure, HeaderGate, HeaderLimits, MAX_INTERIM_RESPONSES};
+
+    #[test]
+    fn s6t_header_fields_and_interim_exact_boundaries() {
+        let mut gate = HeaderGate::new(HeaderLimits {
+            bytes: 10_000,
+            fields: 1,
+        });
+        for byte in b"HTTP/1.1 200 OK\r\nX: a\r\n\r\n" {
+            gate.push(*byte).unwrap();
+        }
+        assert!(gate.done);
+        assert_eq!(gate.fields, 1);
+        let mut gate = HeaderGate::new(HeaderLimits {
+            bytes: 10_000,
+            fields: 1,
+        });
+        for byte in b"HTTP/1.1 200 OK\r\nX: a\r\nY: b\r" {
+            gate.push(*byte).unwrap();
+        }
+        assert_eq!(gate.push(b'\n'), Err(Failure::Content));
+        let mut gate = HeaderGate::new(HeaderLimits {
+            bytes: 10_000,
+            fields: 0,
+        });
+        for _ in 0..MAX_INTERIM_RESPONSES {
+            for byte in b"HTTP/1.1 100 Continue\r\n\r\n" {
+                gate.push(*byte).unwrap();
+            }
+        }
+        assert!(!gate.done);
+        assert_eq!(gate.interim, MAX_INTERIM_RESPONSES);
+        for byte in b"HTTP/1.1 100 Continue\r\n\r" {
+            gate.push(*byte).unwrap();
+        }
+        assert_eq!(gate.push(b'\n'), Err(Failure::Content));
+    }
+}
+
+#[cfg(test)]
+mod invariant_tests {
+    use super::{HeaderGate, HeaderLimits};
+    #[test]
+    fn s6t_header_tail_byte_never_overlaps_shifted_history() {
+        let mut gate = HeaderGate::new(HeaderLimits {
+            bytes: 1000,
+            fields: 1000,
+        });
+        for byte in 0..=u8::MAX {
+            assert_eq!((gate.tail << 8) & u32::from(byte), 0);
+            gate.push(byte).unwrap();
+            assert_eq!(gate.tail.to_be_bytes().last(), Some(&byte));
+        }
+    }
+}

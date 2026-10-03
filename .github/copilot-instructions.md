@@ -449,6 +449,7 @@ in place.
 │   │   │   │   ├── http_history_tests.rs                                                # Hop metadata refuses before the history grows, including empty bodies
 │   │   │   │   ├── http_protocol.rs                                                     # Bounded response parser, transient metadata and manual redirect spelling
 │   │   │   │   ├── mod.rs                                                               # Shared address admission, pinned TLS, robots, origin pacing and resource budgets
+│   │   │   │   ├── mutation_tests.rs                                                    # Exact transport boundaries used by mutation-debt regressions
 │   │   │   │   ├── pacing.rs                                                            # One injected atomic origin ledger shared by HTTP, browser and resumed runs
 │   │   │   │   ├── robots.rs                                                            # RFC 9309 rules over N07's canonical fetch identity, without network effects
 │   │   │   │   ├── robots_store.rs                                                      # Bounded robots entries; different policy digests on one origin coexist

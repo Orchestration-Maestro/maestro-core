@@ -288,3 +288,28 @@ fn reconcile(
         ),
     )
 }
+
+#[test]
+fn s6t_outcome_exact_page_ceiling_and_attempted_missing_disposition() {
+    let mut inventory = page(true, ItemDisposition::Pending);
+    inventory.items = (0..1000)
+        .map(|_| StageItem {
+            item: Handle::new(),
+            disposition: ItemDisposition::Pending,
+            evidence: None,
+        })
+        .collect();
+    let outcome = reconcile(&[inventory], &[], Reason::None).unwrap();
+    assert_eq!(outcome.distinct_items, 1000);
+    let inventory = page(true, ItemDisposition::Pending);
+    let mut item = frontier(&inventory, 2);
+    item.capture = None;
+    let outcome = reconcile(&[], &[item], Reason::None).unwrap();
+    let capture = outcome
+        .stages
+        .iter()
+        .find(|counts| counts.stage == Stage::Capture)
+        .unwrap();
+    assert_eq!(capture.attempted, 1);
+    assert_eq!(capture.pending, 1);
+}

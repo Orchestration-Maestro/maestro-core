@@ -416,3 +416,30 @@ fn n12_existing_artifact_media_is_reusable() {
         "text/markdown"
     );
 }
+
+#[test]
+fn s6t_capture_budget_retains_previous_sources_staging() {
+    let fixture = Fixture::new();
+    let (_, resources) = n11_support::resources();
+    let mut reservation = n11_support::reserve(&resources, Usage::default());
+    let bounds = [n11_support::limits()];
+    let mut budget = CaptureBudget {
+        carried_staging: Some((500, &bounds)),
+        reservation: &mut reservation,
+        bounds: &bounds,
+        usage: Usage::default(),
+    };
+    prepare(
+        &fixture.db,
+        &fixture.policy,
+        &fixture.context,
+        (&fixture.envelope, b"body"),
+        &mut budget,
+    )
+    .unwrap();
+    assert_eq!(
+        resources.usage().unwrap().staging_bytes,
+        500 + budget.usage.staging_bytes
+    );
+    assert!(budget.usage.staging_bytes > 0);
+}

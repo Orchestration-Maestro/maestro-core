@@ -46,4 +46,8 @@ exclude_re = [
   '^crates/maestro-knowledge/src/corpus\.rs:227:9: replace <impl Visitor<.de> for ValueVisitor>::expecting -> fmt::Result with Ok\(Default::default\(\)\)$',
   # The default `Value` is `Value::Null`, the value `visit_unit` returns.
   '^crates/maestro-knowledge/src/corpus\.rs:253:9: replace <impl Visitor<.de> for ValueVisitor>::visit_unit -> Result<Value, E> with Ok\(Default::default\(\)\)$',
+  # The single-candidate arm returns before this zero-or-many comparison.
+  '^crates/maestro-acquisition/src/extraction/registry\.rs:408:38: replace > with >= in select$',
+  # Shifted history and the incoming byte occupy disjoint bits.
+  '^crates/maestro-acquisition/src/transport/wire_quota\.rs:118:38: replace \| with \^ in HeaderGate::push$',
 ]

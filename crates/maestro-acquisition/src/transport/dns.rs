@@ -169,3 +169,31 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::{Clock, Refusal, Resolver, SystemResolver, remaining};
+    use std::time::{Duration, Instant};
+
+    #[derive(Debug)]
+    struct Stopped(Instant);
+    impl Clock for Stopped {
+        fn now(&self) -> Instant {
+            self.0
+        }
+    }
+    #[test]
+    fn s6t_dns_remaining_exact_duration() {
+        let start = Instant::now();
+        assert_eq!(
+            remaining(start + Duration::from_secs(1), &Stopped(start)),
+            Ok(Duration::from_secs(1))
+        );
+        assert_eq!(remaining(start, &Stopped(start)), Err(Refusal::Deadline));
+    }
+    #[test]
+    fn s6t_dns_numeric_loopback_resolution() {
+        let resolver = SystemResolver::new(1000.try_into().unwrap());
+        assert_eq!(resolver.resolve("127.0.0.1"), Ok(vec!["127.0.0.1".into()]));
+    }
+}

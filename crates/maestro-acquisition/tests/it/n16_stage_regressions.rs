@@ -96,3 +96,30 @@ async fn n16_timeout_reports_latest_charged_stage_after_handoff() {
     assert_eq!(refusal.reason, Failure::Timeout);
     assert_eq!(refusal.stage, Some(DecodeStage::Office));
 }
+
+#[test]
+fn s6t_fidelity_requires_same_kind_known_measurement() {
+    use super::n16_define_extraction_fidelity_and_cumulative_decode_contracts::document;
+    use maestro_acquisition::extraction::{
+        contract::{Measured, StructureKind},
+        fidelity::{Finding, evaluate},
+    };
+    for wrong_kind in [false, true] {
+        let mut document = document();
+        if wrong_kind {
+            document.measurements.first_mut().unwrap().kind = StructureKind::Heading;
+        } else {
+            document.measurements.first_mut().unwrap().source = Measured::Unknown;
+        }
+        let evaluated = evaluate(document);
+        assert_eq!(
+            evaluated
+                .receipt()
+                .findings
+                .iter()
+                .filter(|finding| **finding == Finding::Unknown(StructureKind::Cell))
+                .count(),
+            2
+        );
+    }
+}
