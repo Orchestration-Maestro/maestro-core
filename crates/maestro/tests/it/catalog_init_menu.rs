@@ -370,3 +370,53 @@ fn catalog_init_menu_unchanged_language_does_not_repeat_fallback_at_other_stages
     assert!(result.stderr.contains("4/5"), "{result:?}");
     assert_eq!(fs::read_dir(root).unwrap().count(), 0);
 }
+
+#[test]
+fn catalog_init_menu_config_plain_rejects_subcommands_and_keeps_plain_transcript() {
+    let home = Home::bare();
+    fs::create_dir(home.root().join("project")).unwrap();
+    let default = plain(&home, &["config"], "tone=brief\n\npreview\n");
+    let explicit = plain(&home, &["config", "--plain"], "tone=brief\n\npreview\n");
+    assert_eq!(default.code, explicit.code);
+    assert_eq!(default.stdout, explicit.stdout);
+    assert_eq!(default.stderr, explicit.stderr);
+    for args in [
+        &["config", "--plain", "list"][..],
+        &["config", "list", "--plain"],
+    ] {
+        let result = home.run(args);
+        assert_eq!(result.code, Some(2), "{result:?}");
+        assert!(result.stderr.contains("Usage:"), "{result:?}");
+    }
+}
+
+#[test]
+fn catalog_init_menu_plain_bytes_remain_the_c05g_baseline() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    fs::create_dir(&root).unwrap();
+    let init = plain(&home, &["init", "--plain"], "back\n");
+    assert_eq!(init.code, Some(0));
+    assert!(init.stdout.is_empty());
+    // Only the scratch root changes between runs; all presentation bytes are pinned.
+    let text = init
+        .stderr
+        .replace(root.canonicalize().unwrap().to_str().unwrap(), "<ROOT>");
+    assert_eq!(
+        text,
+        serde_json::from_str::<String>(include_str!(
+            "../../../../tests/fixtures/terminal/plain-init-back.json"
+        ))
+        .unwrap()
+    );
+    let config = plain(&home, &["config", "--plain"], "cancel\n");
+    assert_eq!(config.code, Some(0));
+    assert!(config.stdout.is_empty());
+    assert_eq!(
+        config.stderr,
+        serde_json::from_str::<String>(include_str!(
+            "../../../../tests/fixtures/terminal/plain-config-cancel.json"
+        ))
+        .unwrap()
+    );
+}

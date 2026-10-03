@@ -5,12 +5,13 @@ mod catalog_traceability;
 mod s1_traceability;
 mod unsafe_policy;
 
-use unsafe_policy::{privilege_support_is_gated, unsafe_file_violation};
+use unsafe_policy::{cfg_test_module, privilege_support_is_gated, unsafe_file_violation};
 
 use maestro_conventions::{
     broken_links, counted_lines, names_a_personal_directory, repository_files, root,
 };
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
 };
@@ -341,7 +342,7 @@ fn opaque_canonical_fields_require_canonical_serialization() {
     }
 }
 
-/// Unsafe operations and lint exceptions are confined to the held-handle Windows adapter.
+/// Unsafe operations stay in held-handle production code or exact native PTY test boundaries.
 #[test]
 fn unsafe_is_confined_to_windows_handle_security() {
     let files = text_files();
@@ -355,6 +356,11 @@ fn unsafe_is_confined_to_windows_handle_security() {
         privilege_support_is_gated(&declarations),
         "native privilege support must remain test-only and Windows-only"
     );
+    let init = fs::read_to_string(root().join("crates/maestro/src/cli/init/mod.rs")).unwrap();
+    assert!(
+        cfg_test_module(&init, "tests"),
+        "native PTY support must remain test-only"
+    );
     let offenders: Vec<_> = files
         .into_iter()
         .filter(|(file, _)| file.extension().is_some_and(|extension| extension == "rs"))
@@ -365,4 +371,18 @@ fn unsafe_is_confined_to_windows_handle_security() {
         offenders.is_empty(),
         "unsafe boundary violations: {offenders:?}"
     );
+}
+
+#[test]
+fn quality_dependency_exception_keys_are_unique() {
+    let source = fs::read_to_string(root().join("maestro-quality.toml")).unwrap();
+    let quality: toml::Value = toml::from_str(&source).unwrap();
+    let mut keys = BTreeSet::new();
+    for entry in quality["exception"].as_array().unwrap() {
+        let rule = entry["rule"].as_str().unwrap();
+        if rule == "DEP-001" {
+            let path = entry["path"].as_str().unwrap();
+            assert!(keys.insert((rule, path)), "duplicate {rule}: {path}");
+        }
+    }
 }

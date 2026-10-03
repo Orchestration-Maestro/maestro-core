@@ -1,8 +1,9 @@
 //! Init orchestration over the shared draft, plain port and unchanged planner.
-use super::{
+use super::super::{
     command::{self, ApplyChoices},
     flow::{self, Answer, Draft, FlowPort, review},
-    plain::{Plain, terminal},
+    plain::terminal,
+    terminal::with_port,
 };
 use crate::{
     cli::{output::Output, session, trust},
@@ -43,7 +44,6 @@ pub(in crate::cli) fn run(
     choices: &[String],
 ) -> Result<ExitCode, Failure> {
     let stdin = io::stdin();
-    let stderr = io::stderr();
     let terminal = terminal(stdin.is_terminal(), io::stdout().is_terminal());
     if scripted_mode(output, &request, terminal) {
         if request.effects.apply && !request.yes && !request.effects.preferences_only {
@@ -63,13 +63,9 @@ pub(in crate::cli) fn run(
     let root = env::current_dir()
         .and_then(|root| root.canonicalize())
         .map_err(|error| Failure::failed_by(&error))?;
-    let reviewed = {
-        let mut plain = Plain {
-            input: &mut stdin.lock(),
-            output: &mut stderr.lock(),
-        };
-        interactive(output, &request, choices, &mut plain, (&source, &root))?
-    };
+    let reviewed = with_port(request.plain, output.color(), |port| {
+        interactive(output, &request, choices, port, (&source, &root))
+    })?;
     let Some(reviewed) = reviewed else {
         return Ok(ExitCode::SUCCESS);
     };
@@ -99,7 +95,7 @@ pub(in crate::cli) fn run(
 }
 
 /// A confirmed review carries pinned bytes but no trust or persistence capability.
-struct Reviewed {
+pub(super) struct Reviewed {
     /// Pinned reviewed bytes, without an authorization capability.
     plan: ReviewedPlan,
     /// Localized result presentation.
@@ -115,14 +111,16 @@ enum ReviewedPlan {
 }
 
 /// Five sequential stages; Back retains all draft choices, errors retain the stage.
-fn interactive(
+pub(super) fn interactive(
     output: Output,
     request: &Request<'_>,
     choices: &[String],
     port: &mut dyn FlowPort,
     (source, root): (&dyn WorkspacePreferences, &Path),
 ) -> Result<Option<Reviewed>, Failure> {
-    let mut output = command::preference_output(output, source, choices)?;
+    let mut output = command::preference_output_to(output, source, choices, |draft, output| {
+        draft.language_output_on(output, port)
+    })?;
     let mut catalog = request.catalog.map(Path::to_path_buf);
     let mut presets = request.presets.to_vec();
     let mut trust_choice = false;
@@ -138,7 +136,7 @@ fn interactive(
                 &mut draft,
             )?,
             1 => {
-                port.show(&output.wording(MessageKey::FlowLanguage, &[])?)?;
+                port.screen(&output.wording(MessageKey::FlowLanguage, &[])?)?;
                 flow::preference(
                     port,
                     draft_mut(&mut draft)?,
@@ -148,7 +146,7 @@ fn interactive(
                 )?
             }
             2 => {
-                port.show(&output.wording(MessageKey::FlowTone, &[])?)?;
+                port.screen(&output.wording(MessageKey::FlowTone, &[])?)?;
                 flow::preference(
                     port,
                     draft_mut(&mut draft)?,
@@ -158,11 +156,11 @@ fn interactive(
                 )?
             }
             3 => {
-                port.show(&output.wording(MessageKey::FlowSettings, &[])?)?;
+                port.screen(&output.wording(MessageKey::FlowSettings, &[])?)?;
                 flow::editor(port, draft_mut(&mut draft)?)?
             }
             _ => {
-                port.show(&output.wording(MessageKey::FlowReview, &[])?)?;
+                port.screen(&output.wording(MessageKey::FlowReview, &[])?)?;
                 let selected = catalog
                     .as_deref()
                     .ok_or_else(|| Failure::failed("missing catalog draft"))?;
@@ -172,7 +170,7 @@ fn interactive(
                     (selected, &presets),
                     (source, root),
                     choices,
-                    (output, port),
+                    port,
                 ) {
                     Ok(plan) => plan,
                     Err(error) => {
@@ -197,7 +195,7 @@ fn interactive(
             Answer::Text(text) => {
                 let draft = draft_mut(&mut draft)?;
                 if stage == 0 || (stage == 1 && !text.is_empty()) {
-                    draft.output = draft.language_output(output)?;
+                    draft.output = draft.language_output_on(output, port)?;
                 }
                 output = draft.output;
                 stage += 1;
@@ -212,19 +210,18 @@ fn review_plan(
     (catalog, presets): (&Path, &[String]),
     (source, root): (&dyn WorkspacePreferences, &Path),
     choices: &[String],
-    (output, port): (Output, &mut dyn FlowPort),
+    port: &mut dyn FlowPort,
 ) -> Result<ReviewedPlan, Failure> {
     if trusted {
         let prepared = command::prepare(catalog, presets, source, choices)?;
         port.show(&prepared.review_values()?)?;
-        prepared.show(output, false)?;
+        port.plan(&prepared.text(false)?)?;
         Ok(ReviewedPlan::Authoring(Box::new(prepared)))
     } else {
         let draft = command::prepare_preferences(root, source, choices)?;
         port.show(&command::review_values(root, Some(&draft))?)?;
-        output
-            .text("Trust declined: preferences-only review; no template or projection writes.")?;
-        output.text(
+        port.plan("Trust declined: preferences-only review; no template or projection writes.")?;
+        port.plan(
             &serde_json::to_string_pretty(&draft).map_err(|error| Failure::failed_by(&error))?,
         )?;
         Ok(ReviewedPlan::Preferences(draft, choices.to_vec()))
@@ -288,7 +285,7 @@ fn workspace(
     presets: &mut Vec<String>,
     trust_choice: &mut bool,
 ) -> Result<Answer, Failure> {
-    port.show(&format!(
+    port.screen(&format!(
         "{}\nRoot: {}\nMode: authoring convenience; not a verified \
         install\nPresets: {}\nExisting approval: {}",
         output.wording(MessageKey::FlowWorkspace, &[])?,

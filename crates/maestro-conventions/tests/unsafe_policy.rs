@@ -22,6 +22,33 @@ pub(super) fn unsafe_boundary_violation(text: &str) -> bool {
     false
 }
 
+/// Only a real cfg(test) module door admits the native PTY test-support subtree.
+pub(super) fn cfg_test_module(text: &str, module: &str) -> bool {
+    let tokens = tokens(text);
+    tokens
+        .windows(3)
+        .filter(|window| *window == ["mod", module, ";"])
+        .count()
+        == 1
+        && tokens
+            .windows(10)
+            .any(|window| window == ["#", "[", "cfg", "(", "test", ")", "]", "mod", module, ";"])
+}
+
+#[test]
+fn unsafe_boundary_pty_support_requires_a_real_test_only_door() {
+    assert!(cfg_test_module("#[cfg(test)] mod tests;", "tests"));
+    for source in [
+        "mod tests;",
+        "// #[cfg(test)] mod tests;",
+        "#[cfg(unix)] mod tests;",
+        "#[cfg(test)] mod tests; #[cfg(not(test))] mod tests;",
+        "#[cfg(test)] mod tests; mod tests;",
+    ] {
+        assert!(!cfg_test_module(source, "tests"));
+    }
+}
+
 /// Check lint lists, including those nested in `cfg_attr`.
 fn lint_violation(tokens: &[&str]) -> bool {
     tokens.windows(2).enumerate().any(|(index, pair)| {
@@ -218,6 +245,9 @@ pub(super) fn unsafe_file_violation(file: &Path, text: &str) -> bool {
     let permitted = [
         "crates/maestro-filesystem/src/windows_security.rs",
         "crates/maestro-filesystem/src/windows_test_security.rs",
+        // C05k: test-only pre_exec and ConPTY receipts; production stays forbidden.
+        "crates/maestro/src/cli/init/tests/pty/unix.rs",
+        "crates/maestro/src/cli/init/tests/pty/windows.rs",
     ];
     !permitted.iter().any(|path| file == Path::new(path)) && unsafe_boundary_violation(text)
 }
