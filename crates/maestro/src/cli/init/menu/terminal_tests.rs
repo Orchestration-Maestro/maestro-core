@@ -10,7 +10,11 @@ use crate::cli::{
 };
 use crate::failure::Failure;
 use crossterm::event::Event;
-use maestro_catalog::settings::FilePreferences;
+use maestro_catalog::{
+    limits::Limits,
+    settings::{FilePreferences, WorkspacePreferences},
+};
+use maestro_settings::{Layers, Registry};
 use ratatui::{backend::TestBackend, buffer::Cell as BufferCell};
 use std::{cell::Cell, env, fs, io, path::PathBuf, rc::Rc};
 
@@ -130,12 +134,14 @@ fn catalog_terminal_plan_parity_child() {
 struct TransitionFrames<F> {
     screen: Screen<TestBackend, F>,
     fail_review: Rc<Cell<bool>>,
+    review_frame: Option<usize>,
     frames: Vec<String>,
 }
 impl<F: FnMut() -> io::Result<Event>> FlowPort for TransitionFrames<F> {
     fn screen(&mut self, title: &str) -> Result<(), Failure> {
         if title.contains("5/5") {
             self.fail_review.set(true);
+            self.review_frame = Some(self.frames.len());
         }
         self.screen.screen(title)
     }
@@ -164,30 +170,38 @@ impl<F: FnMut() -> io::Result<Event>> FlowPort for TransitionFrames<F> {
     }
 }
 
+/// Fail exactly once after the renderer enters review, never during initialization.
+struct ReviewFailureSource {
+    review_armed: Rc<Cell<bool>>,
+    failures: Cell<usize>,
+}
+impl WorkspacePreferences for ReviewFailureSource {
+    fn layers(&self, _: &Registry, _: &Limits) -> Result<Layers, String> {
+        if self.review_armed.replace(false) {
+            self.failures.set(self.failures.get() + 1);
+            Err("injected review preparation failure".into())
+        } else {
+            Ok(Layers::default())
+        }
+    }
+}
+
 #[test]
 fn catalog_terminal_preparation_failures_reach_retry_frames() {
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-    use maestro_catalog::{limits::Limits, settings::WorkspacePreferences};
-    use maestro_settings::{Layers, Registry};
     use maestro_test_scratch::scratch_directory;
     use ratatui::{Terminal, backend::TestBackend};
     use std::{cell::Cell, collections::VecDeque, rc::Rc};
-    struct Source(Rc<Cell<bool>>);
-    impl WorkspacePreferences for Source {
-        fn layers(&self, _: &Registry, _: &Limits) -> Result<Layers, String> {
-            if self.0.replace(false) {
-                Err("injected review preparation failure".into())
-            } else {
-                Ok(Layers::default())
-            }
-        }
-    }
     for review in [false, true] {
-        let root = scratch_directory().unwrap();
+        // Match production: trust checks require canonical roots, not macOS /var aliases.
+        let root = scratch_directory().unwrap().canonicalize().unwrap();
         // Keep the prompt short: native temp paths can wrap the diagnostic out of view.
         let catalog = PathBuf::from("missing-catalog");
         let fail_review = Rc::new(Cell::new(false));
-        let source = Source(Rc::clone(&fail_review));
+        let source = ReviewFailureSource {
+            review_armed: Rc::clone(&fail_review),
+            failures: Cell::new(0),
+        };
         let presets = vec!["base".to_owned()];
         let request = Request {
             catalog: Some(&catalog),
@@ -227,6 +241,7 @@ fn catalog_terminal_preparation_failures_reach_retry_frames() {
         let mut port = TransitionFrames {
             screen,
             fail_review,
+            review_frame: None,
             frames: Vec::new(),
         };
         assert!(
@@ -240,12 +255,24 @@ fn catalog_terminal_preparation_failures_reach_retry_frames() {
             .unwrap()
             .is_none()
         );
-        let last = port.frames.last().unwrap();
-        assert!(last.contains("Error:"), "{review}: {last}");
+        assert_eq!(
+            source.failures.get(),
+            usize::from(review),
+            "{:?}",
+            port.frames
+        );
+        let retry_frame = if review {
+            port.review_frame.expect("review stage reached")
+        } else {
+            port.frames.len() - 1
+        };
+        let retry = &port.frames[retry_frame];
+        assert!(retry.contains("Error:"), "{review}: {:?}", port.frames);
         if review {
             assert!(
-                last.contains("injected review preparation failure"),
-                "{last}"
+                retry.contains("injected review preparation failure"),
+                "{:?}",
+                port.frames
             );
         }
         fs::remove_dir_all(root).unwrap();
@@ -299,6 +326,7 @@ fn catalog_terminal_initial_and_changed_language_notices_are_frames() {
         let mut port = TransitionFrames {
             screen,
             fail_review: Rc::new(Cell::new(false)),
+            review_frame: None,
             frames: Vec::new(),
         };
         let choices = if initial {
