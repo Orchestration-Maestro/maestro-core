@@ -139,6 +139,30 @@ fn catalog_terminal_each_undersized_dimension_blocks_draw_and_answer() {
         assert_eq!(screen.ask("Field: ").unwrap(), Answer::Cancel);
         assert!(text(&screen).contains("Resize to at least"));
         assert!(!text(&screen).contains("Maestro"));
+        assert!(events.is_empty(), "only Esc cancels an undersized frame");
+    }
+}
+
+#[test]
+fn catalog_terminal_undrawn_diagnostic_survives_each_small_geometry() {
+    for (width, height) in [(79, 24), (80, 23), (79, 23), (80, 24)] {
+        let mut screen = Screen::new(
+            Terminal::new(TestBackend::new(width, height)).unwrap(),
+            false,
+            || Ok(key(KeyCode::Enter)),
+        );
+        screen.show("Error: retained diagnostic").unwrap();
+        screen.draw("Retry: ").unwrap();
+        screen.screen("Next stage").unwrap();
+        screen.terminal.backend_mut().resize(80, 24);
+        screen.terminal.autoresize().unwrap();
+        screen.draw("Retry: ").unwrap();
+        assert_eq!(
+            text(&screen).contains("Error: retained diagnostic"),
+            width < 80 || height < 24,
+            "{width}x{height}: {}",
+            text(&screen)
+        );
     }
 }
 

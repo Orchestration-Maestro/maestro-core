@@ -184,7 +184,8 @@ fn catalog_terminal_preparation_failures_reach_retry_frames() {
     }
     for review in [false, true] {
         let root = scratch_directory().unwrap();
-        let catalog = root.join("missing-catalog");
+        // Keep the prompt short: native temp paths can wrap the diagnostic out of view.
+        let catalog = PathBuf::from("missing-catalog");
         let fail_review = Rc::new(Cell::new(false));
         let source = Source(Rc::clone(&fail_review));
         let presets = vec!["base".to_owned()];
