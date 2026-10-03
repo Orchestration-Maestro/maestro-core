@@ -1,6 +1,7 @@
 //! One native immutable handle per physical path across all public factories.
 
 use super::{config::native, reader::Reader};
+use crate::graph::projection::binding;
 use crate::graph::projection::{
     access::{Access, open_root},
     cancellation::ProjectionCancellation,
@@ -15,6 +16,7 @@ use crate::graph::projection::{
 };
 use lbug::RootDirectory;
 use maestro_filesystem::OwnedRoot;
+use maestro_kernel::facts::Error as FactError;
 use maestro_kernel::{
     artifact::Digest, facts::ProjectionReceipt, scope::ScopeSet, store::Database,
 };
@@ -61,8 +63,12 @@ pub(in crate::graph::projection) fn open(
     let access = Access::acquire(&root, factory.locks)?;
     let receipt = kernel
         .projection_ready(scopes, scope.generation_id)
-        .map_err(|error| ProjectionError::Backend(error.to_string()))?
+        .map_err(|error| match error {
+            FactError::ProjectionInputMismatch(kind) => ProjectionError::InputMismatch(kind),
+            error => ProjectionError::Backend(error.to_string()),
+        })?
         .ok_or(ProjectionError::NotReady)?;
+    binding::admitted(&binding::receipt_pins(&receipt), &factory.settings)?;
     let key = key(&root, &receipt.file_name)?;
     let mut registry = READERS
         .lock()
@@ -82,10 +88,12 @@ pub(in crate::graph::projection) fn open(
                 .map_err(|error| ProjectionError::Backend(error.to_string()))?,
         )
         .map_err(|error| ProjectionError::Backend(error.to_string()))?;
-        let reader = Arc::new(
-            Reader::published(&native_root, native(&factory.settings), &scope, &receipt)
-                .map_err(ProjectionError::Backend)?,
-        );
+        let reader = Arc::new(Reader::published(
+            &native_root,
+            native(&factory.settings),
+            &scope,
+            &receipt,
+        )?);
         registry.insert(
             key.clone(),
             Entry {
@@ -135,7 +143,8 @@ impl ProjectionBackendReader for Shared {
         if let Some(token) = &self.cancellation {
             return Ok(self
                 .native()?
-                .cancellable_rows(token)?
+                .cancellable_rows(token)
+                .map_err(|error| error.to_string())?
                 .edges
                 .into_iter()
                 .filter(|edge| {
@@ -149,7 +158,8 @@ impl ProjectionBackendReader for Shared {
         if let Some(token) = &self.cancellation {
             return Ok(self
                 .native()?
-                .cancellable_rows(token)?
+                .cancellable_rows(token)
+                .map_err(|error| error.to_string())?
                 .facts
                 .into_iter()
                 .filter(|fact| fact.subject == *subject)
@@ -340,9 +350,9 @@ mod read_tests {
             let database = fixture.writer();
             let connection = Connection::new(&database).unwrap();
             #[cfg(not(windows))]
-            schema::create(&connection, &scope).unwrap();
+            schema::create(&connection, &scope, &contract::pins()).unwrap();
             #[cfg(windows)]
-            schema::tests::install_reader_fixture(&connection, &scope);
+            schema::tests::install_reader_fixture(&connection, &scope, &contract::pins());
             #[cfg(windows)]
             populate_reader_fixture(&connection, &scope, edges, facts);
             #[cfg(not(windows))]

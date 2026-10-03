@@ -3,7 +3,7 @@
 use super::schema::{self, FACT_VERSION};
 use crate::graph::projection::{
     content,
-    port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope},
+    port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionError, ProjectionScope},
     schema::SCHEMA_VERSION,
     writer::BuildVerification,
 };
@@ -29,6 +29,8 @@ pub(super) struct Rows {
     pub(super) facts: Vec<EntityFact>,
     /// Logical paths proven by the native catalog, never guessed.
     indexes: BTreeSet<String>,
+    /// Strict durable input pins read from the native stamp.
+    pub(super) pins: [String; 4],
 }
 impl Rows {
     /// Derive counts and digest only from the validated durable rows.
@@ -48,44 +50,56 @@ impl Rows {
 }
 
 /// Read real catalog evidence and every row; malformed and duplicate content refuses.
-pub(super) fn read(connection: &Connection<'_>, scope: &ProjectionScope) -> Result<Rows, String> {
-    let indexes = schema::verify(connection, scope)?;
+pub(super) fn read(
+    connection: &Connection<'_>,
+    scope: &ProjectionScope,
+) -> Result<Rows, ProjectionError> {
+    let (indexes, pins) = schema::verify(connection, scope)?;
     let mut edges = Vec::new();
     for row in connection
         .query(
             "MATCH (s:Entity)-[e:Edge]->(t:Entity)
             RETURN e.id, e.family, e.relation, s.id, t.id, e.collection, e.generation",
         )
-        .map_err(|error| error.to_string())?
+        .map_err(|error| ProjectionError::Backend(error.to_string()))?
     {
-        edges.push(edge_row(&row)?);
+        edges.push(edge_row(&row).map_err(ProjectionError::Backend)?);
     }
     let mut facts = Vec::new();
     let mut entities = BTreeSet::new();
     for row in connection
         .query("MATCH (e:Entity) RETURN e.id, e.facts")
-        .map_err(|error| error.to_string())?
+        .map_err(|error| ProjectionError::Backend(error.to_string()))?
     {
         let [Value::String(id), Value::List(LogicalType::Blob, values)] = row.as_slice() else {
-            return Err("malformed native entity properties".into());
+            return Err(ProjectionError::Backend(
+                "malformed native entity properties".into(),
+            ));
         };
-        let subject = Digest::parse(id).map_err(|error| error.to_string())?;
+        let subject =
+            Digest::parse(id).map_err(|error| ProjectionError::Backend(error.to_string()))?;
         if !entities.insert(subject.clone()) {
-            return Err("duplicate native entity ID".into());
+            return Err(ProjectionError::Backend(
+                "duplicate native entity ID".into(),
+            ));
         }
         for value in values {
             let Value::Blob(bytes) = value else {
-                return Err("non-blob fact property".into());
+                return Err(ProjectionError::Backend("non-blob fact property".into()));
             };
-            let fact = decode_fact(bytes)?;
+            let fact = decode_fact(bytes).map_err(ProjectionError::Backend)?;
             if fact.subject != subject {
-                return Err("fact property is attached to the wrong subject".into());
+                return Err(ProjectionError::Backend(
+                    "fact property is attached to the wrong subject".into(),
+                ));
             }
             facts.push(fact);
         }
     }
-    if validate(scope, &edges, &facts)? != entities {
-        return Err("unreferenced native entity rows".into());
+    if validate(scope, &edges, &facts).map_err(ProjectionError::Backend)? != entities {
+        return Err(ProjectionError::Backend(
+            "unreferenced native entity rows".into(),
+        ));
     }
     edges.sort_by(|left, right| left.id.cmp(&right.id));
     facts.sort_by(|left, right| left.claim.id.cmp(&right.claim.id));
@@ -93,6 +107,7 @@ pub(super) fn read(connection: &Connection<'_>, scope: &ProjectionScope) -> Resu
         edges,
         facts,
         indexes,
+        pins,
     })
 }
 

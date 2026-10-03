@@ -42,7 +42,9 @@ pub(in crate::graph::projection) fn pinned_generations<B: ProjectionBackend>(
             .write_batch(scopes, slice::from_ref(&edge), slice::from_ref(&fact))
             .unwrap();
         writer.verify_and_publish(&fixture.expected, &set).unwrap();
-        let receipt = receipt_from_verification(&edge.scope, set, name, &fixture.expected).unwrap();
+        let receipt =
+            receipt_from_verification(&edge.scope, set, name, &fixture.expected, &contract::pins())
+                .unwrap();
         readers.push((
             ProjectionReader::open(backend, &Ready(receipt), scopes, edge.scope.clone()).unwrap(),
             edge,

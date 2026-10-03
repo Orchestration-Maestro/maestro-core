@@ -67,13 +67,21 @@ fn required_ci_owns_native_coverage_and_the_exact_engine_source() {
             .unwrap(),
         &[Value::String("engine".into())]
     );
-    let mut engine_files = ["open", "schema", "transaction", "rows", "backend", "reader"]
-        .map(|name| {
-            Value::String(format!(
-                "crates/maestro-knowledge/src/graph/projection/engine/{name}.rs"
-            ))
-        })
-        .to_vec();
+    let mut engine_files = [
+        "open",
+        "schema",
+        "input_pins",
+        "transaction",
+        "rows",
+        "backend",
+        "reader",
+    ]
+    .map(|name| {
+        Value::String(format!(
+            "crates/maestro-knowledge/src/graph/projection/engine/{name}.rs"
+        ))
+    })
+    .to_vec();
     engine_files.push(Value::String(
         "crates/maestro/src/cli/setup/graph_engine.rs".into(),
     ));

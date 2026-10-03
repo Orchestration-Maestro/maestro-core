@@ -29,6 +29,7 @@ features = ["engine"]
 files = [
   "crates/maestro-knowledge/src/graph/projection/engine/open.rs",
   "crates/maestro-knowledge/src/graph/projection/engine/schema.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/input_pins.rs",
   "crates/maestro-knowledge/src/graph/projection/engine/transaction.rs",
   "crates/maestro-knowledge/src/graph/projection/engine/rows.rs",
   "crates/maestro-knowledge/src/graph/projection/engine/backend.rs",

@@ -56,6 +56,20 @@ impl EngineSettings {
         })
     }
 
+    /// Canonical graph-settings/1 identity: tag followed by three big-endian u64 values.
+    #[must_use]
+    pub fn identity(&self) -> Digest {
+        let mut bytes = b"graph-settings/1\0".to_vec();
+        for value in [
+            self.buffer_pool_size,
+            self.max_db_size,
+            self.max_num_threads,
+        ] {
+            bytes.extend(value.to_be_bytes());
+        }
+        Digest::of(&bytes)
+    }
+
     /// The exact caller-owned frozen lock carried through builds, publication and reads.
     #[must_use]
     pub fn frozen_lock(&self) -> &Digest {

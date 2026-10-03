@@ -6,6 +6,7 @@ use super::{
     schema,
     tests::{Fixture, config, scope},
 };
+use crate::graph::projection::tests::contract;
 use crate::graph::projection::{
     EngineSettings, ProjectionScope, content,
     health::{ProbeError, PublishedFile, Receipt},
@@ -49,9 +50,9 @@ fn receipt(fixture: &Fixture) -> ProjectionReceipt {
         let database = fixture.writer();
         let connection = Connection::new(&database).unwrap();
         #[cfg(not(windows))]
-        schema::create(&connection, &scope()).unwrap();
+        schema::create(&connection, &scope(), &contract::pins()).unwrap();
         #[cfg(windows)]
-        schema::tests::install_reader_fixture(&connection, &scope());
+        schema::tests::install_reader_fixture(&connection, &scope(), &contract::pins());
         connection.query("CHECKPOINT").unwrap();
     }
     #[cfg(windows)]
@@ -63,7 +64,7 @@ fn receipt(fixture: &Fixture) -> ProjectionReceipt {
     let set = Digest::of(b"set");
     let name = content::basename(&scope(), &set).unwrap();
     fs::rename(fixture.path.join("rows.lbdb"), fixture.path.join(&name)).unwrap();
-    receipt_from_verification(&scope(), set, name, &verification).unwrap()
+    receipt_from_verification(&scope(), set, name, &verification, &contract::pins()).unwrap()
 }
 
 fn files(fixture: &Fixture, inventory: &Inventory) -> Vec<super::probe::ProbeFile> {

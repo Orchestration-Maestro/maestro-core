@@ -2,6 +2,8 @@
 
 use super::{rows, schema};
 use crate::graph::projection::port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope};
+#[cfg(test)]
+use crate::graph::projection::tests::contract;
 use lbug::{Connection, LogicalType, Value};
 use maestro_kernel::artifact::Digest;
 #[cfg(test)]
@@ -60,7 +62,7 @@ impl Transactions {
         edges: &[ProjectionEdge],
         facts: &[EntityFact],
     ) -> Result<(), String> {
-        let stored = rows::read(connection, scope)?;
+        let stored = rows::read(connection, scope).map_err(|error| error.to_string())?;
         // ponytail: scan rows per batch; add a row-ID index only if loader measurements need it.
         let mut all_edges = stored.edges;
         all_edges.extend_from_slice(edges);
@@ -235,7 +237,7 @@ pub(super) mod tests {
         let fixture = Fixture::new();
         let database = fixture.writer();
         let connection = Connection::new(&database).unwrap();
-        schema::create(&connection, &scope()).unwrap();
+        schema::create(&connection, &scope(), &contract::pins()).unwrap();
         let mut tx = Transactions::default();
         // No transaction is active, so the real native ROLLBACK must fail.
         assert!(
@@ -255,7 +257,7 @@ pub(super) mod tests {
         {
             let database = fixture.writer();
             let connection = Connection::new(&database).unwrap();
-            schema::create(&connection, &scope()).unwrap();
+            schema::create(&connection, &scope(), &contract::pins()).unwrap();
             tx.write_batch(&connection, &scope(), &[edge()], &[full_fact()])
                 .unwrap();
             let baseline = rows::read(&connection, &scope())
@@ -351,7 +353,7 @@ pub(super) mod tests {
         tx.inject_batch_failure().unwrap();
         assert_eq!(tx.mutations_before_failure(), 0);
         assert_eq!(
-            schema::create(&connection, &scope).unwrap_err(),
+            schema::create(&connection, &scope, &contract::pins()).unwrap_err(),
             "native graph writes are unavailable on Windows; open a published graph read-only"
         );
         assert_eq!(

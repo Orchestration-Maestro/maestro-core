@@ -27,12 +27,17 @@ impl Publication for Install {
 }
 
 /// Build a real rooted native file before any cleanup reader enters the access domain.
-pub(in crate::graph::projection) fn install(path: &Path, scope: &ProjectionScope, name: &str) {
+pub(in crate::graph::projection) fn install(
+    path: &Path,
+    scope: &ProjectionScope,
+    name: &str,
+    pins: [String; 4],
+) {
     let mut backend = Backend::new(
         RootDirectory::open(path).unwrap(),
         RootDirectory::open(path).unwrap(),
         "cleanup-staging.lbdb".into(),
-        config(),
+        (config(), pins),
         Install(path.to_path_buf()),
     );
     backend.create_unpublished(scope).unwrap();

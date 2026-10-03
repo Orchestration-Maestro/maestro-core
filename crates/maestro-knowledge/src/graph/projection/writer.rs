@@ -350,6 +350,7 @@ impl ProjectionReader {
             receipt.claim_set_id.clone(),
             receipt.file_name.clone(),
             &verified,
+            &super::binding::receipt_pins(&receipt),
         )?;
         if mapped != receipt {
             return Err(ProjectionError::NotReady);
@@ -364,7 +365,9 @@ pub(crate) fn receipt_from_verification(
     claim_set_id: Digest,
     file_name: String,
     build: &BuildVerification,
+    pins: &[String; 4],
 ) -> Result<ProjectionReceipt, ProjectionError> {
+    super::binding::validate(pins).map_err(ProjectionError::Backend)?;
     if build.schema != SCHEMA_VERSION
         || REQUIRED_INDEXES
             .iter()
@@ -381,6 +384,13 @@ pub(crate) fn receipt_from_verification(
         collection_id: scope.collection_id.clone(),
         generation_id: scope.generation_id,
         claim_set_id,
+        resolution_id: Digest::parse(&pins[0])
+            .map_err(|error| ProjectionError::Invalid(error.to_string()))?,
+        resolver_version: pins[1].clone(),
+        settings_identity: Digest::parse(&pins[2])
+            .map_err(|error| ProjectionError::Invalid(error.to_string()))?,
+        frozen_lock: Digest::parse(&pins[3])
+            .map_err(|error| ProjectionError::Invalid(error.to_string()))?,
         file_name,
         schema_version: build.schema.clone(),
         knowledge_edge_count: known,

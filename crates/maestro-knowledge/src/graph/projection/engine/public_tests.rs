@@ -1,4 +1,6 @@
 //! Production publication, factory, lease fences and immutable handle ownership.
+#[cfg(windows)]
+use super::input_pins;
 use super::public_fixture::{Fixture, now, settings};
 use crate::graph::projection::{
     BuildVerification, EdgeFamily, ProjectionCancellation, ProjectionEngine, ProjectionError,
@@ -61,7 +63,11 @@ pub(super) fn publish(fixture: &Fixture) {
         )]
         let database = Database::new(fixture.native.path.join(&name), native(&settings())).unwrap();
         let connection = Connection::new(&database).unwrap();
-        install_reader_fixture(&connection, &fixture.build.scope);
+        install_reader_fixture(
+            &connection,
+            &fixture.build.scope,
+            &input_pins::build_pins(&fixture.build),
+        );
         populate_reader_fixture(&connection, &fixture.build.scope, &fixture.edges, &[]);
         connection.query("CHECKPOINT").unwrap();
     }
@@ -71,6 +77,7 @@ pub(super) fn publish(fixture: &Fixture) {
         fixture.build.claim_set_id.clone(),
         name,
         &expected(fixture),
+        &input_pins::build_pins(&fixture.build),
     )
     .unwrap();
     fixture

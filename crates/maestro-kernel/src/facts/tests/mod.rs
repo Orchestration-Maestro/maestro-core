@@ -14,5 +14,6 @@ mod vocabulary;
 
 mod projection;
 mod projection_lease;
+mod projection_pins;
 mod resolution;
 mod resolution_guards;

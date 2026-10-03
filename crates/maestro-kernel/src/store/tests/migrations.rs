@@ -249,7 +249,8 @@ fn graph_claim_migration_adds_empty_claim_tables_and_keeps_existing_records() {
             "0016_extractor_role",
             "0017_unit_graphs",
             "0018_retrieval_representations",
-            "0019_graph_projection"
+            "0019_graph_projection",
+            "0030_graph_input_pins"
         ]
     );
 
@@ -461,7 +462,8 @@ fn graph_build_migration_upgrades_claim_storage_once_without_backfilling() {
             "0016_extractor_role",
             "0017_unit_graphs",
             "0018_retrieval_representations",
-            "0019_graph_projection"
+            "0019_graph_projection",
+            "0030_graph_input_pins"
         ]
     );
     drop(scratch.open());
@@ -492,12 +494,12 @@ fn graph_resolution_upgrade_is_forward_only_and_idempotent() {
     let earlier: Vec<_> = MIGRATIONS
         .iter()
         .copied()
-        .filter(|(name, _)| *name != "0015_graph_resolution")
+        .filter(|(name, _)| *name != "0015_graph_resolution" && *name != "0030_graph_input_pins")
         .collect();
     drop(scratch.open_with(&earlier).unwrap());
     assert_eq!(
         pending_migrations(&scratch.0).unwrap(),
-        ["0015_graph_resolution"]
+        ["0015_graph_resolution", "0030_graph_input_pins"]
     );
     drop(scratch.open());
     let before = recorded(&scratch.outside());

@@ -1,6 +1,10 @@
 //! Kernel-controlled verification receipts for immutable graph projections.
 
-use super::{build_types::ProjectionReceipt, error::Error};
+use super::{
+    build_types::ProjectionReceipt,
+    error::Error,
+    projection_binding::{EXACT_RESOLVER_VERSION, InputMismatchKind, PROJECTION_REBUILD_REPAIR},
+};
 use crate::{
     artifact::Digest,
     job::{self, Lease, NewJob},
@@ -13,7 +17,20 @@ use serde_json::json;
 use std::{path::Path, time::SystemTime};
 
 /// Stored projection-readiness receipt columns before decoding.
-type ProjectionReceiptRow = (String, String, String, String, i64, i64, i64, String);
+type ProjectionReceiptRow = (
+    String,
+    String,
+    String,
+    String,
+    i64,
+    i64,
+    i64,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
 
 /// A current published generation and its readiness receipt, if present.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,13 +48,48 @@ fn decode_receipt(
     generation_id: i64,
     row: ProjectionReceiptRow,
 ) -> Result<ProjectionReceipt, Error> {
-    let (collection_id, set, file_name, schema_version, edges, catalog_edges, facts, digest) = row;
+    let (
+        collection_id,
+        set,
+        file_name,
+        schema_version,
+        edges,
+        catalog_edges,
+        facts,
+        digest,
+        resolution,
+        resolver,
+        settings,
+        lock,
+    ) = row;
+    let invalid = || {
+        Error::Conflict(format!(
+            "invalid projection input pins; {PROJECTION_REBUILD_REPAIR}"
+        ))
+    };
+    if schema_version == "maestro-typed-edges/1" {
+        return Err(Error::ProjectionInputMismatch(InputMismatchKind::Format));
+    }
+    if schema_version != "maestro-typed-edges/2"
+        || resolver.as_deref() != Some(EXACT_RESOLVER_VERSION)
+    {
+        return Err(invalid());
+    }
+    let pin = |value: Option<String>| {
+        value
+            .and_then(|value| Digest::parse(&value).ok())
+            .ok_or_else(invalid)
+    };
     Ok(ProjectionReceipt {
         collection_id,
         generation_id,
         claim_set_id: Digest::parse(&set).map_err(|error| {
             Error::Conflict(format!("invalid projection claim-set id: {error}"))
         })?,
+        resolution_id: pin(resolution)?,
+        resolver_version: resolver.ok_or_else(invalid)?,
+        settings_identity: pin(settings)?,
+        frozen_lock: pin(lock)?,
         file_name,
         schema_version,
         knowledge_edge_count: usize::try_from(edges)
@@ -80,8 +132,9 @@ impl Database {
                 "INSERT INTO graph_projection_receipts
                  (generation_id, collection_id, claim_set_id, file_name, schema_version,
                   knowledge_edge_count, catalog_dependency_edge_count,
-                  entity_fact_count, content_digest)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                  entity_fact_count, content_digest, resolution_id, resolver_version,
+                  settings_identity, frozen_lock)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     receipt.generation_id,
                     receipt.collection_id,
@@ -92,6 +145,10 @@ impl Database {
                     catalog_count,
                     fact_count,
                     receipt.content_digest.as_str(),
+                    receipt.resolution_id.as_str(),
+                    receipt.resolver_version,
+                    receipt.settings_identity.as_str(),
+                    receipt.frozen_lock.as_str(),
                 ],
             )?;
             Ok(())
@@ -149,7 +206,9 @@ impl Database {
                 &format!(
                     "SELECT r.collection_id, r.claim_set_id, r.file_name, r.schema_version,
                             r.knowledge_edge_count, r.catalog_dependency_edge_count,
-                            r.entity_fact_count, r.content_digest
+                            r.entity_fact_count, r.content_digest, r.resolution_id,
+                            r.resolver_version,
+                            r.settings_identity, r.frozen_lock
                      FROM graph_projection_receipts r
                      JOIN generations g ON g.id = r.generation_id
                      WHERE r.generation_id = ?1 AND {}",
@@ -166,6 +225,10 @@ impl Database {
                         row.get(5)?,
                         row.get(6)?,
                         row.get(7)?,
+                        row.get(8)?,
+                        row.get(9)?,
+                        row.get(10)?,
+                        row.get(11)?,
                     ))
                 },
             )
@@ -187,7 +250,9 @@ impl HealthDatabase {
         let mut statement = self.connection.prepare(&format!(
             "SELECT g.collection_id, g.id, r.collection_id, r.claim_set_id, r.file_name,
                     r.schema_version, r.knowledge_edge_count, r.catalog_dependency_edge_count,
-                    r.entity_fact_count, r.content_digest
+                    r.entity_fact_count, r.content_digest, r.resolution_id,
+                            r.resolver_version,
+                            r.settings_identity, r.frozen_lock
              FROM generations g LEFT JOIN graph_projection_receipts r ON r.generation_id = g.id
              WHERE g.state = 'published' AND {}
              ORDER BY g.collection_id, g.id",
@@ -206,6 +271,10 @@ impl HealthDatabase {
                         row.get(7)?,
                         row.get(8)?,
                         row.get(9)?,
+                        row.get(10)?,
+                        row.get(11)?,
+                        row.get(12)?,
+                        row.get(13)?,
                     ))
                 })
                 .transpose()?;
@@ -292,11 +361,12 @@ fn validate_publication(
             .as_bytes()
             .first()
             .is_some_and(u8::is_ascii_alphanumeric)
-        || receipt.schema_version != "maestro-typed-edges/1"
+        || receipt.schema_version != "maestro-typed-edges/2"
+        || receipt.resolver_version != EXACT_RESOLVER_VERSION
     {
-        return Err(Error::Conflict(
-            "invalid projection receipt identity".to_owned(),
-        ));
+        return Err(Error::Conflict(format!(
+            "invalid projection receipt identity; {PROJECTION_REBUILD_REPAIR}"
+        )));
     }
     validate_project_lease(
         transaction,

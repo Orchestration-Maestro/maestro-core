@@ -4,9 +4,10 @@ use super::{open::open, reader::Reader, schema, transaction::Transactions};
 use crate::graph::projection::{
     content,
     port::{EntityFact, ProjectionEdge, ProjectionScope},
-    writer::{BuildVerification, ProjectionBackend, ProjectionBackendReader},
+    writer::{BuildVerification, ProjectionBackend},
 };
 use lbug::{Connection, Database, RootDirectory, SystemConfig};
+use maestro_kernel::facts::PROJECTION_REBUILD_REPAIR;
 use maestro_kernel::facts::ProjectionReceipt;
 
 /// Lifecycle-owned lease-bound, no-overwrite installation of a closed staging file.
@@ -30,6 +31,8 @@ pub(in crate::graph::projection) struct Backend<P: Publication> {
     publication: P,
     /// Exact scope admitted once by schema creation.
     scope: Option<ProjectionScope>,
+    /// Required frozen inputs for schema creation and close/reopen verification.
+    pins: [String; 4],
     /// At most one writable handle, dropped before every read-only verification.
     database: Option<Database>,
     /// Poison state survives native close/reopen.
@@ -38,20 +41,27 @@ pub(in crate::graph::projection) struct Backend<P: Publication> {
     verified: bool,
 }
 impl<P: Publication> Backend<P> {
+    /// Change only the independent expected stamp in a close/reopen proof.
+    #[cfg(all(test, unix))]
+    pub(super) fn replace_expected_pins_for_test(&mut self, pins: [String; 4]) {
+        self.pins = pins;
+    }
+
     /// The caller reserves `staging` before construction; no filesystem publication lives here.
     pub(in crate::graph::projection) fn new(
         root: RootDirectory,
         final_root: RootDirectory,
         staging: String,
-        config: SystemConfig,
+        configuration: (SystemConfig, [String; 4]),
         publication: P,
     ) -> Self {
         Self {
             root,
             final_root,
             staging,
-            config,
+            config: configuration.0,
             publication,
+            pins: configuration.1,
             scope: None,
             database: None,
             transactions: Transactions::default(),
@@ -101,6 +111,7 @@ impl<P: Publication> ProjectionBackend for Backend<P> {
         schema::create(
             &Connection::new(&database).map_err(|error| error.to_string())?,
             scope,
+            &self.pins,
         )?;
         self.database = Some(database);
         Ok(())
@@ -133,7 +144,15 @@ impl<P: Publication> ProjectionBackend for Backend<P> {
         }
         drop(self.database.take());
         let verified = Reader::open(&self.root, &self.staging, self.config.clone(), scope)
-            .and_then(|reader| reader.verification());
+            .and_then(|reader| {
+                let rows = reader.rows().map_err(|error| error.to_string())?;
+                if rows.pins != self.pins {
+                    return Err(format!(
+                        "native build input pins differ; {PROJECTION_REBUILD_REPAIR}"
+                    ));
+                }
+                rows.verification()
+            });
         self.database = Some(
             open(&self.root, &self.staging, self.config.clone())
                 .map_err(|error| error.to_string())?,
@@ -165,5 +184,6 @@ impl<P: Publication> ProjectionBackend for Backend<P> {
         receipt: &ProjectionReceipt,
     ) -> Result<Self::Reader, String> {
         Reader::published(&self.final_root, self.config.clone(), scope, receipt)
+            .map_err(|error| error.to_string())
     }
 }
