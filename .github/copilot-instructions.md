@@ -626,12 +626,15 @@ in place.
 │   │   │   │   │   ├── bootstrap_inventory.rs                               # Strict owner-local inventories and their exact inert payload claims
 │   │   │   │   │   ├── builtin.rs                                           # The registry of the built-in kinds and the fixed table of hooks their
 │   │   │   │   │   ├── contract.rs                                          # Native JSON Schema contracts with an exact owner-local metadata pair
+│   │   │   │   │   ├── eval.rs                                              # Eval case declarations own one exact inert JSON asset, never a runner
+│   │   │   │   │   ├── handoff.rs                                           # Inert handoffs with typed sender/recipient, contracts and fixed body sections
 │   │   │   │   │   ├── instructions.rs                                      # instructions: a Copilot .instructions.md file and its
 │   │   │   │   │   ├── language.rs                                          # Root languages extend the shared area contract, without a package alias
 │   │   │   │   │   ├── mod.rs                                               # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── model_card.rs                                        # model-card: a strict catalog declaration of the kernel's v2 identity
 │   │   │   │   │   ├── package.rs                                           # Area closure roots; ownership and layer semantics are checked by later tasks
 │   │   │   │   │   ├── preset.rs                                            # preset: a project preset, the root of a declared closure, and the
+│   │   │   │   │   ├── prompt.rs                                            # Native prompts with declared input/output contracts and a filled inert body
 │   │   │   │   │   ├── quality_profile.rs                                   # Inert quality declarations, separate from session preferences and model profiles
 │   │   │   │   │   ├── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
 │   │   │   │   │   ├── standard.rs                                          # Mandatory standard area roots and their normative rule inventories
@@ -648,6 +651,7 @@ in place.
 │   │   │   │   │   ├── backends.rs                                          # Strict core backend declarations and build-aware activation refusals
 │   │   │   │   │   ├── bounds.rs                                            # D2's source limits at small injected values: each exact boundary passes
 │   │   │   │   │   ├── codeowners.rs                                        # C35 rendering, exact drift comparison and protected last-match neighbours
+│   │   │   │   │   ├── contracts.rs                                         # Prompt, handoff and eval declarations through the real source checker
 │   │   │   │   │   ├── coverage.rs                                          # Refusals each guard owns alone: tool names and lists, agent sections
 │   │   │   │   │   ├── directory.rs                                         # The filesystem adapter: a bounded read, links never followed, and a
 │   │   │   │   │   ├── extension.rs                                         # The owner's scaling requirement: a new kind is one descriptor plus
@@ -1765,6 +1769,15 @@ in place.
 │       │   │       └── package.toml                                         # TOML settings: package
 │       │   ├── codeowners/                                                  # Codeowners
 │       │   │   └── CODEOWNERS                                               # Who reviews each path
+│       │   ├── contracts/                                                   # Contracts
+│       │   │   ├── eval-cases.json                                          # JSON data: eval cases
+│       │   │   ├── eval-valid.toml                                          # TOML settings: eval valid
+│       │   │   ├── handoff-valid.md                                         # Synthetic handoff
+│       │   │   ├── input.maestro.toml                                       # TOML settings: input.maestro
+│       │   │   ├── input.schema.json                                        # JSON data: input.schema
+│       │   │   ├── output.maestro.toml                                      # TOML settings: output.maestro
+│       │   │   ├── output.schema.json                                       # JSON data: output.schema
+│       │   │   └── prompt-valid.md                                          # Synthetic prompt
 │       │   ├── graphs/                                                      # Graphs
 │       │   │   ├── topology-invalid.md                                      # Sample document: Synthetic missing-reviewer refusal
 │       │   │   └── topology-valid.md                                        # Sample document: Synthetic topology neighbour

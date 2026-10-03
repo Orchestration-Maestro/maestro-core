@@ -3191,10 +3191,10 @@ prompt/contracts neighbour uses production descriptors, not substitutes.
 **Design coverage:** MD02 (approved design §8.4).
 **Named tests:** `common_contract_reference_accepts`, `unfilled_prompt_template_refuses`, `handoff_missing_section_refuses`, `external_contract_reference_refuses`, `dangling_contract_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Prompt/handoff/eval-case descriptors and isolated body/reference checks using existing JSON contract consumer. Unfilled template, missing sections and dangling contracts refuse.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Prompt/handoff/eval-case descriptors and isolated body/reference checks using existing JSON contract consumer. Unfilled template, missing sections and dangling contracts refuse.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

@@ -1,11 +1,11 @@
 //! Native JSON Schema contracts with an exact owner-local metadata pair.
 
 use crate::source::{
-    descriptor::{Format, KindDescriptor, Layout, MetadataPlace, Scope},
-    types::Maturity,
+    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
+    types::{Maturity, Problems, Resource, ResourceId, Value},
 };
 
-/// Contract placement and metadata; the graph compiler owns JSON semantics.
+/// Contract placement and metadata; the admitted JSON consumer owns semantics.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
         kind: "contract".to_owned(),
@@ -28,5 +28,42 @@ pub(super) fn descriptor() -> KindDescriptor {
         closure_root: false,
         required: None,
         hook: None,
+    }
+}
+
+/// The two exact contract references shared by prompts, handoffs and eval cases.
+pub(super) fn fields() -> Vec<Field> {
+    vec![
+        Field::required("description", FieldType::Text),
+        Field::required("input_contract", FieldType::Text),
+        Field::required("output_contract", FieldType::Text),
+    ]
+}
+
+/// References must be qualified and declared so the common reference checker
+/// owns existence, dependency direction and closure traversal.
+pub(super) fn reference(resource: &Resource, key: &str, kind: &str, problems: &mut Problems) {
+    let Some(text) = resource.fields.get(key).and_then(Value::text) else {
+        return;
+    };
+    let Some(id) = ResourceId::parse(text).filter(|id| id.kind == kind) else {
+        problems.push((
+            key.to_owned(),
+            format!("{text:?} needs a qualified {kind} ID; paths and external references refuse"),
+        ));
+        return;
+    };
+    if !resource.metadata.requires.contains(&id) {
+        problems.push((
+            key.to_owned(),
+            format!("{id} must be declared in metadata.requires"),
+        ));
+    }
+}
+
+/// Admit both contract fields without reading or parsing a second schema.
+pub(super) fn references(resource: &Resource, problems: &mut Problems) {
+    for key in ["input_contract", "output_contract"] {
+        reference(resource, key, "contract", problems);
     }
 }

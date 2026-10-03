@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract:common/input",
+  "type": "object",
+  "properties": {"text": {"type": "string"}},
+  "required": ["text"],
+  "additionalProperties": false
+}

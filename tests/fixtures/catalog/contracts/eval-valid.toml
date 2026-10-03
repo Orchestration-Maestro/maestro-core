@@ -1,0 +1,10 @@
+description = "Synthetic evaluation cases"
+input_contract = "contract:common/input"
+output_contract = "contract:common/output"
+cases = "eval-cases.json"
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]
+requires = ["contract:common/input", "contract:common/output"]
