@@ -179,3 +179,47 @@ fn free_space(path: &Path) -> Option<u64> {
         None
     }
 }
+
+/// Writes an owner-only executable fixture without opening it in this process.
+/// A sibling test can fork while a file is being written: even a close-on-exec
+/// descriptor inherited until that child's exec can make our exec fail with
+/// `ETXTBSY`. Only the writer child opens the file, and we wait for it to exit.
+///
+/// # Errors
+///
+/// When the writer cannot spawn, write or exit successfully, or permissions
+/// cannot be set.
+///
+/// # Panics
+///
+/// If a child spawned with piped stdin has no stdin handle, contrary to the
+/// standard library's guarantee.
+#[cfg(unix)]
+#[expect(clippy::expect_used, reason = "spawn succeeded with Stdio::piped")]
+pub fn write_executable(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    use std::{
+        fs::{self, Permissions},
+        io::Write as _,
+        os::unix::fs::PermissionsExt as _,
+        process::{Command, Stdio},
+    };
+
+    let mut writer = Command::new("sh")
+        .args(["-c", "cat > \"$1\"", "fixture-writer"])
+        .arg(path)
+        .stdin(Stdio::piped())
+        .spawn()?;
+    let written = writer
+        .stdin
+        .take()
+        .expect("the writer was spawned with piped stdin")
+        .write_all(bytes);
+    let status = writer.wait()?;
+    written?;
+    if !status.success() {
+        return Err(io::Error::other(format!(
+            "fixture writer exited with {status}"
+        )));
+    }
+    fs::set_permissions(path, Permissions::from_mode(0o700))
+}
