@@ -27,6 +27,8 @@ mod unix;
 mod unix_creation;
 #[cfg(windows)]
 mod windows;
+#[cfg(all(test, windows))]
+mod windows_behavior_tests;
 #[cfg(windows)]
 mod windows_flags;
 #[cfg(windows)]
