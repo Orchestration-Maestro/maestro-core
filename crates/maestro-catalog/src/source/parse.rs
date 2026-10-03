@@ -291,3 +291,33 @@ pub(super) fn fields(table: &Table, fields: &[Field], prefix: &str, problems: &m
         problems.push((below(prefix, &field.key), "missing".to_owned()));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::table_problems;
+    use crate::source::{FieldType, Value};
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn list_table_accepts_lists_and_explains_scalar_refusals() {
+        let mut problems = vec![];
+        let value = Value::Table(BTreeMap::from([(
+            "good".to_owned(),
+            Value::List(vec![Value::Text("text".to_owned())]),
+        )]));
+        table_problems("bindings", &FieldType::ListTable, &value, &mut problems);
+        assert!(problems.is_empty());
+        let value = Value::Table(BTreeMap::from([(
+            "bad".to_owned(),
+            Value::Text("text".to_owned()),
+        )]));
+        table_problems("bindings", &FieldType::ListTable, &value, &mut problems);
+        assert_eq!(
+            problems,
+            [(
+                "bindings.bad".to_owned(),
+                "must be a list of strings".to_owned()
+            )]
+        );
+    }
+}

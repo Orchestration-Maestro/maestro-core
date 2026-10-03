@@ -98,6 +98,10 @@ fn central_exception_requires_standard_and_root_reviews() {
         "standards/security/exceptions/temporary.toml",
     ] {
         let (head_tree, base_tree) = exception_tree(path);
+        let unrelated =
+            package_source("standard", "quality").replace("@synthetic/knowledge", "new-owner");
+        let head_tree = head_tree.with("standards/quality/package.toml", &unrelated);
+        let base_tree = base_tree.with("standards/quality/package.toml", &unrelated);
         let base = snapshot(BASE, &base_tree);
         let head = snapshot(HEAD, &head_tree);
         let (_, _, mut evidence) = fixture();

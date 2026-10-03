@@ -419,6 +419,23 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn workflow_condition_take_finishes_a_boolean_conjunction() {
+        use std::{sync::mpsc, thread, time::Duration};
+        let (sender, receiver) = mpsc::channel();
+        thread::spawn(move || {
+            let root = json!({"type": "object"});
+            let registry = jsonschema::Registry::new().prepare().unwrap();
+            let _sent = sender.send(super::check("true && false", &root, &registry));
+        });
+        assert_eq!(
+            receiver
+                .recv_timeout(Duration::from_secs(10))
+                .expect("condition parser did not finish"),
+            Ok(())
+        );
+    }
+
+    #[test]
     fn workflow_condition_lexer_consumption_requires_a_nonempty_valid_prefix() {
         assert_eq!(consume("true", 4), Ok(""));
         assert_eq!(consume("true;", 4), Ok(";"));

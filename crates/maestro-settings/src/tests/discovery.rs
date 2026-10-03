@@ -275,3 +275,27 @@ fn held_callback_prevents_ancestor_swap_on_windows() {
     drop(held);
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn callback_discovery_refuses_relative_start_or_boundary_without_visiting() {
+    use crate::discover_project_with;
+    let scratch = scratch_directory().unwrap();
+    let absolute = scratch.canonicalize().unwrap();
+    for (start, boundary) in [
+        (Path::new("relative"), absolute.as_path()),
+        (absolute.as_path(), Path::new("")),
+    ] {
+        let mut visits = 0;
+        let (discovery, snapshot) = discover_project_with(start, boundary, |_| {
+            visits += 1;
+            Ok(Some((PathBuf::from("selected"), ())))
+        });
+        assert_eq!(visits, 0);
+        assert!(snapshot.is_none());
+        assert_eq!(
+            discovery.note.as_deref(),
+            Some("directory is outside the approved boundary")
+        );
+    }
+    fs::remove_dir_all(scratch).unwrap();
+}

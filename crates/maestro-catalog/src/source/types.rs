@@ -516,3 +516,25 @@ const FROZEN_ROWS: &str = include_str!("../../data/known-rows.txt");
 pub fn frozen_rows() -> BTreeSet<String> {
     FROZEN_ROWS.lines().map(str::to_owned).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Known, frozen_rows};
+
+    #[test]
+    fn known_debug_exposes_setting_keys_without_row_or_value_data() {
+        let rows = frozen_rows();
+        let settings = maestro_settings::Registry::built_in().unwrap();
+        let rendered = format!(
+            "{:?}",
+            Known {
+                rows: &rows,
+                settings: &settings,
+                today: 0
+            }
+        );
+        assert!(rendered.starts_with("Known { settings: ["), "{rendered}");
+        assert!(rendered.contains("language"), "{rendered}");
+        assert!(rendered.ends_with(", .. }"), "{rendered}");
+    }
+}

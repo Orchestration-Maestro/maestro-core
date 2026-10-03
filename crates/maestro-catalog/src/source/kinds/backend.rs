@@ -124,3 +124,28 @@ fn check_controls(value: &Value, role: &str, registry: &Registry, problems: &mut
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::check_controls;
+    use crate::source::Value;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn invalid_graph_control_type_does_not_mislabel_registered_keys_as_unknown() {
+        let value = Value::Table(BTreeMap::from([(
+            "max_num_threads".to_owned(),
+            Value::Text("wrong".to_owned()),
+        )]));
+        let registry = maestro_settings::Registry::built_in().unwrap();
+        let mut problems = vec![];
+        check_controls(&value, "graphdb", &registry, &mut problems);
+        assert_eq!(
+            problems,
+            [(
+                "graphdb".to_owned(),
+                "must be a table of unsigned integers".to_owned()
+            )]
+        );
+    }
+}

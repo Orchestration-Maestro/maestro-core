@@ -143,3 +143,20 @@ fn catalog_owners_evidence_symlink_never_reads_its_target() {
     assert_eq!(result.code, Some(1), "{result:?}");
     assert!(result.stderr.contains("evidence.json"), "{result:?}");
 }
+
+#[test]
+fn catalog_owners_reads_a_bare_relative_evidence_filename() {
+    let home = Home::bare();
+    let (base, head, path, evidence) = fixture(&home);
+    fs::write(&path, serde_json::to_vec(&evidence).unwrap()).unwrap();
+    let relative = PathBuf::from("evidence.json");
+    let result = run(&home, (&base, &head, &relative));
+    assert_eq!(result.code, Some(0), "{result:?}");
+    fs::remove_file(&path).unwrap();
+    let directory = home.root().join("nested");
+    fs::create_dir(&directory).unwrap();
+    let nested = directory.join("evidence.json");
+    fs::write(&nested, serde_json::to_vec(&evidence).unwrap()).unwrap();
+    let result = run(&home, (&base, &head, &nested));
+    assert_eq!(result.code, Some(0), "{result:?}");
+}
