@@ -66,7 +66,18 @@ impl Directory {
         Ok(directory)
     }
 
-    /// Open or create a control file, inheriting its private parent ACL.
+    /// Reopen the root without following links and compare it with the retained identity.
+    pub(crate) fn validate_owned(&self, path: &Path) -> io::Result<()> {
+        let named = hold_directory(path)?;
+        let held = self
+            .held
+            .last()
+            .ok_or_else(|| io::Error::other("owned root has no retained directory"))?;
+        validate_identity(held, &named)
+    }
+
+    /// Open or create a control file. ACL privacy relies on inheritance from the
+    /// user-private data directory, not a separate check (no approved ACL API).
     pub(crate) fn open_control(&self, name: &str, create: bool) -> io::Result<File> {
         let file = OpenOptions::new()
             .read(true)
@@ -75,16 +86,18 @@ impl Directory {
             .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
             .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
             .open(self.path.join(name))?;
-        refuse_reparse_point(&file)?;
-        if !file.metadata()?.is_file() || information(&file)?.number_of_links() != 1 {
-            return Err(io::Error::other(
-                "control file must be regular with one link",
-            ));
-        }
+        validate_control_file(&file)?;
         if create {
             file.sync_all()?;
         }
         Ok(file)
+    }
+
+    /// Recheck the held file and its name inside the retained graph root before locking.
+    pub(crate) fn validate_control(&self, name: &str, file: &File) -> io::Result<()> {
+        validate_control_file(file)?;
+        let named = self.open_control(name, false)?;
+        validate_identity(file, &named)
     }
 
     /// Retain the no-follow leaf against deletion/replacement; inspect its held link count.
@@ -121,11 +134,11 @@ impl Directory {
                     return Err(io::Error::other("receipt file identity was replaced"));
                 }
             }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) if error.kind() == ErrorKind::NotFound => {}
             Err(error) => return Err(error),
         }
         Err(io::Error::new(
-            io::ErrorKind::Unsupported,
+            ErrorKind::Unsupported,
             "anchored receipt removal and directory sync are unsupported on Windows",
         ))
     }
@@ -159,6 +172,29 @@ impl Directory {
     pub(crate) fn remove_file(&self, name: &str) -> io::Result<()> {
         fs::remove_file(self.path.join(name))
     }
+}
+
+/// Refuse a guard that is a reparse point, nonregular file or hard-link alias.
+fn validate_control_file(file: &File) -> io::Result<()> {
+    refuse_reparse_point(file)?;
+    if !file.metadata()?.is_file() || information(file)?.number_of_links() != 1 {
+        return Err(io::Error::other(
+            "control file must be regular with one link",
+        ));
+    }
+    Ok(())
+}
+
+/// Bind a safely reopened name to the retained handle's volume and file identity.
+fn validate_identity(held: &File, named: &File) -> io::Result<()> {
+    let held = information(held)?;
+    let current = information(named)?;
+    if (held.volume_serial_number(), held.file_index())
+        != (current.volume_serial_number(), current.file_index())
+    {
+        return Err(io::Error::other("held filesystem identity was replaced"));
+    }
+    Ok(())
 }
 
 /// Open and hold one child directory without following a link, creating it first when asked and

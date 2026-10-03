@@ -357,6 +357,66 @@ fn filesystem_shared_root_refuses_control_creation_and_locks_until_secured() {
     assert!(root.ensure_control(ControlFile::Writer).unwrap());
 }
 
+#[test]
+fn filesystem_control_validation_rechecks_aliases_before_locking() {
+    let scratch = Scratch::new();
+    let path = scratch.0.join("owned");
+    let root = OwnedRoot::open(&path, true).unwrap();
+    root.ensure_control(ControlFile::Access).unwrap();
+    root.ensure_control(ControlFile::Writer).unwrap();
+    let guard = root.open_control(ControlFile::Access).unwrap();
+    let alias = scratch.0.join("alias");
+    fs::hard_link(path.join(".access.guard"), &alias).unwrap();
+    // Unsupported must not reach the adapter: filesystem validation refuses first.
+    assert_eq!(
+        guard
+            .lock_with(&Unsupported, LockMode::Shared, false)
+            .unwrap_err()
+            .to_string(),
+        "control file must be regular with one link"
+    );
+    root.open_control(ControlFile::Writer)
+        .unwrap()
+        .lock_with(&SystemFileLock, LockMode::Shared, false)
+        .unwrap();
+    fs::remove_file(alias).unwrap();
+    guard
+        .lock_with(&SystemFileLock, LockMode::Shared, false)
+        .unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn filesystem_windows_validation_binds_root_and_control_identities() {
+    use super::windows::Directory;
+    let scratch = Scratch::new();
+    let path = scratch.0.join("owned");
+    let root = OwnedRoot::open(&path, true).unwrap();
+    root.ensure_control(ControlFile::Access).unwrap();
+    root.ensure_control(ControlFile::Writer).unwrap();
+    let resolved = fs::canonicalize(&path).unwrap();
+    let directory = Directory::open_resolved(&resolved, false).unwrap();
+    directory.validate_owned(&resolved).unwrap();
+    let other = scratch.0.join("other");
+    fs::create_dir(&other).unwrap();
+    assert!(
+        directory
+            .validate_owned(&fs::canonicalize(other).unwrap())
+            .is_err()
+    );
+    let access = directory.open_control(".access.guard", false).unwrap();
+    let writer = directory.open_control(".writer.guard", false).unwrap();
+    directory
+        .validate_control(".access.guard", &access)
+        .unwrap();
+    assert!(
+        directory
+            .validate_control(".access.guard", &writer)
+            .is_err()
+    );
+    assert!(directory.validate_control("missing", &access).is_err());
+}
+
 /// Fixture-only ACL setup and read-only inspection, never production permission repair.
 #[cfg(windows)]
 fn windows_acl(path: &Path, script: &str) {

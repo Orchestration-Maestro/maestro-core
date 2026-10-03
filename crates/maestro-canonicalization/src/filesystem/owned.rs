@@ -4,22 +4,20 @@ use super::root::resolve;
 use super::unix::Directory;
 #[cfg(windows)]
 use super::windows::Directory;
-#[cfg(unix)]
-use std::path::PathBuf;
 use std::{
     fs::File,
     io,
-    path::Path,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
 /// A safely held, application-owned directory. Its parent is trusted configuration
 /// and resolves once; the owned leaf and every later operation refuse links.
-/// Callers supply the application's private data-directory ACL on Windows.
+/// Windows ACL privacy relies on inheritance from the user-private data directory;
+/// it is not separately verified (no approved ACL API).
 #[derive(Clone, Debug)]
 pub struct OwnedRoot {
     /// The resolved location whose identity must still match the held root.
-    #[cfg(unix)]
     path: PathBuf,
     /// Platform capability retaining the root (and Windows ancestors).
     directory: Arc<Directory>,
@@ -108,11 +106,7 @@ impl OwnedRoot {
             .ok_or_else(|| io::Error::other("owned root needs a name"))?;
         let path = resolve(parent, Path::new(name))?;
         let directory = Arc::new(Directory::open_resolved(&path, create)?);
-        let root = Self {
-            #[cfg(unix)]
-            path,
-            directory,
-        };
+        let root = Self { path, directory };
         root.validate()?;
         Ok(root)
     }
@@ -169,10 +163,7 @@ impl OwnedRoot {
 
     /// Confirm that the owned name still denotes the held directory.
     fn validate(&self) -> io::Result<()> {
-        #[cfg(unix)]
-        self.directory.validate_owned(&self.path)?;
-        // Windows retains all ancestors without delete sharing, preventing relocation.
-        Ok(())
+        self.directory.validate_owned(&self.path)
     }
 }
 
@@ -197,12 +188,9 @@ impl ControlHandle {
         self.root.validate()?;
         #[cfg(unix)]
         self.root.directory.validate_private()?;
-        #[cfg(unix)]
         self.root
             .directory
-            .validate_control(self.control.file_name(), &self.file)?;
-        // Windows also retains the control without delete sharing, preventing replacement.
-        Ok(())
+            .validate_control(self.control.file_name(), &self.file)
     }
 }
 
