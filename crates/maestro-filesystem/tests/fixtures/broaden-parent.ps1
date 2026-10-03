@@ -32,7 +32,7 @@ $sid = [System.Security.Principal.SecurityIdentifier]::new('S-1-1-0')
 $rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
     $sid, 'ReadAndExecute', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
 $acl.AddAccessRule($rule)
-# SetKernelObjectSecurity performs no inheritance propagation to existing children.
+# Update the parent through its held WRITE_DAC handle; restore child drift below.
 $handle = [NativeAcl]::CreateFile($Root, 0x40000, 3, [IntPtr]::Zero,
     3, 0x02200000, [IntPtr]::Zero)
 if ($handle -eq [IntPtr]::new(-1)) {

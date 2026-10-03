@@ -14,8 +14,10 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     env,
+    ffi::OsStr,
     io::{self, Read as _},
-    path::{Component, Path, PathBuf},
+    iter,
+    path::{Component, Path, PathBuf, is_separator},
     str,
 };
 
@@ -181,6 +183,7 @@ impl ClientPreferencesDelivery for Copilot {
 /// Native projection boundary; adding a host changes only the adapter registry below.
 pub trait NativeProjection: ClientPreferencesDelivery {
     /// Preview a checked source snapshot without effects or host-obedience claims.
+    /// The authorized target root and supplied read root must be canonical.
     ///
     /// # Errors
     /// Refuses collisions, drift, malformed host data and read-policy failures.
@@ -294,6 +297,7 @@ impl Copilot {
     }
 
     /// Select only read-only discovery inputs; target write authority is separate.
+    /// Supplied read roots must be canonical; preview refuses aliases without effects.
     #[must_use]
     pub fn new(user_agents: Option<PathBuf>) -> Self {
         Self { user_agents }
@@ -310,6 +314,14 @@ impl Copilot {
         remove: bool,
         trust: &CheckedTrust<'_>,
     ) -> io::Result<ProjectionPreview<'a>> {
+        for named in iter::once(root).chain(self.user_agents.as_deref()) {
+            if named != discovery_home(named)? {
+                return Err(io::Error::other(format!(
+                    "root is not canonical: {}",
+                    named.display()
+                )));
+            }
+        }
         let registration = json!({
             "type":"stdio", "command":"maestro",
             "args":["mcp", "--workspace", "."], "tools":["*"]
@@ -430,13 +442,9 @@ fn check_names(root: &Path, below: &Path, owned: bool, trust: &CheckedTrust<'_>)
         Err(error) => return Err(error),
     };
     for entry in directory.list_bounded(Limits::PRODUCTION.catalog_resources)? {
-        let name = entry
-            .name
-            .to_str()
-            .ok_or_else(|| io::Error::other("native profile name is not UTF-8"))?;
-        if !name.ends_with(".agent.md") {
+        let Some(name) = profile_filename(&entry.name)? else {
             continue;
-        }
+        };
         if owned && name == "maestro.agent.md" {
             continue;
         }
@@ -475,6 +483,13 @@ fn check_names(root: &Path, below: &Path, owned: bool, trust: &CheckedTrust<'_>)
 /// Bind the trusted discovery root once, retaining missing normal names for staged rechecks.
 fn discovery_home(home: &Path) -> io::Result<PathBuf> {
     for ancestor in home.ancestors() {
+        // Windows normalizes missing/name/.. before lookup; it cannot anchor the missing tail.
+        if matches!(
+            ancestor.components().next_back(),
+            Some(Component::ParentDir)
+        ) {
+            continue;
+        }
         let named = if ancestor.as_os_str().is_empty() {
             Path::new(".")
         } else {
@@ -483,12 +498,13 @@ fn discovery_home(home: &Path) -> io::Result<PathBuf> {
         match named.canonicalize() {
             Ok(resolved) => {
                 let tail = home.strip_prefix(ancestor).map_err(io::Error::other)?;
-                // Path::components normalizes interior dots; check their literal spelling too.
+                // Components normalize dots; verbatim Windows dots are Normal.
+                // Check both literal spellings before appending the missing tail.
                 let dot = tail
                     .as_os_str()
                     .as_encoded_bytes()
-                    .split(|byte| *byte == b'/' || (cfg!(windows) && *byte == b'\\'))
-                    .any(|part| part == b".");
+                    .split(|byte| is_separator(char::from(*byte)))
+                    .any(|part| matches!(part, b"." | b".."));
                 if dot
                     || !tail
                         .components()
@@ -506,4 +522,12 @@ fn discovery_home(home: &Path) -> io::Result<PathBuf> {
         }
     }
     Err(io::Error::other("Copilot home has no resolvable ancestor"))
+}
+
+/// Classify native directory names without asking the filesystem to create invalid names.
+pub(super) fn profile_filename(name: &OsStr) -> io::Result<Option<&str>> {
+    let name = name
+        .to_str()
+        .ok_or_else(|| io::Error::other("native profile name is not UTF-8"))?;
+    Ok(name.ends_with(".agent.md").then_some(name))
 }

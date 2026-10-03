@@ -85,7 +85,7 @@ fn hosts_copilot_adapter_dispatch_and_source_check_guards() {
             .initialization_instructions("session")
             .contains("Maestro MCP knowledge tools")
     );
-    let root = scratch_directory().unwrap();
+    let root = scratch_directory().unwrap().canonicalize().unwrap();
     let selected = ["synthetic".to_owned()];
     let canonical = ("core/maestro.agent.md", "agent:core/maestro", VALID);
     with_trust(&root, |trust| {

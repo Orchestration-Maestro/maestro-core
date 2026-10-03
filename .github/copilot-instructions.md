@@ -561,6 +561,7 @@ in place.
 │   │   │   │   ├── tests/                                                   # Integration tests
 │   │   │   │   │   ├── admission.rs                                         # Host source guards are stimulated without upstream inventory validation
 │   │   │   │   │   ├── copilot.rs                                           # Fixture-backed native projection; never a live host-obedience receipt
+│   │   │   │   │   ├── copilot_roots.rs                                     # Canonical-root boundaries, missing discovery bindings and native filename decoding
 │   │   │   │   │   ├── mod.rs                                               # Rust source: mod
 │   │   │   │   │   └── shared_json.rs                                       # Entry ownership never adopts matching user entries or overwrites edited owned entries
 │   │   │   │   ├── copilot.rs                                               # Frozen Copilot v1 authoring projection, not host discovery evidence

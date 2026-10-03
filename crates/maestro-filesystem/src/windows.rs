@@ -23,6 +23,7 @@ use std::{
     ffi::OsStr,
     fs::{self, File, OpenOptions},
     io::{self, ErrorKind, Read},
+    ops::BitOr as _,
     os::windows::fs::{MetadataExt, OpenOptionsExt},
     path::{Component, Path, PathBuf},
     process,
@@ -64,7 +65,7 @@ impl Directory {
             Storage::FileSystem::{WRITE_DAC, WRITE_OWNER},
         };
         let security = OpenOptions::new()
-            .access_mode(GENERIC_READ | WRITE_DAC | WRITE_OWNER)
+            .access_mode(GENERIC_READ.bitor(WRITE_DAC).bitor(WRITE_OWNER))
             .share_mode(file_share_all())
             .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
             .open(self.path.join(name))?;
