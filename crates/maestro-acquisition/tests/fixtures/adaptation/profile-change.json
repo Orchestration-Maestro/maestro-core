@@ -1,0 +1,9 @@
+{"expected_baseline":{"id":"baseline","digest":"8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24"},
+"expected_active":{"id":"baseline","digest":"8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24"},
+"changes":[{"kind":"select_profile","source_id":"notes",
+"profile":{"id":"new","digest":"11507a0e2f5e69d5dfa40a62a1bd7b6ee57e6bcd85c67c9b8431b36fff21c437"},
+"selection":{"id":"00000000000000000000000001",
+"digest":"8954022ad2f9b2622b44e6b6d4ca9080e6ee53e1705bf99a0ca38d299667d767"}}],
+"candidate":"07bc9b9713c2e0bdebb406408f8762dfdce0454e269555dca183b79f5c75520f",
+"evidence":["00000000000000000000000001"],"report":"00000000000000000000000001",
+"rollback":{"id":"baseline","digest":"8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24"}}

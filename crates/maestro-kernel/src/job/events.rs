@@ -55,7 +55,7 @@ pub(super) fn moved_into(state: JobState) -> &'static str {
 ///
 /// [`Error::Store`] when the database cannot record it: the caller returns
 /// the error from its write, which then rolls the change back.
-pub(super) fn record_on_stream(
+pub(crate) fn record_on_stream(
     transaction: &Transaction<'_>,
     id: Ulid,
     scope: &Scope,

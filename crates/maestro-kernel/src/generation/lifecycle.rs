@@ -189,7 +189,7 @@ impl Database {
     ///
     /// [`Error::Store`] when the database cannot be read.
     pub fn generation(&self, scopes: &ScopeSet, id: i64) -> Result<Option<Generation>, Error> {
-        Ok(find(&self.reader()?, Some(scopes), id)?)
+        Ok(find(&*self.reader()?, Some(scopes), id)?)
     }
 
     /// The published generation of the collection `collection_id`, if it has

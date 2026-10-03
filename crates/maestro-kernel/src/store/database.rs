@@ -4,6 +4,7 @@
 use super::{
     error::Error,
     migration::{MIGRATIONS, migrate, pending},
+    reader::Reader,
 };
 use crate::{
     artifact::Store,
@@ -34,8 +35,14 @@ static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 /// The kernel's database, and the artifact store whose artifacts it records.
 #[derive(Debug)]
 pub struct Database {
+    /// Idle readers close before the writer so its final WAL checkpoint can run.
+    /// The free-list lock never covers query execution.
+    readers: Mutex<Vec<Connection>>,
     /// The one connection that writes, shared by every thread.
     writer: Mutex<Connection>,
+    /// Reader connections opened by this database, exposed only to test support.
+    #[cfg(any(test, feature = "test"))]
+    reader_opens: AtomicU64,
     /// The database file, absolute, which each reader opens.
     path: PathBuf,
     /// The artifact store whose artifacts the `artifacts` table records.
@@ -69,6 +76,31 @@ impl Database {
         Self::open(&data.join(FILE), &data.join("artifacts"))
     }
 
+    /// Open only an existing, fully migrated database without writing grants or schema.
+    /// # Errors
+    /// Missing files, unknown or pending migrations, and unreadable storage refuse.
+    pub fn open_read_only(data: &Path) -> Result<Self, Error> {
+        let path = path::absolute(data.join(FILE)).map_err(|source| io_error(data, source))?;
+        let reader = configured(Connection::open_with_flags(
+            &path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?)?;
+        if !pending(&reader, MIGRATIONS)?.is_empty() {
+            return Err(io_error(
+                &path,
+                io::Error::other("kernel migrations pending"),
+            ));
+        }
+        Ok(Self {
+            writer: Mutex::new(reader),
+            readers: Mutex::new(Vec::new()),
+            #[cfg(any(test, feature = "test"))]
+            reader_opens: AtomicU64::new(0),
+            path,
+            artifacts: Store::new(data.join("artifacts")),
+        })
+    }
+
     /// [`Database::open`] with `migrations` in place of the binary's own.
     pub(super) fn open_with(
         database: &Path,
@@ -86,6 +118,9 @@ impl Database {
         migrate(&mut writer, migrations)?;
         Ok(Self {
             writer: Mutex::new(writer),
+            readers: Mutex::new(Vec::new()),
+            #[cfg(any(test, feature = "test"))]
+            reader_opens: AtomicU64::new(0),
             path,
             artifacts: Store::new(artifacts),
         })
@@ -132,7 +167,8 @@ impl Database {
     ///
     /// [`Error::Sqlite`] when the database cannot be read at all.
     pub fn quick_check(&self) -> Result<Vec<String>, Error> {
-        let reader = self.reader()?;
+        // Doctor checks the current file, not a pooled connection to an older inode.
+        let reader = self.new_reader()?;
         let checked = reader
             .prepare("PRAGMA quick_check")
             .and_then(|mut statement| {
@@ -153,17 +189,46 @@ impl Database {
         }
     }
 
+    /// Number of reader connection opens, for deterministic adapter cost tests.
+    #[cfg(any(test, feature = "test"))]
+    #[must_use]
+    pub fn reader_opens(&self) -> u64 {
+        self.reader_opens.load(Ordering::Relaxed)
+    }
+
+    /// Executed SQL statements on this thread, including transactions.
+    #[cfg(any(test, feature = "test"))]
+    #[must_use]
+    pub fn statement_count(&self) -> u64 {
+        super::statement_counts::statements()
+    }
+    /// Single-item capture-link lookups on this thread.
+    #[cfg(any(test, feature = "test"))]
+    #[must_use]
+    pub fn item_lookup_count(&self) -> u64 {
+        super::statement_counts::item_lookups()
+    }
+
     /// A connection of its own that only reads, and sees the last commit,
     /// never a write in progress.
     ///
     /// # Errors
     ///
     /// [`Error::Sqlite`] when the database file cannot be opened.
-    pub(crate) fn reader(&self) -> Result<Connection, Error> {
-        configured(Connection::open_with_flags(
+    pub(crate) fn reader(&self) -> Result<Reader<'_>, Error> {
+        Reader::borrow(&self.readers, || self.new_reader())
+    }
+    /// A dedicated configured connection for controlled searches and file diagnostics.
+    /// Its raw connection type cannot be returned to the ordinary reader pool.
+    pub(crate) fn new_reader(&self) -> Result<Connection, Error> {
+        let reader = configured(Connection::open_with_flags(
             &self.path,
             OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )?)
+        )?)?;
+        reader.pragma_update(None, "query_only", true)?;
+        #[cfg(any(test, feature = "test"))]
+        self.reader_opens.fetch_add(1, Ordering::Relaxed);
+        Ok(reader)
     }
 }
 
@@ -198,6 +263,8 @@ pub fn pending_migrations(data: &Path) -> Result<Vec<&'static str>, Error> {
 /// bundled SQLite default to the first two; the kernel does not depend on it.
 /// No trigger of the kernel writes, so none fires another.
 pub(super) fn configured(connection: Connection) -> Result<Connection, Error> {
+    #[cfg(any(test, feature = "test"))]
+    super::statement_counts::install(&connection);
     connection.busy_timeout(BUSY_TIMEOUT)?;
     connection.pragma_update(None, "foreign_keys", true)?;
     connection.pragma_update(None, "recursive_triggers", true)?;

@@ -1,0 +1,48 @@
+name: Linux parser containment qualification
+"on":
+  pull_request:
+    branches: [feat/s6-integration]
+  push:
+    branches: [feat/s6-integration, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: parser-containment-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  qualify:
+    name: Qualify Linux parser containment
+    # Administrative provisioning is scoped to an internal reviewed code artifact.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    # Cold-build/test hang ceiling; Pi has no CI-job timeout equivalent.
+    timeout-minutes: 60
+    env:
+      CARGO_BUILD_JOBS: 3
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+    steps:
+      - name: Check out the exact revision under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install only the pinned Rust toolchain
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Provision non-root delegated services and qualify real kernel effects
+        run: bash .github/scripts/parser-containment-ci.sh
+      - name: Upload SHA-bound public containment evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: parser-containment-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/parser-containment/*.log
+            ${{ runner.temp }}/parser-containment/*.txt
+            ${{ runner.temp }}/parser-containment/apparmor-profile
+          if-no-files-found: error

@@ -5,8 +5,9 @@
 
 use super::{
     corpus::Corpus,
-    entry::{self, NotImported, Target},
+    entry,
     error::Error,
+    ingest::{NotImported, Target},
     report::{Imported, Reason, Report},
 };
 use crate::corpus::{self, Entry};

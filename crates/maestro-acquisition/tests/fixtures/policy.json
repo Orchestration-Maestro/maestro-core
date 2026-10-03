@@ -1,0 +1,206 @@
+{
+  "schema": "maestro-source-policy/1",
+  "id": "policy",
+  "version": 1,
+  "collection_id": "garden",
+  "visibility": "public",
+  "scope_tags": [
+    "workspace/default/collection/garden"
+  ],
+  "owner_ref": {
+    "id": "owner",
+    "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "sources": [
+    {
+      "id": "notes",
+      "origins": [
+        {
+          "id": "content",
+          "scheme": "https",
+          "host": "garden.example",
+          "port": 443,
+          "path_prefixes": [
+            "/docs"
+          ],
+          "purpose": "content",
+          "private_grant": null
+        }
+      ],
+      "seeds": [
+        "https://garden.example/docs/start"
+      ],
+      "discovery": [
+        {
+          "kind": "links",
+          "depth": 1
+        }
+      ],
+      "selectors": [
+        {
+          "source_id": "notes",
+          "origin": "content",
+          "path_prefix": "/docs",
+          "object_ids": [],
+          "versions": [],
+          "channels": [],
+          "media_types": []
+        }
+      ],
+      "decisions": [
+        {
+          "id": "decisions",
+          "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "promotions": [],
+      "robots": {
+        "agent": "maestro",
+        "override": null,
+        "rules_max_bytes": 65536,
+        "cache_ttl_ms": 1000
+      },
+      "limits": {
+        "requests": 1,
+        "pages": 1,
+        "partitions": 1,
+        "redirects": 1,
+        "depth": 1,
+        "elapsed_ms": 120000,
+        "wire_bytes": 1,
+        "dom_bytes": 1,
+        "asset_bytes": 1,
+        "staging_bytes": 1,
+        "cpu_millicores": 1,
+        "memory_bytes": 1,
+        "source_runs": 1,
+        "origin_concurrency": 1,
+        "free_reserve_bytes": 1,
+        "gpu_reserve_bytes": 1,
+        "origin_interval_ms": 1,
+        "retries": 0,
+        "max_backoff_ms": 0,
+        "gpu_batches": 0,
+        "gpu_bytes": 0,
+        "decode": {
+          "expanded_bytes": 268435456,
+          "expansion_ratio": 100,
+          "nested_levels": 4,
+          "members": 1000,
+          "decoded_pixels": 32000000,
+          "elapsed_ms": 120000,
+          "memory_bytes": 2147483648,
+          "xml_entities": "disabled"
+        }
+      },
+      "identity": {
+        "version": 1,
+        "meaningful_queries": [],
+        "ignored_tracking_queries": [],
+        "query_order": "preserve",
+        "repeated_queries": "reject",
+        "fragment": "discard_for_fetch",
+        "migration": null
+      },
+      "auth_role": null,
+      "connector": null,
+      "wiki_mapping": null,
+      "acquisition_profile": {
+        "id": "http",
+        "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "selected_profiles": [
+        {
+          "id": "markdown",
+          "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "sync": {
+        "mode": "manual",
+        "timer_period_ms": null,
+        "overlap_ms": 0,
+        "clock_skew_ms": 0,
+        "revision_fields": []
+      }
+    }
+  ],
+  "registries": [
+    {
+      "id": "decisions",
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "profiles": {
+    "id": "extraction",
+    "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "acquisition_profiles": [
+    {
+      "id": "http",
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "address_table": {
+    "id": "addresses",
+    "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "aggregate_limits": {
+    "requests": 1,
+    "pages": 1,
+    "partitions": 1,
+    "redirects": 1,
+    "depth": 1,
+    "elapsed_ms": 120000,
+    "wire_bytes": 1,
+    "dom_bytes": 1,
+    "asset_bytes": 1,
+    "staging_bytes": 1,
+    "cpu_millicores": 1,
+    "memory_bytes": 1,
+    "source_runs": 1,
+    "origin_concurrency": 1,
+    "free_reserve_bytes": 1,
+    "gpu_reserve_bytes": 1,
+    "origin_interval_ms": 1,
+    "retries": 0,
+    "max_backoff_ms": 0,
+    "gpu_batches": 0,
+    "gpu_bytes": 0,
+    "decode": {
+      "expanded_bytes": 268435456,
+      "expansion_ratio": 100,
+      "nested_levels": 4,
+      "members": 1000,
+      "decoded_pixels": 32000000,
+      "elapsed_ms": 120000,
+      "memory_bytes": 2147483648,
+      "xml_entities": "disabled"
+    }
+  },
+  "adaptation": {
+    "matrix": {
+      "id": "matrix",
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "thresholds": {
+      "id": "thresholds",
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "baseline": {
+      "id": "baseline",
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "minimum_sample": 30,
+    "consecutive_runs": 2,
+    "activation_interval_ms": 86400000,
+    "automatic_classes": []
+  },
+  "retention_rule": {
+    "id": "retention",
+    "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "qualification": {
+    "id": "qualification",
+    "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

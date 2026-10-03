@@ -3,7 +3,7 @@
 //! of unscoped bookkeeping the scope module's docs list with their reason.
 //! The test reads the crate's own sources, as rustfmt lays them out.
 //!
-//! The scan sees a reader only by the `self.reader()` in its own body. A
+//! The scan sees `self.reader()` or `self.new_reader()` in its own body. A
 //! method that reads inside its write, as `ack` does, through another method
 //! or from the artifact store escapes it, and so does a reader outside the
 //! database's `impl` blocks: those are kept by hand in `BY_HAND`, and the
@@ -17,12 +17,13 @@ use std::{
 
 /// The readers of unscoped bookkeeping that open a reader: each takes no
 /// `ScopeSet`, and the scope module's docs give its reason.
-const UNSCOPED: [&str; 7] = [
+const UNSCOPED: [&str; 8] = [
     "artifact",
     "check_artifacts",
     "cursor",
     "garbage",
     "quick_check",
+    "record_mapped_revision",
     "setting_changes",
     "visible",
 ];
@@ -55,7 +56,7 @@ impl Method {
     /// Whether its body opens a reader, however rustfmt splits the call.
     fn opens_reader(&self) -> bool {
         let compact: String = self.body.split_whitespace().collect();
-        compact.contains("self.reader()")
+        compact.contains("self.reader()") || compact.contains("self.new_reader()")
     }
 
     /// Whether it takes the caller's `ScopeSet`.

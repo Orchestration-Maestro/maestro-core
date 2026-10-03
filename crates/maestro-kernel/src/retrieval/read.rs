@@ -36,7 +36,7 @@ pub(super) fn controlled_reader(
     control: &ReadControl,
 ) -> Result<Connection, Error> {
     control.check()?;
-    let reader = database.reader()?;
+    let reader = database.new_reader()?;
     control.check()?;
     let remaining = control
         .deadline

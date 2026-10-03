@@ -1,0 +1,27 @@
+{
+  "schema": "maestro-acquisition-profile/1",
+  "id": "http",
+  "version": 1,
+  "collection_id": "garden",
+  "visibility": "public",
+  "scope_tags": [
+    "workspace/default/collection/garden"
+  ],
+  "owner_ref": {
+    "id": "owner",
+    "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "transport": "http",
+  "adapter": {
+    "id": "adapter",
+    "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "required_capabilities": [
+    "fetch"
+  ],
+  "readiness": null,
+  "qualification": {
+    "id": "qualification",
+    "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

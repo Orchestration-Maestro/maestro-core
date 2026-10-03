@@ -59,7 +59,7 @@ portion, integrated code or test evidence, and remaining work.
 | owner.m001.laptop | Runs on laptops; installation and integration through the Copilot directory | Kept | [03 §1.5](03-agent-orchestration.md#15-native-projection-convenience-mode), [05 §1](05-platform-and-operations.md#1-reference-environment) |
 | owner.m001.guardrails | A central guardrails directory and destructive-commands manifest; every pre-tool use validated; native event hooks | Kept: the broker is authoritative, hooks are defence in depth | [03 §3.3–§4](03-agent-orchestration.md#4-the-policy-broker-cedar) |
 | owner.m001.contracts | Validate agents' output contracts; block bad behaviour | Kept | [03 §6](03-agent-orchestration.md#6-handoff-contracts-and-acceptance) |
-| owner.m020 | A concrete enterprise plan; fully Rust, Python only when there is no choice | Kept | [06](06-roadmap.md), [04 §1](04-intelligence-backend.md#1-scope-and-stance), [05 §1](05-platform-and-operations.md#1-reference-environment) |
+| owner.m020 | A concrete enterprise plan; fully Rust, Python only when there is no choice | Kept; S6 exception bounded by §15 A15 | [06](06-roadmap.md), [04 §1](04-intelligence-backend.md#1-scope-and-stance), [05 §1](05-platform-and-operations.md#1-reference-environment); S6 N02, N46, N50, N53, N54 audit render-only role |
 | owner.m024 | Two repositories: manifest definition and a detached laptop runtime | Kept | ADR-0012, [03 §1.3](03-agent-orchestration.md#13-check-compile-release-install) |
 | owner.m028 | An MCP with RAG over a large catalog so the orchestrator finds the best workflow, agents and skills from intent | Kept (workflow first) | [03 §1.4](03-agent-orchestration.md#14-routing-an-intent-to-a-workflow) |
 | owner.m032 | Concrete enforceable cases; persona injection; handoff validation with hooks; every SDK lever (guardrails, models, thinking); defaults users can override | Adapted: only the *free* class is freely overridable | [03 §1.6](03-agent-orchestration.md#16-configuration-and-overrides), [§3](03-agent-orchestration.md#3-agent-sessions), [§6](03-agent-orchestration.md#6-handoff-contracts-and-acceptance) |
@@ -73,7 +73,7 @@ portion, integrated code or test evidence, and remaining work.
 | owner.n024 | An Archify diagram of the whole architecture | Deferred: regenerate the atlas from this design once S0 publishes it | [06 S0](06-roadmap.md#s0-foundation) |
 | owner.n029, n065 | BM25 versus BGE-M3; why not BM25 | Kept: both, at different layers | [01 §8](01-knowledge-pipeline.md#8-l6-representations), [02 §3](02-retrieval-and-knowledge-graph.md#3-retrieval-routes) |
 | owner.n031 | Source to answer step by step, with fusion, reranking and deduplication | Kept | [01 §6](01-knowledge-pipeline.md#6-l4-deduplication), [02 §4–§6](02-retrieval-and-knowledge-graph.md#4-fusion) |
-| owner.n039 | Are Spider, Crawl4AI and Docling needed; native Rust preferred | Kept | [01 §2.2.2](01-knowledge-pipeline.md#222-transports), [§3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization) |
+| owner.n039 | Are Spider, Crawl4AI and Docling needed; native Rust preferred | Adapted (§15 A15–A17; owner, 2026-09-30) | [01 §2.2.2](01-knowledge-pipeline.md#222-transports), [§3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization); N02, N13, N20, N21, N46 |
 | owner.n047, n053 | The next step once content is Markdown | Kept | [01 §5–§7](01-knowledge-pipeline.md#5-l3-canonicalization) |
 | owner.n057 | Acceptance criteria before declaring a stage complete | Kept | §11.4 |
 | owner.n062 | The tokenizer contract for chunking | Adapted (§15 A6) | ADR-0008 |
@@ -111,7 +111,7 @@ portion, integrated code or test evidence, and remaining work.
 | chat.M036 classes, M039 policy | Free, bounded, additive, locked; exactly one class per setting; unknown and unclassified keys rejected; preference precedence; role-local capability values | Kept | [03 §1.6](03-agent-orchestration.md#16-configuration-and-overrides) |
 | chat.M036 objects | Persona, agent, team, workflow, handoff, skill, instruction, tool, MCP server, model profile, policy, execution profile, result contract, project preset | Kept | [03 §1.1–1.2](03-agent-orchestration.md#11-layout) |
 | chat.M036 defaults | Bootstrap defaults (profile, reasoning, output, concurrency, depth, tool calls, repairs, routing candidates, MCP timeout, memory, extensions, fallback, evidence, hooks) | Kept | [03 §1.6](03-agent-orchestration.md#16-configuration-and-overrides) |
-| delivery.§2.2 | Four separate contracts: catalog release, ingestion policy, completion manifest, runtime envelopes | Kept | [03 §1.3](03-agent-orchestration.md#13-check-compile-release-install), [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity), [01 §12](01-knowledge-pipeline.md#12-commands), [03 §6](03-agent-orchestration.md#6-handoff-contracts-and-acceptance) |
+| delivery.§2.2 | Four separate contracts: catalog release, ingestion policy, completion manifest, runtime envelopes; local S6 policy/activation must not rewrite a trusted catalog bundle or grant access | Adapted (§15 A27); contract separation kept | [03 §1.3](03-agent-orchestration.md#13-check-compile-release-install), [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity), [01 §12](01-knowledge-pipeline.md#12-commands), [03 §6](03-agent-orchestration.md#6-handoff-contracts-and-acceptance); S6 N03, N05, N30, N34, N43; later N56 read adapter and N55 integrated conformance |
 
 ## 5. Agents, workflows, handoffs and acceptance
 
@@ -222,69 +222,86 @@ portion, integrated code or test evidence, and remaining work.
 
 ### 11.1 Acquisition
 
+**S6 ownership, 2026-09-30 (N01):** N-number references below and in §12 name
+[planned enforcing tasks](../../specs/006-native-acquisition/tasks.md), not
+completion or passing tests. The [complete FR/SC map](../../specs/006-native-acquisition/tasks.md#complete-fr-and-sc-coverage)
+remains authoritative for all **62 FRs and 15 SCs**; N54 reconciles delivery
+against actual evidence. N01 reconciles the existing row keys without changing
+§20's historical S1 evidence. Where S6 consumes S1 in §§11.3–11.4, N-task ownership
+means integration/regression proof, not a replacement canonicalizer, chunker,
+embedder or publication engine. N56 is the later catalog policy/resource adapter
+at the `maestro` composition boundary, consuming S3 C41/C43/C66/C69. N55 follows
+it for integrated baseline/write-port and S4 conformance. Both are outside M6;
+N15/N30 start on N03/N06 with `DirectFiles` and test-only catalog fixtures.
+
 | ID | Requirement | Status | Where |
 | --- | --- | --- | --- |
-| rag.N011 two circuits | Ingestion and question answering are separate; never crawl per question | Kept | [01](01-knowledge-pipeline.md) introduction |
-| ingest approach | Staged native engine with adapters; Python harness only for comparison; no big-bang rewrite; Python kept until per-source parity | Kept | [01 §2.2](01-knowledge-pipeline.md#22-s6--native-acquisition) |
-| ingest scope | Owner-approved source rules and collection inventory are private; public docs describe only the generic acquisition contract | Kept | [01 §1](01-knowledge-pipeline.md#1-collections-sources-and-scopes), [§2.2](01-knowledge-pipeline.md#22-s6--native-acquisition) |
-| ingest policy | Strict executable JSON; review-only proposal refused; frozen exclusion registries; historical exceptions as promotion decisions | Kept | [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity), ADR-0014 |
-| ingest sessions | Session reuse before credentials; KeePass entry pair; TOTP and e-mail MFA with human completion; owned browser lifecycle; bindings per source role; second synthetic collection | Kept | [01 §2.2.3](01-knowledge-pipeline.md#223-sessions-and-authentication-private-connectors) |
-| ingest preflight | Bounded protected preflight (180 s, two reads, one login) | Kept | [01 §2.2.3](01-knowledge-pipeline.md#223-sessions-and-authentication-private-connectors) |
-| ingest precedence | Authority → network, robots, denials → promotion → cache bypass | Kept | [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity) |
-| ingest URLs, egress | URL identity rules; policy before every hop and subresource; private addresses refused | Kept | [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity) |
-| ingest modules | Policy, frontier, capture, extract, connectors; no second scheduler | Kept | [01 §2.2](01-knowledge-pipeline.md#22-s6--native-acquisition), [07 §4.1](07-extensibility.md#41-what-an-extension-can-be) |
-| ingest modes | Full, incremental, resume; caps with partial receipts; limits; cancellation | Kept | [01 §2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling) |
-| ingest discovery | Links from verified content; typed API discovery; partition subdivision and coverage | Kept | [01 §2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling), [§2.2.4](01-knowledge-pipeline.md#224-discovery-and-enumeration) |
-| ingest states, captures | Item state machine; one durable store; capture envelope; representation labels | Kept | [01 §2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling), [§2.2.8](01-knowledge-pipeline.md#228-captures) |
-| ingest assets, archives | Signed-URL minting, ranges, validators, safe archives | Kept | [01 §2.2.5–2.2.6](01-knowledge-pipeline.md#225-assets-and-catalogues) |
-| ingest updates | Watermarks after commit; withdrawals; repairs; stale derivatives invalidated | Kept | [01 §2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling), [§10](01-knowledge-pipeline.md#10-lifecycle) |
-| ingest receipts | Unique run receipts with counts and coverage | Kept | [01 §2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling) |
-| ingest audit defects | Twelve defects of the current route not reproduced | Kept | [01 §2.2.9](01-knowledge-pipeline.md#229-defects-of-the-current-route-that-the-native-engine-must-not-reproduce) |
-| ingest spike, rag.N046 | Spider as the engine behind our frontier; smaller HTTP/CDP driver if its hooks fall short | Kept | [01 §2.2.2](01-knowledge-pipeline.md#222-transports) |
-| rag.N046 filter | No query-specific filtering at ingestion | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization) |
-| product.CD2 | Synchronization policy per source | Kept | [01 §1](01-knowledge-pipeline.md#1-collections-sources-and-scopes) |
-| product.KIS | Internal wikis through their API | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization) |
+| rag.N011 two circuits | Ingestion and question answering are separate; never crawl per question | Kept | [01](01-knowledge-pipeline.md) introduction; S6 N03, N14 |
+| ingest approach | Staged Rust engine; family fixture/live/retrieval qualification, independent review, owner-approved single-writer cutover and rollback; only the named crawl4ai render exception may remain | Adapted (§15 A15, A30) | [01 §2.2](01-knowledge-pipeline.md#22-s6--native-acquisition), [06 S6](06-roadmap.md#s6-native-acquisition--m6); N02, N46, N49–N54 |
+| ingest scope | Owner-approved source rules, inventory and private connectors stay private; local adapter still needs exact grants and isolation | Kept | [01 §1](01-knowledge-pipeline.md#1-collections-sources-and-scopes), [§2.2](01-knowledge-pipeline.md#22-s6--native-acquisition); N05, N06, N43, N44, N54 |
+| ingest policy | Strict executable JSON; source-owned policy/decisions/promotions/migrations under manifest `knowledge/sources/<name>/`, never duplicate collection-local rules; catalog admission needs signed digest pin plus ownership approvals; review-only proposals refused; immutable digest-bound registries independently reviewed or machine-qualified only for new knowledge exclusions/asset-only entries; promotions separate | Adapted (§15 A29; owner URL-rule decision, 2026-09-30) | [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity), ADR-0014; N03, N15, N32–N35; later N56 consumes S3 C41/C43/C66/C69; S3 owns type-derived schemas/fixtures/checkpoints |
+| ingest sessions | Session reuse before credentials; isolated account/credential/session roles; human-required MFA pauses; owned browser lifecycle, protected opaque handles and wrong-account refusal | Kept | [01 §2.2.3](01-knowledge-pipeline.md#223-sessions-and-authentication-private-connectors); N05, N45, N46; qualified local host, no S4 wait |
+| ingest preflight | Bounded protected preflight (180 s, two reads, one login, zero retries); separate exact-account grant | Kept | [01 §2.2.3](01-knowledge-pipeline.md#223-sessions-and-authentication-private-connectors); N45 |
+| ingest precedence | Authority → network, robots, denials → promotion → cache bypass; adaptive exclusions cannot defeat denials or grant access | Kept | [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity); N05, N07, N10, N32 |
+| ingest URLs, egress | URL identity rules; policy before every connection, hop and subresource; private addresses refused | Kept: prohibition unchanged here | [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity); N07–N09, N46. N48 separately lands approved OA2 exact-origin amendment with enforcement; each origin still needs an authenticated expiring grant |
+| ingest modules | Kernel frontier/capture, replaceable policy/registry/transport/extractor/connector/schedule ports; qualified local subprocess adapter now, shared protocol and later S4 host, no second scheduler | Adapted (§15 A27) | [01 §2.2](01-knowledge-pipeline.md#22-s6--native-acquisition), [07 §4.1](07-extensibility.md#41-what-an-extension-can-be); N03, N04, N12, N15–N19, N42–N44; later N56 policy/resource adapter and N55 integrated/S4 conformance |
+| ingest modes | Full, incremental, resume, withdrawal, repair; caps/partial receipts, cancellation; command-line/local timers call the same admitted operation now | Adapted (§15 A28) | [01 §2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling); N09, N11, N14, N36–N42 |
+| ingest discovery | Links from verified content even when text is unchanged; typed API discovery; partition subdivision and coverage | Kept | [01 §2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling), [§2.2.4](01-knowledge-pipeline.md#224-discovery-and-enumeration); N13, N36, N47 |
+| ingest states, captures | Item state machine; one durable store; immutable verified capture envelope; representation labels and idempotent replay | Kept | [01 §2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling), [§2.2.8](01-knowledge-pipeline.md#228-captures); N04, N06, N09, N12, N37 |
+| ingest assets, archives | Signed-URL minting, ranges, validators, safe archives, cumulative decode limits and repository integrity | Kept | [01 §2.2.5–2.2.6](01-knowledge-pipeline.md#225-assets-and-catalogues); N09, N16–N19, N25, N28, N41 |
+| ingest updates | Watermarks after commit; withdrawals; repairs; stale derivatives invalidated; concurrent accepted updates preserved | Kept | [01 §2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling), [§10](01-knowledge-pipeline.md#10-lifecycle); N13, N36–N41 |
+| ingest receipts | Unique scoped run receipts, distinct-item counts separate from attempts/stages, coverage, immutable adaptive gate/activation reports; machine qualification is not human review | Kept, extended by §15 A29 | [01 §2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling), [§2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity); N06, N12, N30, N33–N35 |
+| ingest audit defects | All twelve defects reproduced by failing synthetic regressions before fixes; no lost stratum or blind legacy parity | Kept | [01 §2.2.9](01-knowledge-pipeline.md#229-defects-of-the-current-route-that-the-native-engine-must-not-reproduce); N13, N25, N36–N41, N49, N50; N49 reconciles all twelve proofs |
+| ingest spike, rag.N046 | Spider stays the crawler, extras/chrome/chromey off; only crawl4ai (Python, out of process) performs unavoidable browser work, with no frontier/conversion/model/publication role or browser fallback | Adapted (§15 A15; owner, 2026-09-30) | [01 §2.2.2](01-knowledge-pipeline.md#222-transports); N02 ADR-0020 audit, N03 acquisition profiles, N13 crawl adapter, N46 all-channel/browser qualification |
+| rag.N046 filter | No query-specific filtering at ingestion | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization); N16, N20, N24, N28 |
+| product.CD2 | Synchronization policy per source; local timer now, later replaceable S4 scheduler | Adapted (§15 A28) | [01 §1](01-knowledge-pipeline.md#1-collections-sources-and-scopes), [§2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling); N03, N14, N42; later N55 |
+| product.KIS | Internal wikis through their API, strict declarative mapping and effective permissions, not per-product core code | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization); N47; N48 owns separately approved exact-origin enforcement |
+| ingest adaptive configuration | Extensible profile registry, evidence-backed inference/drift, exactly five automatic change classes, mandatory matrix and protected-field refusal, persistence/rate limits, postcheck/rollback | Kept: owner decision, 2026-09-30 | [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity), [S6 spec](../../specs/006-native-acquisition/spec.md#self-configuration-adaptation-and-concurrent-operation); N15, N24, N29, N31–N35 |
+| ingest manifest-write authority | Immutable local/catalog baseline plus separate proposals and active overlays; one effective manifest, atomic expected-digest write port, zero trusted-bundle writes, owner-only grant store | Kept: owner decision and review ruling, 2026-09-30 | [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity), [S6 plan](../../specs/006-native-acquisition/plan.md#proposal-activation-and-privacy-transaction); N03, N05, N30, N34; later N56 read-only catalog baseline and N55 integrated write conformance |
+| ingest concurrent acquisition | Shared fenced frontier, context-aware in-flight deduplication, aggregate origin/resources, isolated staging, serialized stale-safe S1 publication and interactive priority | Kept: owner decision, 2026-09-30 | [01 §2.2.1](01-knowledge-pipeline.md#221-frontier-and-scheduling), [06 S6](06-roadmap.md#s6-native-acquisition--m6); N04, N10–N12, N34, N37, N40 |
+| ingest evidence privacy | Samples/proposals/drift/gate/owner reports inherit transitive scopes; protected storage and authorized local views; logs/notifiers carry only fixed content-free status plus opaque access-checked handles | Kept: review ruling, 2026-09-30 | [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity), [S6 spec](../../specs/006-native-acquisition/spec.md#separately-testable-security-and-activation-controls); N06, N29, N30, N34, N54; later N56 private-package scope/canary proof through C69, never a wider C42 mount |
+| ingest term aliases | Automatically learn only source-defined aliases with supporting spans; scoped, ambiguous, reviewable/reversible candidates, no product list or silent merge; S2 reviewed ALIAS_OF-compatible seam | Kept: owner approval, 2026-09-30 | [01 §6](01-knowledge-pipeline.md#6-l4-deduplication), [S6 plan](../../specs/006-native-acquisition/plan.md#learned-term-alias-candidates-and-later-search-seam); N29. No S2 delivery prerequisite, automatic approval or sixth change class; query expansion is later S1 work |
 
 ### 11.2 Extraction and quality
 
 | ID | Requirement | Status | Where |
 | --- | --- | --- | --- |
-| rag.N046 extractors | Xberg and docling.rs as alternatives behind one interface; Python Docling as oracle; pdf-inspector optional; escalation on structure | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization) |
-| rag.N046 contract | Extractor contract fields; one qualified path per media type; offline model assets | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization) |
-| rag.N046 small tools | htmd, dom_smoothie (careful), pulldown-cmark, calamine, Tree-sitter; no format conversion to PDF | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization) |
-| rag.N011 normalization | unicode-normalization; ammonia only for display; never strip accents, case or symbols globally; injected instructions stay data | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization) |
+| rag.N046 extractors | Unchanged Xberg 1.x MIT/native docling.rs bake-off; one qualified native path per profile; Python Docling comparison-only after cutover, not a fallback; tract layout/OCR default, dynamic offline table-only ONNX Runtime, each offline weight licence checked | Adapted (§15 A16; owner, 2026-09-30) | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization); N02 audits, N21 bake-off, N22–N23 integration, N28 qualification; optional comparisons still need approval |
+| rag.N046 contract | Shared typed blocks/locations/assets contract, content-based registry, one qualified path per profile, correspondence not counts alone, bounded isolated decoding, offline model assets | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization); N15–N28; native mapped S1 handoff N26, qualification N28 |
+| rag.N046 small tools | htmd checked against Xberg's converter; dom_smoothie unselected; direct Markdown and typed structured data, calamine; no converter chain or format conversion to PDF; semantic code indexing stays S7 | Adapted (§15 A17; owner, 2026-09-30) | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization); N02, N20, N23, N24 |
+| rag.N011 normalization | unicode-normalization; ammonia only for display; never strip accents, case or symbols globally; injected instructions stay data | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization); N16, N20, N23, N24, N28, N47 |
 | rag.N011 mining | Deterministic metadata first; model extraction only where needed; every item traced to a passage | Kept | [02 §8.3](02-retrieval-and-knowledge-graph.md#83-construction-pipeline) |
-| rag.N052 quality | Accept, accept with warnings, re-extract, quarantine; format-aware; no model rewriting | Kept | [01 §4](01-knowledge-pipeline.md#4-corpus-quality-gate) |
-| product.CD2 multimedia | OCR, transcription, visual interpretation as derived records | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization) |
+| rag.N052 quality | Accept, accept with warnings, re-extract, quarantine; format-aware; no model rewriting | Kept | [01 §4](01-knowledge-pipeline.md#4-corpus-quality-gate); S1 outcomes reused by N16, N20, N24, N27, N28 |
+| product.CD2 multimedia | OCR, transcription, visual interpretation as separately authorized derived records; safe partial assets/text/metadata are not searchable acceptance | Kept | [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization); N15, N17–N19, N22, N24, N28 |
 
 ### 11.3 Canonicalization, deduplication and chunking
 
 | ID | Requirement | Status | Where |
 | --- | --- | --- | --- |
-| rag.N054–N056 | Canonical document contract and completion test | Kept (implemented by the crate) | [01 §5](01-knowledge-pipeline.md#5-l3-canonicalization) |
-| rag.N060 A01–A34 | Canonicalization acceptance gates (identity, structure, spans, safety, persistence) | Kept; re-verified on the migrated crate in S0 | [06 S0](06-roadmap.md#s0-foundation) |
-| rag.N038 dedup | Exact binary, exact canonical, prepared-input fingerprints; near-duplicate grouping with exact confirmation; never delete | Kept | [01 §6](01-knowledge-pipeline.md#6-l4-deduplication) |
-| rag.N060 near-dup | Near-duplicate detection optional and off | Adapted (§15 A22) | [01 §6](01-knowledge-pipeline.md#6-l4-deduplication) |
-| rag.N060 B01–B13 | Chunking gates, chunk record contract, manifests, restarts | Kept | [01 §7](01-knowledge-pipeline.md#7-l5-chunking) |
-| rag.N052 chunk policy | Prose, short sections, lists, code, tables; parents as references; deterministic prefixes | Kept | [01 §7](01-knowledge-pipeline.md#7-l5-chunking) |
-| rag.N011 sizes | Child 512, parent 1,500, overlap 0–15 % | Adapted (§15 A9) | [01 §7](01-knowledge-pipeline.md#7-l5-chunking) |
-| rag.N064 tokenizer | Match the GGUF encoder; ordered-ID parity; contract ID in every manifest | Adapted (§15 A6) | ADR-0008, [01 §7](01-knowledge-pipeline.md#7-l5-chunking) |
-| rag.N067 contracts | Embedding tokenizer contract and BM25 analyzer contract kept separate | Kept | [01 §8](01-knowledge-pipeline.md#8-l6-representations) |
-| rag.N011 techniques | Contextual retrieval, late chunking, late interaction tested one at a time | Kept | [01 §7–§8](01-knowledge-pipeline.md#7-l5-chunking) |
+| rag.N054–N056 | Canonical document contract and completion test | Kept (implemented by the crate) | [01 §5](01-knowledge-pipeline.md#5-l3-canonicalization); N26 mapped ingestion preserves corpus/1 identity; semantic native asset changes create new revisions; N28 regression proof |
+| rag.N060 A01–A34 | Canonicalization acceptance gates (identity, structure, spans, safety, persistence) | Kept; re-verified on the migrated crate in S0 | [06 S0](06-roadmap.md#s0-foundation); S6 N26, N28 preserve the gates and resolvable source mappings |
+| rag.N038 dedup | Exact binary, exact canonical, prepared-input fingerprints; near-duplicate grouping with exact confirmation; never delete | Kept | [01 §6](01-knowledge-pipeline.md#6-l4-deduplication); N26, N27, N28, N38 preserve occurrence/source-reference identity and permissions |
+| rag.N060 near-dup | Near-duplicate detection optional and off | Adapted (§15 A22) | [01 §6](01-knowledge-pipeline.md#6-l4-deduplication); S1 grouping reused by N27, N28; no destructive merge |
+| rag.N060 B01–B13 | Chunking gates, chunk record contract, manifests, restarts | Kept | [01 §7](01-knowledge-pipeline.md#7-l5-chunking); N27, N28 reuse S1 chunking with complete mapped coverage |
+| rag.N052 chunk policy | Prose, short sections, lists, code, tables; parents as references; deterministic prefixes | Kept | [01 §7](01-knowledge-pipeline.md#7-l5-chunking); N27, N28; strategy adaptation only through N32, N33 |
+| rag.N011 sizes | Child 512, parent 1,500, overlap 0–15 % | Adapted (§15 A9) | [01 §7](01-knowledge-pipeline.md#7-l5-chunking); N27, N28 retain qualified complete-input limits; N32, N33 gate supported strategy changes |
+| rag.N064 tokenizer | Match the GGUF encoder; ordered-ID parity; contract ID in every manifest | Adapted (§15 A6) | ADR-0008, [01 §7](01-knowledge-pipeline.md#7-l5-chunking); N27, N28 consume the qualified S1 counter, no new tokenizer |
+| rag.N067 contracts | Embedding tokenizer contract and BM25 analyzer contract kept separate | Kept | [01 §8](01-knowledge-pipeline.md#8-l6-representations); N27 preserves S1 contracts; N52 pins downstream profiles between comparison arms |
+| rag.N011 techniques | Contextual retrieval, late chunking, late interaction tested one at a time | Kept | [01 §7–§8](01-knowledge-pipeline.md#7-l5-chunking); N01 scope check: techniques remain S1 evaluation, not new S6 engines; N27 consumes only qualified S1 capabilities |
 
 ### 11.4 Representations, indexing and publication
 
 | ID | Requirement | Status | Where |
 | --- | --- | --- | --- |
-| rag.N070 EmbeddingProfile | Complete profile; validation of vectors; batch versus single; cache key | Kept | [01 §8](01-knowledge-pipeline.md#8-l6-representations) |
-| rag.N070 Bm25Profile | Versioned lexical contract; French/English policy; identifiers in payload; empty-term policy | Kept | [01 §8](01-knowledge-pipeline.md#8-l6-representations) |
-| rag.N070 index | Staging generation; named vectors; payload and indexes; deterministic point IDs; unresolved permission never public | Kept | [01 §9](01-knowledge-pipeline.md#9-l7-indexing-and-publication) |
-| rag.N070 publication | Idempotent writes, persistent progress, pre-publication checks beyond counts, one pointer, rollback | Kept | [01 §9](01-knowledge-pipeline.md#9-l7-indexing-and-publication) |
-| rag.N070 diagnostics | Independent dense and BM25 search before fusion | Kept | [02 §10](02-retrieval-and-knowledge-graph.md#10-evaluation) |
-| rag.N038 statistics | IDF statistics isolated per generation; a filter is not a snapshot; Qdrant 1.19 corpus filter | Kept | [01 §9](01-knowledge-pipeline.md#9-l7-indexing-and-publication) |
-| rag.N011, N016 automation | Durable state machine, outbox, change-driven jobs, deletion propagation, separate budgets, interactive priority | Kept | [01 §10](01-knowledge-pipeline.md#10-lifecycle) |
-| rag.N052 recompute | Dependency-driven recomputation table | Kept | [01 §10](01-knowledge-pipeline.md#10-lifecycle) |
-| rag.N075 first deliverable | Admit, prepare with the qualified counter, persist, record, survive interruption, expose after validation | Kept | [06 S1](06-roadmap.md#s1-knowledge-kernel--hybrid-rag--m1) |
+| rag.N070 EmbeddingProfile | Complete profile; validation of vectors; batch versus single; cache key | Kept | [01 §8](01-knowledge-pipeline.md#8-l6-representations); N27 uses S1 embedding/cache/profile validation |
+| rag.N070 Bm25Profile | Versioned lexical contract; French/English policy; identifiers in payload; empty-term policy | Kept | [01 §8](01-knowledge-pipeline.md#8-l6-representations); N27 reuses S1; N52 pins the analyzer and evaluation semantics |
+| rag.N070 index | Staging generation; named vectors; payload and indexes; deterministic point IDs; unresolved permission never public | Kept | [01 §9](01-knowledge-pipeline.md#9-l7-indexing-and-publication); N27, N38, N40 reuse S1 staging and current access checks |
+| rag.N070 publication | Idempotent writes, persistent progress, pre-publication checks beyond counts, one pointer, rollback | Kept | [01 §9](01-knowledge-pipeline.md#9-l7-indexing-and-publication); N27, N35, N38, N40, N53 preserve the old index on failure and check current rollback authority |
+| rag.N070 diagnostics | Independent dense and BM25 search before fusion | Kept | [02 §10](02-retrieval-and-knowledge-graph.md#10-evaluation); N52 uses existing S1 diagnostics for route-level comparison, not new retrieval routes |
+| rag.N038 statistics | IDF statistics isolated per generation; a filter is not a snapshot; Qdrant 1.19 corpus filter | Kept | [01 §9](01-knowledge-pipeline.md#9-l7-indexing-and-publication); N27, N40 preserve S1 generations; N52 freezes matched comparison arms |
+| rag.N011, N016 automation | Durable state machine, outbox, change-driven jobs, deletion propagation, separate budgets, interactive priority | Kept | [01 §10](01-knowledge-pipeline.md#10-lifecycle); N04, N06, N11, N12, N36–N42 |
+| rag.N052 recompute | Dependency-driven recomputation table | Kept | [01 §10](01-knowledge-pipeline.md#10-lifecycle); N26, N27, N38, N39 retain originals and rebuild only affected derivatives |
+| rag.N075 first deliverable | Admit, prepare with the qualified counter, persist, record, survive interruption, expose after validation | Kept | [06 S1](06-roadmap.md#s1-knowledge-kernel--hybrid-rag--m1); N26–N28, N37, N40 extend acquisition into S1, not a second downstream pipeline |
 
 ### 11.5 Retrieval, fusion, reranking, evidence and answers
 
@@ -335,9 +352,9 @@ portion, integrated code or test evidence, and remaining work.
 | delivery.U07 | SDK sessions, hooks, defaults, MCP boundaries | S4 |
 | delivery.U08 | First end-to-end governed workflow | S4 (M4) |
 | delivery.U09 | Deterministic bootstrap and native projection | S3 |
-| delivery.U10 (Q1–Q3, D1) | Adapter qualification and executable policy | S6 (offline part can start after S1) |
-| delivery.U11 (D2–D3) | Durable ingestion and the first knowledge CLI | S1 (local prepared-document operation), S6 (frontier) |
-| delivery.U12 (Q4, D4–D5) | All source slices, protected preflight, per-source cutover | S6 |
+| delivery.U10 (Q1–Q3, D1) | Adapter qualification and executable policy | S6 after S1 delivery, no S3/S4 wait: N02, N03, N07–N10, N15–N28, N32–N35, N43–N48. Offline fixtures do not grant live access |
+| delivery.U11 (D2–D3) | Durable ingestion and the first knowledge CLI | S1 local prepared-document operation retained; S6 N04, N06, N12–N14, N26, N27, N36–N42 add frontier and command-line/local-timer sync; later N56 supplies catalog reads and N55 integrates unchanged write/host/schedule contracts |
+| delivery.U12 (Q4, D4–D5) | All source slices, protected preflight, per-source cutover | S6 N45–N54: exact grants, each family's source-grounded fixture/live/retrieval comparison, independent review, owner-approved single writer, scheduled refresh and rollback. All approved families required for M6; only bounded crawl4ai rendering remains, no Python producer/extractor/connector or S3/S4 prerequisite |
 | delivery.U13 | Workflow discovery and Qdrant projection; embedding qualification | S1 (Qdrant adapter, embedding bake-off), S3 (catalog routing) |
 | delivery.U14 | Branch-scoped knowledge retrieval; reusable memory gate | S1 (retrieval), S7-I1 (memory) |
 | delivery.U15 | Privacy-safe telemetry at every stage | S1 onward, completed in S4–S5 |
@@ -352,7 +369,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | --- | --- |
 | delivery.C01 transparent platform, minimal plumbing | [03 §1.7](03-agent-orchestration.md#17-project-bootstrap-maestro-init), [06](06-roadmap.md) |
 | delivery.C02 detached two-repository releases | ADR-0012, [03 §1.3](03-agent-orchestration.md#13-check-compile-release-install) |
-| delivery.C03 Rust-first, explicit native dependencies, justified Python | [04 §1](04-intelligence-backend.md#1-scope-and-stance), [05 §6.2](05-platform-and-operations.md#62-supply-chain) |
+| delivery.C03 Rust-first, explicit native dependencies, justified Python | [04 §1](04-intelligence-backend.md#1-scope-and-stance), [05 §6.2](05-platform-and-operations.md#62-supply-chain); S6 [01 §2.2.2](01-knowledge-pipeline.md#222-transports), §15 A15: N02 records only the named crawl4ai browser exception; N46, N50, N53, N54 enforce its role |
 | delivery.C04 readiness, owners, dependencies without invalid frontmatter | [03 §1.2](03-agent-orchestration.md#12-formats-copilot-native-first) |
 | delivery.C05 InnerSource and domain capabilities | [03 §10](03-agent-orchestration.md#10-innersource-flow-s5), [06 S5](06-roadmap.md#s5-capabilities--innersource--m5) |
 | delivery.C06 closure, merge, explanation, one override class | [03 §1.6](03-agent-orchestration.md#16-configuration-and-overrides) |
@@ -398,7 +415,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | ID | Decision | Status | Where |
 | --- | --- | --- | --- |
 | product.CD1 | Full code-analysis block with SCIP and LSP; propose and apply structural transformations after approval | Kept | [04 §5](04-intelligence-backend.md#5-phase-i2--code-intelligence) |
-| product.CD2 | Per-source synchronization; multimedia interpretation retained | Kept | [01 §1](01-knowledge-pipeline.md#1-collections-sources-and-scopes), [§3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization) |
+| product.CD2 | Per-source synchronization; multimedia interpretation retained | Kept; schedule adapter adapted (§15 A28) | [01 §1](01-knowledge-pipeline.md#1-collections-sources-and-scopes), [§3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization); N03, N14, N42 local sync; N15, N22, N24, N28 media qualification |
 | product.CD3 | Retrieval scope: project plus explicit shares | Kept | [02 §1](02-retrieval-and-knowledge-graph.md#1-admission-and-scope) |
 | product.CD4 | Admission by people or approved rules; marked hypotheses | Kept | [04 §6](04-intelligence-backend.md#6-phase-i3--governed-semantic-and-temporal-knowledge) |
 | product.CD5 | No automatic expiry of originals | Kept | [04 §4](04-intelligence-backend.md#4-phase-i1--memory-and-continuity) |
@@ -443,9 +460,9 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | A12 | Ordered workflow steps (chat) | Workflow graphs with bounded loops and joins (ADR-0006) | Expresses reviews, repairs and fan-out |
 | A13 | Rig as the agent abstraction (rag.N016) | The in-house engine and sessions | Semantics are host-specific |
 | A14 | Tantivy for lexical search (rag.N011) | Qdrant sparse vectors from maestro's `bm25-en-fr/1` analyzer (R7); Tantivy only if tests show gaps | One engine |
-| A15 | Crawl4AI in the production path | Comparison oracle until per-source cutover | Rust-first; parity gates |
-| A16 | kreuzberg 4.10 as the document extractor (first draft of this design) | Xberg or docling.rs per media type by bake-off | rag.N046 |
-| A17 | dom_smoothie readability by default (first draft) | htmd first; readability only if it helps | delivery.U10 (Q1) |
+| A15 | Crawl4AI production pipeline; Spider CDP with chromiumoxide fallback in the earlier native proposal | Rust producers/extractors/connectors; Spider crawling with extras/chrome/chromey off. Only unavoidable browser work uses pinned crawl4ai (Python, out of process), with no frontier/conversion/inference/embedding/publication role. No other production browser fallback; legacy producers become comparison-only after each cutover | Owner, 2026-09-30: Rust everywhere except unavoidable browser work. N02 records ADR-0020 role/artifact exception; N46 qualifies controls; N50, N53, N54 verify inventory; no runtime approval inferred from this amendment |
+| A16 | kreuzberg 4.10 as extractor; possible Python Docling production exception if Rust candidates lose structure | Unchanged Xberg 1.3.0 (1.x MIT)/native docling 1.78.0 defaults-off pdf-text bake-off; qualified winner per profile, no Python extraction fallback. tract default layout/OCR; dynamic offline ONNX Runtime only for tables; offline pinned weights individually licence-checked | rag.N046 and owner, 2026-09-30; N02 exact adoption audit, N21 comparison. Scope approval is not a measured winner or approval of unselected features |
+| A17 | dom_smoothie readability by default (first draft) | htmd checked against Xberg's built-in converter; one qualified path, no converter chain; dom_smoothie remains an unselected separately approved candidate | delivery.U10 (Q1), owner shortlist 2026-09-30; N02 audits, N20 fidelity proof |
 | A18 | A fixed monthly refresh | Per-source synchronization policy with schedules | product.CD2 |
 | A19 | Workbench confirmed against a web front end at I4 (first draft) | Native Rust desktop confirmed (ADR-0016) | Owner-confirmed direction |
 | A20 | A list of test libraries to install | Tokio, nextest and insta first; others only per real seam | delivery.C19 |
@@ -455,6 +472,10 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | A24 | A separately deployable catalog MCP service (chat.M031) | The same `maestro` MCP server; a service deployment waits for a team profile | Laptop first |
 | A25 | Recopy 43 reviewed migration candidates (core) | The crate stays as is with its fixtures; S0 only brings it to the gates | Already present; delivery.§7.2 |
 | A26 | First governed workflow first (delivery.U08) | Knowledge kernel and Control-M RAG first (S1) | Owner decision |
+| A27 | S6 source-connector extensions implicitly wait for S4's general host and catalog-backed declarations | Qualified local subprocess connector and direct manifest-file policy now; same shared protocol, isolation, activation and owner-only authority; S3/S4 adapters later without caller changes | Owner independence decision, 2026-09-30; N01 amendment 1 in 01 §2.2, N03, N05, N43–N45 enforce it; N55/N56 stay outside M6 |
+| A28 | Source schedules rely on S4 daemon timers | Command-line and local timers invoke the same admitted sync operation now; S4 scheduler plugs in later; no second queue or implicit schedule grant | Owner, 2026-09-30; N01 amendment 2 in 01 §2.2.1, N14 and N42 enforce it |
+| A29 | Required registries must all be reviewed operator exports | Independent review or machine qualification of new knowledge exclusions/asset-only entries only, under the closed five-class allow-list and every mandatory gate; other edits need separate approval; machine qualification never impersonates human review | Owner automatic-adaptation decision and review ruling, 2026-09-30; N01 amendment 3 in 01 §2.2.7, N03, N15, N30–N35 enforce it |
+| A30 | S6 cutover wording covers per-source parity and scheduled refresh without explicit local-adapter, adaptation or concurrent-publication boundaries | S1-only delivery dependency; local adapters, gated automatic adaptation and collision-safe parallel harvest; source-grounded comparison, retrieval qualification, owner-approved one-writer cutover, observed native refresh and rollback for every approved family | Owner, 2026-09-30; N01 amendment 4 in 06 S6; N04, N10–N12, N29–N42, N49–N54 enforce it; only the named A15 render exception remains at M6 |
 
 ## 16. Dropped
 

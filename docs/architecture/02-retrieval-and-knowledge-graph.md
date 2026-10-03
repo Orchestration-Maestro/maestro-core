@@ -351,19 +351,22 @@ flowchart LR
   Ch -->|MENTIONS span| Ent[Entity]
   Sec -->|DEFINES| Ent
   Ent -->|RELATES type, version range, evidence| Ent
-  Ent -->|ALIAS_OF| Ent
+  Ent -->|ALIAS_OF reviewed identity| Ent
   Doc -->|SAME_TOPIC_AS| Doc
 ```
 
 | Element | Kinds / properties |
 | --- | --- |
 | **Entity** kinds | `Component` (e.g. Enterprise Manager, Server, Agent), `Command`, `Parameter`, `ConfigFile`, `ErrorCode`, `Message`, `Version`, `Platform`, `Port`, `Feature`, `Concept`, `API` |
-| **Relation** types | `REQUIRES`, `CONFIGURES`, `PART_OF`, `DEPENDS_ON`, `REPLACES`, `DEPRECATED_IN`, `INTRODUCED_IN`, `APPLIES_TO`, `CAUSES`, `RESOLVES`, `DEFAULTS_TO`, `ALIAS_OF` (closed list, extended by ADR) |
-| Relation properties | `evidence: [chunk_id + span]`, `extractor` (rule ID or model card), `confidence`, `valid_from_version`, `valid_to_version`, `generation` |
+| **Relation** types | `REQUIRES`, `CONFIGURES`, `PART_OF`, `DEPENDS_ON`, `REPLACES`, `DEPRECATED_IN`, `INTRODUCED_IN`, `APPLIES_TO`, `CAUSES`, `RESOLVES`, `DEFAULTS_TO`, `ALIAS_OF` (reviewed identity record, not an extracted claim); closed list, extended by ADR |
+| Claim relation properties | `evidence: [chunk_id + span]`, `extractor` (rule ID or model card), `confidence`, `valid_from_version`, `valid_to_version`, `generation` |
 | Structural nodes | `Document`, `Section`, `Chunk` mirror the kernel (IDs only, no text) |
 
-Relations are **claims with evidence**, not facts: a relation without at least
-one verified evidence span is never stored.
+Extracted relations are **claims with evidence**, not facts: a claim without at
+least one verified evidence span is never stored. `ALIAS_OF` belongs to the closed
+vocabulary only as a **reviewed identity record**, excluded from extraction
+and from claims with evidence (S2 FR-S2-024). No model may produce `ALIAS_OF` as a
+typed relation.
 
 | Rule | Design |
 | --- | --- |
@@ -380,8 +383,8 @@ one verified evidence span is never stored.
 | --- | --- | --- | --- |
 | A. Structure | From canonical documents: sections, order, links, versions | None (deterministic) | Document/Section/Chunk nodes, `LINKS_TO`, `NEXT` |
 | B. Rule extraction | Domain rule packs: commands from code blocks, parameters from parameter tables (name, default, component, version), error codes by pattern, components from a curated dictionary | Low (deterministic) | High-precision entities and `DEFAULTS_TO`, `PART_OF`, `APPLIES_TO` relations |
-| C. Model extraction | The selected extractor model reads a chunk with its context and returns typed relations as JSON Schema output; **each relation must quote its evidence, and the quote must be an exact substring of the chunk**, otherwise it is dropped | High: runs offline as a resumable job with a token budget; prioritized on sections the eval shows under-served | Typed relations with confidence |
-| D. Entity resolution | Normalize names; alias rules; blocking by entity kind; entity-vector similarity; automatic merge only for identical normalized names within a kind; everything ambiguous goes to a review queue | Medium | Canonical entities, `ALIAS_OF` edges, review items |
+| C. Model extraction | The selected extractor model reads a chunk with its context and returns typed claim relations, excluding `ALIAS_OF`, as JSON Schema output; **each relation must quote its evidence, and the quote must be an exact substring of the chunk**, otherwise it is dropped | High: runs offline as a resumable job with a token budget; prioritized on sections the eval shows under-served | Typed claims with confidence |
+| D. Entity resolution | Normalize names; alias rules; blocking by entity kind; entity-vector similarity; automatic merge only for identical normalized names within a kind; everything ambiguous goes to a review queue | Medium | Canonical entities, reviewed `ALIAS_OF` identity records, review items |
 | E. Temporal and conflict | Relations carry version ranges; the same subject/predicate with different objects across versions becomes two ranged relations, not an overwrite | Low | Version-aware claims, conflict records |
 | F. Communities (optional) | Leiden communities on the entity graph; summaries generated **on demand** for global questions and cached per generation (LazyGraphRAG-style), not precomputed for every community | On demand | Community IDs, cached summaries |
 

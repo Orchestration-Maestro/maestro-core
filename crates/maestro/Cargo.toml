@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 clap.workspace = true
+maestro-acquisition.workspace = true
 maestro-kernel.workspace = true
 maestro-knowledge.workspace = true
 maestro-settings.workspace = true
@@ -32,10 +33,15 @@ tokio = { workspace = true, features = [
 ulid.workspace = true
 
 [dev-dependencies]
+maestro-kernel = { workspace = true, features = ["test"] }
+maestro-test-clock.workspace = true
 maestro-test-scratch.workspace = true
 qdrant-client.workspace = true
 tonic.workspace = true
 tracing.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 winapi-util.workspace = true

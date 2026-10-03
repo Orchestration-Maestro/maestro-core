@@ -20,41 +20,73 @@
 //! The check arrives with the first key that does refer to a declared name,
 //! in the source policies of S6.
 
-use crate::{relative_path::RelativePath, shape};
+use crate::{relative_path::RelativePath, shape, strict_json};
+use maestro_kernel::artifact::Digest;
 use maestro_kernel::binding::{self, Bindings};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize, de};
 use std::{collections::BTreeSet, error, fmt, path::PathBuf, str::FromStr};
 
 /// A collection's declaration. [`str::parse`] reads one from a JSON object
 /// only, and refuses two sources that share an id, which the shape alone
 /// allows.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(try_from = "WireDeclaration", into = "WireDeclaration")]
 #[non_exhaustive]
 pub struct Declaration {
     /// The contract the declaration follows.
-    #[serde(deserialize_with = "shape::name")]
     pub schema: Schema,
     /// The collection's id, such as `ctm`: a collection name.
-    #[serde(deserialize_with = "shape::collection_id")]
     pub id: String,
     /// What the collection holds, for people.
     pub title: String,
     /// Who may see what the collection derives: a scope tag on every record.
-    #[serde(deserialize_with = "shape::name")]
     pub visibility: Visibility,
     /// The profiles that process every source.
-    #[serde(deserialize_with = "shape::object")]
     pub profiles: Profiles,
     /// The collection's quality ledger.
-    #[serde(deserialize_with = "shape::object")]
     pub quality: Quality,
     /// Where the collection's documents come from, in the declared order.
-    #[serde(deserialize_with = "shape::objects")]
     pub sources: Vec<Source>,
     /// The collection's evaluation suites.
-    #[serde(deserialize_with = "shape::object")]
     pub evals: Evals,
+    /// Exact source-policy identity; absent for S1-only declarations.
+    pub source_policy: Option<PolicyReference>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+/// Version-sensitive strict collection fields before link validation.
+struct WireDeclaration {
+    /// The contract the declaration follows.
+    #[serde(deserialize_with = "shape::name")]
+    schema: Schema,
+    /// The collection's id, such as `ctm`: a collection name.
+    #[serde(deserialize_with = "shape::collection_id")]
+    id: String,
+    /// What the collection holds, for people.
+    title: String,
+    /// Who may see what the collection derives: a scope tag on every record.
+    #[serde(deserialize_with = "shape::name")]
+    visibility: Visibility,
+    /// The profiles that process every source.
+    #[serde(deserialize_with = "shape::object")]
+    profiles: Profiles,
+    /// The collection's quality ledger.
+    #[serde(deserialize_with = "shape::object")]
+    quality: Quality,
+    /// Where the collection's documents come from, in the declared order.
+    #[serde(deserialize_with = "shape::objects")]
+    sources: Vec<Source>,
+    /// The collection's evaluation suites.
+    #[serde(deserialize_with = "shape::object")]
+    evals: Evals,
+    /// Presence distinguishes an omitted v1 link from explicit v2 null.
+    #[serde(
+        default,
+        deserialize_with = "policy_link",
+        skip_serializing_if = "Link::is_missing"
+    )]
+    source_policy: Link,
 }
 
 impl Declaration {
@@ -89,7 +121,11 @@ impl FromStr for Declaration {
     /// [`Error::Json`] when the text is not strict JSON of the contract's
     /// shape, and [`Error::DuplicateSource`] when two sources share an id.
     fn from_str(text: &str) -> Result<Self, Error> {
-        let declaration: Self = shape::parse(text).map_err(Error::Json)?;
+        let value = strict_json::bounded(text.as_bytes()).map_err(Error::Json)?;
+        if value.get("schema").and_then(serde_json::Value::as_str) != Some("maestro-collection/1") {
+            strict_json::strings(&value).map_err(Error::Json)?;
+        }
+        let declaration: Self = strict_json::object(value).map_err(Error::Json)?;
         match repeated_id(&declaration.sources) {
             Some(id) => Err(Error::DuplicateSource(id.to_owned())),
             None => Ok(declaration),
@@ -107,15 +143,18 @@ fn repeated_id(sources: &[Source]) -> Option<&str> {
 }
 
 /// The contract a declaration follows; this version reads the first only.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Schema {
     /// `maestro-collection/1`.
     #[serde(rename = "maestro-collection/1")]
     V1,
+    /// `maestro-collection/2`, with a required nullable source-policy link.
+    #[serde(rename = "maestro-collection/2")]
+    V2,
 }
 
 /// Who may see what a collection derives.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Visibility {
     /// `public`: anyone.
@@ -126,7 +165,7 @@ pub enum Visibility {
 
 /// The profiles that process every source of a collection, each named with
 /// its version.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Profiles {
@@ -143,7 +182,7 @@ pub struct Profiles {
 }
 
 /// Where a collection keeps its quality ledger.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Quality {
@@ -152,7 +191,7 @@ pub struct Quality {
 }
 
 /// Where a collection keeps its evaluation suites.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Evals {
@@ -162,7 +201,7 @@ pub struct Evals {
 }
 
 /// A declared origin of a collection's documents.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Source {
@@ -182,7 +221,7 @@ pub struct Source {
 }
 
 /// How a source's documents arrive.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SourceKind {
     /// `import`: from an existing corpus, through its manifest.
@@ -191,7 +230,7 @@ pub enum SourceKind {
 
 /// When a source is brought up to date: an owner's decision, never widened by
 /// automation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Synchronization {
     /// `one-off`: once.
@@ -204,7 +243,7 @@ pub enum Synchronization {
 
 /// Where a source's corpus manifest is: a path under a named binding, so the
 /// declaration holds no machine path.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Manifest {
@@ -244,5 +283,116 @@ impl error::Error for Error {
             Self::Json(error) => Some(error),
             Self::DuplicateSource(_) => None,
         }
+    }
+}
+
+/// A source-policy resource identity, not a path or an access grant.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyReference {
+    /// Logical resource identifier, validated by the source-policy resolver.
+    #[serde(deserialize_with = "resource_id")]
+    #[schemars(
+        length(min = 1, max = 128),
+        regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+    )]
+    pub id: String,
+    /// Exact immutable SHA-256 resource digest.
+    #[schemars(with = "String", regex(pattern = "^[0-9a-f]{64}$"))]
+    pub digest: Digest,
+}
+
+/// A version-sensitive nullable link on the wire.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+enum Link {
+    /// The v1 contract has no link field.
+    #[default]
+    Missing,
+    /// The v2 contract requires a field, including explicit null.
+    Present(Option<PolicyReference>),
+}
+
+impl Link {
+    /// Omitted only for v1 serialization.
+    fn is_missing(&self) -> bool {
+        matches!(self, Self::Missing)
+    }
+}
+
+impl Serialize for Link {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Missing => serializer.serialize_none(),
+            Self::Present(value) => value.serialize(serializer),
+        }
+    }
+}
+
+/// A present link is null or an object, never an array of fields.
+fn policy_link<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Link, D::Error> {
+    #[derive(Deserialize)]
+    struct Object(#[serde(deserialize_with = "shape::object")] PolicyReference);
+    Option::<Object>::deserialize(deserializer)
+        .map(|value| Link::Present(value.map(|Object(reference)| reference)))
+}
+
+impl TryFrom<WireDeclaration> for Declaration {
+    type Error = &'static str;
+    fn try_from(wire: WireDeclaration) -> Result<Self, Self::Error> {
+        let source_policy = match (wire.schema, wire.source_policy) {
+            (Schema::V1, Link::Missing) => None,
+            (Schema::V2, Link::Present(reference)) => reference,
+            _ => return Err("source_policy is forbidden in v1 and required in v2"),
+        };
+        Ok(Self {
+            schema: wire.schema,
+            id: wire.id,
+            title: wire.title,
+            visibility: wire.visibility,
+            profiles: wire.profiles,
+            quality: wire.quality,
+            sources: wire.sources,
+            evals: wire.evals,
+            source_policy,
+        })
+    }
+}
+
+impl From<Declaration> for WireDeclaration {
+    fn from(value: Declaration) -> Self {
+        let source_policy = match value.schema {
+            Schema::V1 => Link::Missing,
+            Schema::V2 => Link::Present(value.source_policy),
+        };
+        Self {
+            schema: value.schema,
+            id: value.id,
+            title: value.title,
+            visibility: value.visibility,
+            profiles: value.profiles,
+            quality: value.quality,
+            sources: value.sources,
+            evals: value.evals,
+            source_policy,
+        }
+    }
+}
+
+/// Source-policy IDs use the plan's ASCII grammar, not filesystem paths.
+fn resource_id<'de, D: serde::Deserializer<'de>>(decoder: D) -> Result<String, D::Error> {
+    let id = String::deserialize(decoder)?;
+    if !id.is_empty()
+        && id.len() <= 128
+        && id
+            .bytes()
+            .next()
+            .is_some_and(|byte| byte.is_ascii_alphanumeric())
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
+    {
+        Ok(id)
+    } else {
+        Err(de::Error::custom("invalid source-policy resource ID"))
     }
 }

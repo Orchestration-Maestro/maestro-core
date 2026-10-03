@@ -101,6 +101,8 @@ fn a_file_that_is_no_database_is_an_error_not_a_finding() {
     use rusqlite::ErrorCode;
     let scratch = Scratch::new();
     let database = scratch.open();
+    // An idle pooled connection must not hide replacement of the file doctor checks.
+    drop(database.reader().unwrap());
     let other = scratch.0.join("other");
     fs::write(&other, vec![0x5A; 4096]).unwrap();
     for suffix in ["-wal", "-shm"] {

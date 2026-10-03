@@ -7,15 +7,12 @@
 //! the corpus manifest read their objects, their named values and their ids
 //! through these instead.
 
+pub(crate) use crate::strict_json::{name, object, objects};
 use maestro_kernel::{artifact::Digest, scope};
 use serde::{
     Deserialize, Deserializer,
-    de::{
-        self, DeserializeOwned, MapAccess, Visitor,
-        value::{MapAccessDeserializer, StringDeserializer},
-    },
+    de::{self, DeserializeOwned},
 };
-use std::{fmt, marker::PhantomData};
 
 /// `T` from `text`, which holds one JSON object and nothing after it.
 pub(crate) fn parse<T: DeserializeOwned>(text: &str) -> serde_json::Result<T> {
@@ -23,35 +20,6 @@ pub(crate) fn parse<T: DeserializeOwned>(text: &str) -> serde_json::Result<T> {
     let value = object(&mut deserializer)?;
     deserializer.end()?;
     Ok(value)
-}
-
-/// `T` from a JSON object only.
-pub(crate) fn object<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    deserializer.deserialize_map(FromObject(PhantomData))
-}
-
-/// A list of `T`, each from a JSON object only.
-pub(crate) fn objects<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    let items = Vec::<Object<T>>::deserialize(deserializer)?;
-    Ok(items.into_iter().map(|Object(item)| item).collect())
-}
-
-/// `T`, one of the values a contract names, from a JSON string only.
-pub(crate) fn name<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    let text = String::deserialize(deserializer)?;
-    T::deserialize(StringDeserializer::new(text))
 }
 
 /// A source id from a JSON string that is a scope name
@@ -81,28 +49,4 @@ where
 pub(crate) fn digest<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Digest, D::Error> {
     let text = String::deserialize(deserializer)?;
     Digest::parse(&text).map_err(de::Error::custom)
-}
-
-/// A list element read by [`object`].
-struct Object<T>(T);
-
-impl<'de, T: Deserialize<'de>> Deserialize<'de> for Object<T> {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        object(deserializer).map(Self)
-    }
-}
-
-/// Reads `T` from the entries of a JSON object.
-struct FromObject<T>(PhantomData<T>);
-
-impl<'de, T: Deserialize<'de>> Visitor<'de> for FromObject<T> {
-    type Value = T;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("a JSON object")
-    }
-
-    fn visit_map<A: MapAccess<'de>>(self, entries: A) -> Result<T, A::Error> {
-        T::deserialize(MapAccessDeserializer::new(entries))
-    }
 }

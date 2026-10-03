@@ -1,0 +1,16 @@
+{
+  "schema": "maestro-acquisition-bindings/1",
+  "resources": [
+    {
+      "id": "policy",
+      "path": "resources/policy.json",
+      "admission": {
+        "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "platform": "linux",
+        "capabilities": ["http"],
+        "status": "reviewed",
+        "references": []
+      }
+    }
+  ]
+}

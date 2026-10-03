@@ -123,7 +123,7 @@ impl Database {
     ///
     /// [`Error::Store`] when the database cannot be read.
     pub fn chunk_set(&self, scopes: &ScopeSet, id: &str) -> Result<Option<ChunkSet>, Error> {
-        Ok(find(&self.reader()?, Some(scopes), id)?)
+        Ok(find(&*self.reader()?, Some(scopes), id)?)
     }
 
     /// The chunk set `id`, if `revision_id` belongs to it in a source readable

@@ -112,6 +112,11 @@ impl Database {
         Ok(self.artifacts.get(digest)?)
     }
 
+    /// Bounded internal artifact read, rehashed only after its actual length fits.
+    pub(crate) fn get_bounded(&self, digest: &Digest, cap: u64) -> Result<Vec<u8>, Error> {
+        Ok(self.artifacts.get_bounded(digest, cap)?)
+    }
+
     /// The record of the artifact `digest`, if the database has one.
     ///
     /// # Errors

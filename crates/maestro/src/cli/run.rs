@@ -14,6 +14,7 @@ use super::{
     prepare, publish, quality, retrieve, search, setup, status, verify, wait,
 };
 use crate::{
+    acquisition::{authority, cli as acquisition_cli},
     failure::Failure,
     kernel::Kernel,
     knowledge::{GetRequest, RequestError, SearchRequest, operations::KnowledgeError},
@@ -21,8 +22,11 @@ use crate::{
     settings::{Compute, KnowledgeSettings, Session},
 };
 use clap::Parser as _;
+use maestro_kernel::acquisition::Status;
 use maestro_knowledge::answer::{AskBudget, AskRequest};
 use maestro_settings::{LayerName, Registry, parse_flags};
+use serde::Serialize;
+use serde_json::Value;
 use std::process::ExitCode;
 
 /// Runs the command the process's arguments name, and returns its exit code.
@@ -62,6 +66,39 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
     let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
     parse_flags(&registry, &arguments.set).map_err(|error| Failure::refused_by(&error))?;
     match &arguments.noun {
+        Noun::Authority(command) => {
+            let result = authority::run(command, || {
+                output.result(
+                    &AuthorityResult {
+                        schema: "maestro-cli/authority/1",
+                        result: &serde_json::json!({"status":"ready"}),
+                    },
+                    "authority ready",
+                )
+            })?;
+            let status = result
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or("refused");
+            let text = if status == "probe_denied" {
+                let uid = result
+                    .get("uid")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(|| Failure::refused("authority unqualified"))?;
+                format!("authority probe denied {uid}")
+            } else {
+                format!("authority {status}")
+            };
+            output.result(
+                &AuthorityResult {
+                    schema: "maestro-cli/authority/1",
+                    result: &result,
+                },
+                &text,
+            )?;
+            Ok(ExitCode::SUCCESS)
+        }
+        Noun::Knowledge(KnowledgeCommand::Acquire(command)) => acquisition(output, command),
         Noun::Model(command) => model::run(&Kernel::open()?, output, command),
         Noun::Knowledge(KnowledgeCommand::Collections) => {
             retrieve::collections(output, Kernel::open)
@@ -106,6 +143,15 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Backup { to } => backup::run_backup(output, to),
         Noun::Restore { from } => backup::run_restore(output, from),
     }
+}
+
+/// Versioned CLI envelope; IPC reply fields never replace the command schema.
+#[derive(Serialize)]
+struct AuthorityResult<'a> {
+    /// Public command schema, always the first JSON member.
+    schema: &'static str,
+    /// Content-free status, binding digest or opaque grant ID.
+    result: &'a Value,
 }
 
 /// Runs `knowledge search` or `knowledge ask` under `settings`: a flag the
@@ -263,7 +309,8 @@ fn knowledge(
         KnowledgeCommand::Quality { collection } => quality::run(kernel, output, collection),
         KnowledgeCommand::Verify { collection } => verify::run(kernel, output, collection),
         KnowledgeCommand::Status { collection } => status::run(kernel, output, collection),
-        KnowledgeCommand::Collections
+        KnowledgeCommand::Acquire(_)
+        | KnowledgeCommand::Collections
         | KnowledgeCommand::Get { .. }
         | KnowledgeCommand::Search { .. }
         | KnowledgeCommand::Ask { .. }
@@ -331,4 +378,36 @@ fn get_command(
     )
     .map_err(|error: RequestError| Failure::refused(error.message()))?;
     retrieve::get_exact(output, &request, Kernel::open)
+}
+
+/// Public manual acquisition prints truthful partial output even when it cannot complete.
+fn acquisition(output: Output, command: &acquisition_cli::Acquire) -> Result<ExitCode, Failure> {
+    match acquisition_cli::run(command) {
+        Ok(report) => {
+            let text = if matches!(command, acquisition_cli::Acquire::Stop { .. }) {
+                "acquisition schedule cancellation acknowledged".to_owned()
+            } else {
+                report.text()
+            };
+            output.result(&report, &text)?;
+            let preview = matches!(command, acquisition_cli::Acquire::Preview { .. });
+            Ok(if preview || report.status == Status::Complete {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(1)
+            })
+        }
+        Err(error) => {
+            let refused = matches!(error, Failure::Refused(_));
+            output.refusal(
+                &serde_json::json!({
+                    "schema":"maestro-cli/acquisition-error/1",
+                    "status":if refused {"refused"} else {"failed"},
+                    "started":0, "reason":error.to_string()
+                }),
+                &error.to_string(),
+            )?;
+            Ok(error.code())
+        }
+    }
 }

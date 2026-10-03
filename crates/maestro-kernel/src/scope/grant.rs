@@ -104,11 +104,15 @@ impl Database {
     /// [`store::Error::Sqlite`] when the database cannot be read, or holds a
     /// grant whose scope it cannot read back.
     pub fn visible(&self, principal: &str) -> Result<ScopeSet, store::Error> {
-        Ok(ScopeSet::new(granted(
-            &self.reader()?,
-            principal,
-            Right::Read,
-        )?))
+        Self::visible_on(&*self.reader()?, principal)
+    }
+
+    /// Recheck grants through the caller's current bookkeeping connection.
+    pub(crate) fn visible_on(
+        reader: &Connection,
+        principal: &str,
+    ) -> Result<ScopeSet, store::Error> {
+        Ok(ScopeSet::new(granted(reader, principal, Right::Read)?))
     }
 
     /// Reconciles the local principal's grants with `config`, in one write:

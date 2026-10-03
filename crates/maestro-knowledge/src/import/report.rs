@@ -65,7 +65,7 @@ impl Report {
 
 /// What importing an entry recorded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Imported {
+pub enum Imported {
     /// A new revision.
     New,
     /// Nothing: its revision, and its hold if it is held, were recorded

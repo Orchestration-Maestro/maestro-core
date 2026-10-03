@@ -4,8 +4,8 @@
 
 use super::{
     corpus::{Corpus, Files},
-    entry::Target,
     error::Error,
+    ingest::Target,
     report::Report,
     source::import_source,
 };

@@ -1,0 +1,56 @@
+[package]
+name = "maestro-acquisition"
+description = "Strict source policies and immutable baseline resolution for native acquisition"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# Test code only: real kernel qualification requires explicit scoped host setup.
+parser-containment-tests = []
+
+[[bin]]
+name = "maestro-parser-bootstrap"
+path = "src/bin/parser_bootstrap.rs"
+
+[dependencies]
+maestro-kernel.workspace = true
+maestro-canonicalization.workspace = true
+maestro-knowledge.workspace = true
+schemars.workspace = true
+dom_query.workspace = true
+url.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ulid.workspace = true
+reqwest.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+http-body-util.workspace = true
+flate2.workspace = true
+rustls.workspace = true
+rustls-native-certs.workspace = true
+tokio = { workspace = true, features = [
+  "net",
+  "rt",
+  "time",
+  "io-util",
+  "macros",
+] }
+tokio-rustls.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix.workspace = true
+landlock.workspace = true
+seccompiler.workspace = true
+nix.workspace = true
+
+[dev-dependencies]
+rusqlite.workspace = true
+maestro-test-scratch.workspace = true
+tokio = { workspace = true, features = ["test-util"] }

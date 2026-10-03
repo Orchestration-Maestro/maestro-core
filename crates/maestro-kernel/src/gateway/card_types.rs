@@ -1,6 +1,7 @@
 //! Shared model-card vocabulary, independent of v1 and v2 encodings.
 
 use crate::artifact::{self, Digest};
+use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use std::{
     error, fmt,
@@ -83,7 +84,7 @@ impl RouterEntry {
 }
 
 /// What a model can take and give, as the bake-off measured it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Limits {
     /// The most tokens the model reads at once.

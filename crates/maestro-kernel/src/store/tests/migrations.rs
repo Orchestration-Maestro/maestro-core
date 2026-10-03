@@ -4,7 +4,7 @@
 
 use super::support::Scratch;
 use crate::store::{
-    Error,
+    Database, Error,
     migration::{MIGRATIONS, apply, migrate},
     pending_migrations,
 };
@@ -388,4 +388,31 @@ fn a_database_a_newer_binary_migrated_is_named_and_a_missing_one_never_created()
         matches!(&newer, Error::UnknownMigration(name) if name == "9999_future"),
         "{newer}"
     );
+}
+
+#[test]
+fn n14_read_only_open_refuses_pending_and_unknown_migrations_without_applying_any() {
+    let scratch = Scratch::new();
+    let migrations: Vec<_> = MIGRATIONS
+        .iter()
+        .copied()
+        .take(MIGRATIONS.len() - 1)
+        .collect();
+    drop(scratch.open_with(&migrations).unwrap());
+    let outside = scratch.outside();
+    let before = recorded(&outside);
+    assert!(Database::open_read_only(&scratch.0).is_err());
+    assert_eq!(recorded(&outside), before);
+    drop(outside);
+    drop(scratch.open());
+    let outside = scratch.outside();
+    outside
+        .execute(
+            "INSERT INTO migrations (name, applied_at) VALUES ('9999_future', 'now')",
+            [],
+        )
+        .unwrap();
+    let before = recorded(&outside);
+    assert!(Database::open_read_only(&scratch.0).is_err());
+    assert_eq!(recorded(&outside), before);
 }
