@@ -200,9 +200,30 @@ pub(super) fn send(stream: &mut UnixStream, report: &Report) -> Result<(), Failu
 
 #[cfg(test)]
 mod tests {
-    use super::{Clock, Duration, Instant, UnixStream, authenticated_report, timeout};
-    use rustix::process::geteuid;
-    use std::io::Write as _;
+    use super::{
+        Clock, Duration, Instant, Launcher, Probe, UnixListener, UnixStream, authenticated_report,
+        completion, timeout,
+    };
+    use maestro_kernel::retrieval::SystemClock;
+    use maestro_test_scratch::disk_scratch_directory;
+    use rustix::{
+        event::{PollFd, PollFlags, Timespec, poll},
+        io::Errno,
+        process::{
+            Pid, PidfdFlags, Signal, WaitOptions, geteuid, pidfd_open, pidfd_send_signal, waitpid,
+        },
+    };
+    use std::{
+        fs,
+        io::Write as _,
+        os::fd::OwnedFd,
+        path::Path,
+        process::{ChildStdin, Command, Stdio},
+        sync::{
+            Mutex,
+            atomic::{AtomicUsize, Ordering},
+        },
+    };
 
     /// No wall-clock progress or sleep is needed to exercise queued authentication.
     #[derive(Debug)]
@@ -244,5 +265,116 @@ mod tests {
         }
         assert!(timeout(clock.0 + Duration::from_secs(15), &clock).is_ok());
         assert!(timeout(clock.0, &clock).is_err());
+    }
+
+    /// At the post-poll clock observation, release a child whose exit was not ready.
+    /// All frame bytes are queued before completion, so its read is one complete frame.
+    #[derive(Debug)]
+    struct ExitClock {
+        at: Instant,
+        calls: AtomicUsize,
+        release: Mutex<Option<ChildStdin>>,
+        pidfd: OwnedFd,
+    }
+    impl Clock for ExitClock {
+        fn now(&self) -> Instant {
+            if self.calls.fetch_add(1, Ordering::SeqCst) == 7
+                && let Some(mut input) = self.release.lock().unwrap().take()
+            {
+                writeln!(input, "exit").unwrap();
+                ready(&self.pidfd);
+            }
+            self.at
+        }
+    }
+    /// Wait for an actual process event, with a safety deadline but no elapsed assertion.
+    fn ready(fd: &OwnedFd) {
+        let mut events = [PollFd::new(fd, PollFlags::IN)];
+        poll(
+            &mut events,
+            Some(&Timespec::try_from(Duration::from_secs(30)).unwrap()),
+        )
+        .unwrap();
+        assert!(events[0].revents().contains(PollFlags::IN));
+    }
+
+    #[test]
+    fn n37_completion_requires_both_exit_readiness_and_success() {
+        for (exited, code, accepted) in [(false, 0, false), (true, 0, true), (true, 1, false)] {
+            let root = disk_scratch_directory().unwrap();
+            let endpoint = root.join("completion.sock");
+            let listener = UnixListener::bind(&endpoint).unwrap();
+            let mut peer = UnixStream::connect(&endpoint).unwrap();
+            writeln!(
+                peer,
+                r#"{{"create_denied":true,"edit_denied":true,"delete_denied":true}}"#
+            )
+            .unwrap();
+            let mut child = Command::new("sh")
+                .args(["-c", &format!("read -r token; exit {code}")])
+                .stdin(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let pid = Pid::from_raw(i32::try_from(child.id()).unwrap()).unwrap();
+            let pidfd = pidfd_open(pid, PidfdFlags::empty()).unwrap();
+            let mut release = child.stdin.take();
+            if exited {
+                writeln!(release.as_mut().unwrap(), "exit").unwrap();
+                ready(&pidfd);
+                release = None;
+            }
+            let clock = ExitClock {
+                at: Instant::now(),
+                calls: AtomicUsize::new(0),
+                release: Mutex::new(release),
+                pidfd,
+            };
+            let mut launcher = Launcher {
+                child,
+                clock: &clock,
+            };
+            let probe = Probe {
+                launcher: Path::new("unused"),
+                binary: Path::new("unused"),
+                store: &root,
+                endpoint: endpoint.clone(),
+                uid: geteuid().as_raw(),
+            };
+            // The listener is ready; the blocked child cannot exit until the post-poll
+            // observation. A one-nanosecond poll budget therefore snapshots no exit.
+            let result = completion(
+                &probe,
+                &listener,
+                &mut launcher,
+                clock.at + Duration::from_nanos(1),
+                &clock,
+            );
+            launcher.stop().unwrap();
+            drop(launcher);
+            drop(listener);
+            drop(peer);
+            fs::remove_dir_all(root).unwrap();
+            assert_eq!(result.is_ok(), accepted, "ready={exited}, exit={code}");
+        }
+    }
+
+    #[test]
+    fn n37_launcher_drop_kills_and_reaps_without_explicit_stop() {
+        let child = Command::new("sleep").arg("60").spawn().unwrap();
+        let pid = Pid::from_raw(i32::try_from(child.id()).unwrap()).unwrap();
+        let pidfd = pidfd_open(pid, PidfdFlags::empty()).unwrap();
+        drop(Launcher {
+            child,
+            clock: &SystemClock,
+        });
+        let observed = waitpid(Some(pid), WaitOptions::NOHANG);
+        // Independently clean up even when the Drop mutant leaves the child alive.
+        let _ = pidfd_send_signal(&pidfd, Signal::KILL);
+        let _ = waitpid(Some(pid), WaitOptions::empty());
+        assert_eq!(
+            observed.err(),
+            Some(Errno::CHILD),
+            "owned child was not reaped by Drop"
+        );
     }
 }

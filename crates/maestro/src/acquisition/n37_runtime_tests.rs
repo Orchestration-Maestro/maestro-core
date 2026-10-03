@@ -93,6 +93,26 @@ fn prepared_crash(changed: bool) {
         .filter(|path| path.as_str() == "/docs/start")
         .count();
     assert_eq!(before, 1);
+    if !changed {
+        let held = fixture
+            .run_window(
+                2,
+                Mode::Incremental,
+                time + Duration::from_secs(1),
+                &UnqualifiedAuthority,
+            )
+            .unwrap();
+        assert!(
+            held.completed.is_empty(),
+            "unacknowledged capture adopted without authority"
+        );
+        assert!(
+            held.pending
+                .iter()
+                .any(|entry| entry.reason == "current_resume_admission"),
+            "prepared capture bypassed the early admission guard: {held:?}"
+        );
+    }
     if changed {
         let (collection, files) = fixture_with(|value| {
             edit(value);

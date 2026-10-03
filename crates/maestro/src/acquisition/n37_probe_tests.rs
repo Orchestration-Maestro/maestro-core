@@ -1,4 +1,5 @@
 //! The real qualifier launcher must reap a hostile long-running owned probe.
+#![cfg(test)]
 use super::authority_probe::{Probe, qualify};
 use maestro_acquisition::lifecycle::resume::stop_owned;
 use maestro_kernel::retrieval::Clock;

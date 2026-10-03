@@ -26,9 +26,18 @@ fn n06_review_dropped_pending_inventory() {
     let handle = db.retain_inventory(&scope("docs"), &page).unwrap();
     run.inventories = vec![handle];
     db.begin(&scope("docs"), &run).unwrap();
+    assert_eq!(db.validate_finish(&run), Err(ReceiptError::Invalid));
+    run.status = Status::Partial;
+    run.reason = Reason::Transport;
+    db.validate_finish(&run).unwrap();
+    assert_eq!(
+        db.inspect("reader", run.attempt).unwrap().unwrap().status,
+        Status::Pending
+    );
     run.inventories.clear();
     run.status = Status::Complete;
     run.reason = Reason::None;
+    assert_eq!(db.validate_finish(&run), Err(ReceiptError::Invalid));
     assert!(db.finish(&run).is_err());
 }
 

@@ -12,3 +12,7 @@ mod unit_graph_wire;
 mod n30_filesystem;
 
 mod n14_release_source;
+
+mod n37_capture_integrity;
+mod n37_capture_support;
+mod n37_revision_links;

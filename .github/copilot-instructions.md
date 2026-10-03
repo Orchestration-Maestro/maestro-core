@@ -1066,6 +1066,9 @@ in place.
 │   │   │       ├── n06_store_scoped_receipts_and_content_free_progress_events.rs        # N06: opaque receipt views, durable attempts, and content-free event sinks
 │   │   │       ├── n14_release_source.rs                                                # Manual sync relinquishes only its current lease, never the job or frontier
 │   │   │       ├── n30_filesystem.rs                                                    # Protected local-overlay and durable replacement contracts
+│   │   │       ├── n37_capture_integrity.rs                                             # Every consumer receives the kernel's own scoped capture and parent guarantees
+│   │   │       ├── n37_capture_support.rs                                               # Kernel-owned capture fixtures use only the public durable ports
+│   │   │       ├── n37_revision_links.rs                                                # Historical native lineage requires valid S1 verdicts and current capture evidence
 │   │   │       ├── unit_graph_code_leadin.rs                                            # The kernel accepts code groups without an optional lead-in relation
 │   │   │       ├── unit_graph_nested_producer.rs                                        # Kernel conformance for nested procedure, code and table producer graphs
 │   │   │       ├── unit_graph_producer.rs                                               # Kernel conformance against the canonicalization producer snapshot
