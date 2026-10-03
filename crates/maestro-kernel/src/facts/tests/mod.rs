@@ -16,3 +16,5 @@ mod projection;
 mod projection_lease;
 mod resolution;
 mod resolution_guards;
+
+mod mutation_contracts;

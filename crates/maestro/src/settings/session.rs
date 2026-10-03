@@ -161,6 +161,18 @@ impl WorkspacePreferences for Session {
 mod tests {
     use super::*;
 
+    #[test]
+    fn graph_activation_diagnostics_preserve_the_reason() {
+        assert_eq!(
+            GraphActivationError::EngineMissing.to_string(),
+            "graph.engine = ladybug, but this maestro was built without the engine"
+        );
+        assert_eq!(
+            GraphActivationError::Refused("untrusted lock".into()).to_string(),
+            "untrusted lock"
+        );
+    }
+
     /// Storage-free snapshot whose registry can exercise internal invariants.
     fn source(registry: Registry) -> Session {
         Session {

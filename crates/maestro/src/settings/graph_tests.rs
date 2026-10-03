@@ -123,72 +123,80 @@ fn graph_session_uses_manifest_defaults_and_the_real_complete_lock_read_only() {
             path.starts_with(&self.0).then(|| self.0.clone())
         }
     }
-    let scratch = scratch_directory().unwrap().canonicalize().unwrap();
-    let root = scratch.join("project");
-    fs::create_dir(&root).unwrap();
-    let boundaries = TrustBoundaries::new(&scratch, &[]).unwrap();
-    let adapter = Root(root.clone());
-    let trust = CheckedTrust::new(&adapter, &boundaries);
-    let bytes = serde_json::to_vec(&serde_json::json!({
-        "schema": "maestro-authoring-lock/3",
-        "defaults": concat!(
-            "schema = 'maestro-preferences/1'\n[overrides]\n'graph.engine' = 'ladybug'\n",
-            "'graphdb.buffer_pool_size' = 33554432\n'graphdb.max_db_size' = 134217728\n",
-            "'graphdb.max_num_threads' = 3\n"
-        ),
-        "backend_types": ["ladybug"], "files": [],
-        "sources": [{
-            "path": "core/backends/graphdb/config.toml", "sha256": "synthetic-source-identity"
-        }]
-    }))
-    .unwrap();
-    let plan = FilePlan::preview(
-        &root,
-        [FileInput::new(
-            ".maestro/authoring.lock.json",
-            bytes.clone(),
-        )],
-        &trust,
-    )
-    .unwrap();
-    files::apply(&root, &plan, &trust).unwrap();
-    let config = scratch.join("user");
-    let load = || {
-        SessionPreferences::load(
-            &config,
-            Some(&root),
-            Some(&scratch),
+    for backend in ["ladybug", "synthetic-unavailable"] {
+        let scratch = scratch_directory().unwrap().canonicalize().unwrap();
+        let root = scratch.join("project");
+        fs::create_dir(&root).unwrap();
+        let boundaries = TrustBoundaries::new(&scratch, &[]).unwrap();
+        let adapter = Root(root.clone());
+        let trust = CheckedTrust::new(&adapter, &boundaries);
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "schema": "maestro-authoring-lock/3",
+            "defaults": concat!(
+                "schema = 'maestro-preferences/1'\n[overrides]\n'graph.engine' = 'ladybug'\n",
+                "'graphdb.buffer_pool_size' = 33554432\n'graphdb.max_db_size' = 134217728\n",
+                "'graphdb.max_num_threads' = 3\n"
+            ),
+            "backend_types": [backend], "files": [],
+            "sources": [{
+                "path": "core/backends/graphdb/config.toml", "sha256": "synthetic-source-identity"
+            }]
+        }))
+        .unwrap();
+        let plan = FilePlan::preview(
+            &root,
+            [FileInput::new(
+                ".maestro/authoring.lock.json",
+                bytes.clone(),
+            )],
             &trust,
-            &Limits::PRODUCTION,
         )
-        .unwrap()
-    };
-    let health = session::health_at(&config, Some(&root), Some(&scratch), &[], &trust).unwrap();
-    assert_eq!(
-        fs::read(root.join(".maestro/authoring.lock.json")).unwrap(),
-        bytes
-    );
-    if cfg!(feature = "engine") {
-        let admitted = load()
-            .admit_defaults(&trust, &session::compiled_backends(), &Limits::PRODUCTION)
-            .unwrap();
-        let runtime =
-            Session::from_preferences(&config, &admitted, admitted.discovery.clone(), &[]).unwrap();
-        let expected =
-            Some(EngineSettings::new(33_554_432, 134_217_728, 3, Digest::of(&bytes)).unwrap());
-        assert_eq!(runtime.graph_settings().unwrap(), expected);
-        assert_eq!(health.graph_settings().unwrap(), expected);
-    } else {
-        assert!(matches!(
-            load().admit_defaults(&trust, &session::compiled_backends(), &Limits::PRODUCTION),
-            Err(AdmissionError::BackendNotCompiled { backend, .. }) if backend == "ladybug"
-        ));
+        .unwrap();
+        files::apply(&root, &plan, &trust).unwrap();
+        let config = scratch.join("user");
+        let load = || {
+            SessionPreferences::load(
+                &config,
+                Some(&root),
+                Some(&scratch),
+                &trust,
+                &Limits::PRODUCTION,
+            )
+            .unwrap()
+        };
+        let health = session::health_at(&config, Some(&root), Some(&scratch), &[], &trust).unwrap();
         assert_eq!(
-            health.graph_activation_error.as_ref().unwrap(),
-            &GraphActivationError::EngineMissing
+            fs::read(root.join(".maestro/authoring.lock.json")).unwrap(),
+            bytes
         );
+        if backend != "ladybug" {
+            let error = health.graph_activation_error.as_ref();
+            let expected = "backend adapter is not compiled into this build";
+            assert!(matches!(error, Some(GraphActivationError::Refused(message))
+                if message.contains(expected)));
+        } else if cfg!(feature = "engine") {
+            let admitted = load()
+                .admit_defaults(&trust, &session::compiled_backends(), &Limits::PRODUCTION)
+                .unwrap();
+            let runtime =
+                Session::from_preferences(&config, &admitted, admitted.discovery.clone(), &[])
+                    .unwrap();
+            let expected =
+                Some(EngineSettings::new(33_554_432, 134_217_728, 3, Digest::of(&bytes)).unwrap());
+            assert_eq!(runtime.graph_settings().unwrap(), expected);
+            assert_eq!(health.graph_settings().unwrap(), expected);
+        } else {
+            assert!(matches!(
+                load().admit_defaults(&trust, &session::compiled_backends(), &Limits::PRODUCTION),
+                Err(AdmissionError::BackendNotCompiled { backend, .. }) if backend == "ladybug"
+            ));
+            assert_eq!(
+                health.graph_activation_error.as_ref().unwrap(),
+                &GraphActivationError::EngineMissing
+            );
+        }
+        fs::remove_dir_all(scratch).unwrap();
     }
-    fs::remove_dir_all(scratch).unwrap();
 }
 
 #[test]
