@@ -96,7 +96,7 @@ fn selected_owner_inventory_accepts() {
         .iter()
         .map(|source| source["path"].as_str().unwrap())
         .collect();
-    assert_eq!(paths.len(), 13);
+    assert_eq!(paths.len(), 17);
     assert!(paths.contains(&"bootstrap/base.toml"));
     assert!(paths.contains(&"languages/rust/bootstrap/starter.toml"));
 }
@@ -390,11 +390,7 @@ fn owner_inventory_paths_and_requirements_are_data() {
         fixture.catalog.join("languages/python"),
     )
     .unwrap();
-    fixture.edit(
-        "languages/python/package.toml",
-        r#"name = "rust""#,
-        r#"name = "python""#,
-    );
+    fixture.edit("languages/python/package.toml", "rust", "python");
     fixture.edit("presets/rust.toml", "language:rust", "language:python");
     fixture.edit("presets/rust.toml", "rust/starter", "python/starter");
     let proposal = preview(&fixture.project, &fixture.port().unwrap(), &["rust".into()]).unwrap();

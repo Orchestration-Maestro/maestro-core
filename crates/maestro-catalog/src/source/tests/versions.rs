@@ -196,7 +196,7 @@ fn language_and_standard_pins_use_package_rules() {
         ("language", "rust", "languages/rust/package.toml"),
         ("standard", "security", "standards/security/package.toml"),
     ] {
-        let tree = MemoryTree::default()
+        let tree = super::language::area_content(MemoryTree::default(), kind, name)
             .with("package.toml", &package_source("package", "common"))
             .with(
                 path,

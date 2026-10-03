@@ -177,10 +177,7 @@ fn root_and_namespace_ids_roundtrip() {
     let tree = MemoryTree::default()
         .with("package.toml", &package_source("package", "common"))
         .with("core/package.toml", &package_source("package", "core"))
-        .with(
-            "languages/rust/package.toml",
-            &package_source("language", "rust"),
-        )
+        .language("rust")
         .with(
             "standards/quality/package.toml",
             &package_source("standard", "quality"),
@@ -207,16 +204,20 @@ fn root_and_namespace_ids_roundtrip() {
     assert_eq!(
         ids,
         [
+            "bootstrap-inventory:rust/starter",
             "glossary:common/evidence",
             "glossary:core/evidence",
             "glossary:quality/evidence",
             "glossary:review/evidence",
             "glossary:rust/evidence",
+            "instructions:rust/rules",
             "language:rust",
             "package:common",
             "package:core",
             "package:review",
             "preset:valid",
+            "quality-profile:quality/baseline",
+            "quality-profile:rust/default",
             "standard:quality"
         ]
     );

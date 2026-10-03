@@ -288,7 +288,7 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
     for ((kind, actual), expected) in kinds
         .iter()
         .zip(versions)
-        .zip([3, 3, 4, 5, 4, 5, 1, 1, 3, 1, 1, 3, 1, 1])
+        .zip([3, 3, 4, 5, 5, 5, 1, 1, 3, 2, 1, 3, 1, 1])
     {
         assert_eq!(actual, expected, "{kind}");
     }

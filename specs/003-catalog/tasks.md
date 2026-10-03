@@ -3592,10 +3592,10 @@ seed work and no C76a → C02 prerequisite cycle.
 **Design coverage:** MD02, MD13 (approved design §8.4).
 **Named tests:** `language_has_one_id_and_manager_default`, `duplicate_manager_default_refuses`, `language_product_path_refuses`, `language_cannot_weaken_standard`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Root language descriptor/profile contract, one language ID, manager default/alternatives and complete gate categories. Duplicate defaults, product paths or weakening a standard refuse.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Root language descriptor/profile contract, one language ID, manager default/alternatives and complete gate categories. Duplicate defaults, product paths or weakening a standard refuse.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

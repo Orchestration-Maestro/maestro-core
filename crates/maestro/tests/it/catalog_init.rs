@@ -118,7 +118,7 @@ fn catalog_init_apply_writes_composition_and_identical_rerun_is_noop() {
     let lock: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join(".maestro/authoring.lock.json")).unwrap())
             .unwrap();
-    assert_eq!(lock["sources"].as_array().unwrap().len(), 13);
+    assert_eq!(lock["sources"].as_array().unwrap().len(), 17);
     assert_eq!(
         lock["areas"],
         serde_json::json!([

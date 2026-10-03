@@ -4,6 +4,7 @@
 /capabilities/practice/review/ @review-owner @reader
 /core/ @core-owner @reader
 /languages/rust/ @rust-owner @reader
+/standards/quality/ @synthetic/knowledge
 /standards/security/ @security-owner @reader
 /package.toml @common-owner
 /presets/ @common-owner
@@ -21,5 +22,7 @@
 /core/exceptions/ @core-owner
 /languages/rust/package.toml @rust-owner
 /languages/rust/exceptions/ @rust-owner
+/standards/quality/package.toml @synthetic/knowledge
+/standards/quality/exceptions/ @synthetic/knowledge @common-owner
 /standards/security/package.toml @security-owner
 /standards/security/exceptions/ @security-owner @common-owner

@@ -1,13 +1,13 @@
 kind = "language"
-name = "rust"
+name = "synthetic"
 version = "1.2.3"
 owners = ["@synthetic/knowledge"]
 description = "Synthetic language"
 status = "active"
 technology = "uv"
-quality_profile = "quality-profile:rust/default"
-instructions = ["instructions:rust/rules"]
-starter = ["bootstrap-inventory:rust/starter"]
+quality_profile = "quality-profile:synthetic/default"
+instructions = ["instructions:synthetic/rules"]
+starter = ["bootstrap-inventory:synthetic/starter"]
 [metadata]
 schema = "maestro-source/2"
 maturity = "reviewed"

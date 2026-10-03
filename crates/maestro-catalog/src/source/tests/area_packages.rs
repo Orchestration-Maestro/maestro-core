@@ -114,6 +114,14 @@ fn unsupported_nonempty_kinds_and_configs_refuse() {
 
 /// A checked area root using the /2 source envelope.
 pub(super) fn package_source(kind: &str, name: &str) -> String {
+    if kind == "language" {
+        return include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/catalog/languages/package.toml"
+        ))
+        .replace("synthetic", name)
+        .replace(&format!("@{name}/knowledge"), "@synthetic/knowledge");
+    }
     let inventory = if kind == "standard" {
         format!("rules = [\"{name}-001\"]\n")
     } else {
@@ -168,7 +176,8 @@ fn package_fields_and_path_refuse_invalid_neighbours() {
     ] {
         assert!(
             check_by(
-                &MemoryTree::default().with(path, &package_source(kind, name)),
+                &super::language::area_content(MemoryTree::default(), kind, name)
+                    .with(path, &package_source(kind, name)),
                 &registry,
                 &Limits::PRODUCTION
             )

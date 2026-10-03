@@ -102,7 +102,13 @@ fn shared_source_across_presets_counts_once() {
         "standards/security/package.toml",
         "presets/base.toml",
         "languages/rust/package.toml",
+        "languages/rust/instructions/rules.instructions.md",
+        "languages/rust/instructions/rules.maestro.toml",
+        "languages/rust/profiles/quality/default.toml",
+        "standards/quality/profiles/quality/baseline.toml",
         "presets/rust.toml",
+        "languages/rust/bootstrap/starter.toml",
+        "languages/rust/bootstrap/starter/files/recipes.json",
         "bootstrap/base.toml",
         "bootstrap/base/files/instructions.md",
     ]
@@ -110,14 +116,14 @@ fn shared_source_across_presets_counts_once() {
     .map(|path| fs::metadata(fixture.catalog.join(path)).unwrap().len())
     .sum::<u64>();
     let limits = Limits {
-        archive_entries: 11,
+        archive_entries: 17,
         archive_total_bytes: bytes,
         ..Limits::PRODUCTION
     };
     let port = fixture.port().unwrap().with_limits(limits);
     let resolved = port.resolve(&["base".into(), "rust".into()]).unwrap();
     let path = "bootstrap/base/files/instructions.md";
-    assert_eq!(resolved[0].source_files.len(), 11);
+    assert_eq!(resolved[0].source_files.len(), 17);
     assert_eq!(resolved[1].source_files.len(), 0);
     assert_eq!(
         resolved[0].source_files[path].bytes,
@@ -166,6 +172,10 @@ fn aggregate_bounds_cross_presets() {
         "standards/security/package.toml",
         "presets/base.toml",
         "languages/rust/package.toml",
+        "languages/rust/instructions/rules.instructions.md",
+        "languages/rust/instructions/rules.maestro.toml",
+        "languages/rust/profiles/quality/default.toml",
+        "standards/quality/profiles/quality/baseline.toml",
         "presets/rust.toml",
         "bootstrap/base.toml",
         "bootstrap/base/files/instructions.md",
@@ -176,7 +186,7 @@ fn aggregate_bounds_cross_presets() {
     .map(|path| fs::metadata(fixture.catalog.join(path)).unwrap().len())
     .sum::<u64>();
     let limits = Limits {
-        archive_entries: 13,
+        archive_entries: 17,
         archive_total_bytes: bytes,
         ..Limits::PRODUCTION
     };
@@ -192,7 +202,7 @@ fn aggregate_bounds_cross_presets() {
     for (limits, message) in [
         (
             Limits {
-                archive_entries: 12,
+                archive_entries: 16,
                 ..limits
             },
             "source count exceeds limit",

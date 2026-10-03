@@ -612,6 +612,7 @@ in place.
 │   │   │   │   │   ├── builtin.rs                                           # The registry of the built-in kinds and the fixed table of hooks their
 │   │   │   │   │   ├── contract.rs                                          # Native JSON Schema contracts with an exact owner-local metadata pair
 │   │   │   │   │   ├── instructions.rs                                      # instructions: a Copilot .instructions.md file and its
+│   │   │   │   │   ├── language.rs                                          # Root languages extend the shared area contract, without a package alias
 │   │   │   │   │   ├── mod.rs                                               # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── model_card.rs                                        # model-card: a strict catalog declaration of the kernel's v2 identity
 │   │   │   │   │   ├── package.rs                                           # Area closure roots; ownership and layer semantics are checked by later tasks
@@ -638,6 +639,7 @@ in place.
 │   │   │   │   │   ├── git_boundary.rs                                      # Git administration is outside the filesystem source view, not a dotfile filter
 │   │   │   │   │   ├── hostile.rs                                           # Hostile sources inside D2's limits: YAML aliases that expand past their
 │   │   │   │   │   ├── index.rs                                             # Public pinned source navigation and exact generated-byte drift neighbours
+│   │   │   │   │   ├── language.rs                                          # Root language contracts use shared areas and honest inert quality declarations
 │   │   │   │   │   ├── layer_placements.rs                                  # Registered placements retain their dependency layer outside canonical folders
 │   │   │   │   │   ├── layout.rs                                            # The catalog's layout: agent and sidecar pairing, duplicate IDs, entries
 │   │   │   │   │   ├── mod.rs                                               # The source checker's tests: the valid synthetic catalog and each of its
@@ -1716,12 +1718,21 @@ in place.
 │       │   │       │       │   │   └── files/                               # Files
 │       │   │       │       │   │       └── recipes.json                     # JSON data: recipes
 │       │   │       │       │   └── starter.toml                             # TOML settings: starter
+│       │   │       │       ├── instructions/                                # Instructions
+│       │   │       │       │   ├── rules.instructions.md                    # Sample document: rules.instructions
+│       │   │       │       │   └── rules.maestro.toml                       # TOML settings: rules.maestro
+│       │   │       │       ├── profiles/                                    # Profiles
+│       │   │       │       │   └── quality/                                 # Quality
+│       │   │       │       │       └── default.toml                         # TOML settings: default
 │       │   │       │       └── package.toml                                 # TOML settings: package
 │       │   │       ├── presets/                                             # Presets
 │       │   │       │   ├── base.toml                                        # TOML settings: base
 │       │   │       │   └── rust.toml                                        # TOML settings: rust
 │       │   │       ├── standards/                                           # Standards
 │       │   │       │   ├── quality/                                         # Quality
+│       │   │       │   │   ├── profiles/                                    # Profiles
+│       │   │       │   │   │   └── quality/                                 # Quality
+│       │   │       │   │   │       └── baseline.toml                        # TOML settings: baseline
 │       │   │       │   │   └── package.toml                                 # TOML settings: package
 │       │   │       │   └── security/                                        # Security
 │       │   │       │       └── package.toml                                 # TOML settings: package
@@ -1736,6 +1747,13 @@ in place.
 │       │   │   ├── pi.md                                                    # Synthetic agent for the catalog host format probe
 │       │   │   ├── sidecar.agent.md                                         # Synthetic agent for the catalog host format probe
 │       │   │   └── sidecar.maestro.toml                                     # TOML settings: sidecar.maestro
+│       │   ├── languages/                                                   # Languages
+│       │   │   ├── baseline.toml                                            # TOML settings: baseline
+│       │   │   ├── manager-choices.toml                                     # TOML settings: manager choices
+│       │   │   ├── package.toml                                             # TOML settings: package
+│       │   │   ├── rules.instructions.md                                    # Sample document: rules.instructions
+│       │   │   ├── rules.maestro.toml                                       # TOML settings: rules.maestro
+│       │   │   └── starter.toml                                             # TOML settings: starter
 │       │   ├── model-cards/                                                 # Model cards
 │       │   │   ├── invalid.toml                                             # TOML settings: invalid
 │       │   │   └── valid.toml                                               # TOML settings: valid

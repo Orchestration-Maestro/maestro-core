@@ -204,13 +204,21 @@ fn catalog_codeowners_stdout_matches_fixture_golden() {
         ("languages/rust/package.toml", "language", "rust"),
         ("standards/security/package.toml", "standard", "security"),
     ] {
+        let language = if kind == "language" {
+            "technology = \"rust\"\n\
+             quality_profile = \"quality-profile:rust/default\"\n\
+             instructions = [\"instructions:rust/rules\"]\n\
+             starter = [\"bootstrap-inventory:rust/starter\"]\n"
+        } else {
+            ""
+        };
         let inventory = if kind == "standard" {
             "rules = [\"SEC-001\"]\n"
         } else {
             ""
         };
         let text = source
-            .replace("[metadata]", &format!("{inventory}[metadata]"))
+            .replace("[metadata]", &format!("{language}{inventory}[metadata]"))
             .replace("kind = \"package\"", &format!("kind = \"{kind}\""))
             .replace("name = \"core\"", &format!("name = \"{name}\""))
             .replace("@synthetic/knowledge", &format!("{name}-owner"))
@@ -221,6 +229,35 @@ fn catalog_codeowners_stdout_matches_fixture_golden() {
         fs::create_dir_all(root.join(path).parent().unwrap()).unwrap();
         fs::write(root.join(path), text).unwrap();
     }
+    let fixtures =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/catalog/languages");
+    for (path, source) in [
+        (
+            "languages/rust/profiles/quality/default.toml",
+            "manager-choices.toml",
+        ),
+        (
+            "languages/rust/instructions/rules.instructions.md",
+            "rules.instructions.md",
+        ),
+        (
+            "languages/rust/instructions/rules.maestro.toml",
+            "rules.maestro.toml",
+        ),
+        ("languages/rust/bootstrap/starter.toml", "starter.toml"),
+        (
+            "standards/quality/profiles/quality/baseline.toml",
+            "baseline.toml",
+        ),
+    ] {
+        fs::create_dir_all(root.join(path).parent().unwrap()).unwrap();
+        fs::copy(fixtures.join(source), root.join(path)).unwrap();
+    }
+    let quality = source
+        .replace("name = \"core\"", "name = \"quality\"")
+        .replace("kind = \"package\"", "kind = \"standard\"")
+        .replace("[metadata]", "rules = [\"quality-001\"]\n[metadata]");
+    fs::write(root.join("standards/quality/package.toml"), quality).unwrap();
     let result = run(&home, &root, false);
     assert_eq!(result.code, Some(0), "{result:?}");
     assert_eq!(

@@ -187,10 +187,7 @@ fn standard_constraints_only_narrow() {
          \"test.check\" = true\n\"test.permissions\" = [\"read\"]\n\
          \"test.checks\" = [\"lint\"]",
     )
-    .with(
-        "languages/rust/package.toml",
-        &package_source("language", "rust"),
-    );
+    .language("rust");
     for path in [
         "languages/rust/package.toml",
         "core/package.toml",

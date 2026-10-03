@@ -125,14 +125,8 @@ fn layer_neighbours(from: &str, to: &str, namespace: &str) {
     );
     let skill = MemoryTree::valid().text(SKILL);
     let tree = MemoryTree::owned()
-        .with(
-            "languages/python/package.toml",
-            &package_source("language", "python"),
-        )
-        .with(
-            "languages/rust/package.toml",
-            &package_source("language", "rust"),
-        )
+        .language("python")
+        .language("rust")
         .with(
             &source,
             &skill.replace(
@@ -189,10 +183,7 @@ fn team_neighbours(from: &str) {
     let skill = MemoryTree::valid().text(SKILL);
     let source = format!("{from}/{SKILL}");
     let tree = MemoryTree::owned()
-        .with(
-            "languages/rust/package.toml",
-            &package_source("language", "rust"),
-        )
+        .language("rust")
         .with(
             "capabilities/practice/review/package.toml",
             &package_source("package", "review"),

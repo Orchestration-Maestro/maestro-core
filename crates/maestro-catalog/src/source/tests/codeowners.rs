@@ -27,7 +27,7 @@ fn tree() -> MemoryTree {
                 "description =",
                 &format!("maintainers = [\"reader\", \"@{name}-owner\"]\ndescription ="),
             );
-        tree.with(path, &text)
+        super::language::area_content(tree, kind, name).with(path, &text)
     })
 }
 

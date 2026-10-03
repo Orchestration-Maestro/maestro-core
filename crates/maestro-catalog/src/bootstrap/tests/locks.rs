@@ -7,7 +7,7 @@ use crate::files::{digest, tests::support::remove};
 use std::fs;
 
 /// Exact selected closure, independent of the production capture loop.
-const EXPECTED: [(&str, &str, Option<&str>); 13] = [
+const EXPECTED: [(&str, &str, Option<&str>); 17] = [
     (
         "bootstrap/base.toml",
         "bootstrap-inventory:common/base",
@@ -40,9 +40,24 @@ const EXPECTED: [(&str, &str, Option<&str>); 13] = [
         None,
     ),
     (
+        "languages/rust/instructions/rules.instructions.md",
+        "instructions:rust/rules",
+        None,
+    ),
+    (
+        "languages/rust/instructions/rules.maestro.toml",
+        "instructions:rust/rules",
+        None,
+    ),
+    (
         "languages/rust/package.toml",
         "language:rust",
         Some("1.2.3"),
+    ),
+    (
+        "languages/rust/profiles/quality/default.toml",
+        "quality-profile:rust/default",
+        None,
     ),
     ("package.toml", "package:common", Some("1.2.3")),
     ("presets/base.toml", "preset:base", None),
@@ -51,6 +66,11 @@ const EXPECTED: [(&str, &str, Option<&str>); 13] = [
         "standards/quality/package.toml",
         "standard:quality",
         Some("1.2.3"),
+    ),
+    (
+        "standards/quality/profiles/quality/baseline.toml",
+        "quality-profile:quality/baseline",
+        None,
     ),
     (
         "standards/security/package.toml",

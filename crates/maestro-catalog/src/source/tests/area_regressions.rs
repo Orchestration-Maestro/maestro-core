@@ -27,7 +27,8 @@ fn package_version_overlap_refuses_disagreement() {
                     |version| format!("{base}version = \"{version}\"\n"),
                 );
                 check_by(
-                    &MemoryTree::default().with(path, &text),
+                    &super::language::area_content(MemoryTree::default(), kind, name)
+                        .with(path, &text),
                     &registry,
                     &Limits::PRODUCTION,
                 )
@@ -195,7 +196,7 @@ fn area_roots_require_reviewed_transitive_members() {
             "requires = []",
             "requires = [\"skill:common/middle-skill\"]",
         );
-        let tree = MemoryTree::owned()
+        let tree = super::language::area_content(MemoryTree::owned(), kind, name)
             .with(path, &root)
             .with("skills/middle-skill/SKILL.md", &middle)
             .with("skills/leaf-skill/SKILL.md", &leaf);
@@ -270,7 +271,8 @@ fn area_tree(area: &str) -> MemoryTree {
     } else {
         "package"
     };
-    MemoryTree::default().with(&format!("{area}/package.toml"), &package_source(kind, name))
+    super::language::area_content(MemoryTree::default(), kind, name)
+        .with(&format!("{area}/package.toml"), &package_source(kind, name))
 }
 
 #[test]

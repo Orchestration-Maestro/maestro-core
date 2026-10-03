@@ -7,19 +7,20 @@ use crate::{
     },
     source::{
         descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
+        naming,
         rules::KindRules,
         types::{Known, Maturity, Problems, Resource, ResourceId, Value},
     },
 };
 use maestro_settings::Value as SettingValue;
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Quality resources live in their own identity and placement, not profiles/models.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
         kind: "quality-profile".to_owned(),
-        version: 1,
+        version: 2,
         directory: "profiles/quality".to_owned(),
         scopes: vec![
             Scope::Common,
@@ -41,6 +42,12 @@ pub(super) fn descriptor() -> KindDescriptor {
             Field::required("name", FieldType::Text),
             Field::required("subject", FieldType::Text),
             Field::optional("baseline", FieldType::Text),
+            Field::optional(
+                "managers",
+                FieldType::Delegated {
+                    validator: "quality-profile".to_owned(),
+                },
+            ),
             Field::required("gates", FieldType::TextList),
             Field::required("applicability", FieldType::TextList),
             Field::required("failure_conditions", FieldType::TextList),
@@ -163,6 +170,11 @@ impl KindRules for QualityRules {
             Ok(thresholds) => check_thresholds(&thresholds, problems),
             Err(message) => problems.push(("thresholds".to_owned(), message)),
         }
+        if let Some(managers) = resource.fields.get("managers")
+            && let Err(message) = check_managers(managers)
+        {
+            problems.push(("managers".to_owned(), message));
+        }
         if let Some(reference) = resource.fields.get("baseline").and_then(Value::text) {
             check_reference(resource, reference, true, problems);
         }
@@ -174,13 +186,14 @@ impl KindRules for QualityRules {
         catalog: &BTreeMap<ResourceId, &Resource>,
         problems: &mut Problems,
     ) {
-        let Some(baseline) = resource
+        let baseline = resource
             .fields
             .get("baseline")
             .and_then(Value::text)
             .and_then(ResourceId::parse)
-            .and_then(|id| catalog.get(&id))
-        else {
+            .and_then(|id| catalog.get(&id));
+        check_language(resource, baseline.copied(), catalog, problems);
+        let Some(baseline) = baseline else {
             return;
         };
         if baseline.fields.contains_key("baseline") {
@@ -373,6 +386,106 @@ fn narrow(
                     format!("threshold {metric} {message}"),
                 )),
             },
+        }
+    }
+}
+
+/// One manager default and explicit alternatives; products are values only.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Manager {
+    /// The one selected manager, never a command.
+    default: String,
+    /// Available alternatives satisfy the same gates; an empty list is valid.
+    alternatives: Vec<String>,
+}
+
+/// Strict named choice records, not positional arrays or implicit defaults.
+fn check_managers(value: &Value) -> Result<(), String> {
+    let Value::Table(records) = value else {
+        return Err("managers must be a table".to_owned());
+    };
+    if records.is_empty() {
+        return Err("requires a nonempty managers table".to_owned());
+    }
+    for (name, record) in records {
+        if naming::product(name) {
+            return Err(
+                "requires a functional manager choice name; products are values".to_owned(),
+            );
+        }
+        if !matches!(record, Value::Table(_)) {
+            return Err(format!("manager {name} must be a table"));
+        }
+        let choice: Manager = record.decode()?;
+        if name.trim().is_empty()
+            || choice.default.trim().is_empty()
+            || choice
+                .alternatives
+                .iter()
+                .any(|item| item.trim().is_empty())
+        {
+            return Err("requires nonempty manager names and values".to_owned());
+        }
+        let mut seen = BTreeSet::from([choice.default]);
+        for alternative in choice.alternatives {
+            if !seen.insert(alternative) {
+                return Err(format!("manager {name} repeats default or alternative"));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Every language profile retains all categories and an admitted standard baseline.
+fn check_language(
+    resource: &Resource,
+    baseline: Option<&Resource>,
+    catalog: &BTreeMap<ResourceId, &Resource>,
+    problems: &mut Problems,
+) {
+    let area = ResourceId {
+        kind: "language".to_owned(),
+        namespace: None,
+        name: resource.id.namespace.clone().unwrap_or_default(),
+    };
+    if !catalog.contains_key(&area) {
+        return;
+    }
+    let standard_owned = baseline
+        .and_then(|baseline| baseline.id.namespace.as_ref())
+        .is_some_and(|name| {
+            catalog.contains_key(&ResourceId {
+                kind: "standard".to_owned(),
+                namespace: None,
+                name: name.clone(),
+            })
+        });
+    if !standard_owned {
+        problems.push((
+            "baseline".to_owned(),
+            "language profile requires a standard-owned baseline".to_owned(),
+        ));
+    }
+    if !resource.fields.contains_key("managers") {
+        problems.push((
+            "managers".to_owned(),
+            "language profile requires managers".to_owned(),
+        ));
+    }
+    let gates = resource
+        .fields
+        .get("gates")
+        .and_then(Value::texts)
+        .unwrap_or_default();
+    for gate in [
+        "format", "lint", "types", "security", "secrets", "mutation", "property", "coverage",
+    ] {
+        if !gates.contains(&gate) {
+            problems.push((
+                "gates".to_owned(),
+                format!("missing language gate category {gate}"),
+            ));
         }
     }
 }

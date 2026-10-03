@@ -7,6 +7,7 @@ mod bootstrap_inventory;
 mod builtin;
 mod contract;
 mod instructions;
+mod language;
 mod model_card;
 mod package;
 mod preset;

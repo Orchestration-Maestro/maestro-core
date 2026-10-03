@@ -3,7 +3,7 @@
 
 use super::{
     agent::{self, AgentRules},
-    backend, bootstrap_inventory, contract, instructions, model_card, package,
+    backend, bootstrap_inventory, contract, instructions, language, model_card, package,
     preset::{self, PresetRules},
     quality_profile, skill, standard, standard_check, standard_exception,
 };
@@ -12,7 +12,7 @@ use crate::source::{descriptor::Scope, registry::Registry, rules::KindRules};
 
 /// The hooks a descriptor may select, by name. Content never supplies code:
 /// a new hook is reviewed code added here.
-const HOOKS: [(&str, &dyn KindRules, &[&str]); 11] = [
+const HOOKS: [(&str, &dyn KindRules, &[&str]); 12] = [
     (
         "backend-base",
         &backend::BackendRules,
@@ -24,11 +24,12 @@ const HOOKS: [(&str, &dyn KindRules, &[&str]); 11] = [
         &["files"],
     ),
     ("area-package", &package::PackageRules, &["settings"]),
+    ("language-area", &language::LanguageRules, &["settings"]),
     ("standard-settings", &SettingsRules, &["settings"]),
     (
         "quality-profile",
         &quality_profile::QualityRules,
-        &["bindings", "thresholds"],
+        &["bindings", "thresholds", "managers"],
     ),
     ("standard-exception", &ExceptionRules, &[]),
     ("agent-profile", &AgentRules, &[]),
@@ -72,7 +73,7 @@ pub fn builtin() -> Result<Registry, String> {
         skill::descriptor(),
         instructions::descriptor(),
         package::descriptor("package", vec![Scope::Common, Scope::Core, Scope::Team]),
-        package::descriptor("language", vec![Scope::Language]),
+        language::descriptor(),
         standard::descriptor(),
         standard_check::descriptor(),
         standard_exception::descriptor(),

@@ -143,7 +143,7 @@ pub(super) fn area(
         .iter()
         .map(|id| format!("\"{id}\""))
         .collect::<Vec<_>>();
-    tree.with(
+    super::language::area_content(tree, kind, name).with(
         path,
         &package_source(kind, name).replace(
             "requires = []",

@@ -44,3 +44,5 @@ mod yaml;
 mod restrictive_standards;
 
 mod quality_profile;
+
+mod language;

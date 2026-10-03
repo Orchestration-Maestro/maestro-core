@@ -79,6 +79,14 @@ impl MemoryTree {
             .with("core/package.toml", fixture!("core-package.toml"))
     }
 
+    /// A complete synthetic language area, using the shared area fixture builder.
+    pub(super) fn language(self, name: &str) -> Self {
+        super::language::declarations(self, name).with(
+            &format!("languages/{name}/package.toml"),
+            &super::area_packages::package_source("language", name),
+        )
+    }
+
     /// This catalog with `path` holding `text`.
     pub(crate) fn with(mut self, path: &str, text: &str) -> Self {
         self.files.insert(path.to_owned(), text.as_bytes().to_vec());
