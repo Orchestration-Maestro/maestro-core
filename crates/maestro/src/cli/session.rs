@@ -1,7 +1,11 @@
 //! CLI composition root for the process's immutable preferences snapshot.
 
 use super::trust;
-use crate::{failure::Failure, settings::Session};
+use crate::{
+    failure::Failure,
+    presentation::{message::Message, messages::MessageKey},
+    settings::Session,
+};
 use maestro_catalog::{
     limits::Limits,
     policy::workspace::{CheckedTrust, JournalTrust},
@@ -72,9 +76,9 @@ pub(crate) fn for_mcp(workspace: Option<&Path>, flags: &[String]) -> Result<Sess
     if let Some(workspace) = workspace
         && !workspace.is_dir()
     {
-        return Err(Failure::refused(format!(
-            "--workspace {}: the path is not a directory: no project file is read",
-            workspace.display()
+        return Err(Failure::refused_message(Message::new(
+            MessageKey::SessionWorkspaceDirectory,
+            &[("path", &workspace.display().to_string())],
         )));
     }
     current_at(&config_dir()?, workspace, env::home_dir().as_deref(), flags)
@@ -91,9 +95,9 @@ pub(crate) fn for_mcp_at(
     if let Some(workspace) = workspace
         && !workspace.is_dir()
     {
-        return Err(Failure::refused(format!(
-            "--workspace {}: the path is not a directory: no project file is read",
-            workspace.display()
+        return Err(Failure::refused_message(Message::new(
+            MessageKey::SessionWorkspaceDirectory,
+            &[("path", &workspace.display().to_string())],
         )));
     }
     at(config_dir, workspace, home, flags)
@@ -169,9 +173,10 @@ fn from_snapshot(
         .text("graph.engine")
         .is_some_and(|kind| kind != "none" && !compiled.contains(kind))
     {
-        return Err(Failure::refused(
-            "backend adapter is not compiled into this build",
-        ));
+        return Err(Failure::refused_message(Message::new(
+            MessageKey::SessionBackendUnavailable,
+            &[],
+        )));
     }
     Ok(session)
 }

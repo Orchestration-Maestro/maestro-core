@@ -1,6 +1,9 @@
 //! Explicit user-local trust administration, independent of preference discovery.
 use super::{output::Output, trust_path};
-use crate::failure::Failure;
+use crate::{
+    failure::Failure,
+    presentation::{message::Message, messages::MessageKey},
+};
 use clap::Subcommand;
 use maestro_catalog::policy::workspace::{
     PreferencesConfirmation, TrustBoundaries, confirmation, preferences_confirmation,
@@ -40,7 +43,9 @@ pub(super) enum TrustCommand {
 /// Platform-resolved mandatory root refusals; HOME never receives an implicit grant.
 pub(super) fn boundaries() -> Result<TrustBoundaries, Failure> {
     let environment = Environment::current();
-    let home = env::home_dir().ok_or_else(|| Failure::refused("HOME cannot be resolved"))?;
+    let home = env::home_dir().ok_or_else(|| {
+        Failure::refused_message(Message::new(MessageKey::TrustHomeUnavailable, &[]))
+    })?;
     let data = paths::data_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let config = paths::config_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     TrustBoundaries::new(&home, &[data, config]).map_err(|error| Failure::failed_by(&error))
@@ -129,10 +134,19 @@ pub(super) fn run(output: Output, command: &TrustCommand) -> Result<ExitCode, Fa
             let root = boundaries()?
                 .canonical_root(directory)
                 .map_err(Failure::refused)?;
-            let prompt = format!("Approve {}? [y/N] ", trust_path::visible_path(&root));
+            let prompt = output.wording(
+                MessageKey::TrustApprove,
+                &[("path", &trust_path::visible_path(&root))],
+            )?;
             let answer =
                 match approve(&root, confirm_path.as_deref(), &prompt).map_err(|failure| {
-                    Failure::refused(format!("{failure}; {}", trust_path::suggestion(&root)))
+                    Failure::refused_message(
+                        Message::new(
+                            MessageKey::DiagnosticInstruction,
+                            &[("error", &failure.to_string())],
+                        )
+                        .with_message("instruction", trust_path::suggestion_message(&root)),
+                    )
                 })? {
                     Some(confirmation) => Answer::Approved { confirmation },
                     None => Answer::Declined,
@@ -170,10 +184,10 @@ pub(super) fn run(output: Output, command: &TrustCommand) -> Result<ExitCode, Fa
         .map_err(Failure::refused)?;
     output.result(
         &record,
-        &format!(
-            "Recorded workspace answer for {}.",
-            record.change.path.display()
-        ),
+        &output.wording(
+            MessageKey::TrustRecorded,
+            &[("path", &record.change.path.display().to_string())],
+        )?,
     )?;
     Ok(ExitCode::SUCCESS)
 }

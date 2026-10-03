@@ -5,7 +5,10 @@
 
 use crate::{
     failure::Failure,
-    presentation::messages::{Interface, MessageKey, interpolate},
+    presentation::{
+        message::Message,
+        messages::{Interface, MessageKey, interpolate},
+    },
 };
 use maestro_kernel::json::canonical;
 use serde::Serialize;
@@ -93,6 +96,37 @@ impl Output {
         interpolate(interface.template(key), values).map_err(Failure::failed)
     }
 
+    /// Bind only a valid explicit repair-path language, without config reads or notices.
+    pub(super) fn explicit_language(mut self, language: Option<&str>) -> Result<Self, Failure> {
+        if !self.json {
+            let language =
+                language.and_then(|text| maestro_settings::canonical_language(text).ok());
+            self.interface = Some(
+                Interface::select(language.as_deref().unwrap_or("en")).map_err(Failure::failed)?,
+            );
+        }
+        Ok(self)
+    }
+
+    /// Render an owned diagnostic at the human boundary; JSON always keeps English.
+    pub(super) fn message(self, message: &Message) -> Result<String, Failure> {
+        let interface = self
+            .interface
+            .map_or_else(|| Interface::select("en"), Ok)
+            .map_err(Failure::failed)?;
+        message.render(interface).map_err(Failure::failed)
+    }
+
+    /// Render typed failures only here; opaque downstream diagnostics remain literal data.
+    pub(super) fn failure_text(self, failure: &Failure) -> Result<String, Failure> {
+        match failure {
+            Failure::RefusedMessage(message) | Failure::FailedMessage(message) => {
+                self.message(message)
+            }
+            Failure::Refused(_) | Failure::Failed(_) => Ok(failure.to_string()),
+        }
+    }
+
     /// Prints `id`, the job a long command runs, before anything else: on
     /// stdout in text, on stderr under `--json`, so the document stays one.
     ///
@@ -173,7 +207,12 @@ fn print(line: &str) -> Result<(), Failure> {
     let mut stdout = io::stdout().lock();
     writeln!(stdout, "{line}")
         .and_then(|()| stdout.flush())
-        .map_err(|error| Failure::failed(format!("cannot write to stdout: {error}")))
+        .map_err(|error| {
+            Failure::failed_message(Message::new(
+                MessageKey::OutputWriteFailed,
+                &[("error", &error.to_string())],
+            ))
+        })
 }
 
 /// Writes `line` and a line break on stderr, where diagnostics go; a stderr
@@ -222,5 +261,64 @@ mod tests {
     fn output_preserves_its_json_mode() {
         assert!(!Output::new(false).is_json());
         assert!(Output::new(true).is_json());
+    }
+    #[test]
+    fn catalog_presentation_typed_failures_keep_english_display_and_exit_codes() {
+        use crate::{
+            failure::Failure,
+            presentation::{message::Message, messages::MessageKey},
+        };
+        use std::process::ExitCode;
+        let message = || {
+            Message::new(
+                MessageKey::DiagnosticInstruction,
+                &[("error", "English detail")],
+            )
+            .with_message(
+                "instruction",
+                Message::new(
+                    MessageKey::TrustSuggestionCommand,
+                    &[("path", "\"/synthetic/{literal}\"")],
+                ),
+            )
+        };
+        for language in ["en", "fr", "es"] {
+            for tone in ["brief", "normal", "detailed"] {
+                let output = Output::new(false).with_language(language).unwrap();
+                let refused = Failure::refused_message(message());
+                let failed = Failure::failed_message(message());
+                assert_eq!(refused.code(), ExitCode::from(2), "{tone}");
+                assert_eq!(failed.code(), ExitCode::from(1), "{tone}");
+                let english = concat!(
+                    "English detail; run: maestro trust add \"/synthetic/{literal}\" ",
+                    "--confirm-path \"/synthetic/{literal}\""
+                );
+                assert_eq!(refused.to_string(), english);
+                assert_eq!(failed.to_string(), english);
+                assert_eq!(
+                    Output::new(true)
+                        .with_language(language)
+                        .unwrap()
+                        .failure_text(&refused)
+                        .unwrap(),
+                    english
+                );
+                let prefix = match language {
+                    "fr" => "exécutez :",
+                    "es" => "ejecute:",
+                    _ => "run:",
+                };
+                assert_eq!(
+                    output.failure_text(&refused).unwrap(),
+                    english.replace("run:", prefix)
+                );
+                assert_eq!(
+                    output
+                        .failure_text(&Failure::failed("bare English detail"))
+                        .unwrap(),
+                    "bare English detail"
+                );
+            }
+        }
     }
 }

@@ -4,7 +4,11 @@
 //! diagnostic with its path and key, and exits 2 when the catalog is refused
 //! and 1 when a file or directory cannot be read.
 
-use crate::{cli::output::Output, failure::Failure};
+use crate::{
+    cli::output::Output,
+    failure::Failure,
+    presentation::{message::Message, messages::MessageKey},
+};
 use maestro_catalog::{
     limits::Limits,
     source::{Catalog, Directory, Known, Refusal, builtin, check, frozen_rows},
@@ -67,9 +71,9 @@ fn passed(catalog: &Catalog) -> Result<CheckDocument<'_>, Failure> {
             .resources
             .iter()
             .map(|resource| {
-                let ownership = catalog
-                    .ownership(resource)
-                    .ok_or_else(|| Failure::failed("checked resource has no area ownership"))?;
+                let ownership = catalog.ownership(resource).ok_or_else(|| {
+                    Failure::failed_message(Message::new(MessageKey::CatalogMissingOwnership, &[]))
+                })?;
                 Ok(ResourceLine {
                     id: resource.id.to_string(),
                     path: &resource.path,
@@ -129,10 +133,10 @@ pub(in crate::cli) fn run(output: Output, catalog_dir: &Path) -> Result<ExitCode
         known,
     ) {
         Ok(catalog) => {
-            let text = format!(
-                "catalog check passed: {} resources",
-                catalog.resources.len()
-            );
+            let text = output.wording(
+                MessageKey::CatalogCheckPassed,
+                &[("count", &catalog.resources.len().to_string())],
+            )?;
             output.result(&passed(&catalog)?, &text)?;
             Ok(ExitCode::SUCCESS)
         }

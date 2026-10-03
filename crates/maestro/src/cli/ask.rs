@@ -5,6 +5,7 @@ use crate::{
     failure::Failure,
     kernel::Kernel,
     knowledge::operations::{KnowledgeError, ask::run::ask_with, ensure_current_scopes},
+    presentation::messages::MessageKey,
     settings::KnowledgeSettings,
 };
 use maestro_kernel::evidence::RouteStatus;
@@ -60,16 +61,37 @@ pub(super) fn refusal(
     schema: &str,
     error: KnowledgeError,
 ) -> Result<ExitCode, Failure> {
+    render_refusal(output, schema, error, None)
+}
+
+/// Keep the machine envelope English while rendering a CLI-authored refusal key.
+pub(super) fn refusal_message(
+    output: Output,
+    schema: &str,
+    error: KnowledgeError,
+    key: MessageKey,
+) -> Result<ExitCode, Failure> {
+    render_refusal(output, schema, error, Some(key))
+}
+
+/// Shared envelope and exit mapping for bare diagnostics and typed CLI wording.
+fn render_refusal(
+    output: Output,
+    schema: &str,
+    error: KnowledgeError,
+    key: Option<MessageKey>,
+) -> Result<ExitCode, Failure> {
     let (code, message, exit) = match error {
         KnowledgeError::Refused { code, message } => (code, message, ExitCode::from(2)),
         KnowledgeError::Failed { code, message } => (code, message, ExitCode::from(1)),
     };
+    let diagnostic = key.map(|key| output.wording(key, &[])).transpose()?;
     output.refusal(
         &AskErrorEnvelope {
             schema,
             error: AskErrorBody { code, message },
         },
-        message,
+        diagnostic.as_deref().unwrap_or(message),
     )?;
     Ok(exit)
 }

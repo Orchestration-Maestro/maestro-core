@@ -3,6 +3,7 @@ use super::check::today;
 use crate::{
     cli::{output::Output, session, trust, trust_path},
     failure::Failure,
+    presentation::{message::Message, messages::MessageKey},
 };
 use clap::Args;
 use maestro_catalog::{
@@ -128,19 +129,33 @@ fn require_exact_trust(output: Output, root: &Path) -> Result<(), Failure> {
     if checked.containing_root(root).as_deref() == Some(root) {
         return Ok(());
     }
-    let suggestion = trust_path::suggestion(root);
+    let suggestion = || trust_path::suggestion_message(root);
     if output.is_json() {
-        return Err(Failure::refused(format!(
-            "exact target is untrusted; {suggestion}"
-        )));
+        return Err(Failure::refused_message(
+            Message::new(MessageKey::CatalogTargetUntrusted, &[])
+                .with_message("instruction", suggestion()),
+        ));
     }
-    let prompt = format!(
-        "Approve exact projection target {}? [y/N] ",
-        trust_path::visible_path(root)
-    );
+    let prompt = output.wording(
+        MessageKey::CatalogTargetApprove,
+        &[("path", &trust_path::visible_path(root))],
+    )?;
     let confirmation = trust::approve(root, None, &prompt)
-        .map_err(|error| Failure::refused(format!("{error}; {suggestion}")))?
-        .ok_or_else(|| Failure::refused(format!("target trust declined; {suggestion}")))?;
+        .map_err(|error| {
+            Failure::refused_message(
+                Message::new(
+                    MessageKey::DiagnosticInstruction,
+                    &[("error", &error.to_string())],
+                )
+                .with_message("instruction", suggestion()),
+            )
+        })?
+        .ok_or_else(|| {
+            Failure::refused_message(
+                Message::new(MessageKey::CatalogTargetDeclined, &[])
+                    .with_message("instruction", suggestion()),
+            )
+        })?;
     trust::database()?
         .record_workspace_answer(&WorkspaceAnswer {
             path: root.to_path_buf(),

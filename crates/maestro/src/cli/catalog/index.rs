@@ -1,7 +1,11 @@
 //! Read-only public catalog index/type rendering and exact committed drift checking.
 
 use super::check::today;
-use crate::{cli::output::Output, failure::Failure};
+use crate::{
+    cli::output::Output,
+    failure::Failure,
+    presentation::{message::Message, messages::MessageKey},
+};
 use clap::ValueEnum;
 use maestro_catalog::{
     limits::Limits,
@@ -54,13 +58,19 @@ pub(in crate::cli) fn run(
     for path in [INDEX_PATH, BY_TYPE_PATH] {
         match fs::symlink_metadata(catalog_dir.join(path)) {
             Ok(metadata) if !metadata.is_file() => {
-                return Err(Failure::refused(format!(
-                    "{path}: generated output must be a regular file"
+                return Err(Failure::refused_message(Message::new(
+                    MessageKey::CatalogOutputRegular,
+                    &[("path", path)],
                 )));
             }
             Ok(_) => {}
             Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(error) => return Err(Failure::failed(format!("{path}: {error}"))),
+            Err(error) => {
+                return Err(Failure::failed_message(Message::new(
+                    MessageKey::DiagnosticPath,
+                    &[("path", path), ("error", &error.to_string())],
+                )));
+            }
         }
     }
     let rows = frozen_rows();
@@ -86,7 +96,7 @@ pub(in crate::cli) fn run(
         }
     };
     let text = if check {
-        "catalog index check passed"
+        &output.wording(MessageKey::CatalogIndexPassed, &[])?
     } else {
         content.strip_suffix('\n').unwrap_or(content)
     };
@@ -103,11 +113,11 @@ pub(in crate::cli) fn run(
 
 #[cfg(test)]
 mod tests {
-    use super::{BY_TYPE_PATH, Failure, INDEX_PATH, Output, View, run};
+    use super::{BY_TYPE_PATH, INDEX_PATH, Output, View, run};
     use maestro_test_scratch::scratch_directory;
     #[cfg(unix)]
     use std::io::ErrorKind;
-    use std::{fs, path::PathBuf};
+    use std::{fs, path::PathBuf, process::ExitCode};
 
     /// Minimal public source, sufficient to distinguish preflight from checking.
     fn catalog() -> PathBuf {
@@ -146,7 +156,7 @@ mod tests {
             fs::write(&package, "unknown = true\n").unwrap();
             for check in [false, true] {
                 let error = run(Output::new(false), &root, View::Index, check).unwrap_err();
-                assert!(matches!(error, Failure::Refused(_)));
+                assert_eq!(error.code(), ExitCode::from(2));
                 assert_eq!(
                     error.to_string(),
                     format!("{path}: generated output must be a regular file")
@@ -172,7 +182,7 @@ mod tests {
             assert_ne!(io_error.kind(), ErrorKind::NotFound);
             for check in [false, true] {
                 let error = run(Output::new(false), &root, View::Index, check).unwrap_err();
-                assert!(matches!(error, Failure::Failed(_)), "{error:?}");
+                assert_eq!(error.code(), ExitCode::from(1));
                 assert_eq!(error.to_string(), format!("{path}: {io_error}"));
             }
             fs::remove_file(root.join(ancestor)).unwrap();

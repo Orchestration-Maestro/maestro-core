@@ -259,11 +259,18 @@ in place.
 │   │   │   │   ├── run.rs                                                   # Runs the stdio MCP server without sending diagnostics to stdout
 │   │   │   │   └── transport.rs                                             # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
 │   │   │   ├── presentation/                                                # Presentation
+│   │   │   │   ├── cli_inventory/                                           # Test-only current-source message inventory and Rust lexical controls
+│   │   │   │   │   ├── lexer.rs                                             # Test-only Rust lexical scan: comments and character literals cannot invent messages
+│   │   │   │   │   ├── mod.rs                                               # Test-only current-source message inventory and Rust lexical controls
+│   │   │   │   │   └── scan.rs                                              # Current-source coverage, with pending command groups and literal-identity exceptions
 │   │   │   │   ├── languages/                                               # Languages
 │   │   │   │   │   ├── en.json                                              # JSON data: en
 │   │   │   │   │   ├── es.json                                              # JSON data: es
 │   │   │   │   │   ├── fr.json                                              # JSON data: fr
+│   │   │   │   │   ├── migrated.golden.json                                 # JSON data: migrated.golden
 │   │   │   │   │   └── rendered.golden.json                                 # JSON data: rendered.golden
+│   │   │   │   ├── inventory_tests.rs                                       # Frozen inventory keys and their independently retained English neighbours
+│   │   │   │   ├── message.rs                                               # Owned interface data carried through failures without changing English machine records
 │   │   │   │   ├── messages.rs                                              # Deterministic interface templates; preferences never affect machine artifacts
 │   │   │   │   ├── mod.rs                                                   # Rust source: mod
 │   │   │   │   └── tests.rs                                                 # Strict embedded data and non-recursive interpolation contracts
@@ -322,6 +329,7 @@ in place.
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
 │   │   │       ├── catalog_init_menu.rs                                     # Plain, screen-reader-safe init and the registry-backed config editor
 │   │   │       ├── catalog_init_regressions.rs                              # C05g review regressions: targeting, parity, retry and the reviewed values
+│   │   │       ├── catalog_message_migration.rs                             # Slice-one process neighbours: localization never changes repair or machine semantics
 │   │   │       ├── catalog_owners.rs                                        # Trusted evidence is a separate input; the command performs no lookup or write
 │   │   │       ├── catalog_policy.rs                                        # Real Cedar through the effect-free policy CLI
 │   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
@@ -1839,6 +1847,9 @@ in place.
 │       │   │   ├── cases.json                                               # JSON data: cases
 │       │   │   ├── rules.cedar                                              # File: rules
 │       │   │   └── schema.json                                              # JSON data: schema
+│       │   ├── presentation/                                                # Presentation
+│       │   │   ├── english-neighbours.json                                  # JSON data: english neighbours
+│       │   │   └── inventory-rules.json                                     # JSON data: inventory rules
 │       │   ├── quality/                                                     # Quality
 │       │   │   ├── baseline.toml                                            # TOML settings: baseline
 │       │   │   ├── bound.toml                                               # TOML settings: bound

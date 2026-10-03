@@ -283,11 +283,11 @@ pub(crate) fn get_with(
 /// Maps local kernel construction and refresh failures to safe public errors.
 pub(crate) fn kernel_open_failure(failure: &Failure) -> KnowledgeError {
     match failure {
-        Failure::Refused(_) => KnowledgeError::Refused {
+        Failure::Refused(_) | Failure::RefusedMessage(_) => KnowledgeError::Refused {
             code: "invalid_configuration",
             message: "local access configuration is invalid",
         },
-        Failure::Failed(_) => kernel_failure(),
+        Failure::Failed(_) | Failure::FailedMessage(_) => kernel_failure(),
     }
 }
 

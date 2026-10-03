@@ -19,6 +19,10 @@ use crate::{
     kernel::Kernel,
     knowledge::{GetRequest, RequestError, SearchRequest, operations::KnowledgeError},
     mcp::run::run as run_mcp,
+    presentation::{
+        message::Message,
+        messages::{Interface, MessageKey},
+    },
     settings::{Compute, KnowledgeSettings, Session},
 };
 use clap::Parser as _;
@@ -46,11 +50,15 @@ fn usage(error: &clap::Error) -> ExitCode {
 /// Runs the command `arguments` name, and prints why it stopped short if it
 /// did.
 fn run(arguments: &Arguments) -> ExitCode {
-    let output = Output::new(arguments.json).without_color(arguments.no_color);
-    match dispatch(arguments, output) {
+    let mut output = Output::new(arguments.json).without_color(arguments.no_color);
+    match dispatch(arguments, &mut output) {
         Ok(code) => code,
         Err(failure) => {
-            diagnose(&failure.to_string());
+            diagnose(
+                &output
+                    .failure_text(&failure)
+                    .unwrap_or_else(|_| failure.to_string()),
+            );
             failure.code()
         }
     }
@@ -59,11 +67,13 @@ fn run(arguments: &Arguments) -> ExitCode {
 /// Runs the command `arguments` name, once its `--set` flags are checked;
 /// `setup`, `backup` and `restore` open no kernel for writing, and `status`
 /// and `doctor` never create or migrate it.
-fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> {
+fn dispatch(arguments: &Arguments, boundary: &mut Output) -> Result<ExitCode, Failure> {
+    let mut flags = arguments.settings();
+    *boundary = explicit_interface(&arguments.noun, &flags, *boundary)?;
+    let output = *boundary;
     if let Noun::Trust(command) = &arguments.noun {
         return trust::run(output, command);
     }
-    let mut flags = arguments.settings();
     if let Noun::Init {
         updates: Some(updates),
         ..
@@ -90,6 +100,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
                 .unwrap_or("auto"),
         )?
     };
+    *boundary = output;
     match &arguments.noun {
         Noun::Model(command) => model::run(&Kernel::open()?, output, command),
         Noun::Knowledge(KnowledgeCommand::Collections) => {
@@ -145,10 +156,28 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         | Noun::Status
         | Noun::Backup { .. }
         | Noun::Restore { .. }
-        | Noun::Trust(_) => Err(Failure::failed(
-            "repair command bypassed its scoped dispatch path",
-        )),
+        | Noun::Trust(_) => Err(Failure::failed_message(Message::new(
+            MessageKey::RunRepairDispatch,
+            &[],
+        ))),
     }
+}
+
+/// Repair and pre-session diagnostics use explicit flags only, never preference files.
+fn explicit_interface(noun: &Noun, flags: &[String], output: Output) -> Result<Output, Failure> {
+    let language = flags
+        .iter()
+        .filter_map(|flag| flag.split_once('='))
+        .filter(|(key, _)| *key == "language")
+        .map(|(_, value)| value)
+        .next_back();
+    if let Noun::Trust(_) = noun
+        && let Some(language) =
+            language.and_then(|text| maestro_settings::canonical_language(text).ok())
+    {
+        return output.with_language(&language);
+    }
+    output.explicit_language(language)
 }
 
 /// These commands read no runtime settings, so an unadmitted lock cannot block repair.
@@ -248,9 +277,10 @@ fn retrieval(
             };
             ask::run(output, &request, *explain, settings, Kernel::open)
         }
-        _ => Err(Failure::failed(
-            "knowledge retrieval bypassed its scoped dispatch path",
-        )),
+        _ => Err(Failure::failed_message(Message::new(
+            MessageKey::RunRetrievalDispatch,
+            &[],
+        ))),
     }
 }
 
@@ -263,24 +293,22 @@ fn modelled(
     settings: &KnowledgeSettings,
     open_kernel: impl FnOnce() -> Result<Kernel, Failure>,
 ) -> Result<ExitCode, Failure> {
-    let (name, message) = if matches!(command, KnowledgeCommand::Prepare { .. }) {
-        (
-            "prepare",
-            "models.compute is off: prepare calls the model router",
-        )
+    let (name, key) = if matches!(command, KnowledgeCommand::Prepare { .. }) {
+        ("prepare", MessageKey::RunPrepareModelsOff)
     } else {
-        (
-            "publish",
-            "models.compute is off: publish calls the model router",
-        )
+        ("publish", MessageKey::RunPublishModelsOff)
     };
     if settings.compute == Compute::Off {
         let code = "models_off";
+        let message = Interface::select("en")
+            .map_err(Failure::failed)?
+            .template(key);
         let error = KnowledgeError::Refused { code, message };
-        return ask::refusal(
+        return ask::refusal_message(
             output,
             &format!("maestro-cli/knowledge-{name}-error/1"),
             error,
+            key,
         );
     }
     let kernel = open_kernel()?;
@@ -324,9 +352,10 @@ fn modelled(
             };
             publish::run(&kernel, output, &arguments)
         }
-        _ => Err(Failure::failed(
-            "a model command bypassed its dispatch path",
-        )),
+        _ => Err(Failure::failed_message(Message::new(
+            MessageKey::RunModelDispatch,
+            &[],
+        ))),
     }
 }
 
@@ -351,9 +380,10 @@ fn knowledge(
         | KnowledgeCommand::Search { .. }
         | KnowledgeCommand::Ask { .. }
         | KnowledgeCommand::Prepare { .. }
-        | KnowledgeCommand::Publish { .. } => Err(Failure::failed(
-            "knowledge retrieval bypassed its scoped dispatch path",
-        )),
+        | KnowledgeCommand::Publish { .. } => Err(Failure::failed_message(Message::new(
+            MessageKey::RunRetrievalDispatch,
+            &[],
+        ))),
     }
 }
 

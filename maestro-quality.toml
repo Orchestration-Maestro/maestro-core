@@ -309,7 +309,13 @@ reason = "the MCP module owns bounded transport and server startup; the CLI disp
 # espace and distincte are French, requiere is Spanish: C05c interface data
 # and its literal presentation expectations, not misspelled English.
 [typos]
+# Correct French and Spanish interface words, not English spelling errors.
 words = [
+  "ressources",
+  "limite",
+  "projet",
+  "ser",
+  "comando",
   "Exemple",
   "RTO",
   "WRONLY",

@@ -40,7 +40,7 @@ pub(in crate::cli) fn run(
 ) -> Result<ExitCode, Failure> {
     let kernel = match Kernel::open() {
         Ok(kernel) => kernel,
-        Err(Failure::Refused(_)) => {
+        Err(Failure::Refused(_) | Failure::RefusedMessage(_)) => {
             return write_error(
                 output,
                 CliError {
@@ -50,7 +50,7 @@ pub(in crate::cli) fn run(
                 2,
             );
         }
-        Err(Failure::Failed(_)) => {
+        Err(Failure::Failed(_) | Failure::FailedMessage(_)) => {
             return write_error(
                 output,
                 CliError {
@@ -63,7 +63,7 @@ pub(in crate::cli) fn run(
     };
     let (model_port, qdrant) = match ports() {
         Ok(ports) => ports,
-        Err(Failure::Refused(_)) => {
+        Err(Failure::Refused(_) | Failure::RefusedMessage(_)) => {
             return write_error(
                 output,
                 CliError {
@@ -73,7 +73,7 @@ pub(in crate::cli) fn run(
                 2,
             );
         }
-        Err(Failure::Failed(_)) => {
+        Err(Failure::Failed(_) | Failure::FailedMessage(_)) => {
             return write_error(
                 output,
                 CliError {

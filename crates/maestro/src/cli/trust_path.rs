@@ -1,4 +1,5 @@
 //! Shell-safe trust suggestions and lossless conventional Windows path spelling.
+use crate::presentation::{message::Message, messages::MessageKey};
 use std::path::Path;
 
 /// Quote only characters literal in double quotes across the supported user shells.
@@ -85,16 +86,19 @@ pub(super) fn quoted_canonical(path: &Path) -> Option<String> {
 }
 
 /// Safe user-facing suggestion; an unrenderable path is shown only as escaped data.
-pub(super) fn suggestion(path: &Path) -> String {
+#[cfg(test)]
+fn suggestion(path: &Path) -> String {
+    suggestion_message(path).to_string()
+}
+
+/// One complete template; shell commands and escaped paths remain literal data.
+pub(super) fn suggestion_message(path: &Path) -> Message {
     if let Some(quoted) = quoted_canonical(path) {
-        format!("run: maestro trust add {quoted} --confirm-path {quoted}")
+        Message::new(MessageKey::TrustSuggestionCommand, &[("path", &quoted)])
     } else {
-        format!(
-            concat!(
-                "canonical path (data):\n{:?}\nQuote this path for your shell. ",
-                "From inside that folder, run maestro trust add ."
-            ),
-            visible_path(path)
+        Message::new(
+            MessageKey::TrustSuggestionData,
+            &[("path", &format!("{:?}", visible_path(path)))],
         )
     }
 }

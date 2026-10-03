@@ -140,6 +140,7 @@ fn catalog_presentation_translation_golden_covers_every_key_and_language() {
             &[],
         ),
     ];
+    let migrated = super::inventory_tests::migrated_keys();
     let mut rendered = BTreeMap::new();
     for (language, source) in BUILT_INS {
         let interface = Interface::select(language).unwrap();
@@ -160,6 +161,7 @@ fn catalog_presentation_translation_golden_covers_every_key_and_language() {
                 .unwrap()
                 .keys()
                 .map(String::as_str)
+                .filter(|name| !migrated.iter().any(|(_, migrated)| migrated == name))
                 .collect::<BTreeSet<_>>(),
             "golden must render every key in {language}"
         );
