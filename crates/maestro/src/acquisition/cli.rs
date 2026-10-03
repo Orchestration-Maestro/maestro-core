@@ -1,5 +1,5 @@
 //! Only working public manual operations are registered, without a synthetic bypass.
-use super::{bindings, inspect::inspect, output::Report, resources};
+use super::{bindings, inspect::inspect, output::Report, resources, timer};
 #[cfg(target_os = "linux")]
 use super::{
     command::{preview, sync},
@@ -27,6 +27,7 @@ use rustix::process::geteuid;
 #[cfg(target_os = "linux")]
 use std::time::SystemTime;
 use std::{env, path::PathBuf};
+use ulid::Ulid;
 #[cfg(target_os = "linux")]
 use {
     maestro_acquisition::{
@@ -72,6 +73,21 @@ pub(crate) enum Acquire {
         #[command(flatten)]
         inputs: Inputs,
     },
+    /// Recurring live activation refuses until an exact active-source grant exists.
+    Timer,
+    /// Durably disable an owned local timer and wait for cancellation acknowledgement.
+    Stop {
+        /// Exact acquisition.schedule job; never a process ID.
+        #[arg(long)]
+        schedule: Ulid,
+        /// Pi fast-tool default and timer maximum; OA3 declares no shutdown timeout.
+        #[arg(
+            long,
+            default_value = "300000",
+            value_parser = clap::value_parser!(u64).range(1..=2147483647)
+        )]
+        deadline_ms: u64,
+    },
     /// Read a durable authorized receipt; no source, grant or network is consulted.
     Inspect {
         /// Exact receipt attempt to inspect.
@@ -84,6 +100,14 @@ pub(crate) enum Acquire {
 }
 /// Invalid input is checked before the kernel is opened for any write.
 pub(crate) fn run(command: &Acquire) -> Result<Report, Failure> {
+    match command {
+        Acquire::Timer => return timer::activate(),
+        Acquire::Stop {
+            schedule,
+            deadline_ms,
+        } => return timer::stop(*schedule, *deadline_ms),
+        _ => {}
+    }
     if let Acquire::Inspect { receipt, run } = command {
         let data = data_dir(&Environment::current()).map_err(|error| Failure::failed_by(&error))?;
         if !data
@@ -106,7 +130,9 @@ pub(crate) fn run(command: &Acquire) -> Result<Report, Failure> {
     }
     let inputs = match command {
         Acquire::Preview { inputs } | Acquire::Sync { inputs, .. } => inputs,
-        Acquire::Inspect { .. } => return Err(Failure::refused("acquisition operation invalid")),
+        Acquire::Inspect { .. } | Acquire::Timer | Acquire::Stop { .. } => {
+            return Err(Failure::refused("acquisition operation invalid"));
+        }
     };
     // Decode both strict documents before any kernel/resource/authority start.
     drop(bindings::read::<Declaration>(&inputs.manifest)?);

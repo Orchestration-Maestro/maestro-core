@@ -19,6 +19,7 @@ dom_query.workspace = true
 url.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+ulid.workspace = true
 reqwest.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true

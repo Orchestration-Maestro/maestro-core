@@ -85,6 +85,7 @@ in place.
 │   │   │   │   ├── sync_reader_tests.rs                                                 # Deterministic reader costs and the opt-in N14 large-history profile
 │   │   │   │   ├── sync_source.rs                                                       # One source writer; frontier pages, never a second authoritative queue
 │   │   │   │   ├── sync_window.rs                                                       # Verification coverage reuses immutable bounded kernel partition checkpoints
+│   │   │   │   ├── timer.rs                                                             # Owner stop is durable kernel state, never PID signalling or a timeout-only success
 │   │   │   │   ├── window_budget_tests.rs                                               # Verification partition ceilings and per-run dispatch attempt rebasing
 │   │   │   │   ├── window_edges.rs                                                      # N36 pending targets, chunk crashes and non-text source revalidation
 │   │   │   │   └── window_tests.rs                                                      # N36 production sync revalidation with an injected frozen verification clock
@@ -320,6 +321,7 @@ in place.
 │   │   │       ├── n05_authority_review_fixes.rs                                        # Review regressions against real owner and unprivileged identities
 │   │   │       ├── n05_establish_owner_only_grants_and_the_read_only_authority_port.rs  # N05 authority command refusals; real identity probes are explicitly opt-in
 │   │   │       ├── n14_expose_public_preview_and_manual_sync_mvp.rs                     # Public acquisition CLI registration and refusal boundaries
+│   │   │       ├── n42_add_local_recurring_triggers_and_stop_controls.rs                # Synthetic scheduling and public stop boundaries; no live activation grant
 │   │   │       ├── publish_again.rs                                                     # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                                     # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
 │   │   │       ├── settings_config.rs                                                   # maestro config: the user file preferences.toml, the project file
@@ -374,7 +376,8 @@ in place.
 │   │   │   │   ├── incremental.rs                                                       # Local verification windows do not claim a remote change index or snapshot
 │   │   │   │   ├── mod.rs                                                               # Process-local acquisition lifecycle accounting
 │   │   │   │   ├── resources.rs                                                         # Shared owned reservations, with fresh measurements at every checkpoint
-│   │   │   │   └── resume.rs                                                            # Resume composes current admission with kernel-owned captures, receipts and fences
+│   │   │   │   ├── resume.rs                                                            # Resume composes current admission with kernel-owned captures, receipts and fences
+│   │   │   │   └── schedule.rs                                                          # Local scheduling is a trigger, not an authority or a second acquisition queue
 │   │   │   ├── policy/                                                                  # Strict policy schemas and the single immutable baseline validator
 │   │   │   │   ├── acquisition.rs                                                       # Strict version-one source-policy wire contracts
 │   │   │   │   ├── authority.rs                                                         # Read-only acquisition authority; manifests and registry evidence grant no access
@@ -528,6 +531,7 @@ in place.
 │   │   │       ├── n37_prior.rs                                                         # Explicit S1 prior revision selection never becomes implicit stage completion
 │   │   │       ├── n37_resume_cancel_and_fence_failed_dependencies.rs                   # Durable resume never promotes derivatives of a failed prerequisite
 │   │   │       ├── n37_support.rs                                                       # N37 uses N12 durable fixtures and the real N05/N07 contracts
+│   │   │       ├── n42_schedule.rs                                                      # N42 scheduling guards on injected clocks and existing kernel jobs
 │   │   │       ├── n57_canonical_artifacts.rs                                           # N57 canonical bytes require explicit nulls without changing S1 card parsing
 │   │   │       ├── n57_decisions.rs                                                     # New exclusions use N03's exact singleton artifact, not a parallel schema
 │   │   │       ├── n57_decode_bounds.rs                                                 # Decoder ceilings are independent of later capability admission

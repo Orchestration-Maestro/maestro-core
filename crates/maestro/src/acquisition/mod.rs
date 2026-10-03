@@ -41,6 +41,7 @@ mod sync_discovery;
 mod sync_disposition;
 #[cfg(any(target_os = "linux", test))]
 mod sync_source;
+mod timer;
 
 #[cfg(test)]
 mod window_tests;

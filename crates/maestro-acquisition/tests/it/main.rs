@@ -55,6 +55,7 @@ mod n30_write_guards;
 mod n32_change_guards;
 mod n32_enforce_the_closed_automatic_change_allow_list;
 mod n32_support;
+mod n42_schedule;
 mod n57_canonical_artifacts;
 mod n57_decisions;
 mod n57_decode_bounds;

@@ -5,3 +5,4 @@ pub mod full;
 pub mod incremental;
 
 pub mod resume;
+pub mod schedule;

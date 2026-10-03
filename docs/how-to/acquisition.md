@@ -128,8 +128,9 @@ Caps and holds preserve actual pending coverage and do not advance the source
 watermark. A later incremental invocation continues the oldest unfinished
 window, reusing captures verified since its original run start. Its target stays
 that original start until all chunks are committed and the receipt finalized;
-these local bounds never claim a remote snapshot. Repair, withdrawal and
-schedules are not registered yet.
+these local bounds never claim a remote snapshot. Repair and withdrawal are
+not registered yet. Recurring acquisition is currently qualified only with
+synthetic sources, as described below.
 Missing media evidence and HTML whose earlier discovery depth is unavailable are explicitly held,
 not guessed into a completed crawl.
 
@@ -148,11 +149,71 @@ It is not selected by the source, bindings or a CLI flag. Both identities are
 retained in the protected inputs; authority checks use the OS identity and
 kernel reads use the mapped principal and its current scope grants.
 
+## Local timers and durable stop
+
+The local `ScheduleTrigger` adapter calls the same admitted sync operation;
+it has no S3/S4 dependency, fetch permission, credential store or second frontier.
+Manual policy refuses timer requests. One-off activation consumes one request,
+including an admitted failure. Watch requires an explicit cadence of at least
+OA3's 24 hours; a delayed tick never causes a catch-up burst. Every request is
+bound to its activation, principal, lifecycle mode and single-use sequence.
+Source ownership and the existing OA3 envelope stay inside the same sync.
+
+Live activation is deliberately held:
+
+```sh
+maestro knowledge acquire timer
+```
+
+This refuses before opening the kernel or fetching: N05 currently grants only
+`Fetch` and `RobotsOverride`, not an active-source activation effect. Neither a
+manifest nor a fetch grant enables recurring access. An exact OA4a active-source
+grant and its N05 effect contract are required before any live source starts.
+There is no shipped synthetic bypass flag.
+
+Stop an exact owned schedule job, not a process ID:
+
+```sh
+maestro --json knowledge acquire stop --schedule "$SCHEDULE_JOB" \
+  --deadline-ms 300000
+```
+
+Stop checks current collection visibility and the frozen local owner of an
+`acquisition.schedule` job. It records a durable stop request in that job's
+existing kernel journal. The local timer checks that journal and its own lease
+before each trigger, disables itself, and ends the job as `Cancelled`. No PID
+search, foreign-process kill or source-job cancellation occurs. The kernel
+frontier, retained captures and unfinished source work remain unchanged.
+
+Exit 0 acknowledges durable cancellation, not a new capture. A deadline expiry
+returns refusal: a durable stop request may exist, but cancellation has not been
+acknowledged. Timeout never kills a foreign process or reports success. The
+stop deadline defaults to Pi's fast-tool five minutes and accepts integer
+milliseconds from 1 through 2147483647. OA3 specifies no shutdown timeout.
+
+A cancelled schedule is terminal. Replaying its request or restarting the
+adapter cannot reactivate it; a new explicit activation must create a new job.
+Missing, foreign, denied, wrong-kind and already-ended jobs refuse with
+`no owned live acquisition schedule`. A running sync retains its own admitted
+budgets and source lease; stop prevents later timer dispatches, not a claim of
+instant cancellation of an already admitted capture.
+
 ## Verify without a live site
 
 ```sh
 capped cargo test -p maestro -p maestro-acquisition --locked n36_ -- --nocapture
 ```
+
+For scheduling, run:
+
+```sh
+capped cargo nextest run -p maestro -p maestro-acquisition --locked -E 'test(n42_)'
+```
+
+N42 uses a fake clock and owned real test processes around the same admitted
+synthetic sync. A separate timer child observes the public CLI's durable stop,
+exits cancelled before its next trigger and leaves pending frontier items intact.
+No live recurring source or production cutover is qualified by these tests.
 
 These tests use an independently authored public synthetic site and injected
 ports. They exercise allowed and denied neighbours, robots, a redirect and an

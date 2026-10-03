@@ -34,6 +34,7 @@ mod n05_authority_linux;
 mod n05_authority_review_fixes;
 mod n05_establish_owner_only_grants_and_the_read_only_authority_port;
 mod n14_expose_public_preview_and_manual_sync_mvp;
+mod n42_add_local_recurring_triggers_and_stop_controls;
 mod publish_again;
 mod quality_gates;
 mod rebuild_drill;
