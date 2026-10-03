@@ -37,3 +37,33 @@ pub(super) trait KindRules: fmt::Debug + Sync {
     ) {
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        limits::Limits,
+        source::{
+            builtin,
+            tests::support::{MemoryTree, check_under},
+        },
+    };
+
+    #[test]
+    fn default_kind_rules_add_no_assets_or_dependencies() {
+        let catalog = check_under(&MemoryTree::valid(), &Limits::PRODUCTION);
+        assert!(
+            catalog.is_ok(),
+            "default rules must preserve a valid catalog: {catalog:?}"
+        );
+        let catalog = catalog.unwrap();
+        let resource = catalog
+            .resources
+            .iter()
+            .find(|resource| resource.id.kind == "instructions")
+            .unwrap();
+        let registry = builtin().unwrap();
+        let rules = registry.kind("instructions").unwrap().rules.unwrap();
+        assert_eq!(rules.assets(resource), Ok(vec![]));
+        assert!(rules.edges(resource).is_empty());
+    }
+}

@@ -491,3 +491,8 @@ mod threshold;
 
 #[path = "tests/parent_context.rs"]
 mod parent_context;
+
+#[test]
+fn unchecked_language_check_keeps_its_honest_diagnostic_name() {
+    assert_eq!(LanguageCheck::Unchecked.name(), "unchecked");
+}

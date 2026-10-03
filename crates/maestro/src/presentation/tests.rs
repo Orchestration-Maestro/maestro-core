@@ -170,3 +170,17 @@ fn catalog_presentation_translation_golden_covers_every_key_and_language() {
         include_str!("languages/rendered.golden.json")
     );
 }
+
+#[test]
+fn interface_placeholders_reject_empty_names_and_accept_underscores() {
+    assert_eq!(
+        interpolate("{a_b}", &[("a_b", "value")]),
+        Ok("value".to_owned())
+    );
+    for template in ["{}", "{A}", "{a-b}"] {
+        assert!(
+            interpolate(template, &[("", "value")]).is_err(),
+            "{template}"
+        );
+    }
+}

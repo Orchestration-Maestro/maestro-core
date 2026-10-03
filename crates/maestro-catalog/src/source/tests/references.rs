@@ -407,3 +407,20 @@ fn preset_unknown_setting_keys_are_refused() {
         "presets/knowledge-client.toml: settings.colour: unknown setting",
     )]);
 }
+
+#[test]
+fn presets_do_not_implicitly_require_an_unselected_authored_team_package() {
+    let tree = area(
+        MemoryTree::valid(),
+        "package",
+        "other",
+        "capabilities/practice/other/package.toml",
+        &[],
+    )
+    .edit(
+        "capabilities/practice/other/package.toml",
+        "maturity = \"reviewed\"",
+        "maturity = \"authored\"",
+    );
+    assert!(check_under(&tree, &Limits::PRODUCTION).is_ok());
+}

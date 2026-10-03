@@ -209,3 +209,23 @@ fn parse_refuses_a_setting_a_quoted_dotted_key_and_a_table_both_set() {
         "ask.k: the setting is set twice in the file"
     );
 }
+
+#[test]
+fn preferences_array_depth_counts_every_container_at_the_inclusive_boundary() {
+    let registry = registry();
+    let text = "schema = 'maestro-preferences/1'\nsearch.section_prior.classes = ['conversion']\n";
+    assert!(Layer::parse_preferences(&registry, text, 4096, 4).is_ok());
+    assert_eq!(
+        Layer::parse_preferences(&registry, text, 4096, 3),
+        Err(crate::LayerError::DepthLimit(3))
+    );
+    assert_eq!(
+        Layer::parse_preferences(&registry, text, 4096, 1),
+        Err(crate::LayerError::DepthLimit(1))
+    );
+    let nested = "schema = 'maestro-preferences/1'\nunknown = [[[1]]]\n";
+    assert_eq!(
+        Layer::parse_preferences(&registry, nested, 4096, 2),
+        Err(crate::LayerError::DepthLimit(2))
+    );
+}

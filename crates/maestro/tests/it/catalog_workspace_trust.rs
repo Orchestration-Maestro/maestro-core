@@ -401,3 +401,40 @@ fn catalog_workspace_trust_accepts_lossless_plain_windows_confirmation_only() {
         root
     );
 }
+
+// util-linux script gives the child a real terminal; other platforms test confirmation IO.
+#[cfg(target_os = "linux")]
+#[test]
+fn trust_add_never_uses_terminal_input_when_stderr_is_redirected() {
+    use super::support::Running;
+    use std::{
+        io::Write as _,
+        process::{Command, Stdio},
+    };
+    let home = Home::bare();
+    let project = home.root().join("project");
+    fs::create_dir(&project).unwrap();
+    let errors = home.root().join("trust-errors");
+    let invocation = format!(
+        "\"{}\" trust add \"{}\" 2>\"{}\"",
+        env!("CARGO_BIN_EXE_maestro"),
+        project.display(),
+        errors.display()
+    );
+    let mut command = Command::new("script");
+    command
+        .args(["-q", "-e", "-c", &invocation, "/dev/null"])
+        .env("HOME", home.root())
+        .env("XDG_DATA_HOME", home.root().join("data"))
+        .env("XDG_CONFIG_HOME", home.root().join("config"))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let (running, mut input) = Running::with_stdin(command);
+    input.write_all(b"yes\n").unwrap();
+    drop(input);
+    let result = running.finish();
+    assert_eq!(result.code, Some(2), "{result:?}");
+    let stderr = fs::read_to_string(errors).unwrap();
+    assert!(!stderr.contains("[y/N]"), "{stderr}");
+    assert!(stderr.contains("--confirm-path"), "{stderr}");
+}

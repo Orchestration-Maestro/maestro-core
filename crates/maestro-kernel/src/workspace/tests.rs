@@ -223,3 +223,26 @@ fn workspace_read_only_authority_observes_live_wal_revocation() {
     drop(writer);
     fs::remove_dir_all(scratch).unwrap();
 }
+
+#[test]
+fn workspace_authority_trait_replays_trusted_records_for_both_handles() {
+    let scratch = scratch_directory().unwrap();
+    let writer = Database::open_in(&scratch).unwrap();
+    let approved = writer
+        .record_workspace_answer(&WorkspaceAnswer {
+            path: scratch.canonicalize().unwrap().join("project"),
+            answer: Answer::Approved {
+                confirmation: Confirmation::ConfirmPath,
+            },
+        })
+        .unwrap();
+    let reader = Database::open_read_only_in(&scratch).unwrap();
+    assert_eq!(
+        writer.read_trusted_workspaces().unwrap(),
+        vec![approved.clone()]
+    );
+    assert_eq!(reader.read_trusted_workspaces().unwrap(), vec![approved]);
+    drop(reader);
+    drop(writer);
+    fs::remove_dir_all(scratch).unwrap();
+}

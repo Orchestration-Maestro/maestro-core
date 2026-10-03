@@ -177,3 +177,24 @@ pub(super) fn first_flagged(
     }
     first
 }
+
+#[cfg(test)]
+mod tests {
+    use super::components;
+    use std::{sync::mpsc, thread, time::Duration};
+
+    #[test]
+    fn tarjan_follow_finishes_and_orders_connected_components() {
+        let (sender, receiver) = mpsc::channel();
+        thread::spawn(move || {
+            let result = components(&[vec![1], vec![0, 2], vec![]]);
+            let _sent = sender.send(result);
+        });
+        assert_eq!(
+            receiver
+                .recv_timeout(Duration::from_secs(10))
+                .expect("Tarjan walk did not finish"),
+            vec![vec![2], vec![0, 1]],
+        );
+    }
+}
