@@ -422,40 +422,6 @@ fn catalog_init_freezes_defaults_for_production_sessions() {
 }
 
 #[test]
-fn catalog_runtime_engine_refuses_uncompiled_flags_without_effects() {
-    let home = Home::bare();
-    let root = home.root().join("project");
-    fs::create_dir(&root).unwrap();
-    let refused = home.run_in(
-        &root,
-        &[
-            "--set",
-            "graph.engine=ladybug",
-            "config",
-            "get",
-            "graph.engine",
-        ],
-    );
-    assert_eq!(refused.code, Some(2), "{refused:?}");
-    assert!(refused.stderr.contains("not compiled"), "{refused:?}");
-    let disabled = home.run_in(
-        &root,
-        &[
-            "--json",
-            "--set",
-            "graph.engine=none",
-            "config",
-            "get",
-            "graph.engine",
-        ],
-    );
-    assert_eq!(disabled.code, Some(0), "{disabled:?}");
-    assert_eq!(disabled.json()["value"], "none");
-    assert!(!home.data().join("kernel.sqlite3").exists());
-    assert_eq!(fs::read_dir(root).unwrap().count(), 0);
-}
-
-#[test]
 fn catalog_init_reaches_its_plan_with_an_unadmitted_lock() {
     let home = Home::bare();
     let root = home.root().join("project");

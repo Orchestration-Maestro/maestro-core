@@ -294,3 +294,44 @@ fn init_skips_unsafe_preferences_beside_an_unadmittable_lock() {
         "{output:?}"
     );
 }
+
+#[test]
+fn catalog_runtime_engine_refuses_uncompiled_flags_without_effects() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    fs::create_dir(&root).unwrap();
+    let selected = home.run_in(
+        &root,
+        &[
+            "--set",
+            "graph.engine=ladybug",
+            "config",
+            "get",
+            "graph.engine",
+        ],
+    );
+    if cfg!(feature = "engine") {
+        assert_eq!(selected.code, Some(0), "{selected:?}");
+        assert_eq!(selected.stdout.trim(), "ladybug");
+        assert!(selected.stderr.is_empty(), "{selected:?}");
+    } else {
+        assert_eq!(selected.code, Some(2), "{selected:?}");
+        assert!(selected.stderr.contains("not compiled"), "{selected:?}");
+    }
+    let disabled = home.run_in(
+        &root,
+        &[
+            "--json",
+            "--set",
+            "graph.engine=none",
+            "config",
+            "get",
+            "graph.engine",
+        ],
+    );
+    assert_eq!(disabled.code, Some(0), "{disabled:?}");
+    assert_eq!(disabled.json()["value"], "none");
+    assert!(!home.data().join("kernel.sqlite3").exists());
+    assert!(!home.data().join("graph").exists());
+    assert_eq!(fs::read_dir(root).unwrap().count(), 0);
+}
