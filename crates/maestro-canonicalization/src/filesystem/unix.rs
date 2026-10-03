@@ -176,18 +176,33 @@ impl Directory {
         Ok(true)
     }
 
-    /// The bytes of a regular file in the directory, never read through a link.
-    pub(crate) fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
+    /// A held no-follow regular child, without reading its contents.
+    fn open_regular(&self, name: &str) -> io::Result<File> {
         let fd = openat(
             &self.0,
             name,
             OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
             Mode::empty(),
         )?;
-        let mut file = File::from(fd);
+        let file = File::from(fd);
         if !file.metadata()?.is_file() {
             return Err(io::Error::other("artifact is not a regular file"));
         }
+        Ok(file)
+    }
+
+    /// Check a receipt child through its held file identity, refusing hard-link aliases.
+    pub(crate) fn check_regular(&self, name: &str) -> io::Result<()> {
+        let file = self.open_regular(name)?;
+        if file.metadata()?.nlink() != 1 {
+            return Err(io::Error::other("receipt file must have one link"));
+        }
+        Ok(())
+    }
+
+    /// The bytes of a regular file in the directory, never read through a link.
+    pub(crate) fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
+        let mut file = self.open_regular(name)?;
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)?;
         Ok(bytes)

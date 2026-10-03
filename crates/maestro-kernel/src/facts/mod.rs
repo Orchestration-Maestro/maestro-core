@@ -39,7 +39,9 @@ pub use build_types::{
     Rejection,
 };
 pub use error::Error;
-pub use projection::{InventoryState, ProjectionInventory, projection_inventory_in};
+pub use projection::{
+    InventoryState, ProjectionInventory, projection_inventory_in, projection_inventory_with_config,
+};
 pub use types::{
     Claim, ClaimRecord, ClaimSet, ClaimSetRecord, EntityName, Literal, LiteralKind, Object,
     Provenance, ReviewState, Support, Validity,

@@ -87,6 +87,15 @@ fn required_ci_owns_native_coverage_and_the_exact_engine_source() {
             ))
         }),
     );
+    engine_files.push(Value::String(
+        "crates/maestro-knowledge/src/graph/projection/engine/probe.rs".into(),
+    ));
+    engine_files.push(Value::String(
+        "crates/maestro/src/cli/health/graph_native.rs".into(),
+    ));
+    engine_files.push(Value::String(
+        "crates/maestro-knowledge/src/graph/projection/probe.rs".into(),
+    ));
     assert_eq!(
         policy["ci"]["mutation-engine"]["files"].as_array().unwrap(),
         &engine_files

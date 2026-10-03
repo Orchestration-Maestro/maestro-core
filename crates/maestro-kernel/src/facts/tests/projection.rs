@@ -447,3 +447,38 @@ fn projection_readiness_rejects_a_path_instead_of_a_owned_filename() {
         None
     );
 }
+
+#[test]
+fn projection_health_config_is_evaluated_without_persisting_grants() {
+    use crate::{
+        facts::{InventoryState, projection_inventory_with_config},
+        scope::{Config, LOCAL},
+    };
+    let (scratch, database, all, receipt) = attached();
+    let lease = projection_lease(&database, receipt.generation_id);
+    database
+        .record_projection_ready(&all, &receipt, &lease, timing(5).now)
+        .unwrap();
+    database.publish_generation(receipt.generation_id).unwrap();
+    let config: Config = "[access]\nread = ['workspace/default/collection/graph']"
+        .parse()
+        .unwrap();
+    assert!(database.visible(LOCAL).unwrap().is_empty());
+    let InventoryState::Ready(rows) =
+        projection_inventory_with_config(&scratch.0, &config).unwrap()
+    else {
+        panic!("current authority expected");
+    };
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].receipt.as_ref(), Some(&receipt));
+    assert!(
+        database.visible(LOCAL).unwrap().is_empty(),
+        "health must not apply grants"
+    );
+    database.apply_config(&config).unwrap();
+    assert_eq!(
+        projection_inventory_with_config(&scratch.0, &Config::default()).unwrap(),
+        InventoryState::Ready(Vec::new()),
+        "current config revocation overrides stored grants"
+    );
+}

@@ -205,6 +205,29 @@ impl OwnedRoot {
         staging.validate()
     }
 
+    /// Inspect an existing regular receipt child without reading bytes or creating it.
+    ///
+    /// # Errors
+    /// Refuses invalid basenames, missing files, links, aliases and relocated roots.
+    pub fn check_regular(&self, name: &str) -> io::Result<()> {
+        if !name
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphanumeric)
+            || !name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid receipt basename",
+            ));
+        }
+        self.validate()?;
+        self.directory.check_regular(name)?;
+        self.validate()
+    }
+
     /// Confirm that the owned name still denotes the held directory.
     fn validate(&self) -> io::Result<()> {
         self.directory.validate_owned(&self.path)

@@ -4,6 +4,11 @@ pub(super) mod backend;
 mod cancellation;
 mod config;
 mod open;
+pub(super) mod probe;
+#[cfg(test)]
+mod probe_files_tests;
+#[cfg(test)]
+mod probe_tests;
 pub(super) mod producer;
 mod reader;
 pub(super) mod registry;

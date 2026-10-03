@@ -5,6 +5,8 @@
 //! creates or changes a graph file.
 
 use super::support::{Ended, Home};
+#[cfg(all(unix, feature = "engine"))]
+use maestro_kernel::store::Database;
 use serde_json::Value;
 #[cfg(unix)]
 use std::fs;
@@ -210,6 +212,8 @@ fn with_the_engine_setup_owns_the_directory_and_health_opens_nothing_yet() {
     assert_permanent_guards(&graph_directory);
 
     fs::write(graph_directory.join("unpublished.lbug"), "kept").unwrap();
+    assert_missing_graph_authority(&home);
+    drop(Database::open_in(&home.data()).unwrap());
     let doctor = home.run(&["--set", "graph.engine=ladybug", "--json", "doctor"]);
     assert_eq!(
         detail(&doctor),
@@ -240,4 +244,64 @@ fn assert_permanent_guards(directory: &Path) {
             0o600
         );
     }
+}
+
+#[cfg(all(unix, feature = "engine"))]
+#[test]
+fn graph_health_status_and_doctor_report_permanent_guard_contention() {
+    use maestro_canonicalization::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
+    let home = Home::bare();
+    let directory = home.data().join("graph");
+    let root = OwnedRoot::open(&directory, true).unwrap();
+    for control in [ControlFile::Access, ControlFile::Writer] {
+        root.ensure_control(control).unwrap();
+    }
+    for (control, diagnosis) in [
+        (ControlFile::Access, "cleanup in progress"),
+        (ControlFile::Writer, "a writer holds the graph file's lock"),
+    ] {
+        let held = root.open_control(control).unwrap();
+        held.lock_with(&SystemFileLock, LockMode::Exclusive, false)
+            .unwrap();
+        for command in ["status", "doctor"] {
+            let report = home.run(&["--set", "graph.engine=ladybug", "--json", command]);
+            assert_eq!(detail(&report), diagnosis);
+            let text = home.run(&["--set", "graph.engine=ladybug", command]);
+            assert!(text.stdout.contains(diagnosis), "{text:?}");
+            if command == "doctor" {
+                assert!(
+                    graph(&report.json())["next_action"]
+                        .as_str()
+                        .unwrap()
+                        .contains("finish")
+                );
+            } else {
+                assert_eq!(graph(&report.json())["ready"], false);
+            }
+        }
+    }
+    fs::remove_file(directory.join(ControlFile::Writer.file_name())).unwrap();
+    let report = home.run(&["--set", "graph.engine=ladybug", "--json", "doctor"]);
+    assert_eq!(
+        detail(&report),
+        "a permanent graph guard is missing or unsafe"
+    );
+    assert!(
+        !directory.join(ControlFile::Writer.file_name()).exists(),
+        "health never repairs controls"
+    );
+}
+
+/// Missing authority is not the same as an empty inventory.
+#[cfg(all(unix, feature = "engine"))]
+fn assert_missing_graph_authority(home: &Home) {
+    let unavailable = home.run(&["--set", "graph.engine=ladybug", "--json", "doctor"]);
+    assert_eq!(detail(&unavailable), "the kernel authority is missing");
+    assert_eq!(graph(&unavailable.json())["checked"], true);
+    assert!(
+        graph(&unavailable.json())["next_action"]
+            .as_str()
+            .unwrap()
+            .contains("collection add")
+    );
 }

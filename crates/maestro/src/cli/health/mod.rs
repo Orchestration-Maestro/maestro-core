@@ -8,6 +8,15 @@ mod check;
 pub(super) mod doctor;
 mod findings;
 mod graph;
+#[cfg(not(feature = "engine"))]
+mod graph_absent;
+mod graph_failure;
+#[cfg(feature = "engine")]
+mod graph_native;
+#[cfg(not(feature = "engine"))]
+use graph_absent as graph_adapter;
+#[cfg(feature = "engine")]
+use graph_native as graph_adapter;
 mod kernel;
 mod services;
 mod settings;

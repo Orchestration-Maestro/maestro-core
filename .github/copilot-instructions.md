@@ -131,6 +131,7 @@ in place.
 │   │   │   │   │   │   ├── doctor.rs                                        # Doctor's verdict: a check that cannot run yet, as each role's model card
 │   │   │   │   │   │   ├── findings.rs                                      # Foreign entries of the data directory listed and left untouched; grants that reach no known scope
 │   │   │   │   │   │   ├── graph.rs                                         # The embedded graph's check: off with no probe at all, a selected engine
+│   │   │   │   │   │   ├── graph_failures.rs                                # Every typed refusal has an actionable, path-safe public diagnosis
 │   │   │   │   │   │   ├── kernel.rs                                        # config.toml and bindings.toml refused with a fix; the database never created, damage and lost artifacts found
 │   │   │   │   │   │   ├── mod.rs                                           # The health unit tests' door: declarations only
 │   │   │   │   │   │   ├── services.rs                                      # Qdrant at the pinned version, the router's catalog, each role's card; next actions from what setup would do
@@ -140,6 +141,9 @@ in place.
 │   │   │   │   │   ├── doctor.rs                                            # maestro doctor: every check, each failure with its next action, what it must not touch; exit 1 on a failure
 │   │   │   │   │   ├── findings.rs                                          # What doctor lists and never touches: entries the kernel does not own, as maestro v1's, and unreached grants
 │   │   │   │   │   ├── graph.rs                                             # The embedded graph's check, which status and doctor run: the selected
+│   │   │   │   │   ├── graph_absent.rs                                      # Engine-absent adapter: the selected engine is refused before inventory
+│   │   │   │   │   ├── graph_failure.rs                                     # Fixed, actionable public diagnostics for typed knowledge health failures
+│   │   │   │   │   ├── graph_native.rs                                      # CLI health ports delegated to the opaque read-only knowledge probe
 │   │   │   │   │   ├── kernel.rs                                            # The kernel's checks: configuration files, the database opened only if it exists and checked whole, the artifacts
 │   │   │   │   │   ├── mod.rs                                               # The checks' door: declarations only
 │   │   │   │   │   ├── services.rs                                          # Qdrant answering as the pinned version, the router listing its catalog, each role's model card
@@ -383,6 +387,7 @@ in place.
 │   │   │   ├── filesystem/                                                  # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
 │   │   │   │   ├── mod.rs                                                   # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
 │   │   │   │   ├── owned.rs                                                 # Owned filesystem roots and permanent control files, independent of any engine
+│   │   │   │   ├── owned_metadata_tests.rs                                  # Read-only receipt metadata checks preserve unrelated bytes
 │   │   │   │   ├── owned_tests.rs                                           # Permanent control files use the same held filesystem boundary on both platforms
 │   │   │   │   ├── removal_tests.rs                                         # Receipt-only removal keeps the permanent lock domain and unrelated bytes
 │   │   │   │   ├── root.rs                                                  # The root a caller names, resolved once, and the names the store appends below it
@@ -1004,6 +1009,9 @@ in place.
 │   │   │   │   │   │   ├── config.rs                                        # The single native translation of caller-owned frozen graph settings
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── open.rs                                          # The native adapter's single rooted construction boundary
+│   │   │   │   │   │   ├── probe.rs                                         # Guarded read-only graph health bridge, bypassing the native handle registry
+│   │   │   │   │   │   ├── probe_files_tests.rs                             # Receipt/file binding, deterministic neighbours, and independent native lifetimes
+│   │   │   │   │   │   ├── probe_tests.rs                                   # Guard-first health tests; process handshakes use pipes, never sleeps
 │   │   │   │   │   │   ├── producer.rs                                      # Lease-bound native producer session behind the public facade
 │   │   │   │   │   │   ├── public_fixture.rs                                # Real kernel authority reused by public lifecycle tests, with private native scratch
 │   │   │   │   │   │   ├── public_guard_tests.rs                            # Every public open refuses a half-set-up root, without creating a replacement guard
@@ -1037,10 +1045,12 @@ in place.
 │   │   │   │   │   ├── cleanup.rs                                           # Reader-safe, single-receipt cleanup; native engine code is never opened here
 │   │   │   │   │   ├── content.rs                                           # Frozen application-ID encodings for projection content and receipt names
 │   │   │   │   │   ├── handle.rs                                            # Backend-neutral immutable handle retaining the backend's native ownership and guard
+│   │   │   │   │   ├── health.rs                                            # Application health ports and typed failures, independent of the optional engine
 │   │   │   │   │   ├── lifecycle.rs                                         # Public factory for lease-bound producers and immutable, guarded readers
 │   │   │   │   │   ├── mod.rs                                               # Public typed-edge and literal-fact projection ports and unpublished build writer
 │   │   │   │   │   ├── operations.rs                                        # Backend-neutral public operations on opaque lifecycle handles
 │   │   │   │   │   ├── port.rs                                              # Public application-ID boundary for disposable typed-edge projections
+│   │   │   │   │   ├── probe.rs                                             # Opaque application health bridge; no native-engine types cross this facade
 │   │   │   │   │   ├── receipts.rs                                          # Read-only kernel readiness inventory used by graph health probes
 │   │   │   │   │   ├── schema.rs                                            # Versioned schema identifiers shared by writers, verifiers, and readers
 │   │   │   │   │   ├── settings.rs                                          # Explicit frozen graph settings; no defaults or independent settings resolver

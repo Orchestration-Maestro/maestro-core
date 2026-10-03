@@ -8,6 +8,8 @@ pub(super) fn open(
     name: &str,
     config: SystemConfig,
 ) -> Result<Database, Error> {
+    #[cfg(test)]
+    tests::OPEN_CALLS.with(|calls| calls.set(calls.get() + 1));
     Database::new_rooted(root, name, config)
 }
 
@@ -15,6 +17,13 @@ pub(super) fn open(
 pub(super) mod tests {
     use super::*;
     use lbug::{Connection, Value};
+    use std::cell::Cell;
+
+    thread_local! {
+        /// Counts real database constructions in this test thread, not registry lookups.
+        pub(in crate::graph::projection::engine)
+        static OPEN_CALLS: Cell<usize> = const { Cell::new(0) };
+    }
     use maestro_test_scratch::scratch_directory;
     #[cfg(windows)]
     use std::path::Path;

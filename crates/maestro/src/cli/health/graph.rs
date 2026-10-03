@@ -5,13 +5,17 @@
 //! path from the caller: files come only from the [`PublishedGraph`] port,
 //! and each must lie inside the graph's directory, with no link on the way.
 
-use super::check::Check;
+use super::{
+    check::Check,
+    graph_failure::{REBUILD, failed},
+};
 use crate::{
-    cli::setup::graph::{DIRECTORY, ENGINE_BUILT, is_private},
+    cli::setup::graph::{DIRECTORY, is_private},
     failure::Failure,
     settings::{GraphEngine, Session},
 };
 use maestro_kernel::paths::{self, Environment};
+use maestro_knowledge::graph::projection::health::{PublishedFile, PublishedGraph, Receipt};
 use std::{
     fs,
     io::ErrorKind,
@@ -21,75 +25,6 @@ use std::{
 
 /// The check's name, in both documents.
 const NAME: &str = "graph";
-
-/// The next action for a graph file that does not open or answer: the graph
-/// is a projection, rebuilt from the kernel, so its files are never repaired.
-const REBUILD: &str = "keep the files as they are, and rebuild the projection from the kernel's \
-                       database and artifacts, offline";
-
-/// The graph files the kernel's projection receipt published. G26's adapter
-/// publishes none; G27's reads the receipt and owns the files' layout.
-pub(super) trait PublishedGraph {
-    /// What the receipt publishes.
-    ///
-    /// # Errors
-    ///
-    /// Why the receipt cannot be read.
-    fn receipt(&self) -> Result<Receipt<'_>, String>;
-}
-
-/// What a projection receipt publishes.
-pub(super) enum Receipt<'a> {
-    /// No graph is published yet: there is nothing to open.
-    NonePublished,
-    /// These files, in the receipt's order.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "G27's receipt adapter publishes files; G26 tests a fake"
-        )
-    )]
-    Files(Vec<Box<dyn PublishedFile + 'a>>),
-}
-
-/// A graph file a receipt published.
-pub(super) trait PublishedFile {
-    /// Its path, which the check requires inside the graph's directory.
-    fn path(&self) -> &Path;
-
-    /// Opens it read-only with the engine, following no link.
-    ///
-    /// # Errors
-    ///
-    /// The engine's message when it refuses the file.
-    fn open_read_only(&self) -> Result<Box<dyn OpenGraph + '_>, String>;
-}
-
-/// A published graph file, open read-only until dropped.
-pub(super) trait OpenGraph {
-    /// Runs the smallest query, `RETURN 1`.
-    ///
-    /// # Errors
-    ///
-    /// The engine's message when the query fails.
-    fn query_one(&self) -> Result<(), String>;
-}
-
-/// G26's receipt adapter: until G27 writes the projection receipt, no graph
-/// is published.
-pub(super) struct NonePublished;
-
-impl PublishedGraph for NonePublished {
-    fn receipt(&self) -> Result<Receipt<'_>, String> {
-        Ok(Receipt::NonePublished)
-    }
-}
-
-/// The graph's check in `environment` with the `graph.engine` of `session`.
-pub(super) fn check(environment: &Environment, session: Result<Session, Failure>) -> Check {
-    check_with(environment, session, ENGINE_BUILT, &NonePublished)
-}
 
 /// The graph's check, in a build that holds the engine when `engine_built`,
 /// with the files `published` publishes.
@@ -137,12 +72,7 @@ pub(super) fn check_with(
         return Check::failed(NAME, &target, problem.0, problem.1);
     }
     match published.receipt() {
-        Err(error) => Check::failed(
-            NAME,
-            &target,
-            format!("the projection receipt cannot be read: {error}"),
-            "check the kernel's database with `maestro doctor`, then rebuild the projection",
-        ),
+        Err(error) => failed(&directory, &error),
         Ok(Receipt::NonePublished) => Check::not_checked(
             NAME,
             &target,
@@ -221,7 +151,13 @@ fn inside(directory: &Path, path: &Path) -> Result<(), String> {
             return Err("the published file's path is not plain names".to_owned());
         };
         current.push(name);
-        let metadata = fs::symlink_metadata(&current).map_err(|error| error.to_string())?;
+        let metadata = fs::symlink_metadata(&current).map_err(|error| {
+            if error.kind() == ErrorKind::NotFound {
+                "the receipt-named graph file is missing".to_owned()
+            } else {
+                "the published file is unreadable".to_owned()
+            }
+        })?;
         if metadata.file_type().is_symlink() {
             return Err(format!("{} is a link", current.display()));
         }
@@ -250,36 +186,9 @@ fn open_and_query(file: &dyn PublishedFile) -> Result<Duration, Check> {
     let started = Instant::now();
     let open = file
         .open_read_only()
-        .map_err(|message| open_failure(file.path(), &message))?;
+        .map_err(|error| failed(file.path(), &error))?;
     let opened = started.elapsed();
-    open.query_one().map_err(|message| {
-        Check::failed(
-            NAME,
-            &file.path().display().to_string(),
-            format!("the graph file opens but does not answer, likely corrupt: {message}"),
-            REBUILD,
-        )
-    })?;
+    open.query_one()
+        .map_err(|error| failed(file.path(), &error))?;
     Ok(opened)
-}
-
-/// The check for a `path` the engine would not open, saying `message`: a
-/// writer's lock, or a file corrupt or unreadable.
-fn open_failure(path: &Path, message: &str) -> Check {
-    let target = path.display().to_string();
-    if message.contains("lock") {
-        Check::failed(
-            NAME,
-            &target,
-            format!("a writer holds the graph file's lock: {message}"),
-            "let the writer finish, then run `maestro doctor` again",
-        )
-    } else {
-        Check::failed(
-            NAME,
-            &target,
-            format!("the graph file does not open read-only, corrupt or unreadable: {message}"),
-            REBUILD,
-        )
-    }
 }

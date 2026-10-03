@@ -6,7 +6,7 @@
 
 use super::{
     check::Check,
-    graph,
+    graph_adapter as graph,
     kernel::{Opened, config_check, database_check},
     services::{
         QDRANT_VARIABLE, ROUTER_VARIABLE, qdrant_check, qdrant_url, router_check, router_url,
@@ -96,7 +96,7 @@ pub(in crate::cli) fn run(output: Output, flags: &[String]) -> Result<ExitCode, 
     };
     let services = [
         kernel,
-        graph::check(&environment, Session::for_cli(flags)),
+        graph::check(&environment, Session::for_cli(flags), read.as_ref()),
         qdrant_check(&qdrant_url(env::var_os(QDRANT_VARIABLE).as_deref()), || {
             setup::readiness(&environment, &setup::Tools::on_path())
         }),

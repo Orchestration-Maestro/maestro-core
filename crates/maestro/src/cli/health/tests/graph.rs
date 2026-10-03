@@ -7,12 +7,15 @@
 use super::{
     super::{
         check::{Check, Outcome},
-        graph::{NonePublished, OpenGraph, PublishedFile, PublishedGraph, Receipt, check_with},
+        graph::check_with,
     },
     support::{Scratch, failure},
 };
 use crate::{failure::Failure, settings::Session};
 use maestro_kernel::paths::Environment;
+use maestro_knowledge::graph::projection::health::{
+    OpenGraph, ProbeError, PublishedFile, PublishedGraph, Receipt,
+};
 use std::{
     cell::{Cell, RefCell},
     collections::VecDeque,
@@ -37,9 +40,9 @@ struct FakeFile<'a> {
     /// Its path.
     path: PathBuf,
     /// What its next opens answer.
-    opens: RefCell<VecDeque<Result<(), String>>>,
+    opens: RefCell<VecDeque<Result<(), ProbeError>>>,
     /// What its next queries answer.
-    queries: RefCell<VecDeque<Result<(), String>>>,
+    queries: RefCell<VecDeque<Result<(), ProbeError>>>,
     /// The steps taken, shared by every file of a receipt.
     steps: &'a RefCell<Vec<Step>>,
 }
@@ -69,10 +72,10 @@ impl<'a> FakeFile<'a> {
 type Script<'a> = &'a [Result<(), &'a str>];
 
 /// `answers` as a script.
-fn scripted(answers: &[Result<(), &str>]) -> VecDeque<Result<(), String>> {
+fn scripted(answers: &[Result<(), &str>]) -> VecDeque<Result<(), ProbeError>> {
     answers
         .iter()
-        .map(|answer| answer.map_err(str::to_owned))
+        .map(|answer| answer.map_err(|message| ProbeError::Unreadable(message.to_owned())))
         .collect()
 }
 
@@ -81,7 +84,7 @@ impl PublishedFile for &FakeFile<'_> {
         &self.path
     }
 
-    fn open_read_only(&self) -> Result<Box<dyn OpenGraph + '_>, String> {
+    fn open_read_only(&self) -> Result<Box<dyn OpenGraph + '_>, ProbeError> {
         self.opens.borrow_mut().pop_front().unwrap_or(Ok(()))?;
         self.steps.borrow_mut().push(Step::Open);
         Ok(Box::new(FakeOpen(self)))
@@ -92,9 +95,14 @@ impl PublishedFile for &FakeFile<'_> {
 struct FakeOpen<'a, 'b>(&'a FakeFile<'b>);
 
 impl OpenGraph for FakeOpen<'_, '_> {
-    fn query_one(&self) -> Result<(), String> {
+    fn query_one(&self) -> Result<(), ProbeError> {
         self.0.steps.borrow_mut().push(Step::Query);
-        self.0.queries.borrow_mut().pop_front().unwrap_or(Ok(()))
+        self.0
+            .queries
+            .borrow_mut()
+            .pop_front()
+            .unwrap_or(Ok(()))
+            .map_err(|error| ProbeError::Corrupt(format!("{error:?}")))
     }
 }
 
@@ -123,10 +131,10 @@ impl<'a> FakeReceipt<'a> {
 }
 
 impl PublishedGraph for FakeReceipt<'_> {
-    fn receipt(&self) -> Result<Receipt<'_>, String> {
+    fn receipt(&self) -> Result<Receipt<'_>, ProbeError> {
         self.reads.set(self.reads.get() + 1);
         match &self.files {
-            Err(error) => Err(error.clone()),
+            Err(_) => Err(ProbeError::InventoryUnreadable),
             Ok(None) => Ok(Receipt::NonePublished),
             Ok(Some(files)) => Ok(Receipt::Files(
                 files
@@ -306,8 +314,13 @@ fn shared_permissions_and_a_relocated_directory_are_reported_unchanged() {
 
 #[test]
 fn until_a_graph_is_published_nothing_is_opened() {
+    assert_eq!(format!("{:?}", Receipt::NonePublished), "NonePublished");
+    assert_eq!(format!("{:?}", Receipt::Files(Vec::new())), "Files(0)");
     let home = Home::ready();
-    let check = home.check(&NonePublished);
+    let check = home.check(&FakeReceipt {
+        files: Ok(None),
+        reads: Cell::new(0),
+    });
     assert_eq!(
         not_checked(&check),
         "no graph is published yet, so no file was opened"
@@ -323,10 +336,7 @@ fn an_unreadable_or_empty_receipt_fails_without_an_open() {
         reads: Cell::new(0),
     };
     let check = home.check(&unreadable);
-    assert_eq!(
-        failure(&check).0,
-        "the projection receipt cannot be read: no receipt row"
-    );
+    assert_eq!(failure(&check).0, "the projection receipt cannot be read");
     let empty = home.check(&FakeReceipt::publishing(Vec::new()));
     assert_eq!(
         failure(&empty).0,
@@ -346,6 +356,7 @@ fn each_published_file_opens_read_only_answers_closes_and_reopens() {
         FakeFile::new(first.clone(), &steps),
         FakeFile::new(second.clone(), &steps),
     ]);
+    assert_eq!(format!("{:?}", receipt.receipt().unwrap()), "Files(2)");
     let check = home.check(&receipt);
     let Outcome::Passed(detail) = &check.outcome else {
         panic!("{check:?}");
@@ -425,6 +436,15 @@ fn a_writer_s_lock_on_open_or_reopen_says_to_wait() {
         let steps = RefCell::default();
         let receipt =
             FakeReceipt::publishing(vec![FakeFile::new(path.clone(), &steps).opens(opens)]);
+        for open in receipt.files.as_ref().unwrap().as_ref().unwrap()[0]
+            .opens
+            .borrow_mut()
+            .iter_mut()
+        {
+            if let Err(ProbeError::Unreadable(message)) = open {
+                *open = Err(ProbeError::Locked(message.clone()));
+            }
+        }
         let check = home.check(&receipt);
         let (problem, next) = failure(&check);
         assert!(problem.starts_with("a writer holds"), "{problem}");
@@ -484,4 +504,25 @@ fn the_first_failing_file_stops_the_probe() {
         "the second file was never opened"
     );
     assert_eq!(receipt.reads.get(), 1);
+}
+
+#[test]
+fn uncaptured_lock_words_are_unreadable_not_writer_contention() {
+    let home = Home::ready();
+    let steps = RefCell::default();
+    for message in [
+        "clock failure",
+        "deadlock",
+        "unknown lock error",
+        "Cannot open file block.lbdb",
+    ] {
+        let file = FakeFile::new(home.file("clock.lbug", "kept"), &steps).opens(&[Err(message)]);
+        let check = home.check(&FakeReceipt::publishing(vec![file]));
+        assert!(
+            failure(&check).0.contains("corrupt or unreadable"),
+            "{check:?}"
+        );
+        assert!(failure(&check).1.contains("rebuild"));
+    }
+    assert!(steps.borrow().is_empty());
 }

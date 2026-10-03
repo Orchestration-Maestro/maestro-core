@@ -4,7 +4,7 @@ use super::{build_types::ProjectionReceipt, error::Error};
 use crate::{
     artifact::Digest,
     job::{self, Lease, NewJob},
-    scope::{ScopeSet, collection_path},
+    scope::{Config, LOCAL, ScopeSet, collection_path},
     store::database::{HealthDatabase, HealthOpen, open_health_in},
     store::{self, Database},
 };
@@ -243,6 +243,15 @@ pub enum InventoryState {
 /// # Errors
 /// Returns a facts error wrapping store failures or malformed receipt data.
 pub fn projection_inventory_in(data: &Path, principal: &str) -> Result<InventoryState, Error> {
+    inventory(data, principal, None)
+}
+
+/// Shared authority preflight and decoding for stored grants and read-only config policy.
+fn inventory(
+    data: &Path,
+    principal: &str,
+    config: Option<&Config>,
+) -> Result<InventoryState, Error> {
     let health = match open_health_in(data) {
         Ok(health) => health,
         Err(store::Error::UnknownMigration(name)) => {
@@ -254,7 +263,10 @@ pub fn projection_inventory_in(data: &Path, principal: &str) -> Result<Inventory
         HealthOpen::Missing => Ok(InventoryState::Missing),
         HealthOpen::NeedsMigration(names) => Ok(InventoryState::NeedsMigration(names)),
         HealthOpen::Ready(kernel) => {
-            let scopes = kernel.visible(principal)?;
+            let scopes = match config {
+                Some(config) => config.read_scopes(),
+                None => kernel.visible(principal)?,
+            };
             kernel
                 .current_projection_inventory(&scopes)
                 .map(InventoryState::Ready)
@@ -372,4 +384,15 @@ fn validate_project_lease(
         return Err(Error::Unauthorized);
     }
     Ok(())
+}
+
+/// Inventory using the local configuration without reconciling persistent grants.
+///
+/// # Errors
+/// Refuses unreadable authority or malformed readiness records.
+pub fn projection_inventory_with_config(
+    data: &Path,
+    config: &Config,
+) -> Result<InventoryState, Error> {
+    inventory(data, LOCAL, Some(config))
 }

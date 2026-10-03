@@ -1,6 +1,9 @@
 //! Public typed-edge and literal-fact projection ports and unpublished build writer.
 
+pub mod health;
 pub mod port;
+#[cfg(feature = "engine")]
+pub mod probe;
 
 #[cfg(not(feature = "engine"))]
 mod absent;
@@ -19,7 +22,7 @@ mod lifecycle;
 mod operations;
 #[expect(
     dead_code,
-    reason = "the E09 health adapter consumes this readiness port"
+    reason = "engine-absent builds retain injectable readiness tests"
 )]
 mod receipts;
 mod schema;

@@ -4,6 +4,8 @@
 //! Windows, so neither the store nor the tokenizer branches on the platform (ADR-0018).
 mod owned;
 #[cfg(test)]
+mod owned_metadata_tests;
+#[cfg(test)]
 mod owned_tests;
 #[cfg(test)]
 mod removal_tests;
