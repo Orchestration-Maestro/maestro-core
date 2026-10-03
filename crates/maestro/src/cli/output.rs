@@ -10,7 +10,10 @@ use crate::{
 use maestro_kernel::json::canonical;
 use serde::Serialize;
 use serde_json::Value;
-use std::io::{self, Write as _};
+use std::{
+    env,
+    io::{self, Write as _},
+};
 use ulid::Ulid;
 
 /// How a command prints its result.
@@ -18,6 +21,8 @@ use ulid::Ulid;
 pub(super) struct Output {
     /// Whether it prints one JSON document instead of text.
     json: bool,
+    /// Explicit command-line no-colour choice.
+    no_color: bool,
     /// Optional human interface selection; machine output always uses English.
     interface: Option<Interface>,
 }
@@ -27,8 +32,27 @@ impl Output {
     pub(super) fn new(json: bool) -> Self {
         Self {
             json,
+            no_color: false,
             interface: None,
         }
+    }
+
+    /// Carry the global choice without touching preferences or planner output.
+    pub(super) fn without_color(mut self, disabled: bool) -> Self {
+        self.no_color = disabled;
+        self
+    }
+
+    /// No-colour environment and incapable terminals retain all text information.
+    pub(super) fn color(self) -> bool {
+        !self.no_color
+            && env::var_os("NO_COLOR").is_none()
+            && env::var("TERM").is_ok_and(|term| {
+                term != "dumb"
+                    && term != "unknown"
+                    && !term.contains("mono")
+                    && !term.starts_with("vt")
+            })
     }
 
     /// Bind validated session language once, displaying fallback only for human CLI.

@@ -11,6 +11,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+ratatui.workspace = true
+crossterm.workspace = true
 clap.workspace = true
 maestro-catalog.workspace = true
 maestro-kernel.workspace = true
@@ -41,3 +43,15 @@ tracing.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 winapi-util.workspace = true
+
+[target.'cfg(unix)'.dev-dependencies]
+rustix = { workspace = true, features = ["pty", "termios"] }
+
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { workspace = true, features = [
+  "Win32_Foundation",
+  "Win32_System_Console",
+  "Win32_System_Threading",
+  "Win32_System_Pipes",
+  "Win32_Security",
+] }

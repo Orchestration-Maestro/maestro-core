@@ -415,3 +415,28 @@ rule = "TST-001"
 path = "crates/maestro-test-clock/src/stopped.rs"
 item = "work_is_constructed_on_the_stopped_clock"
 reason = "proves paused Tokio time ignores real time; the assertion is equality on paused time, so it is deterministic whatever the sleep length; 20 ms"
+
+[[exception]]
+rule = "DEP-001"
+path = "darling@0.20.11"
+reason = "OA9/C05f: qdrant-client derive_builder holds this version; remove when that dependency converges on the workspace darling version"
+
+[[exception]]
+rule = "DEP-001"
+path = "darling_core@0.20.11"
+reason = "OA9/C05f: qdrant-client derive_builder holds this version; remove when that dependency converges on the workspace darling_core version"
+
+[[exception]]
+rule = "DEP-001"
+path = "darling_macro@0.20.11"
+reason = "OA9/C05f: qdrant-client derive_builder holds this version; remove when that dependency converges on the workspace darling_macro version"
+
+[[exception]]
+rule = "DEP-001"
+path = "foldhash@0.1.5"
+reason = "OA9/C05f: hashbrown 0.15 holds this version; remove when that dependency converges on the workspace foldhash version"
+
+[[exception]]
+rule = "DEP-001"
+path = "hashbrown@0.16.1"
+reason = "OA9/C05f: ratatui lru 0.18 holds this version; remove when that dependency converges on the workspace hashbrown version"

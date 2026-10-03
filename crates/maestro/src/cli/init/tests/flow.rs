@@ -9,7 +9,7 @@ use std::{
     slice::from_ref,
 };
 
-fn registry() -> Registry {
+pub(super) fn registry() -> Registry {
     let base = Registry::built_in().unwrap();
     let mut descriptors: Vec<_> = base.descriptors().cloned().collect();
     let mut added = descriptors[0].clone();

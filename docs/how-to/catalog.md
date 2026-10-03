@@ -1,8 +1,11 @@
 # Initialize a workspace
 
-Run `maestro init --plain` inside the workspace. Select an explicitly reviewed
-catalog directory and preset; neither has an implicit default. This is authoring
+Run `maestro init --plain` inside the workspace.
+Select an explicitly reviewed catalog directory and preset; neither has an implicit default. This is authoring
 convenience, not a verified installation. No scripts or prerequisites execute.
+
+`maestro config --plain` uses the same labelled editor for screen readers and
+other assistive use.
 
 The plain flow has five labelled stages:
 
@@ -22,6 +25,14 @@ mode, alternate screen, cursor repaint or color is used. `--no-color`, `NO_COLOR
 and `TERM=dumb` need no special terminal support. Unsupported interface languages
 show the existing English-interface fallback note; conversational language stays
 selected. Artifact and log language always stays English.
+
+Without `--plain`, a capable terminal starts the branded renderer. `TERM=dumb`
+or a startup window below 80×24 selects plain prompts. A live shrink pauses
+submission until the window grows; the draft and typed field are retained.
+Tab/Shift-Tab or arrows focus Input, Back, Cancel and Submit; Page Up/Down scroll
+all registry and plan details. Escape goes Back; while undersized it cancels.
+`--no-color` and `NO_COLOR` retain all labels and focus markers without a palette.
+The terminal is restored before separate trust approval or any confirmed write.
 
 Trust is not a setting. A staged yes grants nothing on preview or cancellation.
 After confirmed apply, an unapproved root needs the existing, separate default-no

@@ -19,6 +19,16 @@ pub(in crate::cli) enum Answer {
 
 /// Plain now, a terminal renderer later; neither adapter writes settings or trust.
 pub(in crate::cli) trait FlowPort {
+    /// Start a stage; plain rendering retains the existing labelled transcript.
+    fn screen(&mut self, title: &str) -> Result<(), Failure> {
+        self.show(title)
+    }
+    /// The existing planner transcript goes to stdout in plain mode, into the frame in TUI.
+    fn plan(&mut self, text: &str) -> Result<(), Failure> {
+        Output::new(false).text(text)
+    }
+    /// Refresh descriptor presentation; plain retains the existing transcript.
+    fn refresh(&mut self) {}
     /// Render information without changing the draft.
     fn show(&mut self, text: &str) -> Result<(), Failure>;
     /// Read one labelled choice or navigation action.
@@ -114,6 +124,7 @@ impl Draft {
 
     /// Every descriptor, never a screen-specific list, with provenance and restrictions.
     pub(in crate::cli) fn show(&self, port: &mut dyn FlowPort) -> Result<(), Failure> {
+        port.refresh();
         let resolved = self.resolved()?;
         for descriptor in self.registry.descriptors() {
             let setting = resolved

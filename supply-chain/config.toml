@@ -45,6 +45,11 @@ criteria = "safe-to-deploy"
 version = "1.0.104"
 criteria = "safe-to-deploy"
 
+[[exemptions.approx]]
+version = "0.5.1"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.ar_archive_writer]]
 version = "0.5.3"
 criteria = "safe-to-deploy"
@@ -124,6 +129,11 @@ version = "0.5.1"
 criteria = "safe-to-deploy"
 notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
+[[exemptions.by_address]]
+version = "1.2.1"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.bytecount]]
 version = "0.6.9"
 criteria = "safe-to-deploy"
@@ -132,6 +142,11 @@ notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 [[exemptions.bytes]]
 version = "1.12.1"
 criteria = "safe-to-deploy"
+
+[[exemptions.castaway]]
+version = "0.2.4"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
 
 [[exemptions.cc]]
 version = "1.5.1"
@@ -186,9 +201,19 @@ criteria = "safe-to-deploy"
 version = "1.1.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.compact_str]]
+version = "0.9.1"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.const-oid]]
 version = "0.10.2"
 criteria = "safe-to-deploy"
+
+[[exemptions.convert_case]]
+version = "0.10.0"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
 
 [[exemptions.core-foundation]]
 version = "0.10.1"
@@ -206,6 +231,16 @@ criteria = "safe-to-deploy"
 [[exemptions.crc32fast]]
 version = "1.5.2"
 criteria = "safe-to-deploy"
+
+[[exemptions.crossterm]]
+version = "0.29.0"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.crossterm_winapi]]
+version = "0.9.1"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
 
 [[exemptions.crypto-common]]
 version = "0.1.7"
@@ -280,6 +315,16 @@ criteria = "safe-to-deploy"
 version = "0.20.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.derive_more]]
+version = "2.1.1"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.derive_more-impl]]
+version = "2.1.1"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.digest]]
 version = "0.10.7"
 criteria = "safe-to-deploy"
@@ -288,6 +333,11 @@ notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (AD
 [[exemptions.digest]]
 version = "0.11.3"
 criteria = "safe-to-deploy"
+
+[[exemptions.document-features]]
+version = "0.2.12"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
 
 [[exemptions.dyn-clone]]
 version = "1.0.20"
@@ -493,6 +543,16 @@ notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (AD
 version = "2.14.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.indoc]]
+version = "2.0.7"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.instability]]
+version = "0.3.14"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.ipnet]]
 version = "2.12.2"
 criteria = "safe-to-deploy"
@@ -554,6 +614,11 @@ version = "0.58.5"
 criteria = "safe-to-deploy"
 notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 
+[[exemptions.kasuari]]
+version = "0.4.12"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.keccak]]
 version = "0.1.6"
 criteria = "safe-to-deploy"
@@ -573,9 +638,19 @@ notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (AD
 version = "0.2.189"
 criteria = "safe-to-deploy"
 
+[[exemptions.libm]]
+version = "0.2.16"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.libsqlite3-sys]]
 version = "0.38.2"
 criteria = "safe-to-deploy"
+
+[[exemptions.line-clipping]]
+version = "0.3.8"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
 
 [[exemptions.linked-hash-map]]
 version = "0.5.6"
@@ -590,6 +665,11 @@ notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (AD
 [[exemptions.linux-raw-sys]]
 version = "0.12.1"
 criteria = "safe-to-deploy"
+
+[[exemptions.litrs]]
+version = "1.0.0"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
 
 [[exemptions.lock_api]]
 version = "0.4.14"
@@ -613,6 +693,11 @@ notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (AD
 version = "0.16.1"
 criteria = "safe-to-deploy"
 notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.lru]]
+version = "0.18.5"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
 
 [[exemptions.matchit]]
 version = "0.8.4"
@@ -699,6 +784,11 @@ version = "0.4.2"
 criteria = "safe-to-deploy"
 notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 
+[[exemptions.num_threads]]
+version = "0.1.7"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.object]]
 version = "0.39.1"
 criteria = "safe-to-deploy"
@@ -716,6 +806,21 @@ criteria = "safe-to-deploy"
 version = "0.5.2"
 criteria = "safe-to-deploy"
 notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.palette]]
+version = "0.7.7"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.palette_derive]]
+version = "0.7.7"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.palette_math]]
+version = "0.7.7"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
 
 [[exemptions.parking_lot]]
 version = "0.12.5"
@@ -832,6 +937,26 @@ criteria = "safe-to-deploy"
 version = "0.10.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.ratatui]]
+version = "0.30.2"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.ratatui-core]]
+version = "0.1.2"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.ratatui-crossterm]]
+version = "0.1.2"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.ratatui-widgets]]
+version = "0.3.2"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.redox_syscall]]
 version = "0.5.18"
 criteria = "safe-to-deploy"
@@ -885,6 +1010,11 @@ criteria = "safe-to-deploy"
 version = "0.0.8"
 criteria = "safe-to-deploy"
 notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.rustc_version]]
+version = "0.4.1"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
 
 [[exemptions.rustix]]
 version = "1.1.5"
@@ -995,6 +1125,21 @@ version = "0.10.9"
 criteria = "safe-to-deploy"
 notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
+[[exemptions.signal-hook]]
+version = "0.3.18"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.signal-hook-mio]]
+version = "0.2.5"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.signal-hook-registry]]
+version = "1.4.8"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.simd-adler32]]
 version = "0.3.10"
 criteria = "safe-to-deploy"
@@ -1025,6 +1170,11 @@ criteria = "safe-to-deploy"
 version = "0.1.25"
 criteria = "safe-to-deploy"
 notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.static_assertions]]
+version = "1.1.0"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
 
 [[exemptions.string_cache]]
 version = "0.8.9"
@@ -1193,6 +1343,16 @@ version = "0.1.2"
 criteria = "safe-to-deploy"
 notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
+[[exemptions.unicode-segmentation]]
+version = "1.13.3"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.unicode-truncate]]
+version = "2.0.1"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.unicode-width]]
 version = "0.1.14"
 criteria = "safe-to-deploy"
@@ -1285,9 +1445,24 @@ criteria = "safe-to-deploy"
 version = "0.18.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.winapi]]
+version = "0.3.9"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
+[[exemptions.winapi-i686-pc-windows-gnu]]
+version = "0.4.0"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
+
 [[exemptions.winapi-util]]
 version = "0.1.11"
 criteria = "safe-to-deploy"
+
+[[exemptions.winapi-x86_64-pc-windows-gnu]]
+version = "0.4.0"
+criteria = "safe-to-deploy"
+notes = "C05k: OA9-approved ratatui/crossterm measured C05f closure (ADR-0020); not an audit"
 
 [[exemptions.windows-core]]
 version = "0.62.2"
