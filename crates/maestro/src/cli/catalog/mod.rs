@@ -2,6 +2,7 @@
 
 mod check;
 mod codeowners;
+pub(super) mod compile;
 pub(super) mod dispatch;
 pub(super) mod index;
 mod owners;
