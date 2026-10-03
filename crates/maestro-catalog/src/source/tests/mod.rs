@@ -17,6 +17,7 @@ mod directory;
 mod extension;
 mod git_boundary;
 mod hostile;
+mod index;
 mod layer_placements;
 mod layout;
 mod model_card;

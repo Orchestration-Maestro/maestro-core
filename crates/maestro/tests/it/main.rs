@@ -10,6 +10,7 @@ mod catalog_check;
 mod catalog_client_preferences;
 mod catalog_codeowners;
 mod catalog_host_probe;
+mod catalog_index;
 mod catalog_init;
 mod catalog_init_menu;
 mod catalog_init_regressions;

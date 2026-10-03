@@ -25,6 +25,15 @@ pub(super) const GENERATED_CODEOWNERS: GeneratedFile = GeneratedFile {
 /// The sole generated CODEOWNERS path, relative to the catalog.
 pub const CODEOWNERS_PATH: &str = GENERATED_CODEOWNERS.path;
 
+/// The generated public JSON navigation, relative to the catalog.
+pub const INDEX_PATH: &str = "marketplace/index.json";
+
+/// The generated public type navigation, relative to the catalog.
+pub const BY_TYPE_PATH: &str = "docs/catalog/by-type.md";
+
+/// Exact generated outputs, never directory exemptions or source resources.
+pub(super) const GENERATED_PATHS: [&str; 3] = [CODEOWNERS_PATH, INDEX_PATH, BY_TYPE_PATH];
+
 /// The sole area principal policy: owners are required, content delegates optional.
 const OWNERSHIP_FIELDS: [(&str, Option<bool>); 3] = [
     ("owner", None),

@@ -62,6 +62,7 @@ in place.
 │   │   │   │   │   ├── check.rs                                             # catalog check --catalog-dir DIR: the strict source checker over a
 │   │   │   │   │   ├── codeowners.rs                                        # Read-only CODEOWNERS rendering to stdout and exact committed-file comparison
 │   │   │   │   │   ├── dispatch.rs                                          # Catalog-only dispatch; foreground session and repair ordering stay at the caller
+│   │   │   │   │   ├── index.rs                                             # Read-only public catalog index/type rendering and exact committed drift checking
 │   │   │   │   │   ├── mod.rs                                               # catalog: the catalog's authoring commands
 │   │   │   │   │   └── owners.rs                                            # Effect-free ownership checks over externally supplied trusted CI evidence
 │   │   │   │   ├── config/                                                  # maestro config: the settings, read, explained, changed and their
@@ -300,6 +301,7 @@ in place.
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
 │   │   │       ├── catalog_client_preferences.rs                            # Four synthetic client fixtures inspect delivery, not host obedience
 │   │   │       ├── catalog_codeowners.rs                                    # Read-only CODEOWNERS rendering and comparison against committed rules
+│   │   │       ├── catalog_index.rs                                         # Synthetic public index rendering and exact read-only drift checking
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
 │   │   │       ├── catalog_init_menu.rs                                     # Plain, screen-reader-safe init and the registry-backed config editor
 │   │   │       ├── catalog_init_regressions.rs                              # C05g review regressions: targeting, parity, retry and the reviewed values
@@ -635,6 +637,7 @@ in place.
 │   │   │   │   │   ├── extension.rs                                         # The owner's scaling requirement: a new kind is one descriptor plus
 │   │   │   │   │   ├── git_boundary.rs                                      # Git administration is outside the filesystem source view, not a dotfile filter
 │   │   │   │   │   ├── hostile.rs                                           # Hostile sources inside D2's limits: YAML aliases that expand past their
+│   │   │   │   │   ├── index.rs                                             # Public pinned source navigation and exact generated-byte drift neighbours
 │   │   │   │   │   ├── layer_placements.rs                                  # Registered placements retain their dependency layer outside canonical folders
 │   │   │   │   │   ├── layout.rs                                            # The catalog's layout: agent and sidecar pairing, duplicate IDs, entries
 │   │   │   │   │   ├── mod.rs                                               # The source checker's tests: the valid synthetic catalog and each of its
@@ -687,6 +690,7 @@ in place.
 │   │   │   │   ├── descriptor.rs                                            # A kind described as data: where its files live, how they are written
 │   │   │   │   ├── discovered.rs                                            # Discovery records shared by the legacy and scoped descriptor walkers
 │   │   │   │   ├── graph.rs                                                 # The dependency graph across resources, its nodes numbered in ID order
+│   │   │   │   ├── index.rs                                                 # Deterministic public-source navigation; no release or installation authority
 │   │   │   │   ├── json.rs                                                  # The single strict JSON decoder shared by source admission and bootstrap
 │   │   │   │   ├── load.rs                                                  # One discovered resource read from its files, as its kind's descriptor
 │   │   │   │   ├── metadata.rs                                              # The Maestro metadata every resource declares, read the same way wherever

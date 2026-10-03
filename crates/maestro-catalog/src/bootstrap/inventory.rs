@@ -213,18 +213,6 @@ impl PresetPort for AreaInventories {
     }
 }
 
-/// Metadata revisions take precedence; checked area versions are the fallback.
-fn source_revision(resource: &Resource) -> Option<String> {
-    resource.metadata.version.clone().or_else(|| {
-        resource
-            .fields
-            .contains_key("owners")
-            .then(|| resource.fields.get("version").and_then(Value::text))
-            .flatten()
-            .map(str::to_owned)
-    })
-}
-
 impl Loader<'_> {
     /// Reuse each captured source once from the bounded checked snapshot.
     fn capture(&mut self, resource: &Resource, path: &str) -> Result<(), String> {
@@ -248,7 +236,7 @@ impl Loader<'_> {
             path.to_owned(),
             SourceFile {
                 id: resource.id.to_string(),
-                revision: source_revision(resource),
+                revision: resource.source_revision(),
                 bytes,
             },
         );

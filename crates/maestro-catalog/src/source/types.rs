@@ -317,6 +317,19 @@ pub struct Resource {
     pub fields: BTreeMap<String, Value>,
 }
 
+impl Resource {
+    /// Metadata revisions take precedence; checked area versions are the fallback.
+    pub(crate) fn source_revision(&self) -> Option<String> {
+        self.metadata.version.clone().or_else(|| {
+            self.fields
+                .contains_key("owners")
+                .then(|| self.fields.get("version").and_then(Value::text))
+                .flatten()
+                .map(str::to_owned)
+        })
+    }
+}
+
 /// A checked catalog: its resources, sorted by ID.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Catalog {

@@ -2851,14 +2851,19 @@ No invented pin, duplicate server registry or extra seed charge; estimate stays 
 **Design coverage:** MD01, MD07, MD09 (approved design §8.4).
 **Named tests:** `catalog_index_is_deterministic`, `stale_extra_index_row_refuses`, `public_index_excludes_private`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Generated pinned-catalog marketplace/type view and drift CLI; stale/extra/private rows refuse.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Generated pinned-catalog marketplace/type view and drift CLI; stale/extra/private rows refuse.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 
 **Acceptance:** Generated pinned-catalog marketplace/type view and drift CLI; stale/extra/private rows refuse.
+
+**Scope/progress (C51a CORE, 2026-10-02):** Public-only pinned source generator
+and synthetic drift CLI implemented; JSON/type views compare exact snapshot bytes.
+Open obligations: MAN `marketplace/index.json` and `docs/catalog/by-type.md`
+publication waits for C02; C53a bundle checks stay with C11. No MAN edits.
 
 ### C51b Independent-release index fields [US1, US5] (3 h)
 

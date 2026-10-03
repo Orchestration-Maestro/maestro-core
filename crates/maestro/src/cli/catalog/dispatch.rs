@@ -1,6 +1,6 @@
 //! Catalog-only dispatch; foreground session and repair ordering stay at the caller.
 
-use super::{check, codeowners, owners};
+use super::{check, codeowners, index, owners};
 use crate::{
     cli::{args::CatalogCommand, output::Output},
     failure::Failure,
@@ -29,6 +29,11 @@ pub(in crate::cli) fn run(output: Output, command: &CatalogCommand) -> Result<Ex
             (repository, base_revision, head_revision),
         ),
         CatalogCommand::Check { catalog_dir } => check::run(output, catalog_dir),
+        CatalogCommand::Index {
+            catalog_dir,
+            view,
+            check,
+        } => index::run(output, catalog_dir, *view, *check),
         CatalogCommand::Codeowners { catalog_dir, check } => {
             codeowners::run(output, catalog_dir, *check)
         }

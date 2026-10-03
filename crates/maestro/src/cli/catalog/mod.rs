@@ -3,6 +3,7 @@
 mod check;
 mod codeowners;
 pub(super) mod dispatch;
+pub(super) mod index;
 mod owners;
 
 pub(super) use check::today;

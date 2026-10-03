@@ -1,7 +1,7 @@
 //! The command line's grammar, noun then verb (plan D12), as clap derives it
 //! from these types, whose comments are the help it prints.
 
-use super::{policy::PolicyCommand, trust::TrustCommand};
+use super::{catalog::index::View, policy::PolicyCommand, trust::TrustCommand};
 use clap::{Args, Parser, Subcommand};
 use maestro_kernel::evidence::RequestBudget;
 use std::path::PathBuf;
@@ -447,6 +447,18 @@ pub(super) enum CatalogCommand {
         /// Full proposed commit ID.
         #[arg(long)]
         head_revision: String,
+    },
+    /// Render public pinned navigation to stdout; --check compares both fixed views.
+    Index {
+        /// The public catalog's directory, without private overlays.
+        #[arg(long, value_name = "DIR")]
+        catalog_dir: PathBuf,
+        /// View to render; checking always covers index and by-type together.
+        #[arg(long, value_enum, default_value = "index")]
+        view: View,
+        /// Refuse missing, stale, extra or private rows without writing.
+        #[arg(long)]
+        check: bool,
     },
     /// Render CODEOWNERS to stdout; redirect it to .github/CODEOWNERS to update.
     /// --check compares the committed file without writing.

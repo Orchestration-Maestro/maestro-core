@@ -12,6 +12,7 @@ pub(crate) mod defaults;
 mod descriptor;
 mod discovered;
 mod graph;
+pub mod index;
 pub(crate) mod json;
 mod kinds;
 pub(crate) mod load;
@@ -42,7 +43,9 @@ pub use backends::{BACKENDS, BackendDescriptor};
 pub use check::{build, check};
 pub use descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope};
 pub use kinds::{builtin, builtin_hooks};
-pub use ownership::{CODEOWNERS_PATH, Ownership, ReviewPath, ReviewRole, ReviewRule};
+pub use ownership::{
+    BY_TYPE_PATH, CODEOWNERS_PATH, INDEX_PATH, Ownership, ReviewPath, ReviewRole, ReviewRule,
+};
 pub use registry::{Registration, RegistrationError, Registry};
 pub use secrets::{KeychainReference, SecretReference};
 pub use tree::{Directory, Entry, EntryKind, SourceTree};

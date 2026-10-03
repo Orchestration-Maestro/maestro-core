@@ -5,7 +5,7 @@ use super::{
     descriptor::{KindDescriptor, Layout, MetadataPlace, Scope},
     discovered::{Found, Unit, refusal},
     naming,
-    ownership::GENERATED_CODEOWNERS,
+    ownership::GENERATED_PATHS,
     parse::is_name,
     placements::{concrete, directories, fits, join},
     registry::Registry,
@@ -306,12 +306,12 @@ fn path_problems(path: &str, kind: EntryKind, claimed: &BTreeSet<String>) -> Vec
             "must use a functional name, not a registered product or misplaced native filename",
         ));
     }
-    if path == GENERATED_CODEOWNERS.path {
+    if GENERATED_PATHS.contains(&path) {
         if kind != EntryKind::File {
             diagnostics.push(Diagnostic::new(
                 path,
                 "",
-                "generated CODEOWNERS must be a regular file",
+                "generated output must be a regular file",
             ));
         }
     } else if kind != EntryKind::Directory && !claimed.contains(path) {
