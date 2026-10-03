@@ -95,13 +95,9 @@ fn apply(kernel: &Kernel, output: Output, cleanup: &Cleanup) -> Result<ExitCode,
     let Ok(ended) = ended else {
         return refuse(output, generation, CleanupError::LeaseInvalid);
     };
-    let applied = result.get().unwrap_or_else(|| {
-        if ended.state == JobState::Succeeded && !cleanup.present() {
-            Ok(CleanupOutcome::AlreadyMissing)
-        } else {
-            Err(CleanupError::LeaseInvalid)
-        }
-    });
+    let applied = result
+        .get()
+        .unwrap_or_else(|| replay_outcome(ended.state, cleanup.present()));
     let outcome = match applied {
         Ok(outcome) => outcome,
         Err(error) => return refuse(output, generation, error),
@@ -117,6 +113,15 @@ fn apply(kernel: &Kernel, output: Output, cleanup: &Cleanup) -> Result<ExitCode,
         ),
     )?;
     Ok(ExitCode::SUCCESS)
+}
+
+/// A replayed successful job authorizes only idempotent absence, never a fresh deletion.
+fn replay_outcome(state: JobState, present: bool) -> Result<CleanupOutcome, CleanupError> {
+    if state == JobState::Succeeded && !present {
+        Ok(CleanupOutcome::AlreadyMissing)
+    } else {
+        Err(CleanupError::LeaseInvalid)
+    }
 }
 
 /// Report the same fixed refusal in JSON and text; no candidate is disclosed.
@@ -185,6 +190,29 @@ impl<'a> Document<'a> {
             file_name: Some(&cleanup.receipt().file_name),
             present: Some(present),
             job: None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod replay_tests {
+    use super::{CleanupError, CleanupOutcome, JobState, replay_outcome};
+
+    #[test]
+    fn graph_cleanup_replay_requires_success_and_absence() {
+        assert_eq!(
+            replay_outcome(JobState::Succeeded, false),
+            Ok(CleanupOutcome::AlreadyMissing)
+        );
+        for (state, present) in [
+            (JobState::Succeeded, true),
+            (JobState::Failed, false),
+            (JobState::Failed, true),
+        ] {
+            assert_eq!(
+                replay_outcome(state, present),
+                Err(CleanupError::LeaseInvalid)
+            );
         }
     }
 }

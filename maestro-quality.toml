@@ -31,7 +31,7 @@ files = [
   "crates/maestro-knowledge/src/graph/projection/engine/rows.rs",
   "crates/maestro-knowledge/src/graph/projection/engine/backend.rs",
   "crates/maestro-knowledge/src/graph/projection/engine/reader.rs",
-  "crates/maestro/src/cli/setup/graph.rs",
+  "crates/maestro/src/cli/setup/graph_engine.rs",
   "crates/maestro-knowledge/src/graph/projection/access.rs",
   "crates/maestro-knowledge/src/graph/projection/engine/config.rs",
   "crates/maestro-knowledge/src/graph/projection/engine/cancellation.rs",

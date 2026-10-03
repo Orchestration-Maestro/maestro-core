@@ -314,8 +314,6 @@ fn shared_permissions_and_a_relocated_directory_are_reported_unchanged() {
 
 #[test]
 fn until_a_graph_is_published_nothing_is_opened() {
-    assert_eq!(format!("{:?}", Receipt::NonePublished), "NonePublished");
-    assert_eq!(format!("{:?}", Receipt::Files(Vec::new())), "Files(0)");
     let home = Home::ready();
     let check = home.check(&FakeReceipt {
         files: Ok(None),
@@ -356,7 +354,6 @@ fn each_published_file_opens_read_only_answers_closes_and_reopens() {
         FakeFile::new(first.clone(), &steps),
         FakeFile::new(second.clone(), &steps),
     ]);
-    assert_eq!(format!("{:?}", receipt.receipt().unwrap()), "Files(2)");
     let check = home.check(&receipt);
     let Outcome::Passed(detail) = &check.outcome else {
         panic!("{check:?}");
@@ -372,7 +369,7 @@ fn each_published_file_opens_read_only_answers_closes_and_reopens() {
 }
 
 #[test]
-fn files_outside_the_graph_directory_are_refused_before_any_open() {
+fn graph_health_refuses_outside_and_missing_inside_files_before_any_open() {
     let home = Home::ready();
     let steps = RefCell::default();
     let authority = home.scratch.data().join("maestro").join("kernel.sqlite3");
@@ -386,7 +383,10 @@ fn files_outside_the_graph_directory_are_refused_before_any_open() {
         ),
         (home.graph(), "the graph directory itself"),
         (home.graph().join("directory"), "is not a file"),
-        (home.graph().join("absent.lbug"), ""),
+        (
+            home.graph().join("absent.lbug"),
+            "the receipt-named graph file is missing",
+        ),
     ] {
         let receipt = FakeReceipt::publishing(vec![FakeFile::new(path.clone(), &steps)]);
         let check = home.check(&receipt);

@@ -32,11 +32,12 @@
 //! its expiry. A lease that is held and has not expired cannot be taken, and
 //! the refusal names the holder and the expiry, so no two processes work on
 //! one job. Once the lease has expired, another holder takes it over with the
-//! next number, and the job keeps running. The job knows its lease by that
-//! number: a heartbeat, a step or an outcome under a lease that was taken over
-//! is refused and writes nothing, so a stalled process that wakes up never
-//! writes over its successor. A holder whose lease expired, and that no one
-//! took over, still renews it. The table refuses the same, whoever writes: a
+//! next number, and the job keeps running. The job knows its lease by both
+//! holder and number: a heartbeat, a step or an outcome with another holder
+//! or a superseded number is refused and writes nothing, so a stalled process
+//! that wakes up never writes over its successor, even with the same holder
+//! name. A holder whose lease expired, and that no one took over, still renews
+//! or cancels it. The table refuses the same, whoever writes: a
 //! job that ended never changes, a state moves only forward, and a lease
 //! number never decreases.
 //!

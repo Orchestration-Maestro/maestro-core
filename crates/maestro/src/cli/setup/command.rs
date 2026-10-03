@@ -3,8 +3,12 @@
 //! kernel and no graph: it only reads, then writes the graph's directory and
 //! the service's own files and asks systemd's user manager to run it.
 
+#[cfg(not(feature = "engine"))]
+use super::graph::run as graph_setup;
+#[cfg(feature = "engine")]
+use super::graph_engine::run as graph_setup;
 use super::{
-    graph::{self, GraphSetup},
+    graph::GraphSetup,
     release::{GRPC_PORT, HOST, HTTP_PORT, Release, SERVICE, release_for},
     service::{Layout, Step, apply, survey, user_manager},
     tools::Tools,
@@ -92,7 +96,7 @@ pub(in crate::cli) fn run(
     let environment = Environment::current();
     let graph = Session::for_cli(flags)
         .and_then(|session| GraphEngine::from_session(&session))
-        .and_then(|engine| graph::run(&environment, engine, yes));
+        .and_then(|engine| graph_setup(&environment, engine, yes));
     let (graph, graph_refusal) = match graph {
         Ok(graph) => (graph, None),
         Err(failure) => {

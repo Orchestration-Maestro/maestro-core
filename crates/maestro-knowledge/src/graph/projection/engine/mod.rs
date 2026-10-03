@@ -43,4 +43,6 @@ mod public_fixture;
 mod public_tests;
 
 #[cfg(test)]
+mod holder_fence_tests;
+#[cfg(test)]
 mod public_guard_tests;

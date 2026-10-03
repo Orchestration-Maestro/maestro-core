@@ -435,11 +435,22 @@ fn projection_readiness_rejects_a_nonpositive_generation() {
 fn projection_readiness_rejects_a_path_instead_of_a_owned_filename() {
     let (_scratch, database, all, mut receipt) = attached();
     let lease = projection_lease(&database, receipt.generation_id);
-    receipt.file_name = "../outside.db".to_owned();
-    assert!(matches!(
-        database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
-        Err(Error::Conflict(_))
-    ));
+    for name in [
+        "../outside.db",
+        "safe/outside.db",
+        ".leading.db",
+        "",
+        "space name.db",
+    ] {
+        receipt.file_name = name.to_owned();
+        let error = database
+            .record_projection_ready(&all, &receipt, &lease, timing(5).now)
+            .unwrap_err();
+        let Error::Conflict(detail) = error else {
+            panic!("{name}: {error}");
+        };
+        assert_eq!(detail, "invalid projection receipt identity", "{name}");
+    }
     assert_eq!(
         database
             .projection_ready(&all, receipt.generation_id)

@@ -1,4 +1,4 @@
-//! Read-only receipt metadata checks preserve unrelated bytes.
+//! Read-only receipt and staging metadata checks preserve unrelated bytes.
 use super::OwnedRoot;
 use maestro_test_scratch::scratch_directory;
 use std::{fs, io};
@@ -44,5 +44,28 @@ fn filesystem_receipt_metadata_refuses_missing_unsafe_names_and_aliases_read_onl
         b"valid neighbour"
     );
     drop(root);
+    fs::remove_dir_all(scratch).unwrap();
+}
+
+#[test]
+fn filesystem_publication_rejects_nonchild_staging() {
+    let scratch = scratch_directory().unwrap();
+    let root = OwnedRoot::open(&scratch.join("owned"), true).unwrap();
+    let staging = OwnedRoot::open(&scratch.join("staging"), true).unwrap();
+    let name = format!("g{}.lbdb", "a".repeat(64));
+    let source = staging.resolved_path().unwrap().join(&name);
+    let destination = root.resolved_path().unwrap().join(&name);
+    fs::write(&source, b"private valid source").unwrap();
+    assert_eq!(
+        root.install_from(&staging, &name).unwrap_err().to_string(),
+        "publication staging must be a reserved direct child"
+    );
+    assert_eq!(fs::read(&source).unwrap(), b"private valid source");
+    assert!(!destination.exists());
+    assert_eq!(
+        fs::read_dir(root.resolved_path().unwrap()).unwrap().count(),
+        0
+    );
+    drop((root, staging));
     fs::remove_dir_all(scratch).unwrap();
 }

@@ -201,7 +201,7 @@ fn a_stale_holder_is_refused_once_its_lease_was_taken_over_and_writes_nothing() 
 }
 
 #[test]
-fn a_lease_is_known_by_its_number_not_by_the_name_of_its_holder() {
+fn same_holder_name_with_a_new_number_fences_the_old_lease() {
     let scratch = Scratch::new();
     let database = scratch.open();
     let (job, mut stale) = running(&database, "demo");

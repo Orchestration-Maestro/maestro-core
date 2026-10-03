@@ -172,6 +172,7 @@ in place.
 │   │   │   │   │   │   └── unit.rs                                          # The service's layout and unit: loopback, telemetry off, data under the kernel's; paths escaped or refused
 │   │   │   │   │   ├── command.rs                                           # maestro setup: the preview, the steps taken with --yes, the document printed; the readiness doctor asks
 │   │   │   │   │   ├── graph.rs                                             # The embedded graph's part of maestro setup: it previews, and with
+│   │   │   │   │   ├── graph_engine.rs                                      # Engine-selected setup dispatch; filesystem preparation remains default-testable
 │   │   │   │   │   ├── mod.rs                                               # The setup's door: declarations only
 │   │   │   │   │   ├── release.rs                                           # The pinned Qdrant 1.19.1 archive and binary digests, the ports, and the manual steps elsewhere
 │   │   │   │   │   ├── service.rs                                           # The layout, the unit, the survey of what is missing, and the steps that install it, each checked first
@@ -385,6 +386,7 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Phase B chunk batches: assembly, prepared-input identities and replay validation
 │   │   │   │   └── validation.rs                                            # Replay checks: coverage and every prepared part must rebuild from the mapped source
 │   │   │   ├── filesystem/                                                  # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
+│   │   │   │   ├── lock_tests.rs                                            # Mode conversions release the old lock before acquiring the new one on every OS
 │   │   │   │   ├── mod.rs                                                   # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
 │   │   │   │   ├── owned.rs                                                 # Owned filesystem roots and permanent control files, independent of any engine
 │   │   │   │   ├── owned_metadata_tests.rs                                  # Read-only receipt metadata checks preserve unrelated bytes
@@ -1007,6 +1009,7 @@ in place.
 │   │   │   │   │   │   ├── cleanup_tests.rs                                 # Native files/read-only handles for the feature-independent cleanup process suite
 │   │   │   │   │   │   ├── codec_tests.rs                                   # Synthetic canonical fact-vector and malformed-byte checks
 │   │   │   │   │   │   ├── config.rs                                        # The single native translation of caller-owned frozen graph settings
+│   │   │   │   │   │   ├── holder_fence_tests.rs                            # Holder credentials refuse before reservation, without changing authoritative state
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── open.rs                                          # The native adapter's single rooted construction boundary
 │   │   │   │   │   │   ├── probe.rs                                         # Guarded read-only graph health bridge, bypassing the native handle registry

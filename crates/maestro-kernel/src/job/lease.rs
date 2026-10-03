@@ -125,18 +125,19 @@ pub(super) fn lease_data(lease: &Lease) -> Value {
 }
 
 /// The job of `lease` as `transaction` records it, when `lease` is still its
-/// lease: the job runs under a lease of the same number.
+/// lease: the job runs under a lease of the same holder and number.
+/// Heartbeat and expiry remain authoritative in the row, not the caller's copy.
 ///
 /// # Errors
 ///
-/// [`Error::Lost`] when another took the lease over or the job ended,
+/// [`Error::Lost`] when the holder or number differs, or the job ended,
 /// [`Error::UnknownJob`], and [`Error::Store`].
 pub(crate) fn held(transaction: &Transaction<'_>, lease: &Lease) -> Result<Job, Error> {
     let job = find(transaction, None, lease.job)?.ok_or(Error::UnknownJob(lease.job))?;
     if job
         .lease
         .as_ref()
-        .is_some_and(|current| current.number == lease.number)
+        .is_some_and(|current| current.number == lease.number && current.holder == lease.holder)
     {
         Ok(job)
     } else {

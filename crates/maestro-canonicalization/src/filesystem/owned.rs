@@ -132,14 +132,10 @@ impl OwnedRoot {
         self.validate()?;
         #[cfg(unix)]
         self.directory.validate_private()?;
-        let created = match self.directory.open_control(control.file_name(), true) {
-            Ok(_) => true,
-            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
-                self.open_control(control)?;
-                false
-            }
-            Err(error) => return Err(error),
-        };
+        let created = control_created(self.directory.open_control(control.file_name(), true))?;
+        if !created {
+            self.open_control(control)?;
+        }
         self.validate()?;
         Ok(created)
     }
@@ -236,6 +232,8 @@ impl OwnedRoot {
 
 impl ControlHandle {
     /// Acquire through the injected adapter; the file remains held until this handle drops.
+    /// Reacquisition releases the previous lock first, including mode conversions.
+    /// This is not an atomic downgrade: callers must recheck protected state afterwards.
     ///
     /// # Errors
     /// Refuses unsupported locks, contention and relocated roots without fallback.
@@ -245,6 +243,10 @@ impl ControlHandle {
             .lock()
             .map_err(|_| io::Error::other("control mode lock poisoned"))?;
         self.validate()?;
+        if held.is_some() {
+            self.file.unlock()?;
+            *held = None;
+        }
         adapter.acquire(&self.file, mode, wait)?;
         *held = Some(mode);
         self.validate()
@@ -330,6 +332,15 @@ impl ControlHandle {
     }
 }
 
+/// Only a creation collision authorizes reopening an existing permanent control.
+fn control_created(result: io::Result<File>) -> io::Result<bool> {
+    match result {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
 /// A single portable child name; no platform treats it as an escape or stream.
 fn child_name(name: &str) -> io::Result<()> {
     if name.is_empty()
@@ -368,4 +379,21 @@ fn validate_receipt_name(name: &str) -> io::Result<()> {
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::control_created;
+    use std::io;
+
+    #[test]
+    fn filesystem_control_creation_reopens_only_already_exists() {
+        assert!(!control_created(Err(io::ErrorKind::AlreadyExists.into())).unwrap());
+        for kind in [io::ErrorKind::PermissionDenied, io::ErrorKind::Other] {
+            let error = control_created(Err(io::Error::new(kind, "original creation failure")))
+                .unwrap_err();
+            assert_eq!(error.kind(), kind);
+            assert_eq!(error.to_string(), "original creation failure");
+        }
+    }
 }

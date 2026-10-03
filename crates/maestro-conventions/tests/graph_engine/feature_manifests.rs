@@ -75,7 +75,7 @@ fn required_ci_owns_native_coverage_and_the_exact_engine_source() {
         })
         .to_vec();
     engine_files.push(Value::String(
-        "crates/maestro/src/cli/setup/graph.rs".into(),
+        "crates/maestro/src/cli/setup/graph_engine.rs".into(),
     ));
     engine_files.push(Value::String(
         "crates/maestro-knowledge/src/graph/projection/access.rs".into(),

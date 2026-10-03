@@ -9,6 +9,8 @@
 
 mod command;
 pub(super) mod graph;
+#[cfg(feature = "engine")]
+mod graph_engine;
 mod release;
 mod service;
 #[cfg(test)]

@@ -440,7 +440,11 @@ fn filesystem_staging_reservation_is_create_new_and_never_adopts() {
     let staging = root.reserve_child(".build-one").unwrap();
     assert!(root.reserve_child(".build-one").is_err());
     for name in ["", ".", "..", "../outside", "/absolute", "a/b", "a\\b"] {
-        assert!(root.reserve_child(name).is_err());
+        assert_eq!(
+            root.reserve_child(name).unwrap_err().to_string(),
+            "expected one plain child name",
+            "{name}"
+        );
     }
     assert_eq!(
         staging.resolved_path().unwrap(),

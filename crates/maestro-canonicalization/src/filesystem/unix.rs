@@ -13,6 +13,18 @@ use std::{
     path::{Component, Path},
 };
 
+/// Controls need writable Windows-compatible locks, refuse links and never leak on exec.
+/// RDWR opens a FIFO without waiting for a peer; the regular-file check then refuses it.
+const CONTROL_FLAGS: OFlags = OFlags::RDWR.union(OFlags::NOFOLLOW).union(OFlags::CLOEXEC);
+
+/// New controls request owner-only read/write permissions; stricter umasks fail validation.
+const CONTROL_PERMISSIONS: Mode = Mode::RUSR.union(Mode::WUSR);
+
+/// Receipts refuse links and blocking FIFOs and never leak on exec; read-only is zero bits.
+const RECEIPT_FLAGS: OFlags = OFlags::NOFOLLOW
+    .union(OFlags::NONBLOCK)
+    .union(OFlags::CLOEXEC);
+
 /// An open directory: names inside it resolve against the handle, never against a path.
 #[derive(Debug)]
 pub(crate) struct Directory(File);
@@ -64,11 +76,13 @@ impl Directory {
 
     /// Open a permanent control file with no-follow and no truncation.
     pub(crate) fn open_control(&self, name: &str, create: bool) -> io::Result<File> {
-        let mut flags = OFlags::RDWR | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC;
+        let mut flags = CONTROL_FLAGS;
         if create {
-            flags |= OFlags::CREATE | OFlags::EXCL;
+            // Exclusive creation already refuses a symlink, even with a missing target.
+            flags.remove(OFlags::NOFOLLOW);
+            flags.insert(OFlags::CREATE.union(OFlags::EXCL));
         }
-        let file = File::from(openat(&self.0, name, flags, Mode::RUSR | Mode::WUSR)?);
+        let file = File::from(openat(&self.0, name, flags, CONTROL_PERMISSIONS)?);
         let metadata = file.metadata()?;
         if !metadata.is_file() || metadata.nlink() != 1 {
             return Err(io::Error::other(
@@ -105,7 +119,8 @@ impl Directory {
         Ok(Self(File::from(openat(
             &self.0,
             name,
-            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            // Fresh mkdirat under the private parent; no-follow validation refuses unsafe swaps.
+            OFlags::CLOEXEC,
             Mode::empty(),
         )?)))
     }
@@ -132,12 +147,7 @@ impl Directory {
 
     /// Open only a regular single-link receipt, anchored below this root.
     pub(crate) fn open_receipt_file(&self, name: &str) -> io::Result<File> {
-        let file = File::from(openat(
-            &self.0,
-            name,
-            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
-            Mode::empty(),
-        )?);
+        let file = File::from(openat(&self.0, name, RECEIPT_FLAGS, Mode::empty())?);
         let metadata = file.metadata()?;
         if !metadata.is_file()
             || metadata.nlink() != 1
@@ -263,4 +273,156 @@ pub(crate) fn open_nofollow(path: &Path) -> io::Result<File> {
         Mode::empty(),
     )?;
     Ok(File::from(fd))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Directory;
+    use maestro_test_scratch::scratch_directory;
+    use rustix::io::{FdFlags, fcntl_getfd};
+    use std::{
+        env, fs,
+        io::{self, Read, Write},
+        os::unix::fs::symlink,
+        path::Path,
+        process::{Command, Stdio},
+        sync::mpsc,
+        thread,
+        time::Duration,
+    };
+
+    #[test]
+    fn filesystem_unix_resolved_root_refuses_alias_before_canonicalization() {
+        let scratch = fs::canonicalize(scratch_directory().unwrap()).unwrap();
+        let real = scratch.join("real");
+        fs::create_dir_all(real.join("owned")).unwrap();
+        let alias = scratch.join("alias");
+        symlink(&real, &alias).unwrap();
+        let raw = alias.join("owned");
+        assert_eq!(
+            Directory::open_resolved(&raw, false).unwrap_err().kind(),
+            io::ErrorKind::NotADirectory
+        );
+        let resolved = fs::canonicalize(raw).unwrap();
+        let root = Directory::open_resolved(&resolved, false).unwrap();
+        root.validate_owned(&resolved).unwrap();
+        drop(root);
+        fs::remove_dir_all(scratch).unwrap();
+    }
+
+    #[test]
+    fn filesystem_unix_controls_are_writable_and_handles_close_on_exec() {
+        let scratch = fs::canonicalize(scratch_directory().unwrap()).unwrap();
+        let root = Directory::open_resolved(&scratch, false).unwrap();
+        root.make_private().unwrap();
+        let mut created = root.open_control("guard", true).unwrap();
+        assert!(fcntl_getfd(&created).unwrap().contains(FdFlags::CLOEXEC));
+        created.write_all(b"created").unwrap();
+        let mut reopened = root.open_control("guard", false).unwrap();
+        assert!(fcntl_getfd(&reopened).unwrap().contains(FdFlags::CLOEXEC));
+        reopened.write_all(b"updated").unwrap();
+        assert_eq!(fs::read(scratch.join("guard")).unwrap(), b"updated");
+        symlink(scratch.join("guard"), scratch.join("linked")).unwrap();
+        assert!(root.open_control("linked", false).is_err());
+        assert!(root.open_receipt_file("linked").is_err());
+        let receipt = root.open_receipt_file("guard").unwrap();
+        assert!(fcntl_getfd(&receipt).unwrap().contains(FdFlags::CLOEXEC));
+        let child = root.reserve_child("stage").unwrap();
+        assert!(fcntl_getfd(&child.0).unwrap().contains(FdFlags::CLOEXEC));
+        drop((child, receipt, reopened, created, root));
+        fs::remove_dir_all(scratch).unwrap();
+    }
+
+    #[test]
+    fn filesystem_unix_exclusive_creation_refuses_dangling_symlinks() {
+        let scratch = scratch_directory().unwrap();
+        let root = super::super::OwnedRoot::open(&scratch.join("graph"), true).unwrap();
+        // Dangling symlink creation refuses without following or creating its target.
+        symlink(scratch.join("missing"), scratch.join("graph/.access.guard")).unwrap();
+        assert!(
+            root.ensure_control(super::super::ControlFile::Access)
+                .is_err()
+        );
+        assert!(!scratch.join("missing").exists());
+        drop(root);
+        fs::remove_dir_all(scratch).unwrap();
+    }
+
+    #[test]
+    fn filesystem_unix_child_identity_validation_refuses_links_and_files() {
+        let scratch = fs::canonicalize(scratch_directory().unwrap()).unwrap();
+        let parent = Directory::open_resolved(&scratch, false).unwrap();
+        parent.make_private().unwrap();
+        let child = parent.reserve_child("stage").unwrap();
+        fs::rename(scratch.join("stage"), scratch.join("held")).unwrap();
+        symlink(scratch.join("held"), scratch.join("stage")).unwrap();
+        assert!(child.validate_owned(&scratch.join("stage")).is_err());
+        fs::remove_file(scratch.join("stage")).unwrap();
+        fs::write(scratch.join("stage"), b"not a directory").unwrap();
+        assert!(child.validate_owned(&scratch.join("stage")).is_err());
+        drop((child, parent));
+        fs::remove_dir_all(scratch).unwrap();
+    }
+
+    #[test]
+    fn filesystem_unix_fifo_actor() {
+        let Ok(path) = env::var("MAESTRO_FIFO_ROOT") else {
+            return;
+        };
+        let root = Directory::open_resolved(Path::new(&path), false).unwrap();
+        if env::var("MAESTRO_FIFO_MODE").unwrap() == "control" {
+            assert!(root.open_control("fifo", false).is_err());
+        } else {
+            assert!(root.open_receipt_file("fifo").is_err());
+        }
+        println!("REFUSED");
+    }
+
+    #[test]
+    fn filesystem_unix_fifos_refuse_without_waiting_for_a_peer() {
+        let scratch = fs::canonicalize(scratch_directory().unwrap()).unwrap();
+        let root = Directory::open_resolved(&scratch, false).unwrap();
+        root.make_private().unwrap();
+        // macOS has no mkfifoat in rustix; the POSIX utility creates the same fixture on both OSes.
+        assert!(
+            Command::new("mkfifo")
+                .args(["-m", "600"])
+                .arg(scratch.join("fifo"))
+                .status()
+                .unwrap()
+                .success()
+        );
+        for mode in ["control", "receipt"] {
+            let mut child = Command::new(env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "filesystem::unix::tests::filesystem_unix_fifo_actor",
+                    "--nocapture",
+                ])
+                .env("MAESTRO_FIFO_ROOT", &scratch)
+                .env("MAESTRO_FIFO_MODE", mode)
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let mut output = child.stdout.take().unwrap();
+            let (send, receive) = mpsc::channel();
+            let reader = thread::spawn(move || {
+                let mut text = String::new();
+                output.read_to_string(&mut text).unwrap();
+                send.send(text.lines().any(|line| line == "REFUSED"))
+                    .unwrap();
+            });
+            // Liveness bound only: a missing NONBLOCK would wait forever for a FIFO peer.
+            let refused = receive.recv_timeout(Duration::from_secs(10));
+            if refused.is_err() {
+                child.kill().unwrap();
+            }
+            let status = child.wait().unwrap();
+            reader.join().unwrap();
+            assert!(refused.unwrap(), "{mode}");
+            assert!(status.success());
+        }
+        drop(root);
+        fs::remove_dir_all(scratch).unwrap();
+    }
 }
