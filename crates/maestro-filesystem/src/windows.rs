@@ -47,6 +47,11 @@ pub struct Directory {
 }
 
 impl Directory {
+    /// Windows std rename uses MoveFileExW with replace-existing, under held parents.
+    pub(super) fn rename_replacement(&self, from: &str, to: &str) -> io::Result<()> {
+        fs::rename(self.path.join(from), self.path.join(to))
+    }
+
     /// Open the directory `below` names under the caller's `root`: the root resolves once, to a
     /// verbatim path such as `\\?\C:\data`, then the walk holds every component from its drive or
     /// share on, never following a link, and creates missing components when asked.

@@ -15,6 +15,9 @@ mod listing;
 mod listing_tests;
 mod publication;
 mod read;
+mod replacement;
+#[cfg(test)]
+mod replacement_tests;
 mod root;
 #[cfg(test)]
 mod tests;

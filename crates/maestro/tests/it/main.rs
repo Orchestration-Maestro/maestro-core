@@ -9,6 +9,7 @@ mod catalog_answer_preferences;
 mod catalog_check;
 mod catalog_client_preferences;
 mod catalog_codeowners;
+mod catalog_copilot;
 mod catalog_host_probe;
 mod catalog_index;
 mod catalog_init;

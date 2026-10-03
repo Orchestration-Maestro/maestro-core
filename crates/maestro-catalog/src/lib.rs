@@ -7,8 +7,10 @@ pub mod adapters;
 pub mod bootstrap;
 mod file_input;
 pub mod files;
+mod frontmatter;
 /// Replaceable client session preference delivery.
 pub mod hosts;
+mod instructions;
 pub mod limits;
 mod model_cards;
 /// Effect-free policy checks behind a replaceable evaluator and host-facts port.

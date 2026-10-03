@@ -886,7 +886,7 @@ SC-S3-001, SC-S3-004, SC-S3-010, SC-S3-012.
 promise in-session refresh from startup discovery evidence; obtain a separate
 live receipt or preserve that limit in the adapter's diagnosis.
 
-- [ ] **Step 1: Red.** In an isolated home, test native discovery, exact tools,
+- [x] **Step 1: Red.** In an isolated home, test native discovery, exact tools,
   same-name shadowing by declared name (C01: user silently beats project,
   including a renamed user file whose `name:` still matches),
   unrelated MCP entries, edited owned entries, rerun,
@@ -895,7 +895,7 @@ live receipt or preserve that limit in the adapter's diagnosis.
   host folder permits only the owned non-secret effects. Project under
   en/fr/es/ja × three tones: every written file is byte-identical, contains only
   fixed English rules/MCP guidance and never embeds language/tone values.
-- [ ] **Step 2: Green.** Render the frozen v1 shape qualified by C01 and
+- [x] **Step 2: Green.** Render the frozen v1 shape qualified by C01 and
   explicit Maestro MCP registration. Own only inserted shared JSON entries;
   preserve unrelated entries, refuse edited owned entries and use C04's
   unchanged-file preconditions for preview/apply/remove/recovery. Record
@@ -904,8 +904,8 @@ live receipt or preserve that limit in the adapter's diagnosis.
   supplies effective preferences. Ask once to trust the exact external target
   through C05h before C05j permits writes. Never auto-trust HOME or grant secrets.
   Do not bypass enterprise policy.
-- [ ] **Step 3: Check.** Run
-  `~/.local/bin/capped cargo nextest run -p maestro catalog_copilot`. C08/C28
+- [x] **Step 3: Check.** Run
+  `~/.local/bin/capped cargo nextest run -p maestro -E 'test(catalog_copilot)'`. C08/C28
   separately repeat C01's real parser/MCP call on the isolated projection under OA2.
 
 **Acceptance:** fixture-backed idempotence, preference-fragment delivery and

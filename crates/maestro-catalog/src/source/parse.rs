@@ -29,23 +29,6 @@ pub(super) fn is_tool(name: &str) -> bool {
         })
 }
 
-/// The frontmatter between the leading `---` line and the next, and the body
-/// after it.
-pub(super) fn split_frontmatter(text: &str) -> Option<(&str, &str)> {
-    let rest = text
-        .strip_prefix("---\n")
-        .or_else(|| text.strip_prefix("---\r\n"))?;
-    let mut offset = 0;
-    for line in rest.split_inclusive('\n') {
-        if line.trim_end_matches(['\r', '\n']) == "---" {
-            let (frontmatter, tail) = rest.split_at_checked(offset)?;
-            return Some((frontmatter, tail.get(line.len()..)?));
-        }
-        offset += line.len();
-    }
-    None
-}
-
 /// The container levels of a TOML value, the root counting as one.
 fn toml_depth(value: &toml::Value) -> usize {
     match value {
@@ -143,7 +126,7 @@ fn from_toml(value: toml::Value, key: &str) -> Result<Value, (String, String)> {
 /// # Errors
 ///
 /// The key, empty for the whole document, and message refusing it.
-pub(super) fn yaml_table(yaml: &str, limits: &Limits) -> Result<Table, (String, String)> {
+pub(crate) fn yaml_table(yaml: &str, limits: &Limits) -> Result<Table, (String, String)> {
     let whole = |message: String| (String::new(), message);
     let budget = yaml.len().saturating_mul(2);
     match yaml::read(yaml, limits.source_depth, budget).map_err(whole)? {

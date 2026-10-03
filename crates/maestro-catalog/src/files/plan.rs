@@ -25,6 +25,9 @@ pub struct FilePlan {
     /// Whether this exact plan already has committed ownership.
     #[serde(skip)]
     pub(super) applied: bool,
+    /// A versioned shared-file transition, absent from exclusive-create journals.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) replacement: Option<Box<super::transition::ReplacementPlan>>,
 }
 
 /// Existing committed fields shared by full-plan replay and single-file admission.
@@ -112,6 +115,7 @@ impl FilePlan {
             id,
             entries,
             applied: false,
+            replacement: None,
         };
         plan.applied = is_committed_and_unchanged(root, &plan, trust)?;
         if has_existing_target && !plan.applied {

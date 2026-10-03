@@ -20,7 +20,7 @@ mod metadata;
 mod naming;
 pub mod owners;
 mod ownership;
-mod parse;
+pub(crate) mod parse;
 mod placements;
 mod references;
 mod registry;

@@ -62,6 +62,42 @@ fn outside_apply_refuses_before_journal_or_writer_effects() {
 }
 
 #[test]
+fn replacement_revocation_denies_apply_and_recovery_with_valid_neighbour() {
+    let fixture = Fixture::new();
+    fs::write(fixture.root.join("shared"), b"old").unwrap();
+    fs::write(fixture.root.join("neighbour"), b"user").unwrap();
+    let plan =
+        FilePlan::preview_replacement(&fixture.root, "shared", b"new".to_vec(), &fixture.trust())
+            .unwrap();
+    fixture.approved.set(false);
+    assert!(
+        plan.check_replacement(&fixture.root, &fixture.trust())
+            .is_err()
+    );
+    assert!(apply(&fixture.root, &plan, &fixture.trust()).is_err());
+    assert!(!fixture.root.join(".maestro-files").exists());
+    fixture.approved.set(true);
+    assert!(apply_with_failure(&fixture.root, &plan, Some(0), &fixture.trust()).is_err());
+    fixture.approved.set(false);
+    assert!(FilePlan::recover_replacement(&fixture.root, plan.id(), &fixture.trust()).is_err());
+    assert_eq!(fs::read(fixture.root.join("shared")).unwrap(), b"old");
+    fixture.approved.set(true);
+    FilePlan::recover_replacement(&fixture.root, plan.id(), &fixture.trust()).unwrap();
+    assert_eq!(fs::read(fixture.root.join("shared")).unwrap(), b"new");
+    assert_eq!(fs::read(fixture.root.join("neighbour")).unwrap(), b"user");
+    assert!(
+        FilePlan::preview_replacement(&fixture.root, ".env", b"secret".to_vec(), &fixture.trust())
+            .is_err()
+    );
+    assert!(
+        fixture
+            .plan("exclusive")
+            .check_replacement(&fixture.root, &fixture.trust())
+            .is_err()
+    );
+}
+
+#[test]
 fn secret_preview_refuses_before_reading_existing_content() {
     let fixture = Fixture::new();
     fs::write(fixture.root.join(".env"), b"unchanged").unwrap();

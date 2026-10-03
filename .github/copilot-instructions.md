@@ -64,7 +64,8 @@ in place.
 │   │   │   │   │   ├── dispatch.rs                                          # Catalog-only dispatch; foreground session and repair ordering stay at the caller
 │   │   │   │   │   ├── index.rs                                             # Read-only public catalog index/type rendering and exact committed drift checking
 │   │   │   │   │   ├── mod.rs                                               # catalog: the catalog's authoring commands
-│   │   │   │   │   └── owners.rs                                            # Effect-free ownership checks over externally supplied trusted CI evidence
+│   │   │   │   │   ├── owners.rs                                            # Effect-free ownership checks over externally supplied trusted CI evidence
+│   │   │   │   │   └── project.rs                                           # Authoring projection dispatch; host rendering and controlled effects remain replaceable ports
 │   │   │   │   ├── config/                                                  # maestro config: the settings, read, explained, changed and their
 │   │   │   │   │   ├── change.rs                                            # config set and config unset: one setting written in one preferences
 │   │   │   │   │   ├── editor.rs                                            # No-argument config: shared registry-generated editor over S1 operations
@@ -301,6 +302,7 @@ in place.
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
 │   │   │       ├── catalog_client_preferences.rs                            # Four synthetic client fixtures inspect delivery, not host obedience
 │   │   │       ├── catalog_codeowners.rs                                    # Read-only CODEOWNERS rendering and comparison against committed rules
+│   │   │       ├── catalog_copilot.rs                                       # Isolated authoring projections prove delivery/ownership, never host obedience
 │   │   │       ├── catalog_index.rs                                         # Synthetic public index rendering and exact read-only drift checking
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
 │   │   │       ├── catalog_init_menu.rs                                     # Plain, screen-reader-safe init and the registry-backed config editor
@@ -540,6 +542,7 @@ in place.
 │   │   │   │   │   ├── ownership.rs                                         # Committed metadata bounds are independent of injected output byte ceilings
 │   │   │   │   │   ├── races.rs                                             # Rust source: races
 │   │   │   │   │   ├── removal.rs                                           # Rust source: removal
+│   │   │   │   │   ├── replacement.rs                                       # C04 replacement plans capture old bytes and recover only their journaled transition
 │   │   │   │   │   ├── support.rs                                           # Rust source: support
 │   │   │   │   │   ├── workspace_trust.rs                                   # Owned effects must not turn a preview or ownership record into path authority
 │   │   │   │   │   ├── workspace_trust_effects.rs                           # Scheduling proofs for the shared owned-effect port and native rollback identities
@@ -549,11 +552,20 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Shared digest-bound file plans, durable ownership, and crash-safe removal
 │   │   │   │   ├── names.rs                                                 # Portable state-file names; plan identities inside records keep their original bytes
 │   │   │   │   ├── plan.rs                                                  # Preview immutable file bytes, validate relative names, and bind content digests
+│   │   │   │   ├── publication.rs                                           # The one C04 complete-record writer, shared by exclusive creates and replacement journals
 │   │   │   │   ├── recovery.rs                                              # Read and validate write-ahead journals through the shared held-handle filesystem
-│   │   │   │   └── remove.rs                                                # Remove only committed, digest-matching owned file names
+│   │   │   │   ├── remove.rs                                                # Remove only committed, digest-matching owned file names
+│   │   │   │   ├── replacement.rs                                           # Digest-bound replacement plans over the existing C04 state writer
+│   │   │   │   └── transition.rs                                            # Versioned transition data; implementations never create dependency cycles through records
 │   │   │   ├── hosts/                                                       # Replaceable delivery ports for client session preferences
+│   │   │   │   ├── tests/                                                   # Integration tests
+│   │   │   │   │   ├── copilot.rs                                           # Fixture-backed native projection; never a live host-obedience receipt
+│   │   │   │   │   ├── mod.rs                                               # Rust source: mod
+│   │   │   │   │   └── shared_json.rs                                       # Entry ownership never adopts matching user entries or overwrites edited owned entries
+│   │   │   │   ├── copilot.rs                                               # Frozen Copilot v1 authoring projection, not host discovery evidence
 │   │   │   │   ├── mod.rs                                                   # Replaceable delivery ports for client session preferences
-│   │   │   │   └── preferences.rs                                           # Delivery boundary independent of client names and preference storage
+│   │   │   │   ├── preferences.rs                                           # Delivery boundary independent of client names and preference storage
+│   │   │   │   └── shared_json.rs                                           # Entry-level ownership over a strictly decoded shared JSON snapshot
 │   │   │   ├── limits/                                                      # The one immutable set of numeric limits every catalog input path shares
 │   │   │   │   ├── mod.rs                                                   # The one immutable set of numeric limits every catalog input path shares
 │   │   │   │   ├── tests.rs                                                 # Plan D2's production constants, asserted once here; every boundary test
@@ -579,7 +591,8 @@ in place.
 │   │   │   │   │   ├── deny.rs                                              # Immutable checked deny data; only the composition root supplies platform bindings
 │   │   │   │   │   ├── mod.rs                                               # User-approved workspace records with a non-replaceable root refusal floor
 │   │   │   │   │   ├── paths.rs                                             # Decisions retain a no-follow parent capability; no file effect uses a reopened path
-│   │   │   │   │   └── port.rs                                              # Replaceable journal authority adapter inside mandatory root refusals
+│   │   │   │   │   ├── port.rs                                              # Replaceable journal authority adapter inside mandatory root refusals
+│   │   │   │   │   └── replacement.rs                                       # Existing-leaf replacement stays inside the shared held-handle write floor
 │   │   │   │   ├── check.rs                                                 # Cedar schema validation and authorization, fail-closed on every diagnostic
 │   │   │   │   ├── mod.rs                                                   # Effect-free Cedar checking and separately supplied trusted host facts
 │   │   │   │   └── schema.rs                                                # Normalized data, separate host facts, and bounded authoring test inputs
@@ -716,6 +729,8 @@ in place.
 │   │   │   │   └── yaml.rs                                                  # YAML frontmatter read node by node, never as a whole generic tree first
 │   │   │   ├── adapters.rs                                                  # Shared reviewed adapter naming metadata
 │   │   │   ├── file_input.rs                                                # Plain owned-file inputs contain data, never a filesystem capability
+│   │   │   ├── frontmatter.rs                                               # Shared delimiter splitting for checked sources and native rendering
+│   │   │   ├── instructions.rs                                              # The single fixed English rule and conversation/native fragment constructors
 │   │   │   └── lib.rs                                                       # The Maestro catalog: its shared security limits and the strict checker of
 │   │   └── Cargo.toml                                                       # Crate manifest: The Maestro catalog: strict, bounded checks of its authoring sources
 │   ├── maestro-conventions/                                                 # Maestro conventions
@@ -744,6 +759,8 @@ in place.
 │   │   │   ├── listing_tests.rs                                             # Bounded directory listing on held handles
 │   │   │   ├── publication.rs                                               # Complete-record publication keeps its temporary source open through identity-checked rollback
 │   │   │   ├── read.rs                                                      # Platform-independent byte limit for reads through an already-held file handle
+│   │   │   ├── replacement.rs                                               # Verified replacement of one regular leaf through a retained parent
+│   │   │   ├── replacement_tests.rs                                         # Atomic replacement contracts; all fixtures contain an unrelated neighbour
 │   │   │   ├── root.rs                                                      # The root a caller names, resolved once, and the names the store appends below it
 │   │   │   ├── tests.rs                                                     # Rust source: tests
 │   │   │   ├── unix.rs                                                      # Unix filesystem access: every name resolves against an open directory, never a path

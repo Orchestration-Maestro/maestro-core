@@ -6,13 +6,13 @@ use super::{
     descriptor::{Format, Layout, MetadataPlace},
     metadata::{Rules, from_strings, metadata},
     ownership::{local, locate},
-    parse::{Table, fields, split_frontmatter, toml_table, yaml_table},
+    parse::{Table, fields, toml_table, yaml_table},
     registry::Registration,
     tree::SourceTree,
     types::{Diagnostic, Known, Problems, Resource, ResourceId, Value},
     walk::Unit,
 };
-use crate::{limits::Limits, policy::schema::bound_json};
+use crate::{frontmatter::split_frontmatter, limits::Limits, policy::schema::bound_json};
 
 /// A resource read from its files, with where its metadata lives.
 #[derive(Debug)]
