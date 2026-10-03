@@ -154,12 +154,11 @@ impl Timing {
             .deadline
             .checked_duration_since(self.clock.now())
             .ok_or(Refusal::Timeout)?;
-        if remaining.is_zero() {
-            return Err(Refusal::Timeout);
-        }
         Ok(remaining.min(Duration::from_millis(10)))
     }
 }
+/// Only requested readable/hangup readiness may enter a blocking read.
+const READABLE: PollFlags = PollFlags::IN.union(PollFlags::HUP);
 /// Read bounded protocol frames and wait for successful parser/namespace exit.
 pub(super) fn run(
     child: &mut Child,
@@ -178,6 +177,9 @@ pub(super) fn run(
     let mut eof = false;
     loop {
         let duration = timing.quantum()?;
+        if duration.is_zero() {
+            return Err(Refusal::Timeout);
+        }
         if eof {
             let Some(status) = child.try_wait().map_err(|_| Refusal::Crash)? else {
                 thread::sleep(duration);
@@ -197,9 +199,9 @@ pub(super) fn run(
         }
         let quantum: Timespec = duration.try_into().map_err(|_| Refusal::Configuration)?;
         let stdout = child.stdout.as_ref().ok_or(Refusal::Output)?;
-        let mut pending = [PollFd::new(stdout, PollFlags::IN | PollFlags::HUP)];
+        let mut pending = [PollFd::new(stdout, READABLE)];
         poll(&mut pending, Some(&quantum)).map_err(|_| Refusal::Containment)?;
-        if !pending[0].revents().is_empty() {
+        if pending[0].revents().intersects(READABLE) {
             let mut buffer = [0_u8; 4096];
             let count = child
                 .stdout
@@ -314,6 +316,22 @@ mod protocol_tests {
         wire
     }
     #[test]
+    fn n17_r1_guard_missing_ack() {
+        let mut ledger = accounting();
+        let mut decode = ParserDecode::new(&mut ledger);
+        let mut state = protocol();
+        state
+            .bytes(b"{\"kind\":\"ready\"}\n", 4096, &mut decode, None)
+            .unwrap();
+        assert_eq!(
+            state.bytes(&proposal(), 4096, &mut decode, None),
+            Err(Refusal::Output)
+        );
+        assert!(state.output.is_empty());
+        assert_eq!(decode.receipts().len(), 1);
+    }
+
+    #[test]
     fn n17_protocol_fragments_charge_ack_then_data_done() {
         let mut ledger = accounting();
         let mut decode = ParserDecode::new(&mut ledger);
@@ -402,6 +420,22 @@ mod protocol_tests {
             .unwrap();
         assert_eq!(state.frame, b"{");
     }
+    #[test]
+    fn n17_protocol_frame_ceiling_accepts_its_last_byte() {
+        let mut ledger = accounting();
+        let mut decode = ParserDecode::new(&mut ledger);
+        let mut state = protocol();
+        state.frame = vec![b'x'; 4 * 1024 * 1024 - 1];
+        assert_eq!(
+            state.bytes(b"x", u64::MAX, &mut decode, Some(&mut vec![])),
+            Ok(())
+        );
+        assert_eq!(state.frame.len(), 4 * 1024 * 1024);
+        assert_eq!(
+            state.bytes(b"x", u64::MAX, &mut decode, Some(&mut vec![])),
+            Err(Refusal::Output)
+        );
+    }
     /// Failed barrier acknowledgement must never admit data to the caller.
     struct BrokenAck;
     impl io::Write for BrokenAck {
@@ -464,7 +498,7 @@ mod protocol_tests {
         timing.deadline = now + Duration::from_millis(1);
         assert_eq!(timing.quantum(), Ok(Duration::from_millis(1)));
         timing.deadline = now;
-        assert_eq!(timing.quantum(), Err(Refusal::Timeout));
+        assert_eq!(timing.quantum(), Ok(Duration::ZERO));
         timing.deadline = now.checked_sub(Duration::from_millis(1)).unwrap();
         assert_eq!(timing.quantum(), Err(Refusal::Timeout));
         cancelled.store(true, Ordering::Release);

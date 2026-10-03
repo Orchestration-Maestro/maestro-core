@@ -1,6 +1,7 @@
 //! Ordinary barrier-handshaken child processes exercise poll/read/wait and cleanup.
 use super::port::Refusal;
 use super::supervision::{Timing, cleanup, run};
+use super::test_support::FixedClock;
 use crate::{
     extraction::decode::{DecodeStage, ParserDecode},
     isolation::{
@@ -9,6 +10,7 @@ use crate::{
     },
 };
 use maestro_kernel::retrieval::Clock;
+use rustix::process::{Pid, Signal, kill_process};
 use std::{
     path::PathBuf,
     process::{Child, Command, Stdio},
@@ -18,11 +20,11 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
     time::{Duration, Instant},
 };
+use std::{
+    sync::{Mutex, mpsc},
+    thread,
+};
 
-#[expect(
-    clippy::unwrap_used,
-    reason = "ordinary child fixture spawn must fail the test"
-)]
 fn child(script: &str) -> Child {
     Command::new("/bin/sh")
         .arg("-c")
@@ -191,26 +193,118 @@ impl Clock for CutoffClock {
 }
 #[test]
 fn n17_child_pending_pipe_returns_to_anchored_deadline_without_output() {
+    bounded_pending_child("read -r barrier", false);
+}
+
+#[test]
+fn n17_r1_guard_child_reaping_and_live_eof() {
+    let io = Groups::new();
+    let delegation =
+        Delegation::with_io(PathBuf::from("/sys/fs/cgroup/n17.service"), io.clone()).unwrap();
+    let worker = delegation
+        .worker("worker", accounting().limits(), 2)
+        .unwrap();
+    let mut leader = child("read -r barrier");
+    let pid = leader.id();
+    *io.reaping_pid.lock().unwrap() = Some(pid);
+    cleanup(&worker, &mut leader).unwrap();
+    assert!(
+        !PathBuf::from(format!("/proc/{pid}")).exists(),
+        "leader must already be reaped"
+    );
+    bounded_pending_child("exec 1>&-; read -r barrier", true);
+}
+
+#[test]
+fn n17_child_pending_poll_and_deadline_equality_fail_fast() {
+    bounded_pending_child("read -r barrier", false);
     let now = Instant::now();
     let timing = Timing {
-        deadline: now + Duration::from_secs(1),
-        clock: Arc::new(CutoffClock {
-            now,
-            calls: AtomicUsize::new(0),
-        }),
+        deadline: now,
+        clock: Arc::new(FixedClock(Mutex::new(now))),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let mut ledger = accounting();
-    let mut child = child("read -r barrier");
+    let mut leader = child("read -r barrier");
     assert_eq!(
         run(
-            &mut child,
+            &mut leader,
             &mut ParserDecode::new(&mut ledger),
             &timing,
             4096
         ),
         Err(Refusal::Timeout)
     );
-    child.kill().unwrap();
-    child.wait().unwrap();
+    leader.kill().unwrap();
+    leader.wait().unwrap();
+}
+
+/// For live EOF, let the driver observe HUP and one live EOF wait before cutoff.
+#[derive(Debug)]
+struct EofClock {
+    pid: u32,
+    now: Instant,
+    closed: AtomicUsize,
+}
+impl Clock for EofClock {
+    fn now(&self) -> Instant {
+        if !PathBuf::from(format!("/proc/{}/fd/1", self.pid)).exists()
+            && self.closed.fetch_add(1, Ordering::AcqRel) >= 3
+        {
+            self.now + Duration::from_secs(1)
+        } else {
+            self.now
+        }
+    }
+}
+
+/// A lost poll wakeup must fail an assertion; kill releases the blocked read.
+fn bounded_pending_child(script: &str, live_eof: bool) {
+    let now = Instant::now();
+    let mut leader = child(script);
+    let pid = leader.id();
+    let clock: Arc<dyn Clock> = if live_eof {
+        Arc::new(EofClock {
+            pid,
+            now,
+            closed: AtomicUsize::new(0),
+        })
+    } else {
+        Arc::new(CutoffClock {
+            now,
+            calls: AtomicUsize::new(0),
+        })
+    };
+    let (send, receive) = mpsc::channel();
+    let task = thread::spawn(move || {
+        let mut ledger = accounting();
+        let timing = Timing {
+            deadline: now + Duration::from_secs(1),
+            clock,
+            cancelled: Arc::new(AtomicBool::new(false)),
+        };
+        let result = run(
+            &mut leader,
+            &mut ParserDecode::new(&mut ledger),
+            &timing,
+            4096,
+        );
+        send.send(result).unwrap();
+        leader.kill().unwrap();
+        leader.wait().unwrap();
+    });
+    let observed = receive.recv_timeout(Duration::from_secs(5));
+    if observed.is_err() {
+        kill_process(
+            Pid::from_raw(i32::try_from(pid).unwrap()).unwrap(),
+            Signal::KILL,
+        )
+        .unwrap();
+    }
+    task.join().unwrap();
+    assert_eq!(
+        observed,
+        Ok(Err(Refusal::Timeout)),
+        "lost wakeup must return to the cutoff"
+    );
 }

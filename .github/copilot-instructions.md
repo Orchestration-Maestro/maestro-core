@@ -383,7 +383,9 @@ in place.
 │   │   │   │   ├── cgroup_host.rs                                                       # Actual delegated-cgroup effects; ownership, parsing and rollback stay in drivers
 │   │   │   │   ├── child_tests.rs                                                       # Ordinary barrier-handshaken child processes exercise poll/read/wait and cleanup
 │   │   │   │   ├── elf.rs                                                               # Only the native ELF image's declared interpreter gains executable access
+│   │   │   │   ├── guard_tests.rs                                                       # Review-named default-driver guard stimuli; no privileged containment claims
 │   │   │   │   ├── launch.rs                                                            # Read-once snapshots and sealed native executable handles
+│   │   │   │   ├── launch_flag_tests.rs                                                 # Each admitted image flag has an independent observable contract
 │   │   │   │   ├── launch_metadata_tests.rs                                             # Installed metadata and short/changed-length read neighbours
 │   │   │   │   ├── linux.rs                                                             # Qualified Linux adapter
 │   │   │   │   ├── linux_configuration_tests.rs                                         # Host/configuration validation uses the shared private driver, never a public fallback

@@ -116,7 +116,8 @@ impl Linux {
         )?;
         let root = run.join("root");
         fs::create_dir(&root).map_err(|_| Refusal::Containment)?;
-        let (parser, interpreter) = launch::prepare(&root, &mut request, &mut remaining)?;
+        let (parser, interpreter) =
+            launch::prepare(&root, &mut request, &mut remaining, launch::verify_snapshot)?;
         let (clock, deadline) = accounting
             .read_timing()
             .map_err(|_| Refusal::Configuration)?;

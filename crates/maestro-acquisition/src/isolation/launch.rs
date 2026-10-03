@@ -34,10 +34,10 @@ pub(crate) struct Configuration {
     pub(crate) memory_bytes: u64,
 }
 /// File bytes never exceed the cumulative staging envelope.
-fn read(file: &mut File, remaining: &mut u64) -> Result<Vec<u8>, Refusal> {
+pub(super) fn read(file: &mut File, remaining: &mut u64) -> Result<Vec<u8>, Refusal> {
     if fcntl_getfl(&*file)
         .map_err(|_| Refusal::Configuration)?
-        .intersects(OFlags::WRONLY | OFlags::RDWR)
+        .intersects(WRITABLE)
     {
         return Err(Refusal::Configuration);
     }
@@ -72,21 +72,26 @@ fn checked(pinned: &mut PinnedFile, remaining: &mut u64) -> Result<Vec<u8>, Refu
     }
     Ok(bytes)
 }
+/// Keep an unsealed image out of concurrent spawns until sealing is complete.
+const MEMFD: MemfdFlags = MemfdFlags::CLOEXEC.union(MemfdFlags::ALLOW_SEALING);
+/// Both writable open modes must refuse pinned read-only admission.
+const WRITABLE: OFlags = OFlags::WRONLY.union(OFlags::RDWR);
+/// No mutation or later loosening is possible after image admission.
+const IMAGE_SEALS: SealFlags = SealFlags::WRITE
+    .union(SealFlags::GROW)
+    .union(SealFlags::SHRINK)
+    .union(SealFlags::SEAL);
+/// Create a private, initially close-on-exec image before writing any bytes.
+pub(super) fn image_file() -> Result<File, Refusal> {
+    memfd_create(c"maestro-parser-image", MEMFD)
+        .map(File::from)
+        .map_err(|_| Refusal::Unsupported)
+}
 /// Seal against writes/growth/shrink, including through any inherited descriptor.
-fn sealed(bytes: &[u8]) -> Result<File, Refusal> {
-    let mut file = File::from(
-        memfd_create(
-            c"maestro-parser-image",
-            MemfdFlags::ALLOW_SEALING | MemfdFlags::CLOEXEC,
-        )
-        .map_err(|_| Refusal::Unsupported)?,
-    );
+pub(super) fn sealed(bytes: &[u8]) -> Result<File, Refusal> {
+    let mut file = image_file()?;
     file.write_all(bytes).map_err(|_| Refusal::Containment)?;
-    fcntl_add_seals(
-        &file,
-        SealFlags::WRITE | SealFlags::GROW | SealFlags::SHRINK | SealFlags::SEAL,
-    )
-    .map_err(|_| Refusal::Unsupported)?;
+    fcntl_add_seals(&file, IMAGE_SEALS).map_err(|_| Refusal::Unsupported)?;
     fcntl_setfd(&file, FdFlags::empty()).map_err(|_| Refusal::Containment)?;
     Ok(file)
 }
@@ -119,7 +124,7 @@ pub(super) fn bootstrap(
     sealed(&bytes)
 }
 /// Core-written descendant image is digest-checked after writing, before any launch.
-fn verify_snapshot(path: &Path, digest: Digest, maximum: u64) -> Result<(), Refusal> {
+pub(super) fn verify_snapshot(path: &Path, digest: Digest, maximum: u64) -> Result<(), Refusal> {
     let file = File::open(path).map_err(|_| Refusal::LaunchPin)?;
     let mut remaining = maximum;
     checked(&mut PinnedFile { file, digest }, &mut remaining)?;
@@ -169,6 +174,7 @@ pub(super) fn prepare(
     root: &Path,
     launch: &mut Launch,
     remaining: &mut u64,
+    verify: fn(&Path, Digest, u64) -> Result<(), Refusal>,
 ) -> Result<(File, Option<String>), Refusal> {
     if launch.pids_max < 2 || launch.arguments.iter().any(|arg| arg.contains('\0')) {
         return Err(Refusal::Configuration);
@@ -177,7 +183,7 @@ pub(super) fn prepare(
     let interpreter = super::elf::interpreter(&parser_bytes)?;
     let parser = sealed(&parser_bytes)?;
     write(&root.join("parser"), &parser_bytes, true)?;
-    verify_snapshot(
+    verify(
         &root.join("parser"),
         launch.parser.digest.clone(),
         parser_bytes.len() as u64,
@@ -237,7 +243,12 @@ mod tests {
     };
     use maestro_kernel::artifact::Digest;
     use maestro_test_scratch::scratch_directory;
-    use std::{fs, io::Write as _, os::unix::fs::PermissionsExt as _, path::Path};
+    use std::{
+        fs,
+        io::{Seek as _, Write as _},
+        os::unix::fs::PermissionsExt as _,
+        path::Path,
+    };
 
     #[test]
     fn n17_pin_seals_owner_permissions_readonly_and_paths() {
@@ -258,8 +269,10 @@ mod tests {
             digest: Digest::of(b"exact bytes"),
         };
         let mut image = bootstrap(exact, false, &mut 100).unwrap();
+        image.rewind().unwrap();
         assert!(image.write_all(b"modified").is_err());
         assert!(image.set_len(0).is_err());
+
         fs::set_permissions(&path, fs::Permissions::from_mode(0o777)).unwrap();
         assert_eq!(
             installed(&File::open(&path).unwrap()),
@@ -276,12 +289,6 @@ mod tests {
             Err(Refusal::LaunchPin)
         );
         fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
-        let mut writable = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&path)
-            .unwrap();
-        assert_eq!(read(&mut writable, &mut 100), Err(Refusal::Configuration));
         assert_eq!(
             read(&mut File::open(&path).unwrap(), &mut 9),
             Err(Refusal::Configuration)
@@ -331,7 +338,7 @@ mod tests {
 
 #[cfg(test)]
 mod preparation_tests {
-    use super::{Refusal, prepare, write};
+    use super::{Refusal, prepare, verify_snapshot, write};
     use crate::isolation::elf::interpreter;
     use crate::isolation::{
         port::{RuntimeFile, ScopedRead},
@@ -367,7 +374,8 @@ mod preparation_tests {
         let runtime = fs::read("/etc/hostname").unwrap();
         let length = fs::metadata(parent.join("image")).unwrap().len() + 12 + runtime.len() as u64;
         let mut remaining = length;
-        let (parser, interpreter) = prepare(&root, &mut launch, &mut remaining).unwrap();
+        let (parser, interpreter) =
+            prepare(&root, &mut launch, &mut remaining, verify_snapshot).unwrap();
         assert_eq!(interpreter, None);
         assert_eq!(remaining, 0);
         assert_eq!(
@@ -416,7 +424,7 @@ mod preparation_tests {
         let root = parent.join("missing");
         fs::create_dir(&root).unwrap();
         assert!(matches!(
-            prepare(&root, &mut launch, &mut 10_000_000),
+            prepare(&root, &mut launch, &mut 10_000_000, verify_snapshot),
             Err(Refusal::Configuration)
         ));
         launch.runtime.push(RuntimeFile {
@@ -427,13 +435,14 @@ mod preparation_tests {
         let root = parent.join("wrong");
         fs::create_dir(&root).unwrap();
         assert!(matches!(
-            prepare(&root, &mut launch, &mut 10_000_000),
+            prepare(&root, &mut launch, &mut 10_000_000, verify_snapshot),
             Err(Refusal::Configuration)
         ));
         launch.runtime.first_mut().unwrap().executable = true;
         let root = parent.join("complete");
         fs::create_dir(&root).unwrap();
-        let (_, interpreter) = prepare(&root, &mut launch, &mut 10_000_000).unwrap();
+        let (_, interpreter) =
+            prepare(&root, &mut launch, &mut 10_000_000, verify_snapshot).unwrap();
         assert_eq!(interpreter.as_deref(), Some(loader.as_str()));
         assert_eq!(
             fs::read(root.join(&loader)).unwrap(),
@@ -465,7 +474,7 @@ mod preparation_tests {
             });
             assert!(
                 matches!(
-                    prepare(&root, &mut launch, &mut 1000),
+                    prepare(&root, &mut launch, &mut 1000, verify_snapshot),
                     Err(Refusal::Configuration)
                 ),
                 "{name}"
@@ -478,7 +487,7 @@ mod preparation_tests {
             launch.pids_max = pids;
             launch.arguments = args;
             assert!(matches!(
-                prepare(&root, &mut launch, &mut 1000),
+                prepare(&root, &mut launch, &mut 1000, verify_snapshot),
                 Err(Refusal::Configuration)
             ));
         }
@@ -491,7 +500,7 @@ mod preparation_tests {
             executable: false,
         });
         assert!(matches!(
-            prepare(&root, &mut launch, &mut 1000),
+            prepare(&root, &mut launch, &mut 1000, verify_snapshot),
             Err(Refusal::LaunchPin)
         ));
         fs::remove_dir_all(parent).unwrap();

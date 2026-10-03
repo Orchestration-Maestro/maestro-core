@@ -22,10 +22,12 @@ mod syscalls;
 
 #[cfg(target_os = "linux")]
 mod scratch;
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(test)]
+#[cfg(target_os = "linux")]
 mod test_support;
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(test)]
+#[cfg(target_os = "linux")]
 mod child_tests;
 
 #[cfg(all(test, target_os = "linux"))]
@@ -34,5 +36,14 @@ mod launch_metadata_tests;
 #[cfg(all(test, target_os = "linux"))]
 mod cgroup_decision_tests;
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(test)]
+#[cfg(target_os = "linux")]
 mod linux_configuration_tests;
+
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod guard_tests;
+
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod launch_flag_tests;

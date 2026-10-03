@@ -1,9 +1,4 @@
 //! Synthetic default-feature envelopes and ordered group effects, not kernel proof.
-#![expect(
-    clippy::unwrap_used,
-    clippy::indexing_slicing,
-    reason = "authored synthetic fixture helpers; panics fail the calling test"
-)]
 use super::{
     linux::{BootstrapMode, Host, Linux},
     port::{CgroupIo, Launch, PinnedFile},
@@ -108,6 +103,9 @@ pub(super) fn request(parent: &Path) -> Launch {
 #[derive(Debug, Default)]
 pub(super) struct Groups {
     pub(super) calls: Mutex<Vec<String>>,
+    pub(super) reaping_pid: Mutex<Option<u32>>,
+    pub(super) child_environment: Mutex<Vec<Vec<u8>>>,
+    pub(super) observe_environment: AtomicBool,
     pub(super) files: Mutex<HashMap<PathBuf, String>>,
     pub(super) fail: Mutex<Option<usize>>,
     pub(super) events: Mutex<VecDeque<String>>,
@@ -158,6 +156,24 @@ impl Groups {
         }
         Ok(())
     }
+    /// Observe after exec reaches the stdin barrier, never a partially published proc view.
+    fn observe_child_environment(&self, pid: &str) -> io::Result<()> {
+        if !self.observe_environment.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        let until = Instant::now() + Duration::from_secs(5);
+        while !fs::read_to_string(format!("/proc/{pid}/wchan"))?.ends_with("pipe_read") {
+            if Instant::now() >= until {
+                return Err(io::ErrorKind::TimedOut.into());
+            }
+            thread::yield_now();
+        }
+        self.child_environment
+            .lock()
+            .unwrap()
+            .push(fs::read(format!("/proc/{pid}/environ"))?);
+        Ok(())
+    }
     /// Record before failure so tests see attempted effects too.
     fn effect(&self, text: String) -> io::Result<()> {
         let mut calls = self.calls.lock().unwrap();
@@ -170,6 +186,14 @@ impl Groups {
 }
 impl CgroupIo for Groups {
     fn read(&self, path: &Path) -> io::Result<String> {
+        if path.ends_with("cgroup.events")
+            && let Some(pid) = *self.reaping_pid.lock().unwrap()
+        {
+            assert!(
+                !Path::new(&format!("/proc/{pid}")).exists(),
+                "leader not reaped before group emptiness"
+            );
+        }
         self.effect(format!("read {}", path.display()))?;
         if let Some(value) = self.observations.lock().unwrap().get(path) {
             return Ok(value.clone());
@@ -200,6 +224,7 @@ impl CgroupIo for Groups {
     fn write(&self, path: &Path, value: &str) -> io::Result<()> {
         self.effect(format!("write {} {value}", path.display()))?;
         if path.ends_with("cgroup.procs") && !path.ends_with("manager/cgroup.procs") {
+            self.observe_child_environment(value)?;
             self.before_release(value)?;
         }
         if self.closed_barrier.load(Ordering::Acquire)

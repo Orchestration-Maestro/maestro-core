@@ -132,6 +132,10 @@ mod tests {
             put(&mut malformed, offset, &[value]);
             assert_eq!(interpreter(&malformed), Err(Refusal::LaunchPin));
         }
+        let mut shifted = image(false);
+        shifted.splice(64..64, [0; 8]);
+        put(&mut shifted, 32, &72_u64.to_le_bytes());
+        assert_eq!(interpreter(&shifted), Ok(None));
         let mut truncated = image(false);
         truncated.truncate(119);
         assert_eq!(interpreter(&truncated), Err(Refusal::LaunchPin));
@@ -153,6 +157,25 @@ mod tests {
             put(&mut malformed, offset, &value.to_le_bytes());
             assert_eq!(interpreter(&malformed), Err(Refusal::LaunchPin));
         }
+        let mut padded = bytes.clone();
+        padded.splice(232..232, [0; 8]);
+        put(&mut padded, 184, &240_u64.to_le_bytes());
+        assert_eq!(interpreter(&padded), Ok(Some("lib/ld".into())));
+        let mut short_table = image(false);
+        short_table.resize(128, 0);
+        put(&mut short_table, 32, &8_u64.to_le_bytes());
+        put(&mut short_table, 8, &0x6474_e551_u32.to_le_bytes());
+        put(&mut short_table, 12, &6_u32.to_le_bytes());
+        put(&mut short_table, 54, &56_u16.to_le_bytes());
+        put(&mut short_table, 56, &1_u16.to_le_bytes());
+        assert_eq!(interpreter(&short_table), Err(Refusal::LaunchPin));
+        let mut wrong_size = image(false);
+        wrong_size.resize(128, 0);
+        put(&mut wrong_size, 54, &64_u16.to_le_bytes());
+        put(&mut wrong_size, 56, &1_u16.to_le_bytes());
+        put(&mut wrong_size, 64, &0x6474_e551_u32.to_le_bytes());
+        put(&mut wrong_size, 68, &6_u32.to_le_bytes());
+        assert_eq!(interpreter(&wrong_size), Err(Refusal::LaunchPin));
         let header = bytes.get(176..232).unwrap();
         let mut duplicate = bytes.clone();
         duplicate.resize(296, 0);
