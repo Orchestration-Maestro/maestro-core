@@ -156,3 +156,12 @@ fn hosts_shared_json_splices_all_owned_member_positions() {
     let inserted = edit(Some(bytes), &entry, false, false).unwrap();
     assert_eq!(edit(Some(&inserted), &entry, true, true).unwrap(), bytes);
 }
+
+#[test]
+fn hosts_shared_json_removes_without_whitespace_at_following_comma() {
+    let input = br#"{"mcpServers":{"maestro":1,"b":2}}"#;
+    assert_eq!(
+        edit(Some(input), &json!(1), true, true).unwrap(),
+        br#"{"mcpServers":{"b":2}}"#
+    );
+}

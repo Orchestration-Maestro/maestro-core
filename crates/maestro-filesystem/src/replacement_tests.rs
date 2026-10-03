@@ -196,39 +196,63 @@ fn replacement_identity_guard_moved_parent() {
 }
 
 #[test]
-fn replacement_retries_only_existing_temporary_names() {
+fn replacement_temporary_collision_is_retried() {
     fixture(|root, directory| {
-        for sequence in 0..100 {
-            fs::write(
-                root.join(format!(".maestro-replace-{}-{sequence}", process::id())),
-                b"user",
-            )
+        let name = format!(".maestro-replace-{}-0", process::id());
+        fs::write(root.join(&name), b"user").unwrap();
+        let mut calls = 0;
+        let (created, file) = directory
+            .replacement_temp(|| {
+                let sequence = calls;
+                calls += 1;
+                sequence
+            })
             .unwrap();
-        }
-        directory
-            .replace_verified("target", b"old", b"new", || Ok(()))
-            .unwrap();
-        assert_eq!(fs::read(root.join("target")).unwrap(), b"new");
-        for sequence in 0..100 {
-            assert_eq!(
-                fs::read(root.join(format!(".maestro-replace-{}-{sequence}", process::id())))
-                    .unwrap(),
-                b"user"
-            );
-        }
+        assert_eq!(calls, 2);
+        assert_eq!(created, format!(".maestro-replace-{}-1", process::id()));
+        assert_eq!(fs::read(root.join(name)).unwrap(), b"user");
+        drop(file);
+    });
+}
+
+#[test]
+fn replacement_temporary_exhausts_named_retry_limit() {
+    use crate::replacement::REPLACEMENT_TEMP_ATTEMPTS;
+    fixture(|root, directory| {
+        fs::write(
+            root.join(format!(".maestro-replace-{}-0", process::id())),
+            b"user",
+        )
+        .unwrap();
+        let mut calls = 0;
+        let error = directory
+            .replacement_temp(|| {
+                calls += 1;
+                0
+            })
+            .unwrap_err();
+        assert_eq!(calls, REPLACEMENT_TEMP_ATTEMPTS);
+        assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+        assert!(error.to_string().contains(&format!(
+            "exhausted {REPLACEMENT_TEMP_ATTEMPTS} replacement temporary retries"
+        )));
     });
 }
 
 #[cfg(unix)]
 #[test]
-fn replacement_temporary_creation_error_is_not_retried() {
+fn replacement_temporary_permission_error_is_not_retried() {
     use std::os::unix::fs::PermissionsExt as _;
     fixture(|root, directory| {
         fs::set_permissions(root, fs::Permissions::from_mode(0o500)).unwrap();
-        let result = directory.replace_verified("target", b"old", b"new", || Ok(()));
+        let mut calls = 0;
+        let result = directory.replacement_temp(|| {
+            calls += 1;
+            0
+        });
         fs::set_permissions(root, fs::Permissions::from_mode(0o700)).unwrap();
         assert_eq!(result.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
-        assert_eq!(fs::read(root.join("target")).unwrap(), b"old");
+        assert_eq!(calls, 1);
     });
 }
 
@@ -282,7 +306,7 @@ fn replacement_post_publication_cleanup_refuses_substituted_temporary() {
 #[cfg(windows)]
 #[test]
 fn replacement_refuses_foreign_windows_owner_without_restore_privilege() {
-    use crate::windows_security::DisabledAclBypass;
+    use crate::windows_test_security::DisabledAclBypass;
     use std::process::Command;
     fixture(|root, directory| {
         let target = root.join("target");
@@ -328,49 +352,7 @@ fn replacement_retains_or_refuses_windows_security_below_broader_parent() {
         let script = scripts.join("broaden-parent.ps1");
         fs::write(
             &script,
-            r#"param([string]$Root, [switch]$SnapshotOnly)
-$ErrorActionPreference = 'Stop'
-$leafPath = Join-Path $Root 'target'
-$leaf = Get-Acl -LiteralPath $leafPath
-$original = [Convert]::ToBase64String($leaf.GetSecurityDescriptorBinaryForm())
-$descriptor = [System.Security.AccessControl.RawSecurityDescriptor]::new(
-    $leaf.GetSecurityDescriptorBinaryForm(), 0)
-$bytes = [byte[]]::new($descriptor.DiscretionaryAcl.BinaryLength)
-$descriptor.DiscretionaryAcl.GetBinaryForm($bytes, 0)
-$snapshot = '{0}|{1}|{2}' -f $descriptor.Owner.Value,
-    [Convert]::ToBase64String($bytes), $leaf.AreAccessRulesProtected
-if ($SnapshotOnly) { $snapshot; exit }
-if ($leaf.AreAccessRulesProtected) { throw 'fixture leaf must be unprotected' }
-Add-Type @'
-using System;
-using System.Runtime.InteropServices;
-public static class NativeAcl {
-    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    public static extern bool SetFileSecurity(string path, uint information, byte[] descriptor);
-}
-'@
-$acl = Get-Acl -LiteralPath $Root
-$sid = [System.Security.Principal.SecurityIdentifier]::new('S-1-1-0')
-$rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
-    $sid, 'ReadAndExecute', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
-$acl.AddAccessRule($rule)
-# SetFileSecurity updates this directory only, not its existing children.
-if (-not [NativeAcl]::SetFileSecurity($Root, 4, $acl.GetSecurityDescriptorBinaryForm())) {
-    throw [System.ComponentModel.Win32Exception]::new(
-        [Runtime.InteropServices.Marshal]::GetLastWin32Error())
-}
-$sections = [System.Security.AccessControl.AccessControlSections]::Access
-$parent = Get-Acl -LiteralPath $Root
-if ($parent.GetSecurityDescriptorSddlForm($sections) -eq
-    $leaf.GetSecurityDescriptorSddlForm($sections)) {
-    throw 'parent DACL must differ from the leaf DACL'
-}
-if ([Convert]::ToBase64String((Get-Acl -LiteralPath $leafPath).
-    GetSecurityDescriptorBinaryForm()) -ne $original) {
-    throw 'broadening the parent must not change the leaf security'
-}
-$snapshot
-"#,
+            include_str!("../tests/fixtures/broaden-parent.ps1"),
         )
         .unwrap();
         let snapshot = |only: bool| {
@@ -418,5 +400,54 @@ $snapshot
                 })
         );
         fs::remove_dir_all(scripts).unwrap();
+    });
+}
+
+#[cfg(windows)]
+#[test]
+fn replacement_retains_assignable_windows_group_owner() {
+    use crate::windows_security_fixture_tests::{icacls, native_owner};
+    use std::env;
+    fixture(|root, directory| {
+        let target = root.join("target");
+        let original_owner = native_owner(&target);
+        icacls(&target, &["/setowner", "*S-1-5-32-544"]);
+        let account = env::var("USERNAME").unwrap();
+        icacls(
+            &target,
+            &["/inheritance:r", "/grant:r", &format!("{account}:(F)")],
+        );
+        let group = native_owner(&target);
+        assert_eq!(group, "S-1-5-32-544");
+        assert_ne!(
+            group, original_owner,
+            "fixture must differ from newly created file owner"
+        );
+        directory
+            .replace_verified("target", b"old", b"new", || Ok(()))
+            .unwrap();
+        assert_eq!(native_owner(&target), group);
+        assert_eq!(fs::read(target).unwrap(), b"new");
+    });
+}
+
+#[cfg(windows)]
+#[test]
+fn replacement_temporary_permission_error_is_not_retried() {
+    use crate::{windows_security_fixture_tests::icacls, windows_test_security::DisabledAclBypass};
+    use std::env;
+    fixture(|root, directory| {
+        let account = env::var("USERNAME").unwrap();
+        icacls(root, &["/deny", &format!("{account}:(WD)")]);
+        let privileges = DisabledAclBypass::new().unwrap();
+        assert!(privileges.both_disabled().unwrap());
+        let mut calls = 0;
+        let result = directory.replacement_temp(|| {
+            calls += 1;
+            0
+        });
+        icacls(root, &["/remove:d", &account]);
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(calls, 1);
     });
 }

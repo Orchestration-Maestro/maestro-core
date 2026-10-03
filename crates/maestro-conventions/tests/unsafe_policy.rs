@@ -1,4 +1,5 @@
 //! The held-handle boundary scanner and its regression cases.
+use std::path::Path;
 
 /// Refuse unsafe tokens and unsafe-code lint attributes, not comments or literals.
 pub(super) fn unsafe_boundary_violation(text: &str) -> bool {
@@ -210,4 +211,66 @@ fn unsafe_boundary_policy_skips_comments_literals_and_identifier_substrings() {
     assert!(unsafe_boundary_violation(
         r##"let s = r#"safe"#; unsafe {}"##
     ));
+}
+
+/// Permit only the production boundary and the explicitly gated privilege fixture.
+pub(super) fn unsafe_file_violation(file: &Path, text: &str) -> bool {
+    let permitted = [
+        "crates/maestro-filesystem/src/windows_security.rs",
+        "crates/maestro-filesystem/src/windows_test_security.rs",
+    ];
+    !permitted.iter().any(|path| file == Path::new(path)) && unsafe_boundary_violation(text)
+}
+
+/// The privilege fixture has exactly one declaration, guarded by both test and Windows.
+pub(super) fn privilege_support_is_gated(text: &str) -> bool {
+    let tokens = tokens(text);
+    let declarations = tokens
+        .windows(3)
+        .filter(|window| *window == ["mod", "windows_test_security", ";"])
+        .count();
+    declarations == 1
+        && tokens.windows(15).any(|window| {
+            window
+                == [
+                    "#",
+                    "[",
+                    "cfg",
+                    "(",
+                    "all",
+                    "(",
+                    "test",
+                    ",",
+                    "windows",
+                    ")",
+                    ")",
+                    "]",
+                    "mod",
+                    "windows_test_security",
+                    ";",
+                ]
+        })
+}
+
+#[test]
+fn unsafe_test_support_remains_exactly_gated_and_other_test_files_refuse() {
+    let gated = "#[cfg(all(test, windows))] mod windows_test_security;";
+    assert!(privilege_support_is_gated(gated));
+    for invalid in [
+        "mod windows_test_security;".to_owned(),
+        "#[cfg(test)] mod windows_test_security;".to_owned(),
+        "#[cfg(windows)] mod windows_test_security;".to_owned(),
+        format!("{gated}\nmod windows_test_security;"),
+    ] {
+        assert!(!privilege_support_is_gated(&invalid));
+    }
+    for path in [
+        "crates/maestro-filesystem/src/other_tests.rs",
+        "crates/other/src/windows_test_security.rs",
+    ] {
+        assert!(unsafe_file_violation(
+            Path::new(path),
+            "#[cfg(test)] fn probe() { unsafe {} }"
+        ));
+    }
 }

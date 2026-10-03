@@ -81,15 +81,11 @@ pub(super) fn edit(
                     .find(|(_, byte)| *byte == b',')
                     .map(|(position, _)| value_start + range.start + position)
             });
-            let mut result = bytes.to_vec();
-            if let Some(comma) = comma.filter(|comma| *comma >= value_start + member.end) {
-                result.remove(comma);
-            }
-            result.drain(value_start + member.start..value_start + member.end);
-            if let Some(comma) = comma.filter(|comma| *comma < value_start + member.start) {
-                result.remove(comma);
-            }
-            return Ok(result);
+            return Ok(remove_member(
+                bytes,
+                value_start + member.start..value_start + member.end,
+                comma,
+            ));
         }
         let close = value
             .rfind('}')
@@ -115,6 +111,11 @@ pub(super) fn edit(
 
 /// Locate direct members in an already validated object with the shared bounded scanner.
 fn object_members(text: &str) -> io::Result<Vec<(String, Range<usize>)>> {
+    if !text.trim_start().starts_with('{') {
+        return Err(io::Error::other(
+            "JSON member value must start with an object",
+        ));
+    }
     let mut depth = 0usize;
     let mut start = 0;
     let mut key = None;
@@ -163,5 +164,22 @@ fn trimmed_range(text: &str, range: Range<usize>) -> Range<usize> {
 fn splice(bytes: &[u8], range: Range<usize>, inserted: &[u8]) -> Vec<u8> {
     let mut result = bytes.to_vec();
     result.splice(range, inserted.iter().copied());
+    result
+}
+
+/// Remove the adjacent comma before or after the member, retaining its original offsets.
+fn remove_member(bytes: &[u8], member: Range<usize>, comma: Option<usize>) -> Vec<u8> {
+    let mut result = bytes.to_vec();
+    if let Some(comma) = comma {
+        if comma >= member.end {
+            result.remove(comma);
+            result.drain(member);
+        } else {
+            result.drain(member);
+            result.remove(comma);
+        }
+    } else {
+        result.drain(member);
+    }
     result
 }

@@ -33,6 +33,10 @@ mod windows_flags;
 mod windows_replacement_security;
 #[cfg(windows)]
 mod windows_security;
+#[cfg(all(test, windows))]
+mod windows_security_fixture_tests;
+#[cfg(all(test, windows))]
+mod windows_test_security;
 #[cfg(unix)]
 pub use unix::{Directory, open_nofollow};
 #[cfg(windows)]

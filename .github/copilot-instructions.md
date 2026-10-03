@@ -769,7 +769,12 @@ in place.
 │   │   │   ├── windows.rs                                                   # Windows filesystem access: held directories and open flags that never follow a link
 │   │   │   ├── windows_flags.rs                                             # Safe Win32 file sharing and no-follow flags shared by held-handle adapters
 │   │   │   ├── windows_replacement_security.rs                              # Pure comparison of validated Windows replacement security fields
-│   │   │   └── windows_security.rs                                          # The sole unsafe boundary: security information belongs to an already-held handle
+│   │   │   ├── windows_security.rs                                          # The sole unsafe boundary: security information belongs to an already-held handle
+│   │   │   ├── windows_security_fixture_tests.rs                            # Safe native commands for independent Windows security observations
+│   │   │   └── windows_test_security.rs                                     # Test-only native token privileges and ACL fixtures; production stays in windows_security
+│   │   ├── tests/                                                           # Integration tests
+│   │   │   └── fixtures/                                                    # Test fixtures
+│   │   │       └── broaden-parent.ps1                                       # File: broaden parent
 │   │   └── Cargo.toml                                                       # Crate manifest
 │   ├── maestro-kernel/                                                      # Maestro kernel
 │   │   ├── migrations/                                                      # The kernel database's migrations, embedded and applied in number order

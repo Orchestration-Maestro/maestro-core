@@ -8,7 +8,6 @@ use crate::{
     windows_flags::{FILE_SHARE_READ_WRITE, OPEN_REPARSE_DIRECTORY_FLAGS},
     windows_replacement_security::check_replacement_security,
 };
-use std::slice;
 use std::{
     ffi::c_void,
     fs::{File, OpenOptions},
@@ -20,23 +19,17 @@ use std::{
     path::Path,
     ptr,
 };
-#[cfg(test)]
+use std::{ops::BitOr as _, slice};
 use windows_sys::Win32::{
-    Foundation::{ERROR_NOT_ALL_ASSIGNED, ERROR_SUCCESS, GetLastError, LUID},
-    Security::{
-        AdjustTokenPrivileges, LUID_AND_ATTRIBUTES, LookupPrivilegeValueW, SE_PRIVILEGE_ENABLED,
-        TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES, TokenPrivileges,
-    },
-};
-use windows_sys::Win32::{
-    Foundation::{GENERIC_ALL, GENERIC_READ, GENERIC_WRITE, LocalFree},
+    Foundation::{GENERIC_ALL, GENERIC_WRITE, LocalFree},
     Security::{
         ACCESS_ALLOWED_ACE, ACE_HEADER, ACL,
         Authorization::{GetSecurityInfo, SE_FILE_OBJECT, SetSecurityInfo},
         CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, GetAce,
-        GetSecurityDescriptorControl, GetTokenInformation, INHERIT_ONLY_ACE, IsValidAcl,
-        IsValidSid, OWNER_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, PSID,
-        SE_DACL_PROTECTED, TOKEN_INFORMATION_CLASS, TOKEN_QUERY, TOKEN_USER, TokenUser,
+        GetSecurityDescriptorControl, GetSecurityDescriptorDacl, GetSecurityDescriptorLength,
+        GetSecurityDescriptorOwner, GetTokenInformation, INHERIT_ONLY_ACE, IsValidAcl, IsValidSid,
+        OWNER_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, PSID, SE_DACL_PROTECTED,
+        TOKEN_INFORMATION_CLASS, TOKEN_QUERY, TOKEN_USER, TokenUser,
         UNPROTECTED_DACL_SECURITY_INFORMATION, WELL_KNOWN_SID_TYPE, WinBuiltinAdministratorsSid,
         WinLocalSystemSid,
     },
@@ -66,8 +59,7 @@ pub(super) fn same_file(left: &File, right: &File) -> io::Result<bool> {
 /// No reparse point is followed; the API refuses a non-empty directory.
 pub(super) fn remove_created_directory(path: &Path, created: &File) -> io::Result<()> {
     let file = OpenOptions::new()
-        .read(true)
-        .access_mode(DELETE | GENERIC_READ)
+        .access_mode(DELETE)
         .share_mode(FILE_SHARE_READ_WRITE)
         .custom_flags(OPEN_REPARSE_DIRECTORY_FLAGS)
         .open(path)?;
@@ -129,33 +121,28 @@ pub(super) fn file_identity_with(
     ))
 }
 
-/// Memory allocated by `GetSecurityInfo`, which owns the returned SID and ACL pointers.
-#[derive(Default)]
+/// Rust-owned self-relative security descriptor, retaining its embedded SID and ACL pointers.
 struct SecurityDescriptor {
-    /// `LocalAlloc` allocation owning the returned security pointers.
-    memory: *mut c_void,
+    /// Initialized descriptor bytes returned by `GetSecurityInfo`.
+    memory: Vec<u8>,
     /// Owner SID within memory.
     owner: PSID,
     /// DACL within memory, possibly NULL.
     dacl: *mut ACL,
 }
-impl Drop for SecurityDescriptor {
-    fn drop(&mut self) {
-        // SAFETY: GetSecurityInfo allocated this descriptor with LocalAlloc; freed once here.
-        unsafe {
-            LocalFree(self.memory);
-        }
-    }
-}
-
 impl SecurityDescriptor {
     /// Protected versus inheritable DACL state, independent of ACL bytes.
     fn protection(&self) -> io::Result<u32> {
         let mut control = 0;
         let mut revision = 0;
         // SAFETY: GetSecurityInfo initialized the descriptor, retained throughout this call.
-        if unsafe { GetSecurityDescriptorControl(self.memory, &raw mut control, &raw mut revision) }
-            == 0
+        if unsafe {
+            GetSecurityDescriptorControl(
+                self.memory.as_ptr().cast_mut().cast(),
+                &raw mut control,
+                &raw mut revision,
+            )
+        } == 0
         {
             return Err(io::Error::last_os_error());
         }
@@ -181,24 +168,60 @@ impl SecurityDescriptor {
         Ok(unsafe { slice::from_raw_parts(self.dacl.cast(), size) })
     }
 
-    /// Read owner and DACL from one live held file, freeing the allocation on drop.
+    /// Read through the matching high-level API, then immediately own and free its bytes.
     fn read(file: &File) -> io::Result<Self> {
-        let mut security = Self::default();
-        // SAFETY: live file handle and writable output slots; descriptor owns returned SID/ACL.
+        let information = OWNER_SECURITY_INFORMATION.bitor(DACL_SECURITY_INFORMATION);
+        let mut allocated = ptr::null_mut();
+        // SAFETY: live held handle; writable descriptor slot; optional component slots omitted.
         let result = unsafe {
             GetSecurityInfo(
                 file.as_raw_handle(),
                 SE_FILE_OBJECT,
-                OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
-                &raw mut security.owner,
+                information,
                 ptr::null_mut(),
-                &raw mut security.dacl,
                 ptr::null_mut(),
-                &raw mut security.memory,
+                ptr::null_mut(),
+                ptr::null_mut(),
+                &raw mut allocated,
             )
         };
         if result != 0 {
             return Err(io::Error::from_raw_os_error(result.cast_signed()));
+        }
+        // SAFETY: GetSecurityInfo returned a valid self-relative descriptor and its allocation.
+        let length = unsafe { GetSecurityDescriptorLength(allocated) } as usize;
+        // SAFETY: initialized descriptor owns length readable bytes; copy before freeing it.
+        let memory = unsafe { slice::from_raw_parts(allocated.cast::<u8>(), length) }.to_vec();
+        // SAFETY: GetSecurityInfo allocated with LocalAlloc; copied fully and freed once here.
+        unsafe {
+            LocalFree(allocated);
+        }
+        let mut security = Self {
+            memory,
+            owner: ptr::null_mut(),
+            dacl: ptr::null_mut(),
+        };
+        let descriptor = security.memory.as_mut_ptr().cast();
+        let mut defaulted = 0;
+        let mut present = 0;
+        // SAFETY: initialized self-relative descriptor stays alive; writable output slots.
+        if unsafe {
+            GetSecurityDescriptorOwner(descriptor, &raw mut security.owner, &raw mut defaulted)
+        } == 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: the same owned descriptor and writable output slots remain alive.
+        if unsafe {
+            GetSecurityDescriptorDacl(
+                descriptor,
+                &raw mut present,
+                &raw mut security.dacl,
+                &raw mut defaulted,
+            )
+        } == 0
+        {
+            return Err(io::Error::last_os_error());
         }
         Ok(security)
     }
@@ -214,7 +237,9 @@ pub(super) fn retain_replacement_security(original: &File, staged: &File) -> io:
         SetSecurityInfo(
             staged.as_raw_handle(),
             SE_FILE_OBJECT,
-            OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | protection,
+            OWNER_SECURITY_INFORMATION
+                .bitor(DACL_SECURITY_INFORMATION)
+                .bitor(protection),
             descriptor.owner,
             ptr::null_mut(),
             descriptor.dacl,
@@ -273,7 +298,7 @@ fn token_user() -> io::Result<Vec<u64>> {
 }
 
 /// Read one token information class into aligned owned storage, returning its initialized size.
-fn token_information(
+pub(super) fn token_information(
     token: &OwnedHandle,
     kind: TOKEN_INFORMATION_CLASS,
 ) -> io::Result<(Vec<u64>, u32)> {
@@ -329,9 +354,6 @@ fn well_known_sid(kind: WELL_KNOWN_SID_TYPE) -> io::Result<[u32; 17]> {
 
 /// Compare only non-null SIDs validated by Windows; their owning buffers remain alive.
 fn equal_sid(left: PSID, right: PSID) -> bool {
-    if left.is_null() || right.is_null() {
-        return false;
-    }
     // SAFETY: inputs are pointers into live API-owned descriptors/token buffers/validated ACEs.
     unsafe { IsValidSid(left) != 0 && IsValidSid(right) != 0 && EqualSid(left, right) != 0 }
 }
@@ -382,149 +404,119 @@ fn check_allow(ace: *mut c_void, writers: &[PSID]) -> io::Result<()> {
     // SAFETY: standard allow ACE type, minimum struct size and entire inline SID are checked.
     let allowed = unsafe { &*ace.cast::<ACCESS_ALLOWED_ACE>() };
     let write = FILE_WRITE_DATA
-        | FILE_APPEND_DATA
-        | FILE_WRITE_EA
-        | FILE_WRITE_ATTRIBUTES
-        | FILE_DELETE_CHILD
-        | DELETE
-        | WRITE_DAC
-        | WRITE_OWNER
-        | GENERIC_WRITE
-        | GENERIC_ALL;
+        .bitor(FILE_APPEND_DATA)
+        .bitor(FILE_WRITE_EA)
+        .bitor(FILE_WRITE_ATTRIBUTES)
+        .bitor(FILE_DELETE_CHILD)
+        .bitor(DELETE)
+        .bitor(WRITE_DAC)
+        .bitor(WRITE_OWNER)
+        .bitor(GENERIC_WRITE)
+        .bitor(GENERIC_ALL);
     let sid = ptr::addr_of!(allowed.SidStart).cast_mut().cast();
     if allowed.Mask & write != 0 && !writers.iter().any(|writer| equal_sid(sid, *writer)) {
         return Err(io::Error::other("other-writable preferences"));
     }
     Ok(())
 }
-/// Temporarily disable ACL-bypass privileges; relies on nextest's one-process-per-test isolation.
-#[cfg(test)]
-pub(super) struct DisabledAclBypass {
-    /// The process token, kept open until its previous privilege state is restored.
-    token: OwnedHandle,
-    /// Privilege identifiers used to verify the fixture's premise by reading the token back.
-    luids: [LUID; 2],
-    /// Previous states returned by Windows, including empty states for unchanged privileges.
-    previous: [TOKEN_PRIVILEGES; 2],
-}
 
 #[cfg(test)]
-impl DisabledAclBypass {
-    /// Disable backup and restore privileges, restoring even a partially completed change on error.
-    pub(super) fn new() -> io::Result<Self> {
-        let mut handle = ptr::null_mut();
-        // SAFETY: the pseudo-process handle is valid; output is a writable handle slot.
-        if unsafe {
-            OpenProcessToken(
-                GetCurrentProcess(),
-                TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES,
-                &raw mut handle,
-            )
-        } == 0
-        {
-            return Err(io::Error::last_os_error());
-        }
-        // SAFETY: successful OpenProcessToken transfers a unique handle closed by OwnedHandle.
-        let token = unsafe { OwnedHandle::from_raw_handle(handle) };
-        let mut guard = Self {
-            token,
-            luids: [LUID::default(); 2],
-            previous: [TOKEN_PRIVILEGES::default(); 2],
-        };
-        for (index, name) in ["SeBackupPrivilege", "SeRestorePrivilege"]
-            .into_iter()
-            .enumerate()
-        {
-            let name: Vec<u16> = name.encode_utf16().chain([0]).collect();
-            // SAFETY: name is terminated and alive; the LUID output slot is writable.
-            if unsafe {
-                LookupPrivilegeValueW(ptr::null(), name.as_ptr(), &raw mut guard.luids[index])
-            } == 0
-            {
-                return Err(io::Error::last_os_error());
+mod tests {
+    use super::*;
+    use crate::windows_security_fixture_tests::{icacls, native_dacl};
+    use maestro_test_scratch::scratch_directory;
+    use std::{env, fs};
+
+    #[test]
+    fn descriptor_fields_match_native_owner_dacl_and_protection() {
+        let root = scratch_directory().unwrap();
+        let path = root.join("file");
+        fs::write(&path, b"fixture").unwrap();
+        let account = env::var("USERNAME").unwrap();
+        for (inheritance, protection) in [
+            ("/inheritance:e", UNPROTECTED_DACL_SECURITY_INFORMATION),
+            ("/inheritance:r", PROTECTED_DACL_SECURITY_INFORMATION),
+        ] {
+            icacls(&path, &["/setowner", &account]);
+            icacls(&path, &[inheritance, "/grant:r", &format!("{account}:(F)")]);
+            let file = File::open(&path).unwrap();
+            let descriptor = SecurityDescriptor::read(&file).unwrap();
+            let user = token_user().unwrap();
+            assert!(user.len() >= size_of::<TOKEN_USER>().div_ceil(size_of::<u64>()));
+            // SAFETY: initialized aligned TOKEN_USER owns its SID until user is dropped.
+            let user_sid = unsafe { (*user.as_ptr().cast::<TOKEN_USER>()).User.Sid };
+            assert!(equal_sid(descriptor.owner, user_sid));
+            assert_eq!(descriptor.protection().unwrap(), protection);
+            let expected = native_dacl(&path);
+            assert!(!expected.is_empty());
+            assert_eq!(descriptor.acl_bytes().unwrap(), expected);
+            if protection == PROTECTED_DACL_SECURITY_INFORMATION {
+                private_metadata(&file).unwrap();
             }
-            let disabled = TOKEN_PRIVILEGES {
-                PrivilegeCount: 1,
-                Privileges: [LUID_AND_ATTRIBUTES {
-                    Luid: guard.luids[index],
-                    Attributes: 0,
-                }],
-            };
-            let mut needed = 0;
-            // SAFETY: the token is live; both states hold one privilege and outputs are writable.
-            let adjusted = unsafe {
-                AdjustTokenPrivileges(
-                    guard.token.as_raw_handle(),
-                    0,
-                    &raw const disabled,
-                    u32::try_from(size_of::<TOKEN_PRIVILEGES>()).unwrap(),
-                    &raw mut guard.previous[index],
-                    &raw mut needed,
-                )
-            };
-            // SAFETY: GetLastError has no pointer or lifetime requirements; read immediately.
-            let error = unsafe { GetLastError() };
-            if adjusted == 0 || (error != ERROR_SUCCESS && error != ERROR_NOT_ALL_ASSIGNED) {
-                return Err(io::Error::from_raw_os_error(error.cast_signed()));
-            }
-            // A token without the privilege cannot bypass the ACL; readback verifies this too.
         }
-        Ok(guard)
+        icacls(&path, &["/grant", "*S-1-1-0:(W)"]);
+        assert!(private_metadata(&File::open(&path).unwrap()).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn native_acl_masks_and_shape_boundaries_refuse_other_writers() {
+        use crate::windows_test_security::with_allow_acl;
+        use windows_sys::Win32::Security::WinWorldSid;
+        let sid = well_known_sid(WinWorldSid).unwrap();
+        let trusted = well_known_sid(WinLocalSystemSid).unwrap();
+        let world = sid.as_ptr().cast_mut().cast();
+        let writers = [trusted.as_ptr().cast_mut().cast()];
+        for mask in [
+            FILE_WRITE_DATA,
+            FILE_APPEND_DATA,
+            FILE_WRITE_EA,
+            FILE_WRITE_ATTRIBUTES,
+            FILE_DELETE_CHILD,
+            DELETE,
+            WRITE_DAC,
+            WRITE_OWNER,
+            GENERIC_WRITE,
+            GENERIC_ALL,
+        ] {
+            with_allow_acl(world, mask, |acl| {
+                assert!(check_acl(acl, &writers).is_err(), "write mask {mask:x}");
+                assert!(check_acl(acl, &[world]).is_ok());
+            });
+        }
     }
 
-    /// Read the current token back; absent privileges count as disabled, never as enabled.
-    pub(super) fn both_disabled(&self) -> io::Result<bool> {
-        let (buffer, needed) = token_information(&self.token, TokenPrivileges)?;
-        let offset = std::mem::offset_of!(TOKEN_PRIVILEGES, Privileges);
-        if (needed as usize) < offset {
-            return Err(io::Error::other("invalid token privilege header"));
-        }
-        // SAFETY: the initialized buffer has at least the four-byte privilege-count header.
-        let count = unsafe { *buffer.as_ptr().cast::<u32>() } as usize;
-        if count > ((needed as usize) - offset) / size_of::<LUID_AND_ATTRIBUTES>() {
-            return Err(io::Error::other("invalid token privilege count"));
-        }
-        // SAFETY: offset preserves alignment, count is bounded by initialized returned bytes,
-        // and the owning buffer remains alive throughout the slice traversal.
-        let privileges = unsafe {
-            slice::from_raw_parts(
-                buffer
-                    .as_ptr()
-                    .byte_add(offset)
-                    .cast::<LUID_AND_ATTRIBUTES>(),
-                count,
-            )
-        };
-        Ok(!privileges.iter().any(|privilege| {
-            self.luids.iter().any(|luid| {
-                privilege.Luid.LowPart == luid.LowPart && privilege.Luid.HighPart == luid.HighPart
-            }) && privilege.Attributes & SE_PRIVILEGE_ENABLED != 0
-        }))
+    #[test]
+    fn native_acl_shape_boundaries_use_validated_native_storage() {
+        use crate::windows_test_security::probe_acl_shapes;
+        use windows_sys::Win32::Security::WinWorldSid;
+        let sid = well_known_sid(WinWorldSid).unwrap();
+        let trusted = well_known_sid(WinLocalSystemSid).unwrap();
+        let world = sid.as_ptr().cast_mut().cast();
+        let writers = [trusted.as_ptr().cast_mut().cast()];
+        probe_acl_shapes(
+            world,
+            |acl, accepted| assert_eq!(check_acl(acl, &writers).is_ok(), accepted),
+            |ace, message, world_writer| {
+                let writers = if world_writer { [world] } else { writers };
+                let result = check_allow(ace, &writers);
+                if message.is_empty() {
+                    assert!(result.is_ok());
+                } else {
+                    assert!(result.unwrap_err().to_string().contains(message));
+                }
+            },
+        );
     }
-}
 
-#[cfg(test)]
-impl Drop for DisabledAclBypass {
-    fn drop(&mut self) {
-        for previous in &self.previous {
-            // SAFETY: the token is live and each previous state was returned by Windows;
-            // no previous-state output buffer is requested during restoration.
-            let restored = unsafe {
-                AdjustTokenPrivileges(
-                    self.token.as_raw_handle(),
-                    0,
-                    previous,
-                    0,
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                )
-            };
-            // SAFETY: GetLastError has no pointer or lifetime requirements; read immediately.
-            let error = unsafe { GetLastError() };
-            assert!(
-                restored != 0 && error == ERROR_SUCCESS,
-                "restoring token privileges: {error}"
-            );
-        }
+    #[test]
+    fn native_sid_comparison_refuses_null_and_invalid_sids() {
+        let sid = well_known_sid(WinLocalSystemSid).unwrap();
+        let invalid = [0u32; 17];
+        let valid = sid.as_ptr().cast_mut().cast();
+        let invalid = invalid.as_ptr().cast_mut().cast();
+        assert!(!equal_sid(valid, invalid));
+        assert!(!equal_sid(invalid, valid));
+        assert!(!equal_sid(ptr::null_mut(), valid));
+        assert!(!equal_sid(valid, ptr::null_mut()));
     }
 }

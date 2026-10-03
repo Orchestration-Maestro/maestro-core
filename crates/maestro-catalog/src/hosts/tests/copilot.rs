@@ -440,3 +440,56 @@ fn hosts_copilot_shared_failure_preserves_ownership() {
         assert_eq!(fs::read(&owned_path).unwrap(), b"conflict");
     });
 }
+
+#[test]
+fn hosts_copilot_missing_home_is_rechecked_for_new_shadows_before_apply() {
+    let fixture = Fixture::new();
+    let snapshot = fixture.snapshot();
+    let home = fixture.root.join("missing/deeper");
+    let adapter = Copilot::from_home(Some(home.clone())).unwrap();
+    with_trust(&fixture.project, |trust| {
+        let preview = adapter
+            .preview(&fixture.project, &snapshot, false, trust)
+            .unwrap();
+        fs::create_dir_all(home.join("agents")).unwrap();
+        fs::write(
+            home.join("agents/new.agent.md"),
+            b"---\nname: maestro\n---\n",
+        )
+        .unwrap();
+        let error = preview.apply(&fixture.project, trust).unwrap_err();
+        assert!(error.to_string().contains("shadows the projection"));
+        assert!(!fixture.project.join(".github").exists());
+    });
+}
+
+#[cfg(unix)]
+#[test]
+fn hosts_copilot_missing_home_resolves_symlinked_ancestor() {
+    use std::os::unix::fs::symlink;
+    let fixture = Fixture::new();
+    let snapshot = fixture.snapshot();
+    let real = fixture.root.join("real");
+    fs::create_dir(&real).unwrap();
+    let alias = fixture.root.join("alias");
+    symlink(&real, &alias).unwrap();
+    let adapter = Copilot::from_home(Some(alias.join("missing/deeper"))).unwrap();
+    with_trust(&fixture.project, |trust| {
+        let preview = adapter
+            .preview(&fixture.project, &snapshot, false, trust)
+            .unwrap();
+        assert_eq!(
+            preview.user_agents,
+            Some(real.canonicalize().unwrap().join("missing/deeper/agents"))
+        );
+    });
+}
+
+#[test]
+fn hosts_copilot_missing_home_refuses_non_normal_tail() {
+    let fixture = Fixture::new();
+    for tail in ["missing/../other", "missing/./other"] {
+        let error = Copilot::from_home(Some(fixture.root.join(tail))).unwrap_err();
+        assert!(error.to_string().contains("normal names only"), "{error}");
+    }
+}

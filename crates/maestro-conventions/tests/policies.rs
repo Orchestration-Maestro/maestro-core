@@ -5,7 +5,7 @@ mod catalog_traceability;
 mod s1_traceability;
 mod unsafe_policy;
 
-use unsafe_policy::unsafe_boundary_violation;
+use unsafe_policy::{privilege_support_is_gated, unsafe_file_violation};
 
 use maestro_conventions::{
     broken_links, counted_lines, names_a_personal_directory, repository_files, root,
@@ -344,12 +344,21 @@ fn opaque_canonical_fields_require_canonical_serialization() {
 /// Unsafe operations and lint exceptions are confined to the held-handle Windows adapter.
 #[test]
 fn unsafe_is_confined_to_windows_handle_security() {
-    let boundary = Path::new("crates/maestro-filesystem/src/windows_security.rs");
-    let offenders: Vec<_> = text_files()
+    let files = text_files();
+    let declarations = files
+        .iter()
+        .filter(|(file, _)| file.extension().is_some_and(|extension| extension == "rs"))
+        .map(|(_, text)| text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        privilege_support_is_gated(&declarations),
+        "native privilege support must remain test-only and Windows-only"
+    );
+    let offenders: Vec<_> = files
         .into_iter()
         .filter(|(file, _)| file.extension().is_some_and(|extension| extension == "rs"))
-        .filter(|(file, _)| file != boundary)
-        .filter(|(_, text)| unsafe_boundary_violation(text))
+        .filter(|(file, text)| unsafe_file_violation(file, text))
         .map(|(file, _)| file)
         .collect();
     assert!(

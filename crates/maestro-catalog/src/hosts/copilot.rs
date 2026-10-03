@@ -15,7 +15,7 @@ use std::{
     collections::BTreeMap,
     env,
     io::{self, Read as _},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     str,
 };
 
@@ -212,11 +212,12 @@ impl NativeProjection for Copilot {
 pub fn adapter(host: &str) -> Result<Box<dyn NativeProjection>, String> {
     match host {
         "copilot" => {
-            let user_agents = env::var_os("COPILOT_HOME")
+            let home = env::var_os("COPILOT_HOME")
                 .map(PathBuf::from)
-                .or_else(|| env::home_dir().map(|home| home.join(".copilot")))
-                .map(|home| home.join("agents"));
-            Ok(Box::new(Copilot::new(user_agents)))
+                .or_else(|| env::home_dir().map(|home| home.join(".copilot")));
+            Ok(Box::new(
+                Copilot::from_home(home).map_err(|error| error.to_string())?,
+            ))
         }
         _ => Err(format!(
             "unsupported or ambiguous host {host:?}; use --host copilot"
@@ -275,6 +276,23 @@ struct Receipt<'a> {
 }
 
 impl Copilot {
+    /// Bind read-only discovery, retaining absence as a path to recheck before applying.
+    pub(super) fn from_home(home: Option<PathBuf>) -> io::Result<Self> {
+        let user_agents = home
+            .map(|home| {
+                discovery_home(&home)
+                    .map(|home| home.join("agents"))
+                    .map_err(|error| {
+                        io::Error::new(
+                            error.kind(),
+                            format!("cannot resolve Copilot home {}: {error}", home.display()),
+                        )
+                    })
+            })
+            .transpose()?;
+        Ok(Self::new(user_agents))
+    }
+
     /// Select only read-only discovery inputs; target write authority is separate.
     #[must_use]
     pub fn new(user_agents: Option<PathBuf>) -> Self {
@@ -452,4 +470,40 @@ fn check_names(root: &Path, below: &Path, owned: bool, trust: &CheckedTrust<'_>)
         }
     }
     Ok(())
+}
+
+/// Bind the trusted discovery root once, retaining missing normal names for staged rechecks.
+fn discovery_home(home: &Path) -> io::Result<PathBuf> {
+    for ancestor in home.ancestors() {
+        let named = if ancestor.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            ancestor
+        };
+        match named.canonicalize() {
+            Ok(resolved) => {
+                let tail = home.strip_prefix(ancestor).map_err(io::Error::other)?;
+                // Path::components normalizes interior dots; check their literal spelling too.
+                let dot = tail
+                    .as_os_str()
+                    .as_encoded_bytes()
+                    .split(|byte| *byte == b'/' || (cfg!(windows) && *byte == b'\\'))
+                    .any(|part| part == b".");
+                if dot
+                    || !tail
+                        .components()
+                        .all(|part| matches!(part, Component::Normal(_)))
+                {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "Copilot home's missing tail must contain normal names only",
+                    ));
+                }
+                return Ok(resolved.join(tail));
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Err(io::Error::other("Copilot home has no resolvable ancestor"))
 }

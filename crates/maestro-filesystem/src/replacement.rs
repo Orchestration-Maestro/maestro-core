@@ -12,6 +12,9 @@ use std::{
 /// Process-local private sibling names, always created exclusively.
 static NEXT_TEMP: AtomicUsize = AtomicUsize::new(0);
 
+/// Bound exclusive-create collisions; Pi has no equivalent filesystem retry limit.
+pub(super) const REPLACEMENT_TEMP_ATTEMPTS: usize = 128;
+
 impl Directory {
     /// Replace a regular leaf only after verifying its held identity and expected bytes.
     /// The replacement is synced before an atomic rename and retains the original permissions.
@@ -43,7 +46,8 @@ impl Directory {
         leaf_name(name)?;
         let mut original = self.open_regular(name)?;
         compare_bytes(&mut original, expected)?;
-        let (temporary, mut staged) = self.replacement_temp()?;
+        let (temporary, mut staged) =
+            self.replacement_temp(|| NEXT_TEMP.fetch_add(1, Ordering::Relaxed))?;
         let mut contents_written = false;
         let result = (|| {
             #[cfg(windows)]
@@ -80,9 +84,12 @@ impl Directory {
     }
 
     /// Create one exclusive sibling through the same held directory as the target.
-    fn replacement_temp(&self) -> io::Result<(String, File)> {
-        loop {
-            let sequence = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
+    pub(super) fn replacement_temp(
+        &self,
+        mut next_sequence: impl FnMut() -> usize,
+    ) -> io::Result<(String, File)> {
+        for _ in 0..REPLACEMENT_TEMP_ATTEMPTS {
+            let sequence = next_sequence();
             let name = format!(".maestro-replace-{}-{sequence}", process::id());
             match self.create_new(&name) {
                 Ok(file) => return Ok((name, file)),
@@ -90,6 +97,10 @@ impl Directory {
                 Err(error) => return Err(error),
             }
         }
+        Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("exhausted {REPLACEMENT_TEMP_ATTEMPTS} replacement temporary retries"),
+        ))
     }
 }
 

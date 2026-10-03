@@ -346,3 +346,44 @@ fn catalog_copilot_output_failure_is_not_an_effect_receipt() {
     assert_eq!(fs::read(root.join(".mcp.json")).unwrap(), b"invalid");
     assert!(!root.join(".github").exists());
 }
+
+#[cfg(unix)]
+#[test]
+fn catalog_copilot_resolves_home_and_target_symlinked_ancestors() {
+    use std::os::unix::fs::symlink;
+    let home = Home::bare();
+    let outside = Home::bare();
+    let real = outside.root().join("real");
+    fs::create_dir_all(real.join("project")).unwrap();
+    fs::create_dir_all(real.join("copilot/agents")).unwrap();
+    fs::write(
+        real.join("copilot/agents/user.agent.md"),
+        b"---\nname: neighbour\n---\n",
+    )
+    .unwrap();
+    let alias = outside.root().join("alias");
+    symlink(&real, &alias).unwrap();
+    let target = alias.join("project");
+    trust(&home, &target.canonicalize().unwrap());
+    let mut command = project_command(&home, &target, &["--apply"], ("en", "brief"));
+    command.env("COPILOT_HOME", alias.join("copilot"));
+    let applied = Running::of(command).finish();
+    assert_eq!(applied.code, Some(0), "{applied:?}");
+    assert!(
+        real.join("project/.github/agents/maestro.agent.md")
+            .is_file()
+    );
+    fs::write(
+        real.join("copilot/agents/user.agent.md"),
+        b"---\nname: maestro\n---\n",
+    )
+    .unwrap();
+    let mut command = project_command(&home, &target, &[], ("en", "brief"));
+    command.env("COPILOT_HOME", alias.join("copilot"));
+    let refused = Running::of(command).finish();
+    assert_eq!(refused.code, Some(2), "{refused:?}");
+    assert!(
+        refused.stderr.contains("shadows the projection"),
+        "{refused:?}"
+    );
+}

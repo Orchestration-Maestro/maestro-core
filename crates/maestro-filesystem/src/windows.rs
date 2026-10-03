@@ -6,7 +6,7 @@
 //! Every open carries
 //! `FILE_FLAG_OPEN_REPARSE_POINT`, so a symbolic link or junction is
 //! opened itself and refused, never followed. The standard library exposes these flags safely;
-//! the single-bit constants are Win32's documented values, and each combined value is checked
+//! the single-bit constants are Win32's documented values, and fixed combined constants are checked
 //! against its bits at compile time. The local filesystem must support hard links; directories
 //! are not flushed, which Windows does only through a writable handle (ADR-0018).
 use super::{
@@ -14,8 +14,8 @@ use super::{
     read::{read_limited, read_prefix},
     root::{leaf_name, resolve},
     windows_flags::{
-        FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_ALL,
-        FILE_SHARE_READ_WRITE, OPEN_REPARSE_DIRECTORY_FLAGS,
+        FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ_WRITE,
+        OPEN_REPARSE_DIRECTORY_FLAGS, file_share_all,
     },
     windows_security::{private_metadata, remove_created_directory, same_file},
 };
@@ -65,7 +65,7 @@ impl Directory {
         };
         let security = OpenOptions::new()
             .access_mode(GENERIC_READ | WRITE_DAC | WRITE_OWNER)
-            .share_mode(FILE_SHARE_ALL)
+            .share_mode(file_share_all())
             .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
             .open(self.path.join(name))?;
         if !same_file(staged, &security)? {
@@ -171,7 +171,7 @@ impl Directory {
         fs::create_dir(&path)?;
         let child = OpenOptions::new()
             .read(true)
-            .share_mode(FILE_SHARE_ALL)
+            .share_mode(file_share_all())
             .custom_flags(OPEN_REPARSE_DIRECTORY_FLAGS)
             .open(&path)?;
         refuse_reparse_point(&child)?;

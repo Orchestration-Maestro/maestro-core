@@ -234,3 +234,30 @@ fn verified_removal_restores_and_propagates_the_policy_error() {
     drop(directory);
     fs::remove_dir_all(root).unwrap();
 }
+
+#[cfg(windows)]
+#[test]
+fn created_directory_native_rollback_deletes_only_empty_original_identity() {
+    let root = scratch_directory().unwrap();
+    let directory = Directory::open(&root, Path::new(""), false).unwrap();
+    let created = directory.create_child("created").unwrap();
+    fs::write(root.join("created/child"), b"user").unwrap();
+    assert!(directory.remove_created_child("created", &created).is_err());
+    assert_eq!(fs::read(root.join("created/child")).unwrap(), b"user");
+    fs::remove_file(root.join("created/child")).unwrap();
+    fs::rename(root.join("created"), root.join("moved")).unwrap();
+    fs::create_dir(root.join("created")).unwrap();
+    let error = directory
+        .remove_created_child("created", &created)
+        .unwrap_err();
+    assert!(error.to_string().contains("created directory changed"));
+    assert!(root.join("created").is_dir());
+    assert!(root.join("moved").is_dir());
+    fs::remove_dir(root.join("created")).unwrap();
+    fs::rename(root.join("moved"), root.join("created")).unwrap();
+    directory.remove_created_child("created", &created).unwrap();
+    drop(created);
+    assert!(!root.join("created").exists());
+    drop(directory);
+    fs::remove_dir_all(root).unwrap();
+}
