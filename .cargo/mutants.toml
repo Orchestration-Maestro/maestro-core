@@ -4,6 +4,18 @@
 # back as missed and its exclusion is reviewed again (tasks.md, T019).
 test_tool = "nextest"
 exclude_re = [
+  # NONBLOCK and CLOEXEC are disjoint bits: OR and XOR set identical flags.
+  '^crates/maestro-acquisition/src/policy/authority_socket\.rs:127:31: replace \| with \^ in connect_bounded$',
+  # The literal HTTPS prefix and exact canonical authority still refuse the
+  # same scheme/userinfo inputs with None. Keep the explicit intent checks.
+  '^crates/maestro-acquisition/src/policy/shape\.rs:71:9: replace \|\| with && in checked_url$',
+  # The exact canonical authority independently refuses credentials with None.
+  '^crates/maestro-acquisition/src/policy/shape\.rs:72:9: replace \|\| with && in checked_url$',
+  # The shared UTC parser independently checks both field widths and returns
+  # the same Invalid refusal before calculating any retry delay.
+  '^crates/maestro-acquisition/src/policy/utc\.rs:112:13: replace \|\| with && in retry_after$',
+  # At epoch equality, checked_sub(0) and checked_add(0) both give UNIX_EPOCH.
+  '^crates/maestro-acquisition/src/policy/utc\.rs:31:16: replace < with <= in parse$',
   # `<=` only adds the empty range, which holds no content: the same findings.
   '^crates/maestro-canonicalization/src/validate/structure\.rs:155:19: replace < with <= in check_uncovered$',
   '^crates/maestro-canonicalization/src/validate/structure\.rs:165:14: replace < with <= in check_gap$',

@@ -427,6 +427,9 @@ in place.
 │   │   │   │   ├── limits.rs                                                            # Strict version-one source-policy wire contracts
 │   │   │   │   ├── manifest.rs                                                          # Strict version-one source-policy wire contracts
 │   │   │   │   ├── mod.rs                                                               # Strict policy schemas and the single immutable baseline validator
+│   │   │   │   ├── mutation_authority.rs                                                # Mutation-debt contracts for exact grant bindings and protected diagnostics
+│   │   │   │   ├── mutation_checks.rs                                                   # Mutation-debt contracts for conjunctive policy checks and inclusive ceilings
+│   │   │   │   ├── mutation_shape.rs                                                    # Mutation-debt contracts for strict scalar decoding and calendar boundaries
 │   │   │   │   ├── resolve.rs                                                           # One strict validator for local files and immutable catalog resources
 │   │   │   │   ├── resource.rs                                                          # Shared scoped resource identity; never an acquisition grant
 │   │   │   │   ├── schema.rs                                                            # Strict version-one source-policy wire contracts
@@ -487,6 +490,8 @@ in place.
 │   │   │   │   └── profile-definition-v2.txt                                            # Text: profile definition v2
 │   │   │   └── it/                                                                      # It
 │   │   │       ├── main.rs                                                              # N03's synthetic integration contracts, in one test binary
+│   │   │       ├── mutation_policy_resolution.rs                                        # Policy resolution refuses each independent registry and owner violation
+│   │   │       ├── mutation_policy_socket.rs                                            # Linux IPC policy contracts; kernel peer identity is never supplied by JSON
 │   │   │       ├── n03_implement_strict_source_policy_and_local_baseline_resolution.rs  # N03: malformed policy closure must refuse before caller-side effects
 │   │   │       ├── n03_review_fixes.rs                                                  # Four ruled N03 parser and schema regressions
 │   │   │       ├── n07_parse_url_identity_and_denial_precedence.rs                      # N07 URL and denial contracts use only synthetic destinations

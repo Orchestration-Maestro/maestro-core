@@ -20,7 +20,7 @@ impl Clock for FixedClock {
     }
 }
 #[test]
-fn n09_authority_full_backlog_refuses_at_deadline() {
+fn n09_authority_full_backlog_refuses_without_waiting() {
     let scratch = scratch_directory().unwrap();
     let path = scratch.join("authority.sock");
     let listener = UnixListener::bind(&path).unwrap();
@@ -35,7 +35,7 @@ fn n09_authority_full_backlog_refuses_at_deadline() {
     };
     assert_eq!(
         connect_bounded(&path, deadline, &clock).unwrap_err(),
-        Refusal::Deadline
+        Refusal::Unqualified
     );
     fs::remove_dir_all(scratch).unwrap();
 }
