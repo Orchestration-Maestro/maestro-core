@@ -16,3 +16,5 @@ mod golden;
 mod completeness;
 
 mod diagnostics;
+mod draft_boundaries;
+mod mutation_boundaries;

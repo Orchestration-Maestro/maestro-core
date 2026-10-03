@@ -324,3 +324,138 @@ fn graph_eval_expiry_equality_is_refused_with_injected_time() {
         Err(Code::Isolation)
     );
 }
+
+#[test]
+fn graph_eval_approval_fields_are_independent_refusals() {
+    let fixture = Fixture::new();
+    for (field, value) in [
+        ("target", json!("other")),
+        ("backup_id", json!("")),
+        ("backup_id", json!("unsafe id")),
+    ] {
+        let mut value_receipt = fixture.value.clone();
+        if field == "target" {
+            value_receipt["approval"][field] = value;
+        } else {
+            value_receipt[field] = value;
+        }
+        let receipt: PrivateRun = serde_json::from_value(value_receipt).unwrap();
+        assert_eq!(
+            receipt.check_approval_at("synthetic", 1),
+            Err(Code::Isolation),
+            "{field}"
+        );
+    }
+    let mut value = fixture.value.clone();
+    value["approval"]["scope"] = json!("");
+    let receipt: PrivateRun = serde_json::from_value(value).unwrap();
+    assert_eq!(receipt.check_approval_at("", 1), Err(Code::Isolation));
+}
+
+#[test]
+fn graph_eval_private_root_cannot_be_an_ancestor_of_authority() {
+    let mut fixture = Fixture::new();
+    fixture.value["private_root"] = json!(fixture.root);
+    assert!(matches!(
+        fixture.receipt().check_bindings(
+            "synthetic",
+            &fixture.environment,
+            Some("http://localhost:16334")
+        ),
+        Err(Code::Isolation)
+    ));
+}
+
+#[cfg(unix)]
+#[test]
+fn graph_eval_each_resolved_kernel_child_must_stay_below_its_root() {
+    use std::os::unix::fs::symlink;
+    for root in ["data", "config"] {
+        let fixture = Fixture::new();
+        fs::remove_dir(fixture.root.join(root).join("maestro")).unwrap();
+        symlink(
+            fixture.root.join("outside"),
+            fixture.root.join(root).join("maestro"),
+        )
+        .unwrap();
+        assert!(
+            matches!(
+                fixture.receipt().check_bindings(
+                    "synthetic",
+                    &fixture.environment,
+                    Some("http://localhost:16334")
+                ),
+                Err(Code::Isolation)
+            ),
+            "{root}"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn graph_eval_child_metadata_permission_errors_are_not_missing_files() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let fixture = Fixture::new();
+    let data = fixture.root.join("data/maestro");
+    fs::set_permissions(&data, fs::Permissions::from_mode(0o0)).unwrap();
+    let result = fixture.receipt().check_bindings(
+        "synthetic",
+        &fixture.environment,
+        Some("http://localhost:16334"),
+    );
+    fs::set_permissions(&data, fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(matches!(result, Err(Code::Isolation)));
+}
+
+#[test]
+fn graph_draft_journal_append_accepts_exact_serialized_limit_and_refuses_one_over() {
+    use super::super::draft_journal::FileJournal;
+    use maestro_knowledge::eval::{
+        draft::{DraftCandidate, DraftError},
+        draft_progress::{DraftJournal, DraftOutcome, DraftReceipt},
+    };
+    let fixture = Fixture::new();
+    let run = fixture
+        .receipt()
+        .check_bindings(
+            "synthetic",
+            &fixture.environment,
+            Some("http://localhost:16334"),
+        )
+        .unwrap();
+    let mut journal = FileJournal::open(&run, 1).unwrap();
+    let mut receipt = DraftReceipt {
+        run: Digest::of(b"run"),
+        input: Digest::of(b"input"),
+        id: "q-1".into(),
+        tokens: 1,
+        outcome: DraftOutcome::Draft(DraftCandidate {
+            id: "q-1".into(),
+            family: "f-1".into(),
+            suite: String::new(),
+            labels: String::new(),
+        }),
+    };
+    let overhead = serde_json::to_vec(&json!({"schema":"maestro-graph-draft-receipt/1",
+        "receipt":receipt}))
+    .unwrap()
+    .len();
+    let DraftOutcome::Draft(candidate) = &mut receipt.outcome else {
+        panic!("draft")
+    };
+    candidate.suite = "x".repeat(16 * 1024 * 1024 - overhead);
+    assert_eq!(journal.append(receipt.clone()), Ok(()));
+    assert_eq!(
+        fs::metadata(run.output.join("draft-receipt-00000000000000000000.json"))
+            .unwrap()
+            .len(),
+        16 * 1024 * 1024
+    );
+    let DraftOutcome::Draft(candidate) = &mut receipt.outcome else {
+        panic!("draft")
+    };
+    candidate.suite.push('x');
+    assert_eq!(journal.append(receipt), Err(DraftError::Journal));
+    assert_eq!(journal.receipts().len(), 1);
+}

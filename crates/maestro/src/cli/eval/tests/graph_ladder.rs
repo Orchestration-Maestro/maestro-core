@@ -67,6 +67,26 @@ fn graph_eval_ladder_scores_delivered_proofs_and_excludes_failed_attempts() {
         (0, 2)
     );
     assert_eq!(score.conclusions.unobserved_items, 2);
+    let mut counts = super::super::graph_output::Counts {
+        links: 8,
+        anchors: 8,
+        complete: 8,
+        answerable: 8,
+        ..super::super::graph_output::Counts::default()
+    };
+    for _ in 0..2 {
+        super::super::graph_ladder::record_counts(&mut counts, run, &labels, &score);
+    }
+    assert_eq!(
+        (
+            counts.links,
+            counts.anchors,
+            counts.complete,
+            counts.answerable
+        ),
+        (12, 12, 12, 12)
+    );
+    assert_eq!(counts.failed, 0);
     run.diagnostics[0].delivered.clear();
     assert_eq!(score_run(run, &labels).unwrap().final_wire.complete, 1);
     run.rows[1].search.outcome = SearchOutcome::TimedOut;
