@@ -15,6 +15,18 @@ fn n30_atomic_replacement_exposes_whole_new_bytes() {
 }
 
 #[test]
+fn k2_protected_root_accepts_owned_directory() {
+    let root = scratch_directory().unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    assert!(protected_root(&root).is_ok());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn n30_non_directory_root_refuses() {
     let root = scratch_directory().unwrap();
     let file = root.join("file");

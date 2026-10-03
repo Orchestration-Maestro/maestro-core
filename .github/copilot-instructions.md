@@ -1068,6 +1068,7 @@ in place.
 │   │   │   │   │   ├── migrations.rs                                                    # Migrations: applied in number order, each once, recorded by name, and a
 │   │   │   │   │   ├── mod.rs                                                           # Tests of the kernel database: its migrations, its connections, the
 │   │   │   │   │   ├── readers.rs                                                       # Pool reuse, concurrent units, transaction cleanup and fresh authorization
+│   │   │   │   │   ├── statement_counts.rs                                              # Executed statement instrumentation observes both pooled readers and writers
 │   │   │   │   │   └── support.rs                                                       # What the database tests share: scratch directories, the digests of their
 │   │   │   │   ├── artifacts.rs                                                         # The artifacts table: what the artifact store holds, the pins that keep
 │   │   │   │   ├── database.rs                                                          # The database: its file, one writer connection behind a mutex, and readers
@@ -1115,6 +1116,9 @@ in place.
 │   │   │   │   ├── unit-graph-v1.txt                                                    # Text: unit graph v1
 │   │   │   │   └── unit-mapping-v1.json                                                 # JSON data: unit mapping v1
 │   │   │   └── it/                                                                      # It
+│   │   │       ├── k2_capture.rs                                                        # Mutation regressions for immutable capture admission and readback
+│   │   │       ├── k2_headers.rs                                                        # Exact safe-header policy and redacted identity mutation regressions
+│   │   │       ├── k2_receipt_store.rs                                                  # Receipt boundary, error rendering and durable work-order regressions
 │   │   │       ├── main.rs                                                              # Kernel integration tests for the unit-graph wire contract and producer conformance
 │   │   │       ├── n04_frontier_ack.rs                                                  # N04 acknowledgement integrity, atomic journal writes and immutable source binding
 │   │   │       ├── n04_frontier_support.rs                                              # Synthetic fixtures for the N04 replaceable frontier contract

@@ -233,7 +233,24 @@ fn bounded_bytes(mut reader: impl io::Read, cap: u64) -> io::Result<Vec<u8>> {
 #[cfg(test)]
 mod bounded_tests {
     use super::bounded_bytes;
-    use std::io::Cursor;
+    use std::io::{self, Cursor, Read};
+
+    /// A reader which records every request, including zero-byte requests.
+    struct Requested(Vec<usize>);
+    impl Read for Requested {
+        fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+            self.0.push(bytes.len());
+            bytes.fill(b'x');
+            Ok(bytes.len())
+        }
+    }
+
+    #[test]
+    fn k2_bounded_bytes_stops_without_an_empty_read() {
+        let mut reader = Requested(vec![]);
+        assert_eq!(bounded_bytes(&mut reader, 3).unwrap(), b"xxxx");
+        assert_eq!(reader.0, vec![4]);
+    }
 
     #[test]
     fn n13_review_bounded_read_limits_bytes_and_allocation() {

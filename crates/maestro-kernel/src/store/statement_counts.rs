@@ -40,3 +40,28 @@ pub(super) fn statements() -> u64 {
 pub(super) fn item_lookups() -> u64 {
     ITEM_LOOKUPS.with(Cell::get)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ITEM_LOOKUPS, STATEMENTS, install, item_lookups, statements};
+    use rusqlite::Connection;
+
+    #[test]
+    fn k2_statement_counts_nonzero_baseline() {
+        STATEMENTS.with(|count| count.set(10));
+        ITEM_LOOKUPS.with(|count| count.set(10));
+        let connection = Connection::open_in_memory().unwrap();
+        install(&connection);
+        for _ in 0..3 {
+            connection
+                .query_row(
+                    "SELECT 1 FROM (SELECT 1 AS item) l WHERE l.item = ?1",
+                    [1],
+                    |_| Ok(()),
+                )
+                .unwrap();
+        }
+        assert_eq!(statements(), 13);
+        assert_eq!(item_lookups(), 13);
+    }
+}

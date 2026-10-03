@@ -16,3 +16,7 @@ mod n14_release_source;
 mod n37_capture_integrity;
 mod n37_capture_support;
 mod n37_revision_links;
+
+mod k2_capture;
+mod k2_headers;
+mod k2_receipt_store;
