@@ -264,7 +264,7 @@ pub(super) fn check(job: &Job) -> Result<(), Failure> {
 mod tests {
     use super::{
         Event, MAX_SOURCE_RETRIES, SOURCE_STARTED, Ulid, check_token_budget, job,
-        next_source_attempt, within_retry_limit,
+        next_source_attempt, source_starts, within_retry_limit,
     };
     use crate::{
         cli::graph::tests::runner_tests::support::{extractor, fixture},
@@ -286,6 +286,17 @@ mod tests {
             time: "2026-01-01T00:00:00Z".to_owned(),
             data: json!({"kind": SOURCE_STARTED, "revision": revision}),
         }
+    }
+
+    #[test]
+    fn source_starts_requires_both_event_type_and_progress_kind() {
+        let started = progress("job/test", 1, "revision-a");
+        let mut other_type = started.clone();
+        other_type.r#type = "job.finished".into();
+        let mut other_kind = started.clone();
+        other_kind.data = json!({"kind": "source_finished"});
+        let events = [other_type, other_kind, started];
+        assert_eq!(source_starts(&events).collect::<Vec<_>>(), vec![&events[2]]);
     }
 
     #[test]

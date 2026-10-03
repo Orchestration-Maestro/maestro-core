@@ -203,3 +203,22 @@ fn open_and_query(file: &dyn PublishedFile) -> Result<Duration, Check> {
         .map_err(|error| failed(file.path(), &error))?;
     Ok(opened)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use maestro_test_scratch::scratch_directory;
+
+    #[test]
+    fn directory_problem_preserves_non_not_found_errors() {
+        let scratch = scratch_directory().unwrap();
+        let path = scratch.join("invalid\0directory");
+        let error = fs::symlink_metadata(&path).unwrap_err();
+        assert_ne!(error.kind(), ErrorKind::NotFound);
+        assert_eq!(
+            directory_problem(&path),
+            Some((error.to_string(), "check the data directory's permissions"))
+        );
+        fs::remove_dir_all(scratch).unwrap();
+    }
+}

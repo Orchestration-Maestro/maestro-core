@@ -197,3 +197,23 @@ VALUES ('c','set','rep','r','shard');",
         assert!(connection.execute_batch(sql).is_err(), "{sql}");
     }
 }
+
+#[test]
+fn preflight_checks_vocabulary_only_when_the_upgrade_is_requested() {
+    use crate::store::{Error, migration::preflight};
+    let connection = Connection::open_in_memory().unwrap();
+    connection
+        .execute_batch(concat!(
+            "CREATE TABLE migrations(name TEXT);",
+            "INSERT INTO migrations VALUES ('0012_graph_claims');",
+            "CREATE TABLE claims(id TEXT, subject_kind TEXT);",
+            "INSERT INTO claims VALUES ('legacy-id', 'unlisted-kind');",
+        ))
+        .unwrap();
+    let vocabulary = [("0013_graph_claim_vocabulary", "")];
+    let result = preflight(&connection, &vocabulary);
+    let expected = "0013_graph_claim_vocabulary";
+    assert!(matches!(result, Err(Error::RefusedMigration { name, ids })
+        if name == expected && ids == ["legacy-id"]));
+    assert!(preflight(&connection, &[("0012_graph_claims", "")]).is_ok());
+}
