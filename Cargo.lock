@@ -902,7 +902,7 @@ dependencies = [
 [[package]]
 name = "lbug"
 version = "0.20.4"
-source = "git+https://github.com/Orchestration-Maestro/lbug?rev=e0a1240c5c11e944d3a03cf81664b45add931098#e0a1240c5c11e944d3a03cf81664b45add931098"
+source = "git+https://github.com/Orchestration-Maestro/lbug?rev=02d90e71db83518c9bf31fdacd7280071e1dc021#02d90e71db83518c9bf31fdacd7280071e1dc021"
 dependencies = [
  "cc",
  "cmake",

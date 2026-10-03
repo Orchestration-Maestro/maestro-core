@@ -145,15 +145,16 @@ The patch lives in the organization's repository
 [`Orchestration-Maestro/lbug`](https://github.com/Orchestration-Maestro/lbug):
 the crates.io 0.20.4 crate imported unmodified, then the patch commits.
 The workspace depends on the fork directly, as a git dependency at commit
-`e0a1240` with `version = "=0.20.4"` and default features off (`Cargo.lock`
+`02d90e7` with `version = "=0.20.4"` and default features off (`Cargo.lock`
 pins the full hash). It was a `[patch.crates-io]` until 2026-10-03:
 cargo-semver-checks builds each crate in a placeholder project that ignores
 `[patch]`, so its API check built crates.io lbug instead of the fork. Its DEP-001 exception in
 `maestro-quality.toml` allows that one git source, and `supply-chain`
 records its vet exemption. The current pin includes E01/E02 rooted
 filesystem operations, E03 external native-cache reuse, E03b source-only
-builds and E01e strict rooted WAL replay. Fresh three-OS qualification is
-recorded in [S2 research](../../specs/002-knowledge-graph/research.md#e07a-e01e-repin-qualification-e0a1240).
+builds, E01e strict rooted WAL replay and E07b's hash-index rollback fix.
+Earlier three-OS qualification and the rollback repin evidence are recorded
+in [S2 research](../../specs/002-knowledge-graph/research.md#e07b-repin-02d90e7).
 
 - **OpenSSL-free** (`575d94f`): a default Cargo feature,
   `extension_installer`, keeps upstream's behaviour. Without it, the CMake

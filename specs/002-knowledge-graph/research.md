@@ -5,6 +5,25 @@ embedded LadybugDB graph engine, against the six-row adoption bar of
 [plan.md](plan.md) A1. This file holds the verdict, the measurements behind it
 and the rulings that followed. ADR-0021 records the resulting design.
 
+## E07b repin (02d90e7)
+
+The fork pin is `02d90e71db83518c9bf31fdacd7280071e1dc021`, the merge of
+[fork PR #18](https://github.com/Orchestration-Maestro/lbug/pull/18).
+It cherry-picks upstream LadybugDB commit
+`08915c1c8e1a4bd79f3236d1189621a1fb1638c0`
+([PR #1049](https://github.com/LadybugDB/ladybug/pull/1049)): checkpoint and
+assign the STRING overflow header only when the hash index changes,
+preserving the paired-header invariant during rollback/reopen.
+
+The fork's rollback matrix changed from four failures in eight scenarios to
+8/8 passing; all 14 fork CI checks passed. E07b's unchanged product
+regressions previously failed on `e0a1240` with
+`hash_index.cpp:497: hashIndexStorageInfo.overflowHeaderPage == INVALID_PAGE_IDX`:
+`native_failure_is_after_write_one_shot_and_rolls_back_edges_and_facts` and
+`native_hash_index_rollback_repro_matrix`. Their green product proof follows
+this repin; fresh maestro-core three-OS qualification remains a separate step.
+The earlier `e0a1240` receipts below remain historical evidence.
+
 ## E07a E01e repin qualification (e0a1240)
 
 The fork moved to `e0a1240c5c11e944d3a03cf81664b45add931098`, adding
