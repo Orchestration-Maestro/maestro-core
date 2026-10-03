@@ -663,6 +663,7 @@ in place.
 │   │   │   │   ├── workflow/                                                # Internal graph checks, not source admission, routing or execution
 │   │   │   │   │   ├── tests/                                               # Topology compilation's synthetic checked inputs and refusal neighbours
 │   │   │   │   │   │   ├── condition_branches.rs                            # Previously unexecuted condition branches, each with an exact typed neighbour
+│   │   │   │   │   │   ├── condition_progress.rs                            # Lexer boundaries and parser depth accounting use advancing valid neighbours
 │   │   │   │   │   │   ├── contract_branches.rs                             # Native representation and registry refusals before schema compilation
 │   │   │   │   │   │   ├── contracts.rs                                     # Contract conditions: typed neighbours and hostile text never execute
 │   │   │   │   │   │   ├── fragment_positions.rs                            # Fragment targets are schemas only at positions defined by the admitted draft

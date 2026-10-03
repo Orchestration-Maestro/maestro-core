@@ -76,18 +76,15 @@ fn lex(text: &str) -> Result<Vec<Token<'_>>, String> {
         if rest.is_empty() {
             break;
         }
-        if let Some(mark) = [
+        let (token, size) = if let Some(mark) = [
             "&&", "||", "==", "!=", "<=", ">=", "=>", "!", "<", ">", "(", ")", ",",
         ]
         .into_iter()
         .find(|mark| rest.starts_with(mark))
         {
-            tokens.push(Token::Mark(mark));
-            rest = rest.get(mark.len()..).unwrap_or_default();
+            (Token::Mark(mark), mark.len())
         } else if rest.starts_with(['\'', '"']) {
-            let size = string_length(rest)?;
-            tokens.push(Token::Literal("string"));
-            rest = rest.get(size..).unwrap_or_default();
+            (Token::Literal("string"), string_length(rest)?)
         } else {
             let size = rest
                 .bytes()
@@ -101,11 +98,21 @@ fn lex(text: &str) -> Result<Vec<Token<'_>>, String> {
                 _ if identifier(word) => Token::Name(word),
                 _ => return Err(format!("unsupported condition token {word:?}")),
             };
-            tokens.push(token);
-            rest = rest.get(size..).unwrap_or_default();
-        }
+            (token, size)
+        };
+        rest = consume(rest, size)?;
+        tokens.push(token);
     }
     Ok(tokens)
+}
+
+/// Every lexer iteration removes bytes or refuses, independently of token predicates.
+fn consume(text: &str, size: usize) -> Result<&str, String> {
+    let rest = text.get(size..).ok_or("invalid condition token length")?;
+    if rest.len() >= text.len() {
+        return Err("condition lexer did not consume input".to_owned());
+    }
+    Ok(rest)
 }
 
 /// A field path consists solely of ASCII identifier segments.
@@ -173,7 +180,9 @@ impl<'a> Parser<'a> {
     fn expression(&mut self) -> Result<Type<'a>, String> {
         let mut left = self.conjunction()?;
         while self.take("||") {
+            let position = self.position;
             let right = self.conjunction()?;
+            self.progress(position)?;
             boolean(left.kind)?;
             boolean(right.kind)?;
             left = literal("boolean");
@@ -185,12 +194,22 @@ impl<'a> Parser<'a> {
     fn conjunction(&mut self) -> Result<Type<'a>, String> {
         let mut left = self.comparison()?;
         while self.take("&&") {
+            let position = self.position;
             let right = self.comparison()?;
+            self.progress(position)?;
             boolean(left.kind)?;
             boolean(right.kind)?;
             left = literal("boolean");
         }
         Ok(left)
+    }
+
+    /// Each boolean loop must consume an operand, even if operator recognition is wrong.
+    fn progress(&self, position: usize) -> Result<(), String> {
+        if self.position <= position {
+            return Err("condition parser did not consume input".to_owned());
+        }
+        Ok(())
     }
 
     /// A single comparison, with matching primitive types.
@@ -391,5 +410,51 @@ fn boolean(kind: &str) -> Result<(), String> {
         Ok(())
     } else {
         Err("expected boolean operand".to_owned())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Parser, consume};
+    use serde_json::json;
+
+    #[test]
+    fn workflow_condition_lexer_consumption_requires_a_nonempty_valid_prefix() {
+        assert_eq!(consume("true", 4), Ok(""));
+        assert_eq!(consume("true;", 4), Ok(";"));
+        assert_eq!(consume("é;", 2), Ok(";"));
+        for (text, size) in [("true", 0), ("", 0)] {
+            assert_eq!(
+                consume(text, size),
+                Err("condition lexer did not consume input".to_owned())
+            );
+        }
+        for (text, size) in [("true", 5), ("é;", 1)] {
+            assert_eq!(
+                consume(text, size),
+                Err("invalid condition token length".to_owned())
+            );
+        }
+    }
+
+    #[test]
+    fn workflow_condition_parser_progress_requires_forward_token_movement() {
+        let root = json!({"type": "object"});
+        let registry = jsonschema::Registry::new().prepare().unwrap();
+        let parser = Parser {
+            root: &root,
+            registry: &registry,
+            tokens: vec![],
+            position: 1,
+            variables: vec![],
+            depth: 0,
+        };
+        assert!(parser.progress(0).is_ok());
+        for position in [1, 2] {
+            assert_eq!(
+                parser.progress(position),
+                Err("condition parser did not consume input".to_owned())
+            );
+        }
     }
 }
