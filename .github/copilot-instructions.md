@@ -239,6 +239,7 @@ in place.
 │   │   │   │   ├── ask_tool.rs                                              # MCP input and schema for knowledge_ask
 │   │   │   │   ├── mod.rs                                                   # Bounded local stdio MCP transport and tools
 │   │   │   │   ├── outcome.rs                                               # How a tool call ended, for its span: by the public code of the error it
+│   │   │   │   ├── preferences.rs                                           # MCP delivery of the session's immutable initialization instructions
 │   │   │   │   ├── run.rs                                                   # Runs the stdio MCP server without sending diagnostics to stdout
 │   │   │   │   └── transport.rs                                             # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
 │   │   │   ├── presentation/                                                # Presentation
@@ -297,6 +298,7 @@ in place.
 │   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
 │   │   │       ├── catalog_answer_preferences.rs                            # Real CLI/MCP/evaluation asks inspect trusted prompts through a controlled router
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
+│   │   │       ├── catalog_client_preferences.rs                            # Four synthetic client fixtures inspect delivery, not host obedience
 │   │   │       ├── catalog_codeowners.rs                                    # Read-only CODEOWNERS rendering and comparison against committed rules
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
 │   │   │       ├── catalog_init_menu.rs                                     # Plain, screen-reader-safe init and the registry-backed config editor
@@ -547,6 +549,9 @@ in place.
 │   │   │   │   ├── plan.rs                                                  # Preview immutable file bytes, validate relative names, and bind content digests
 │   │   │   │   ├── recovery.rs                                              # Read and validate write-ahead journals through the shared held-handle filesystem
 │   │   │   │   └── remove.rs                                                # Remove only committed, digest-matching owned file names
+│   │   │   ├── hosts/                                                       # Replaceable delivery ports for client session preferences
+│   │   │   │   ├── mod.rs                                                   # Replaceable delivery ports for client session preferences
+│   │   │   │   └── preferences.rs                                           # Delivery boundary independent of client names and preference storage
 │   │   │   ├── limits/                                                      # The one immutable set of numeric limits every catalog input path shares
 │   │   │   │   ├── mod.rs                                                   # The one immutable set of numeric limits every catalog input path shares
 │   │   │   │   ├── tests.rs                                                 # Plan D2's production constants, asserted once here; every boundary test
@@ -582,12 +587,14 @@ in place.
 │   │   │   │   │   ├── defaults.rs                                          # Manifest producers and the frozen four-layer registry contract
 │   │   │   │   │   ├── discovery.rs                                         # Real planted files on every host, with no mocked owner/write metadata
 │   │   │   │   │   ├── discovery_windows.rs                                 # Real Windows ACL, unreadability and reparse-point probes, run on the CI host
+│   │   │   │   │   ├── instructions.rs                                      # Rust source: instructions
 │   │   │   │   │   ├── mod.rs                                               # Settings contracts over shared S1 descriptors and preference adapters
 │   │   │   │   │   ├── preferences.rs                                       # Strict init drafts use the same S1 file/parser API as all preference consumers
 │   │   │   │   │   ├── resolution.rs                                        # Rust source: resolution
 │   │   │   │   │   └── standards.rs                                         # Standard values override every C17 preference layer without duplicating resolution
 │   │   │   │   ├── defaults.rs                                              # One redacting S1 default producer, shared by source checking and sessions
 │   │   │   │   ├── discovery.rs                                             # Safe session snapshots over S1's bounded parser and discovery walk
+│   │   │   │   ├── instructions.rs                                          # English model instructions over already resolved session preferences
 │   │   │   │   ├── mod.rs                                                   # Typed restrictive resolution over the canonical S1 settings descriptors
 │   │   │   │   ├── preferences.rs                                           # Side-effect-free init preferences over S1's registry, parser and file adapter
 │   │   │   │   ├── resolve.rs                                               # Typed restrictive resolution over four preference layers; storage and parsing stay in S1
@@ -1665,6 +1672,7 @@ in place.
 │       │   ├── hosts.md                                                     # Catalog host format probe (C01)
 │       │   ├── interface.md                                                 # Init terminal dependency measurements (C05f)
 │       │   ├── owner-first-migration.md                                     # Public v4 checker and bootstrap migration evidence
+│       │   ├── session-preferences.md                                       # Session preferences delivery: C05e handoff
 │       │   └── trust.md                                                     # C09 public attestation probe and trust measurements
 │       ├── plan.md                                                          # Implementation Plan: Catalog
 │       ├── quality-profile-fields.md                                        # Quality-profile fields (C65)

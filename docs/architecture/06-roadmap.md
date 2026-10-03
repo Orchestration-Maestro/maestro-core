@@ -264,6 +264,13 @@ instruction fragment in every launched, resumed and delegated agent. Acceptance
 inspects actual adapter instruction payloads on both provider routes for all
 three tones and a language without built-in interface strings, retaining the
 selected tag and English code/commit/name/identifier/log/documentation rule.
+Inspect the exact launch/resume/delegation payload, fail on missing or stale
+fragments and model-supplied replacements, and observe generated conversation
+versus English artifacts/logs. Native adapters take only
+`native_preferences_instructions()` from the shared settings module: follow the
+current MCP session and retain the fixed English rule, never persist values.
+C05e's four-client stdio fixtures prove construction and delivery only; C08
+supplies host evidence. See the [handoff](../../specs/003-catalog/research/session-preferences.md).
 S3 construction/delivery tests are not this launch proof or proof of host obedience.
 
 **S4 workspace-trust hook obligation:** qualify Copilot (transferred C20,
@@ -272,7 +279,10 @@ C20 requires actual Copilot allow, deny and error-to-deny receipts with
 observed effects; all hook/effect tests must deny outside writes, secret reads inside trust,
 link escapes and agent-shell trust administration (even a correct
 `--confirm-path`), with allowed neighbours and zero
-executor calls on denial. These extend the existing S4 hook qualification,
+executor calls on denial. Pi, Codex and Claude Code each need actual normalized
+trusted-event payload receipts and observed filesystem/executor effects, including
+adapter-error-to-deny tests; an unsupported hook stays explicitly unprotected.
+These extend the existing S4 hook qualification,
 not S3's claimed enforcement. S4 task/session admission must also hold the
 shared update lifecycle lease so no activation/rollback happens mid-task.
 

@@ -134,7 +134,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Mcp { .. } => {
             let settings = session.knowledge()?;
             let (model_port, qdrant) = search::ports()?;
-            run_mcp(model_port, qdrant, settings, session.mcp_context())?;
+            run_mcp(model_port, qdrant, settings, session.mcp_context()?)?;
             Ok(ExitCode::SUCCESS)
         }
         Noun::Config {

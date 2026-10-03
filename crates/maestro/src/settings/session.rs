@@ -65,7 +65,12 @@ impl Session {
     }
 
     /// Path-free, immutable initialization provenance for model-visible MCP instructions.
-    pub(crate) fn mcp_context(&self) -> String {
+    ///
+    /// # Errors
+    /// [`Failure::Failed`] for a missing or invalid registered presentation setting.
+    pub(crate) fn mcp_context(&self) -> Result<String, Failure> {
+        let fragment = settings::conversation_instructions(&self.catalog_resolved())
+            .map_err(Failure::failed)?;
         let origin = if self.discovery.file.is_some() {
             "workspace-selected (explicit --workspace)"
         } else if self.discovery.note.is_some() {
@@ -75,11 +80,11 @@ impl Session {
         } else {
             "built-in defaults; no workspace file selected"
         };
-        format!(
-            "Preferences: {origin}. Workspace overrides require --workspace. \
+        Ok(format!(
+            "{fragment} Preferences: {origin}. Workspace overrides require --workspace. \
             Preferences are fixed for this session; restart for edits; \
             tool arguments cannot replace them."
-        )
+        ))
     }
 
     /// Every setting's effective value, with the layer that set it.
@@ -121,5 +126,43 @@ impl WorkspacePreferences for Session {
 
     fn layers(&self, _registry: &Registry, _limits: &Limits) -> Result<Layers, String> {
         Ok(self.layers.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Storage-free snapshot whose registry can exercise internal invariants.
+    fn source(registry: Registry) -> Session {
+        Session {
+            registry,
+            files: FileLayers::new(Path::new("config"), None),
+            discovery: Discovery::default(),
+            layers: Layers::default(),
+            flags: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn catalog_client_preferences_missing_registered_language_is_failed() {
+        let session = source(Registry::new(&[]).unwrap());
+        assert!(matches!(session.mcp_context(), Err(Failure::Failed(key)) if key == "language"));
+    }
+
+    #[test]
+    fn catalog_client_preferences_freezes_values_even_when_source_changes() {
+        let mut port = source(Registry::built_in().unwrap());
+        let session = Session::from_preferences(
+            Path::new("config"),
+            &port,
+            Discovery::default(),
+            &["language=JA".to_owned(), "tone=detailed".to_owned()],
+        )
+        .unwrap();
+        let before = session.mcp_context().unwrap();
+        port.registry = Registry::new(&[]).unwrap();
+        assert_eq!(session.mcp_context().unwrap(), before);
+        assert!(before.starts_with("Conversation language: \"ja\"; tone: \"detailed\"."));
     }
 }

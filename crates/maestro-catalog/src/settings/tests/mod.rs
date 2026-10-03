@@ -4,6 +4,7 @@ mod defaults;
 mod discovery;
 #[cfg(windows)]
 mod discovery_windows;
+mod instructions;
 mod preferences;
 mod resolution;
 mod standards;

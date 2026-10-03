@@ -813,20 +813,20 @@ unmeasured multilingual model quality.
 `specs/003-catalog/research/session-preferences.md`.
 **Requirements:** FR-S3-031, FR-S3-036, SC-S3-010.
 
-- [ ] **Step 1: Red.** Assert the exact effective language/tone and fixed English
+- [x] **Step 1: Red.** Assert the exact effective language/tone and fixed English
   artifact/log rules in initialization instructions observed by each of Pi,
   Claude Code, Codex and Copilot client fixtures. A stale value, missing fragment
   or model-supplied replacement must fail; cover the visible UI fallback note.
   Start in a nested workspace and an empty folder, with/without --workspace;
   report selected versus fallback source without paths. Supplied MCP roots never
   change S3's choice. Model instructions contain only canonical quoted tags.
-- [ ] **Step 2: Green.** Build one English instruction fragment from validated
+- [x] **Step 2: Green.** Build one English instruction fragment from validated
   session preferences, delivered by `ClientPreferencesDelivery`'s MCP adapter.
   Native projections reuse only its fixed English artifact/log rule plus the
   instruction to follow current MCP session language/tone, never stored values. Record the named S4 launch-adapter and non-Copilot trust-hook
   obligations, with their actual payload/effect acceptance tests, in 06/08 and
   the handoff note. Add no launcher, plugin or dynamic discovery mechanism.
-- [ ] **Step 3: Check.** Run capped nextest filters `catalog_client_preferences`
+- [x] **Step 3: Check.** Run capped nextest filters `catalog_client_preferences`
   and `mcp_clients`; inspect each initialization payload. C08 supplies actual
   host evidence without calling fixture behavior host obedience.
 

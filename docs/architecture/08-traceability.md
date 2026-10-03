@@ -863,13 +863,23 @@ part of C28's evidence for these existing rows, never an untracked M3 promise.
   consume C05e's shared fragment in every actual launch, resume and delegation.
   Test adapter payloads on both providers with each tone and a non-interface
   language; preserve selected tag and English artifact/log rules, reject
-  model-supplied preference replacement. S3 tests construction/delivery only.
+  model-supplied preference replacement. Fail on missing/stale fragments at
+  launch/resume/delegation and observe conversation versus English artifact/log
+  effects. Native adapter input is the value-free
+  `native_preferences_instructions()`; no selected values enter native files.
+  `catalog_client_preferences` tests exact MCP payloads for four fixtures;
+  `settings::tests::instructions` tests canonical construction and refusals.
+  C08 owns host evidence; S3 fixtures are not host obedience. The
+  [handoff](../../specs/003-catalog/research/session-preferences.md) names the
+  remaining payload/effect acceptance. S3 tests construction/delivery only.
 - **S4 workspace-trust hook obligation** (remaining portion of
   `product.GD2, GD4, GD5` and the existing hook deferral): transferred C20
   Copilot (4 h), Pi, Codex and Claude Code must use qualified trusted event/identity adapters with the same path
   policy. Test actual outside-write, secret-read, symlink-escape and agent-shell
   trust administration, including correct --confirm-path arguments, with allowed
-  neighbours and zero executor calls on denial.
+  neighbours and zero executor calls on denial. Pi, Codex and Claude Code each
+  require normalized trusted-event payload receipts, observed effects and
+  adapter-error-to-deny tests; unsupported hooks remain unprotected.
   S4 also uses the shared update idle lease around tasks/sessions. No S3
   instruction or preference setting is runtime containment evidence.
 - **Notify-only update checks for owner-managed components (Qdrant, router runtime,

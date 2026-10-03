@@ -2,6 +2,7 @@
 
 pub(crate) mod defaults;
 mod discovery;
+mod instructions;
 mod preferences;
 pub(crate) mod resolve;
 mod session;
@@ -12,6 +13,9 @@ pub use discovery::{NoWorkspaceTrust, SessionPreferences, WorkspaceTrust};
 
 pub use preferences::{FilePreferences, PreferencesDraft, WorkspacePreferences, draft_preferences};
 
+pub use instructions::{
+    ARTIFACT_LOG_RULE, conversation_instructions, native_preferences_instructions,
+};
 pub use resolve::resolve;
 pub use types::{Layer, ResolveDiagnostic, ResolvedSettings, ResolvedValue};
 
