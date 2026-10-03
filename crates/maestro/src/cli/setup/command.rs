@@ -16,7 +16,7 @@ use crate::{
 };
 use maestro_kernel::paths::{self, Environment};
 use serde::Serialize;
-use std::{env::consts, path::Path, process::ExitCode};
+use std::{env::consts, fmt::Write as _, path::Path, process::ExitCode};
 
 /// The schema of the document `setup` prints under `--json`.
 const SCHEMA: &str = "maestro-cli/setup/1";
@@ -102,6 +102,7 @@ pub(in crate::cli) fn run(
                     engine: "unknown",
                     directory: None,
                     action: "refused",
+                    missing_guards: Vec::new(),
                     changed: false,
                     detail: Some(detail.clone()),
                 },
@@ -275,7 +276,17 @@ pub(super) fn graph_text(graph: &GraphSetup) -> String {
         ("secure_permissions", false) => "to give mode 0700, which `maestro setup --yes` does",
         _ => "in place",
     };
-    format!("Graph: the embedded engine's directory {directory}, {state}.")
+    let mut text = format!("Graph: the embedded engine's directory {directory}, {state}.");
+    if !graph.missing_guards.is_empty() {
+        let guards = graph.missing_guards.join(", ");
+        let state = if graph.changed {
+            "created"
+        } else {
+            "missing; run maestro setup --yes to create"
+        };
+        let _ = write!(text, " Permanent guards {guards}: {state}.");
+    }
+    text
 }
 
 /// `path` as a document shows it.

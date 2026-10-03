@@ -16,6 +16,7 @@ engine = ["maestro-knowledge/engine"]
 
 [dependencies]
 clap.workspace = true
+maestro-canonicalization.workspace = true
 maestro-kernel.workspace = true
 maestro-knowledge.workspace = true
 maestro-settings.workspace = true
@@ -36,7 +37,6 @@ tokio = { workspace = true, features = [
 ulid.workspace = true
 
 [dev-dependencies]
-maestro-canonicalization.workspace = true
 maestro-test-scratch.workspace = true
 qdrant-client.workspace = true
 tonic.workspace = true

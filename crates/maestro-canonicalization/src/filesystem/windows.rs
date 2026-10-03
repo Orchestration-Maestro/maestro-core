@@ -13,6 +13,7 @@ use std::{
     os::windows::fs::{MetadataExt, OpenOptionsExt},
     path::{Component, Path, PathBuf},
 };
+use winapi_util::file::information;
 
 /// `FILE_SHARE_READ`: others may read the file while the handle is open.
 const FILE_SHARE_READ: u32 = 0x0000_0001;
@@ -41,7 +42,11 @@ impl Directory {
     /// verbatim path such as `\\?\C:\data`, then the walk holds every component from its drive or
     /// share on, never following a link, and creates missing components when asked.
     pub(crate) fn open(root: &Path, below: &Path, create: bool) -> io::Result<Self> {
-        let path = resolve(root, below)?;
+        Self::open_resolved(&resolve(root, below)?, create)
+    }
+
+    /// Walk an already resolved absolute path, never resolving a reparse point.
+    pub(crate) fn open_resolved(path: &Path, create: bool) -> io::Result<Self> {
         // The prefix and root of a resolved path, such as `\\?\C:\` or `\\?\UNC\server\share\`.
         let start: PathBuf = path
             .components()
@@ -59,6 +64,27 @@ impl Directory {
             }
         }
         Ok(directory)
+    }
+
+    /// Open or create a control file, inheriting its private parent ACL.
+    pub(crate) fn open_control(&self, name: &str, create: bool) -> io::Result<File> {
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(create)
+            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
+            .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(self.path.join(name))?;
+        refuse_reparse_point(&file)?;
+        if !file.metadata()?.is_file() || information(&file)?.number_of_links() != 1 {
+            return Err(io::Error::other(
+                "control file must be regular with one link",
+            ));
+        }
+        if create {
+            file.sync_all()?;
+        }
+        Ok(file)
     }
 
     /// The bytes of a regular file in the directory, never read through a link.

@@ -1,13 +1,15 @@
 //! The embedded graph's part of `maestro setup`: it previews, and with
 //! `--yes` creates, the graph's own directory under the kernel's data
-//! directory. It downloads nothing, opens no engine and removes nothing.
+//! directory and permanent control files. It downloads nothing, opens no engine
+//! and removes nothing.
 
 use crate::{failure::Failure, settings::GraphEngine};
+use maestro_canonicalization::{ControlFile, OwnedRoot};
 use maestro_kernel::paths::{self, Environment};
 use serde::Serialize;
 use std::{
     fs::{self, Metadata},
-    io::ErrorKind,
+    io::{Error, ErrorKind},
     path::Path,
 };
 
@@ -26,8 +28,11 @@ pub(super) struct GraphSetup {
     pub(super) engine: &'static str,
     /// The graph's directory, or `null` while the graph is disabled.
     pub(super) directory: Option<String>,
+    /// Permanent guard files missing before setup; preview reports these without writes.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(super) missing_guards: Vec<&'static str>,
     /// What the directory lacked: `disabled`, `create_directory`,
-    /// `secure_permissions` or `ready`.
+    /// `secure_permissions`, `create_guards` or `ready`.
     pub(super) action: &'static str,
     /// Whether setup created or secured the directory.
     pub(super) changed: bool,
@@ -54,6 +59,7 @@ pub(super) fn run(
             engine: "none",
             directory: None,
             action: "disabled",
+            missing_guards: Vec::new(),
             changed: false,
             detail: None,
         });
@@ -70,7 +76,7 @@ pub(super) fn run(
 
 /// Previews what `directory` lacks, and supplies it when `yes`.
 fn prepare(directory: &Path, yes: bool) -> Result<GraphSetup, Failure> {
-    let action = match fs::symlink_metadata(directory) {
+    let mut action = match fs::symlink_metadata(directory) {
         Ok(metadata) if metadata.file_type().is_symlink() => {
             return Err(Failure::refused(format!(
                 "the graph directory {} is a link: move what it points to into its place \
@@ -89,23 +95,58 @@ fn prepare(directory: &Path, yes: bool) -> Result<GraphSetup, Failure> {
         Err(error) if error.kind() == ErrorKind::NotFound => "create_directory",
         Err(error) => return Err(Failure::failed_by(&error)),
     };
+    // The precheck selects a report action only; all access uses the held root.
+    let root = match OwnedRoot::open(directory, yes) {
+        Ok(root) => Some(root),
+        Err(error) if !yes && error.kind() == ErrorKind::NotFound => None,
+        Err(error) => return Err(unsafe_root(directory, &error)),
+    };
+    let controls = [ControlFile::Access, ControlFile::Writer];
+    let mut missing_guards = Vec::new();
+    for control in controls {
+        let name = control.file_name();
+        if let Some(root) = &root {
+            match root.open_control(control) {
+                Ok(_) => {}
+                Err(error) if error.kind() == ErrorKind::NotFound => missing_guards.push(name),
+                Err(error) => return Err(unsafe_root(&directory.join(name), &error)),
+            }
+        } else {
+            missing_guards.push(name);
+        }
+    }
+    if action == "ready" && !missing_guards.is_empty() {
+        action = "create_guards";
+    }
     let changed = yes && action != "ready";
-    if changed {
-        match action {
-            "create_directory" => create(directory)?,
-            // Windows directories inherit their ACL: none is shared.
-            #[cfg(unix)]
-            "secure_permissions" => make_private(directory)?,
-            _ => {}
+    if yes && let Some(root) = &root {
+        if action == "secure_permissions" {
+            root.make_private()
+                .map_err(|error| unsafe_root(directory, &error))?;
+        }
+        for control in controls {
+            let name = control.file_name();
+            root.ensure_control(control)
+                .map_err(|error| unsafe_root(&directory.join(name), &error))?;
         }
     }
     Ok(GraphSetup {
         engine: "ladybug",
         directory: Some(directory.display().to_string()),
+        missing_guards,
         action,
         changed,
         detail: None,
     })
+}
+
+/// Name the refused filesystem entry and an explicit repair action.
+fn unsafe_root(path: &Path, error: &Error) -> Failure {
+    Failure::refused(format!(
+        "the graph path {} is unsafe or unavailable: {error}; restore its owned directory \
+         and regular private guard files, then run maestro setup --yes",
+        path.display()
+    ))
 }
 
 /// Whether the graph directory `metadata` describes is its owner's alone:
@@ -121,28 +162,6 @@ pub(in crate::cli) fn is_private(metadata: &Metadata) -> bool {
 #[cfg(not(unix))]
 pub(in crate::cli) fn is_private(_metadata: &Metadata) -> bool {
     true
-}
-
-/// Creates `directory`, and its parents, its owner's alone from the start.
-fn create(directory: &Path) -> Result<(), Failure> {
-    let mut builder = fs::DirBuilder::new();
-    builder.recursive(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::DirBuilderExt as _;
-        builder.mode(0o700);
-    }
-    builder
-        .create(directory)
-        .map_err(|error| Failure::failed_by(&error))
-}
-
-/// Gives `directory` mode `0700`.
-#[cfg(unix)]
-fn make_private(directory: &Path) -> Result<(), Failure> {
-    use std::os::unix::fs::PermissionsExt as _;
-    fs::set_permissions(directory, fs::Permissions::from_mode(0o700))
-        .map_err(|error| Failure::failed_by(&error))
 }
 
 #[cfg(test)]
@@ -205,6 +224,7 @@ mod tests {
             (preview.action, preview.changed),
             ("create_directory", false)
         );
+        assert_eq!(preview.missing_guards, [".access.guard", ".writer.guard"]);
         assert_eq!(preview.engine, "ladybug");
         assert_eq!(preview.directory, Some(graph.display().to_string()));
         assert!(!scratch.graph().exists());
@@ -228,6 +248,47 @@ mod tests {
         let error = prepare(&scratch.graph(), true).unwrap_err();
         assert!(error.to_string().contains("not a directory"), "{error}");
         assert_eq!(fs::read(scratch.graph()).unwrap(), b"kept");
+    }
+
+    #[test]
+    fn setup_previews_missing_guards_and_resumes_without_truncating() {
+        let scratch = Scratch::new();
+        prepare(&scratch.graph(), true).unwrap();
+        fs::write(scratch.graph().join(".access.guard"), b"permanent").unwrap();
+        fs::remove_file(scratch.graph().join(".writer.guard")).unwrap();
+        let preview = prepare(&scratch.graph(), false).unwrap();
+        assert_eq!((preview.action, preview.changed), ("create_guards", false));
+        assert_eq!(preview.missing_guards, [".writer.guard"]);
+        assert!(!scratch.graph().join(".writer.guard").exists());
+        let resumed = prepare(&scratch.graph(), true).unwrap();
+        assert_eq!((resumed.action, resumed.changed), ("create_guards", true));
+        assert_eq!(
+            fs::read(scratch.graph().join(".access.guard")).unwrap(),
+            b"permanent"
+        );
+        assert!(scratch.graph().join(".writer.guard").is_file());
+        let again = prepare(&scratch.graph(), true).unwrap();
+        assert_eq!((again.action, again.changed), ("ready", false));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn setup_refuses_linked_guard_before_creating_missing_neighbour() {
+        use std::os::unix::fs::symlink;
+        let scratch = Scratch::new();
+        prepare(&scratch.graph(), true).unwrap();
+        fs::remove_file(scratch.graph().join(".access.guard")).unwrap();
+        fs::remove_file(scratch.graph().join(".writer.guard")).unwrap();
+        let sentinel = scratch.0.join("outside");
+        fs::write(&sentinel, b"kept").unwrap();
+        symlink(&sentinel, scratch.graph().join(".writer.guard")).unwrap();
+        for yes in [false, true] {
+            let error = prepare(&scratch.graph(), yes).unwrap_err().to_string();
+            assert!(error.contains(".writer.guard"), "{error}");
+            assert!(error.contains("maestro setup --yes"), "{error}");
+            assert!(!scratch.graph().join(".access.guard").exists());
+            assert_eq!(fs::read(&sentinel).unwrap(), b"kept");
+        }
     }
 
     #[cfg(unix)]

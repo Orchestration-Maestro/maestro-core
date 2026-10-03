@@ -56,6 +56,7 @@ fn graph_setup_text_covers_every_action_and_changed_state() {
             engine: "ladybug",
             directory: Some("/data/graph".to_owned()),
             action,
+            missing_guards: Vec::new(),
             changed,
             detail: None,
         };
@@ -133,5 +134,29 @@ fn a_path_no_unit_can_hold_is_refused_naming_it() {
             refusal.to_string().contains("/data/"),
             "names the path: {refusal}"
         );
+    }
+}
+
+#[test]
+fn graph_setup_text_names_missing_and_created_permanent_guards() {
+    for changed in [false, true] {
+        let graph = GraphSetup {
+            engine: "ladybug",
+            directory: Some("/data/graph".to_owned()),
+            action: "create_guards",
+            missing_guards: vec![".access.guard", ".writer.guard"],
+            changed,
+            detail: None,
+        };
+        let text = graph_text(&graph);
+        assert!(text.contains(".access.guard, .writer.guard"), "{text}");
+        if changed {
+            assert!(text.contains(": created."), "{text}");
+        } else {
+            assert!(
+                text.contains("missing; run maestro setup --yes to create"),
+                "{text}"
+            );
+        }
     }
 }

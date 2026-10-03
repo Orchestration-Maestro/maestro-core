@@ -379,6 +379,8 @@ in place.
 │   │   │   │   └── validation.rs                                            # Replay checks: coverage and every prepared part must rebuild from the mapped source
 │   │   │   ├── filesystem/                                                  # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
 │   │   │   │   ├── mod.rs                                                   # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
+│   │   │   │   ├── owned.rs                                                 # Owned filesystem roots and permanent control files, independent of any engine
+│   │   │   │   ├── owned_tests.rs                                           # Permanent control files use the same held filesystem boundary on both platforms
 │   │   │   │   ├── root.rs                                                  # The root a caller names, resolved once, and the names the store appends below it
 │   │   │   │   ├── unix.rs                                                  # Unix: every name resolves against an open directory through rustix's openat family, which
 │   │   │   │   └── windows.rs                                               # Windows: names resolve by path, but every directory on the way is held open without

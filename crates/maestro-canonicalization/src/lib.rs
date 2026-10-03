@@ -39,6 +39,7 @@ pub use content::*;
 pub use dedup::*;
 pub use document::{CanonicalDocument, MarkdownReference, Section, SourceAccounting, SourceRole};
 pub use error::Error;
+pub use filesystem::{ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot, SystemFileLock};
 pub use model::*;
 pub use pipeline::{PARSER_VERSION, SCHEMA_VERSION, canonicalize};
 pub use prepared_inputs::{

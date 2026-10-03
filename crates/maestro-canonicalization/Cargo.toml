@@ -18,3 +18,9 @@ sha2.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 rustix.workspace = true
+
+[dev-dependencies]
+maestro-test-scratch.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+winapi-util.workspace = true

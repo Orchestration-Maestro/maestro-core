@@ -7,8 +7,9 @@ use rustix::fs::{AtFlags, Mode, OFlags, linkat, mkdirat, open, openat, unlinkat}
 use rustix::io::Errno;
 use std::{
     ffi::OsStr,
-    fs::File,
+    fs::{File, Permissions},
     io::{self, Read},
+    os::unix::fs::{MetadataExt, PermissionsExt},
     path::{Component, Path},
 };
 
@@ -21,7 +22,11 @@ impl Directory {
     /// the walk opens every component from `/` on without following links, creating missing
     /// components when asked.
     pub(crate) fn open(root: &Path, below: &Path, create: bool) -> io::Result<Self> {
-        let path = resolve(root, below)?;
+        Self::open_resolved(&resolve(root, below)?, create)
+    }
+
+    /// Walk an already resolved absolute path, without resolving links again.
+    pub(crate) fn open_resolved(path: &Path, create: bool) -> io::Result<Self> {
         let mut directory = File::open("/")?;
         for component in path.components() {
             if let Component::Normal(name) = component {
@@ -29,6 +34,68 @@ impl Directory {
             }
         }
         Ok(Self(directory))
+    }
+
+    /// Refuse relocation by comparing the named root with its held identity.
+    pub(crate) fn validate_owned(&self, path: &Path) -> io::Result<()> {
+        let named = Self::open_resolved(path, false)?;
+        let held = self.0.metadata()?;
+        let current = named.0.metadata()?;
+        if (held.dev(), held.ino()) != (current.dev(), current.ino()) {
+            return Err(io::Error::other("owned root was relocated or replaced"));
+        }
+        Ok(())
+    }
+
+    /// Locks and control creation require an owner-only lock domain.
+    pub(crate) fn validate_private(&self) -> io::Result<()> {
+        if self.0.metadata()?.mode() & 0o7777 != 0o700 {
+            return Err(io::Error::other(
+                "owned root must have mode 0700; run setup --yes",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Secure the held directory, never a subsequently reopened path.
+    pub(crate) fn make_private(&self) -> io::Result<()> {
+        self.0.set_permissions(Permissions::from_mode(0o700))
+    }
+
+    /// Open a permanent control file with no-follow and no truncation.
+    pub(crate) fn open_control(&self, name: &str, create: bool) -> io::Result<File> {
+        let mut flags = OFlags::RDWR | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC;
+        if create {
+            flags |= OFlags::CREATE | OFlags::EXCL;
+        }
+        let file = File::from(openat(&self.0, name, flags, Mode::RUSR | Mode::WUSR)?);
+        let metadata = file.metadata()?;
+        if !metadata.is_file() || metadata.nlink() != 1 {
+            return Err(io::Error::other(
+                "control file must be regular with one link",
+            ));
+        }
+        if metadata.mode() & 0o7777 != 0o600 || metadata.uid() != self.0.metadata()?.uid() {
+            return Err(io::Error::other(
+                "control file must have its root's owner and mode 0600",
+            ));
+        }
+        if create {
+            file.sync_all()?;
+            self.0.sync_all()?;
+        }
+        Ok(file)
+    }
+
+    /// Bind a held control to its current, safely reopened name.
+    pub(crate) fn validate_control(&self, name: &str, file: &File) -> io::Result<()> {
+        let named = self.open_control(name, false)?;
+        let held = file.metadata()?;
+        let current = named.metadata()?;
+        if (held.dev(), held.ino()) != (current.dev(), current.ino()) {
+            return Err(io::Error::other("permanent control file was replaced"));
+        }
+        Ok(())
     }
 
     /// The bytes of a regular file in the directory, never read through a link.

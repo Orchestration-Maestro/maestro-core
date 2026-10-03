@@ -31,6 +31,7 @@ files = [
   "crates/maestro-knowledge/src/graph/projection/engine/rows.rs",
   "crates/maestro-knowledge/src/graph/projection/engine/backend.rs",
   "crates/maestro-knowledge/src/graph/projection/engine/reader.rs",
+  "crates/maestro/src/cli/setup/graph.rs",
 ]
 
 # The seams of the canonicalization crate that keep one caller: each door is a
@@ -61,12 +62,6 @@ reason = "the pipeline runs the structural validator, a subsystem of its own"
 
 # The platform door picks rustix on Unix or Win32's flags on Windows, so that
 # neither the store nor the tokenizer branches on the platform (ADR-0018).
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
-item = "Directory"
-reason = "the store's link-free directories, one type on each platform"
-
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/filesystem/mod.rs"

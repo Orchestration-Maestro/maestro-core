@@ -8,6 +8,8 @@ use super::support::{Ended, Home};
 use serde_json::Value;
 #[cfg(unix)]
 use std::fs;
+#[cfg(all(unix, feature = "engine"))]
+use std::path::Path;
 
 /// The graph's entry of a `status` or `doctor` document.
 fn graph(document: &Value) -> &Value {
@@ -194,6 +196,10 @@ fn with_the_engine_setup_owns_the_directory_and_health_opens_nothing_yet() {
     let lbug = ["--set", "graph.engine=ladybug", "--json", "setup"];
     let (preview, _, _) = setup_offline(&home, &lbug);
     assert_eq!(preview["graph"]["action"], "create_directory", "{preview}");
+    assert_eq!(
+        preview["graph"]["missing_guards"],
+        serde_json::json!([".access.guard", ".writer.guard"])
+    );
     assert!(!graph_directory.exists());
     let (applied, calls, _) = setup_offline(&home, &[&lbug[..], &["--yes"]].concat());
     assert_eq!(applied["graph"]["changed"], true, "{applied}");
@@ -201,6 +207,7 @@ fn with_the_engine_setup_owns_the_directory_and_health_opens_nothing_yet() {
     assert!(!calls.contains("curl") && !calls.contains("tar"), "{calls}");
     let mode = fs::metadata(&graph_directory).unwrap().permissions().mode();
     assert_eq!(mode & 0o777, 0o700);
+    assert_permanent_guards(&graph_directory);
 
     fs::write(graph_directory.join("unpublished.lbug"), "kept").unwrap();
     let doctor = home.run(&["--set", "graph.engine=ladybug", "--json", "doctor"]);
@@ -219,4 +226,18 @@ fn with_the_engine_setup_owns_the_directory_and_health_opens_nothing_yet() {
     assert!(detail(&shared).contains("permissions"), "{shared:?}");
     let mode = fs::metadata(&graph_directory).unwrap().permissions().mode();
     assert_eq!(mode & 0o777, 0o755, "status changes nothing");
+}
+
+/// The permanent guards are real private regular files, not engine sidecars.
+#[cfg(all(unix, feature = "engine"))]
+fn assert_permanent_guards(directory: &Path) {
+    use std::os::unix::fs::PermissionsExt as _;
+    for name in [".access.guard", ".writer.guard"] {
+        let guard = directory.join(name);
+        assert!(guard.is_file());
+        assert_eq!(
+            fs::metadata(guard).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
 }
