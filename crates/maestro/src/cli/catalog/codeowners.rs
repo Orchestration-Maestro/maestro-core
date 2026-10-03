@@ -112,6 +112,9 @@ mod tests {
         fs::remove_dir_all(scratch).unwrap();
     }
 
+    // A path under a regular file is ENOTDIR on Unix (a non-NotFound metadata
+    // error); Windows reports NotFound, which this code correctly treats as absent.
+    #[cfg(unix)]
     #[test]
     fn codeowners_metadata_errors_preserve_the_failed_path() {
         let scratch = scratch_directory().unwrap();
