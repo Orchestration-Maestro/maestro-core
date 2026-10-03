@@ -22,6 +22,11 @@ exclude_re = [
   # Cursor None replays the first batch; validate refuses terminal with next,
   # so saved.next != batch.cursor refuses every append after a terminal batch.
   '^crates/maestro-kernel/src/acquisition/partition_checkpoint\.rs:165:9: replace \|\| with && in previous$',
+  # serde_json dispatches every JSON kind to a supported Node visit, never
+  # asking what this private visitor expected (as with ValueVisitor below).
+  '^crates/maestro-knowledge/src/strict_json\.rs:82:9: replace <impl Visitor<.de> for Node<._>>::expecting -> fmt::Result with Ok\(Default::default\(\)\)$',
+  # Value::default() is Value::Null, exactly the original visit_unit value.
+  '^crates/maestro-knowledge/src/strict_json\.rs:99:9: replace <impl Visitor<.de> for Node<._>>::visit_unit -> Result<Value, E> with Ok\(Default::default\(\)\)$',
   # `<=` only adds the empty range, which holds no content: the same findings.
   '^crates/maestro-canonicalization/src/validate/structure\.rs:155:19: replace < with <= in check_uncovered$',
   '^crates/maestro-canonicalization/src/validate/structure\.rs:165:14: replace < with <= in check_gap$',

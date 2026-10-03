@@ -3,6 +3,7 @@
 
 mod answer_live;
 mod collection_contract;
+mod collection_policy_contract;
 mod corpus_contract;
 mod eval_synthetic;
 mod import_contract;
@@ -25,6 +26,7 @@ mod quality_gate;
 mod quality_ledger;
 mod router_parity;
 mod search_live;
+mod strict_json_contract;
 mod suite_check;
 mod suite_contract;
 mod suite_resolution;

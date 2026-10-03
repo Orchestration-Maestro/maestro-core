@@ -1609,6 +1609,7 @@ in place.
 │   │   │       │   └── support.rs                                                       # Owns private scratch directories used by synthetic-gate tests
 │   │   │       ├── answer_live.rs                                                       # A single buffered ask against a registered answerer, live: an explicit
 │   │   │       ├── collection_contract.rs                                               # maestro-collection/1: a strict declaration parses into typed values; an
+│   │   │       ├── collection_policy_contract.rs                                        # V2 policy links round-trip and policy identifiers retain their ASCII grammar
 │   │   │       ├── corpus_contract.rs                                                   # maestro-corpus/1: one line per document parses into typed values; an
 │   │   │       ├── eval_synthetic.rs                                                    # The evaluation runner over the public synthetic suite (T014), end to end
 │   │   │       ├── lexical_accents.rs                                                   # Properties of bm25-en-fr/1 over generated texts: a text and the same
@@ -1628,6 +1629,7 @@ in place.
 │   │   │       ├── quality_ledger.rs                                                    # maestro-quality-ledger/1: strict rules a line; a missing ledger is empty
 │   │   │       ├── router_parity.rs                                                     # The router tokenizer's parity with the native counter, live: an explicit
 │   │   │       ├── search_live.rs                                                       # Search this machine's published collection against its live Qdrant and model
+│   │   │       ├── strict_json_contract.rs                                              # Strict acquisition JSON preserves values and enforces defensive boundaries
 │   │   │       ├── suite_contract.rs                                                    # maestro-suite/1: a suite, one JSON line per question, parses into typed
 │   │   │       ├── suite_resolution.rs                                                  # Resolving an expected section in its canonicalized document: a heading path
 │   │   │       └── synthetic_collection.rs                                              # The public synthetic collection, tests/fixtures/synthetic, which stands in
