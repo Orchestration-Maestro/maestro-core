@@ -432,3 +432,82 @@ fn windows_acl(path: &Path, script: &str) {
         "private inherited ACL fixture/check failed"
     );
 }
+
+#[test]
+fn filesystem_staging_reservation_is_create_new_and_never_adopts() {
+    let scratch = Scratch::new();
+    let root = OwnedRoot::open(&scratch.0.join("owned"), true).unwrap();
+    let staging = root.reserve_child(".build-one").unwrap();
+    assert!(root.reserve_child(".build-one").is_err());
+    for name in ["", ".", "..", "../outside", "/absolute", "a/b", "a\\b"] {
+        assert!(root.reserve_child(name).is_err());
+    }
+    assert_eq!(
+        staging.resolved_path().unwrap(),
+        fs::canonicalize(scratch.0.join("owned/.build-one")).unwrap()
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn filesystem_publication_moves_without_overwrite_and_preserves_unsafe_neighbors() {
+    use std::os::unix::fs::symlink;
+    let scratch = Scratch::new();
+    let root = OwnedRoot::open(&scratch.0.join("owned"), true).unwrap();
+    let staging = root.reserve_child(".build-one").unwrap();
+    let name = format!("g{}.lbdb", "a".repeat(64));
+    let source = staging.resolved_path().unwrap().join(&name);
+    let final_path = root.resolved_path().unwrap().join(&name);
+    fs::write(&source, b"native checkpoint").unwrap();
+    fs::write(&final_path, b"preserved final").unwrap();
+    assert!(root.install_from(&staging, &name).is_err());
+    assert_eq!(fs::read(&source).unwrap(), b"native checkpoint");
+    assert_eq!(fs::read(&final_path).unwrap(), b"preserved final");
+    fs::remove_file(&final_path).unwrap();
+    root.install_from(&staging, &name).unwrap();
+    assert!(!source.exists());
+    assert_eq!(fs::read(&final_path).unwrap(), b"native checkpoint");
+    assert!(root.install_from(&staging, &name).is_err());
+    let outside = scratch.0.join("sentinel");
+    fs::write(&outside, b"outside").unwrap();
+    symlink(&outside, &source).unwrap();
+    assert!(root.install_from(&staging, &name).is_err());
+    fs::remove_file(&source).unwrap();
+    fs::hard_link(&outside, &source).unwrap();
+    assert!(root.install_from(&staging, &name).is_err());
+    assert_eq!(fs::read(&outside).unwrap(), b"outside");
+    assert_eq!(fs::read(&final_path).unwrap(), b"native checkpoint");
+}
+
+// Windows publication stays unsupported even though permanent guard operations are supported.
+#[cfg(windows)]
+#[test]
+fn filesystem_windows_publication_refuses_without_touching_either_root() {
+    let scratch = Scratch::new();
+    let root = OwnedRoot::open(&scratch.0.join("owned"), true).unwrap();
+    let staging = root.reserve_child("stage").unwrap();
+    fs::write(
+        staging.resolved_path().unwrap().join("image.lbdb"),
+        b"staged",
+    )
+    .unwrap();
+    fs::write(
+        root.resolved_path().unwrap().join("image.lbdb"),
+        b"final sentinel",
+    )
+    .unwrap();
+    assert_eq!(
+        root.install_from(&staging, "image.lbdb")
+            .unwrap_err()
+            .kind(),
+        io::ErrorKind::Unsupported
+    );
+    assert_eq!(
+        fs::read(staging.resolved_path().unwrap().join("image.lbdb")).unwrap(),
+        b"staged"
+    );
+    assert_eq!(
+        fs::read(root.resolved_path().unwrap().join("image.lbdb")).unwrap(),
+        b"final sentinel"
+    );
+}

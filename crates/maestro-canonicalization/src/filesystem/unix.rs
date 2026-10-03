@@ -98,6 +98,38 @@ impl Directory {
         Ok(())
     }
 
+    /// Create exactly one new private directory beneath the held parent.
+    pub(crate) fn reserve_child(&self, name: &str) -> io::Result<Self> {
+        mkdirat(&self.0, name, Mode::RWXU)?;
+        self.0.sync_all()?;
+        Ok(Self(File::from(openat(
+            &self.0,
+            name,
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )?)))
+    }
+
+    /// Install a closed single-link file with anchored link/unlink and directory durability.
+    /// The application's permanent guards exclude supported concurrent name changes.
+    pub(crate) fn install_from(&self, staging: &Self, name: &str) -> io::Result<()> {
+        let held = staging.open_receipt_file(name)?;
+        held.sync_all()?;
+        let named = staging.open_receipt_file(name)?;
+        let before = held.metadata()?;
+        let current = named.metadata()?;
+        if (before.dev(), before.ino()) != (current.dev(), current.ino()) {
+            return Err(io::Error::other("publication source was replaced"));
+        }
+        linkat(&staging.0, name, &self.0, name, AtFlags::empty())?;
+        self.0.sync_all()?;
+        // A failure here preserves the installed name and any remaining staging link.
+        // The lifecycle reports the partial install, never retries the closed writer.
+        staging.remove_file(name)?;
+        staging.0.sync_all()?;
+        self.0.sync_all()
+    }
+
     /// Open only a regular single-link receipt, anchored below this root.
     pub(crate) fn open_receipt_file(&self, name: &str) -> io::Result<File> {
         let file = File::from(openat(

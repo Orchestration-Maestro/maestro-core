@@ -8,9 +8,9 @@ use crate::{
     store::database::{HealthDatabase, HealthOpen, open_health_in},
     store::{self, Database},
 };
-use rusqlite::{OptionalExtension as _, params};
+use rusqlite::{OptionalExtension as _, Transaction, params};
 use serde_json::json;
-use std::path::Path;
+use std::{path::Path, time::SystemTime};
 
 /// Stored projection-readiness receipt columns before decoding.
 type ProjectionReceiptRow = (String, String, String, String, i64, i64, i64, String);
@@ -66,81 +66,10 @@ impl Database {
         scopes: &ScopeSet,
         receipt: &ProjectionReceipt,
         lease: &Lease,
+        now: SystemTime,
     ) -> Result<(), Error> {
-        if receipt.generation_id <= 0
-            || !receipt
-                .file_name
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
-            || !receipt
-                .file_name
-                .as_bytes()
-                .first()
-                .is_some_and(u8::is_ascii_alphanumeric)
-            || receipt.schema_version != "maestro-typed-edges/1"
-        {
-            return Err(Error::Conflict(
-                "invalid projection receipt identity".to_owned(),
-            ));
-        }
         self.write(|transaction| {
-            let holder = job::validate_lease(transaction, lease)?;
-            let inputs = json!({"generation": receipt.generation_id});
-            let expected_job = NewJob {
-                kind: "knowledge.graph.project",
-                inputs: &inputs,
-                scope: &holder.scope,
-                resource: None,
-            };
-            if holder.scope.as_str() != collection_path(&receipt.collection_id)
-                || holder.kind != expected_job.kind
-                || holder.idempotency_key != job::idempotency_key(&expected_job)
-            {
-                return Err(Error::Unauthorized);
-            }
-            let expected: Option<(String, i64, i64)> = transaction
-                .query_row(
-                    &format!(
-                        "SELECT a.claim_set_id,
-                          (SELECT count(*) FROM claim_set_members m
-                           JOIN claims c ON c.id = m.claim_id
-                           WHERE m.claim_set_id = a.claim_set_id AND c.object_kind IS NOT NULL),
-                          (SELECT count(*) FROM claim_set_members m
-                           JOIN claims c ON c.id = m.claim_id
-                           WHERE m.claim_set_id = a.claim_set_id AND c.object_type IS NOT NULL)
-                         FROM graph_attachments a JOIN generations g ON g.id = a.generation_id
-                         WHERE g.id = ?1 AND g.collection_id = ?2 AND g.state = 'verified' AND {}",
-                        ScopeSet::collection_condition("g.collection_id", 3)
-                    ),
-                    params![
-                        receipt.generation_id,
-                        receipt.collection_id,
-                        scopes.parameter()
-                    ],
-                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-                )
-                .optional()?;
-            let Some((claim_set, edges, facts)) = expected else {
-                return Err(Error::Unauthorized);
-            };
-            if claim_set != receipt.claim_set_id.as_str()
-                || usize::try_from(edges).ok() != Some(receipt.knowledge_edge_count)
-                || usize::try_from(facts).ok() != Some(receipt.entity_fact_count)
-            {
-                return Err(Error::Conflict(
-                    "projection receipt differs from its authoritative claim set".to_owned(),
-                ));
-            }
-            let already_ready: bool = transaction.query_row(
-                "SELECT EXISTS(SELECT 1 FROM graph_projection_receipts WHERE generation_id = ?1)",
-                [receipt.generation_id],
-                |row| row.get(0),
-            )?;
-            if already_ready {
-                return Err(Error::Conflict(
-                    "projection readiness is already recorded".to_owned(),
-                ));
-            }
+            validate_publication(transaction, scopes, receipt, lease, now)?;
             let edge_count = i64::try_from(receipt.knowledge_edge_count)
                 .map_err(|_| Error::Conflict("projection edge count is too large".to_owned()))?;
             let catalog_count = i64::try_from(receipt.catalog_dependency_edge_count)
@@ -167,6 +96,42 @@ impl Database {
             )?;
             Ok(())
         })
+    }
+
+    /// Check the exact project lease, expiry, attachment and receipt before native installation.
+    /// Readiness recording repeats the same checks after installation; no native I/O runs here.
+    ///
+    /// # Errors
+    /// Refuses expired/taken-over/cancelled leases, unauthorized or inconsistent receipts,
+    /// existing readiness and kernel failures.
+    pub fn validate_projection_publication(
+        &self,
+        scopes: &ScopeSet,
+        receipt: &ProjectionReceipt,
+        lease: &Lease,
+        now: SystemTime,
+    ) -> Result<(), Error> {
+        self.write(|transaction| validate_publication(transaction, scopes, receipt, lease, now))
+    }
+
+    /// Check a scoped generation-specific project lease before starting or operating a producer.
+    ///
+    /// # Errors
+    /// Refuses denied scopes, wrong jobs/generations, expired or lost leases and kernel failures.
+    pub fn validate_projection_lease(
+        &self,
+        scopes: &ScopeSet,
+        target: (&str, i64),
+        lease: &Lease,
+        now: SystemTime,
+    ) -> Result<(), Error> {
+        let scope = collection_path(target.0)
+            .parse()
+            .map_err(|_| Error::Unauthorized)?;
+        if !scopes.covers(&scope) || target.1 <= 0 {
+            return Err(Error::Unauthorized);
+        }
+        self.write(|transaction| validate_project_lease(transaction, target, lease, now))
     }
 
     /// Read the recorded readiness for a generation visible to `scopes`.
@@ -295,4 +260,116 @@ pub fn projection_inventory_in(data: &Path, principal: &str) -> Result<Inventory
                 .map(InventoryState::Ready)
         }
     }
+}
+
+/// The one source of lease and authority checks before and after file installation.
+fn validate_publication(
+    transaction: &Transaction<'_>,
+    scopes: &ScopeSet,
+    receipt: &ProjectionReceipt,
+    lease: &Lease,
+    now: SystemTime,
+) -> Result<(), Error> {
+    if receipt.generation_id <= 0
+        || !receipt
+            .file_name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+        || !receipt
+            .file_name
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphanumeric)
+        || receipt.schema_version != "maestro-typed-edges/1"
+    {
+        return Err(Error::Conflict(
+            "invalid projection receipt identity".to_owned(),
+        ));
+    }
+    validate_project_lease(
+        transaction,
+        (&receipt.collection_id, receipt.generation_id),
+        lease,
+        now,
+    )?;
+    let expected: Option<(String, i64, i64)> = transaction
+        .query_row(
+            &format!(
+                "SELECT a.claim_set_id,
+                          (SELECT count(*) FROM claim_set_members m
+                           JOIN claims c ON c.id = m.claim_id
+                           WHERE m.claim_set_id = a.claim_set_id AND c.object_kind IS NOT NULL),
+                          (SELECT count(*) FROM claim_set_members m
+                           JOIN claims c ON c.id = m.claim_id
+                           WHERE m.claim_set_id = a.claim_set_id AND c.object_type IS NOT NULL)
+                         FROM graph_attachments a JOIN generations g ON g.id = a.generation_id
+                         WHERE g.id = ?1 AND g.collection_id = ?2 AND g.state = 'verified' AND {}",
+                ScopeSet::collection_condition("g.collection_id", 3)
+            ),
+            params![
+                receipt.generation_id,
+                receipt.collection_id,
+                scopes.parameter()
+            ],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()?;
+    let Some((claim_set, edges, facts)) = expected else {
+        return Err(Error::Unauthorized);
+    };
+    if claim_set != receipt.claim_set_id.as_str()
+        || usize::try_from(edges).ok() != Some(receipt.knowledge_edge_count)
+        || usize::try_from(facts).ok() != Some(receipt.entity_fact_count)
+    {
+        return Err(Error::Conflict(
+            "projection receipt differs from its authoritative claim set".to_owned(),
+        ));
+    }
+    let already_ready: bool = transaction.query_row(
+        "SELECT EXISTS(SELECT 1 FROM graph_projection_receipts WHERE generation_id = ?1)",
+        [receipt.generation_id],
+        |row| row.get(0),
+    )?;
+    if already_ready {
+        return Err(Error::Conflict(
+            "projection readiness is already recorded".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+/// Match the current live lease and frozen generation-specific project job.
+fn validate_project_lease(
+    transaction: &Transaction<'_>,
+    target: (&str, i64),
+    lease: &Lease,
+    now: SystemTime,
+) -> Result<(), Error> {
+    let holder = job::validate_lease(transaction, lease)?;
+    let timestamp = job::timestamp(transaction, Some(now))?;
+    if holder
+        .lease
+        .as_ref()
+        .is_none_or(|current| current.expires <= timestamp)
+    {
+        return Err(Error::Job(job::Error::Lost {
+            job: lease.job,
+            holder: lease.holder.clone(),
+            number: lease.number,
+        }));
+    }
+    let inputs = json!({"generation": target.1});
+    let expected_job = NewJob {
+        kind: "knowledge.graph.project",
+        inputs: &inputs,
+        scope: &holder.scope,
+        resource: None,
+    };
+    if holder.scope.as_str() != collection_path(target.0)
+        || holder.kind != expected_job.kind
+        || holder.idempotency_key != job::idempotency_key(&expected_job)
+    {
+        return Err(Error::Unauthorized);
+    }
+    Ok(())
 }

@@ -21,7 +21,7 @@ mod tests_namespace;
 #[cfg(test)]
 mod tests_projection;
 #[cfg(test)]
-mod tests_source;
+pub(crate) mod tests_source;
 mod types;
 
 pub use build::{DescriptorInput, build};

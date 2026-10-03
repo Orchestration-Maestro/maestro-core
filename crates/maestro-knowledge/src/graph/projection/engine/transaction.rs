@@ -1,7 +1,7 @@
 //! Prepared atomic native batches; the one-shot fault hook is unit-test-only.
 
 use super::{rows, schema};
-use crate::graph::projection::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope};
+use crate::graph::projection::port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope};
 use lbug::{Connection, LogicalType, Value};
 use maestro_kernel::artifact::Digest;
 #[cfg(test)]

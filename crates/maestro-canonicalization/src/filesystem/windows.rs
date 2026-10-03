@@ -143,6 +143,24 @@ impl Directory {
         ))
     }
 
+    /// Reserve one new directory while retaining all ancestors against relocation.
+    pub(crate) fn reserve_child(&self, name: &str) -> io::Result<Self> {
+        let path = self.path.join(name);
+        fs::create_dir(&path)?;
+        Self::open_resolved(&path, false)
+    }
+
+    /// Native Windows writes are deliberately unsupported; there is no path-only fallback.
+    pub(crate) fn install_from(&self, _staging: &Self, _name: &str) -> io::Result<()> {
+        Err(io::Error::new(
+            ErrorKind::Unsupported,
+            format!(
+                "Windows native publication is unsupported under {}",
+                self.path.display()
+            ),
+        ))
+    }
+
     /// The bytes of a regular file in the directory, never read through a link.
     pub(crate) fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
         let mut file = open_nofollow(&self.path.join(name))?;

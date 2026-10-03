@@ -2,7 +2,9 @@
 
 use super::{open::open, rows};
 use crate::graph::projection::{
-    EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope, content,
+    cancellation::ProjectionCancellation,
+    content,
+    port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope},
     writer::{BuildVerification, ProjectionBackendReader, receipt_from_verification},
 };
 use lbug::{Connection, Database, RootDirectory, SystemConfig};
@@ -32,7 +34,7 @@ impl Reader {
     }
 
     /// Bind the physical basename, scope, counts and content to the kernel receipt.
-    pub(super) fn published(
+    pub(in crate::graph::projection) fn published(
         root: &RootDirectory,
         config: SystemConfig,
         scope: &ProjectionScope,
@@ -55,6 +57,15 @@ impl Reader {
             return Err("native projection physical content does not match its receipt".into());
         }
         Ok(reader)
+    }
+
+    /// Run the same strict reads with a scoped native interrupt relay.
+    pub(super) fn cancellable_rows(
+        &self,
+        token: &ProjectionCancellation,
+    ) -> Result<rows::Rows, String> {
+        let connection = Connection::new(&self.database).map_err(|error| error.to_string())?;
+        super::cancellation::run(&connection, token, || rows::read(&connection, &self.scope))
     }
 
     /// Validate canonical rows in the same immutable handle on every read.
@@ -94,5 +105,46 @@ impl ProjectionBackendReader for Reader {
             .into_iter()
             .filter(|fact| fact.subject == *subject)
             .collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[cfg(not(windows))]
+    use crate::graph::projection::engine::schema;
+    use crate::graph::projection::engine::tests::{Fixture, config, scope};
+    #[cfg(windows)]
+    use crate::graph::projection::engine::{
+        open::tests::private_windows_fixture, schema::tests::install_reader_fixture,
+    };
+    use std::fs;
+
+    #[test]
+    fn native_reader_forces_read_only_even_when_caller_config_is_writable() {
+        let fixture = Fixture::new();
+        {
+            let database = fixture.writer();
+            let connection = Connection::new(&database).unwrap();
+            #[cfg(not(windows))]
+            schema::create(&connection, &scope()).unwrap();
+            #[cfg(windows)]
+            install_reader_fixture(&connection, &scope());
+            connection.query("CHECKPOINT").unwrap();
+        }
+        #[cfg(windows)]
+        private_windows_fixture(&fixture.path);
+        let before = fs::read(fixture.path.join("rows.lbdb")).unwrap();
+        let root = RootDirectory::open(&fixture.path).unwrap();
+        let reader = Reader::open(&root, "rows.lbdb", config(), &scope()).unwrap();
+        assert!(
+            Connection::new(&reader.database)
+                .unwrap()
+                .query("CREATE (:Entity {id: 'probe', facts: []})")
+                .is_err()
+        );
+        assert_eq!(reader.verification().unwrap().fact_count, 0);
+        drop(reader);
+        assert_eq!(fs::read(fixture.path.join("rows.lbdb")).unwrap(), before);
     }
 }

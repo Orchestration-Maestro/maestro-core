@@ -30,6 +30,7 @@ impl Publication for Install {
 pub(in crate::graph::projection) fn install(path: &Path, scope: &ProjectionScope, name: &str) {
     let mut backend = Backend::new(
         RootDirectory::open(path).unwrap(),
+        RootDirectory::open(path).unwrap(),
         "cleanup-staging.lbdb".into(),
         config(),
         Install(path.to_path_buf()),

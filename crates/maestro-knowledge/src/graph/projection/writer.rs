@@ -1,9 +1,9 @@
 //! Atomic backend-neutral writes and verification of unpublished projections.
-// Until the deferred engine adapter is registered, this crate-internal port
-// is exercised by its contract tests.
+// Default builds retain this backend-neutral contract; the optional native lifecycle
+// and the shared fake/native suites use the same writer.
 #![allow(
     dead_code,
-    reason = "the engine adapter is deferred; unit tests exercise this port"
+    reason = "default builds and fake-only reader adapters retain the shared backend contract"
 )]
 
 use super::{
@@ -16,7 +16,7 @@ use super::{
 use maestro_kernel::{
     artifact::Digest,
     facts::{Object, Predicate, ProjectionReceipt},
-    scope::{ScopeSet, collection_path},
+    scope::{Scope, ScopeSet, collection_path},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -25,21 +25,79 @@ use std::{
 
 /// Durable edge/fact counts and content identity read back after close/reopen.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct BuildVerification {
+pub struct BuildVerification {
     /// Schema version read back from the unpublished projection.
     pub schema: String,
-    /// Independently verified count for each edge family.
+    /// Expected or independently verified count for each edge family.
     pub family_counts: BTreeMap<EdgeFamily, usize>,
     /// Number of subject fact records, distinct from all edge families.
     pub fact_count: usize,
     /// Digest of canonical application-ID content.
     pub content_digest: Digest,
-    /// Index names read back from the closed/reopened file.
+    /// Expected logical access paths, or paths proved by the reopened native catalog.
     pub indexes: BTreeSet<String>,
 }
 
+impl BuildVerification {
+    /// Compute the expectation from authoritative knowledge-edge/fact inputs.
+    /// This is not native catalog evidence; `producer.verify()` reads that evidence
+    /// back from the closed/reopened engine. The frozen encoder stays private.
+    ///
+    /// # Errors
+    /// Refuses invalid records or an unregistered catalog vocabulary before native I/O.
+    pub fn expected(
+        edges: &[ProjectionEdge],
+        facts: &[EntityFact],
+    ) -> Result<Self, ProjectionError> {
+        Self::expectation(edges, facts, None)
+    }
+
+    /// Compute the same expectation using the catalog owner's registered relation vocabulary.
+    /// This is authoritative-input expectation, not evidence of a native catalog or index.
+    ///
+    /// # Errors
+    /// Refuses invalid records and unregistered relations before native I/O.
+    pub fn expected_with_catalog_vocabulary(
+        edges: &[ProjectionEdge],
+        facts: &[EntityFact],
+        vocabulary: &dyn CatalogRelationVocabulary,
+    ) -> Result<Self, ProjectionError> {
+        Self::expectation(edges, facts, Some(vocabulary))
+    }
+
+    /// Reuse the writer's validation and one frozen encoder for both entry points.
+    fn expectation(
+        edges: &[ProjectionEdge],
+        facts: &[EntityFact],
+        vocabulary: Option<&dyn CatalogRelationVocabulary>,
+    ) -> Result<Self, ProjectionError> {
+        if let Some(scope) = edges
+            .first()
+            .map(|edge| &edge.scope)
+            .or_else(|| facts.first().map(|fact| &fact.scope))
+        {
+            validate_batch(scope, edges, facts, vocabulary)?;
+        }
+        let mut family_counts = BTreeMap::new();
+        for edge in edges {
+            *family_counts.entry(edge.family).or_default() += 1;
+        }
+        Ok(Self {
+            schema: SCHEMA_VERSION.into(),
+            family_counts,
+            fact_count: facts.len(),
+            content_digest: super::content::digest(edges, facts)
+                .map_err(ProjectionError::Invalid)?,
+            indexes: REQUIRED_INDEXES
+                .iter()
+                .map(|name| (*name).to_owned())
+                .collect(),
+        })
+    }
+}
+
 /// Read-only durable rows in one already-open immutable projection.
-pub(crate) trait ProjectionBackendReader: 'static {
+pub(crate) trait ProjectionBackendReader: Send + Sync + 'static {
     /// Verify reopened immutable content before exposing its rows.
     fn verification(&self) -> Result<BuildVerification, String>;
     /// Return edges adjacent to an entity, without applying authorization or pin filtering.
@@ -87,7 +145,7 @@ pub(crate) trait ProjectionBackend {
 }
 
 /// Catalog-owned closed vocabulary; absence of a port fails closed.
-pub(crate) trait CatalogRelationVocabulary {
+pub trait CatalogRelationVocabulary {
     /// Whether the catalog recognizes this dependency relation spelling.
     fn accepts(&self, relation: &str) -> bool;
 }
@@ -127,6 +185,11 @@ impl<'a, B: ProjectionBackend> ProjectionWriter<'a, B> {
             .map_err(ProjectionError::Backend)?;
         Ok(Self { backend, scope })
     }
+    /// Borrow the already-created lifecycle session without recreating its native file.
+    pub(crate) fn resume(backend: &'a mut B, scope: ProjectionScope) -> Self {
+        Self { backend, scope }
+    }
+
     /// Commit one fully validated edge/fact batch atomically.
     pub(crate) fn write_batch(
         &mut self,
@@ -248,6 +311,14 @@ impl TypedEdgeProjection for ProjectionReader {
     }
 }
 impl ProjectionReader {
+    /// Wrap the already receipt-verified physical handle selected by a lifecycle.
+    pub(super) fn from_verified(
+        scope: ProjectionScope,
+        backend: Box<dyn ProjectionBackendReader>,
+    ) -> Self {
+        Self { scope, backend }
+    }
+
     /// Open a published backend build only after the kernel reports matching readiness.
     pub(crate) fn open<B: ProjectionBackend, K: ProjectionReadiness>(
         backend: &B,
@@ -283,10 +354,7 @@ impl ProjectionReader {
         if mapped != receipt {
             return Err(ProjectionError::NotReady);
         }
-        Ok(Self {
-            scope,
-            backend: Box::new(reader),
-        })
+        Ok(Self::from_verified(scope, Box::new(reader)))
     }
 }
 
@@ -327,7 +395,7 @@ pub(crate) fn receipt_from_verification(
 }
 
 /// Enforce exact generation pins and the caller's collection read scope.
-fn check_read_scope(
+pub(super) fn check_read_scope(
     scopes: &ScopeSet,
     held: &ProjectionScope,
     pin: &ProjectionScope,
@@ -350,6 +418,16 @@ fn validate_batch(
     facts: &[EntityFact],
     vocabulary: Option<&dyn CatalogRelationVocabulary>,
 ) -> Result<(), ProjectionError> {
+    if scope.generation_id <= 0
+        || scope.collection_id.is_empty()
+        || collection_path(&scope.collection_id)
+            .parse::<Scope>()
+            .is_err()
+    {
+        return Err(ProjectionError::Invalid(
+            "invalid projection collection or generation".into(),
+        ));
+    }
     let mut ids = BTreeSet::new();
     for edge in edges {
         if edge.scope != *scope || edge.relation.is_empty() || !ids.insert(edge.id.clone()) {

@@ -18,6 +18,7 @@ mod lexical_vectors;
 mod live_router;
 mod local_collection;
 mod prepare_live;
+mod projection_lifecycle;
 mod projection_port;
 mod publish_live;
 pub(crate) mod qdrant_projection;

@@ -105,6 +105,7 @@ pub(super) fn retired(home: &Home) -> (i64, String) {
                 content_digest: Digest::of(b"disposable"),
             },
             &lease,
+            SystemTime::now(),
         )
         .unwrap();
     database

@@ -1,12 +1,12 @@
 //! Native projection operations; only feature-enabled builds compile this door.
 
-#[expect(
-    dead_code,
-    reason = "E08b wires the private native backend into the public lifecycle"
-)]
 pub(super) mod backend;
+mod cancellation;
+mod config;
 mod open;
+pub(super) mod producer;
 mod reader;
+pub(super) mod registry;
 mod rows;
 mod schema;
 #[cfg(test)]
@@ -30,3 +30,10 @@ mod backend_tests;
 #[cfg(test)]
 #[cfg(unix)]
 pub(super) mod cleanup_tests;
+#[cfg(test)]
+mod public_fixture;
+#[cfg(test)]
+mod public_tests;
+
+#[cfg(test)]
+mod public_guard_tests;

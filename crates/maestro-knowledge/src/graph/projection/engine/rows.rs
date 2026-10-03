@@ -2,7 +2,9 @@
 
 use super::schema::{self, FACT_VERSION};
 use crate::graph::projection::{
-    EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope, content, schema::SCHEMA_VERSION,
+    content,
+    port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope},
+    schema::SCHEMA_VERSION,
     writer::BuildVerification,
 };
 use lbug::{Connection, LogicalType, Value};

@@ -16,7 +16,7 @@ use crate::{
 use serde_json::json;
 use std::{collections::BTreeMap, thread};
 
-fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
+pub(super) fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
     let scratch = Scratch::new();
     let database = scratch.open();
     let all = ScopeSet::default_workspace();
@@ -94,7 +94,7 @@ fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
     (scratch, database, all, receipt)
 }
 
-fn projection_lease(database: &Database, generation: i64) -> job::Lease {
+pub(super) fn projection_lease(database: &Database, generation: i64) -> job::Lease {
     let scope: Scope = "workspace/default/collection/graph".parse().unwrap();
     let inputs = json!({"generation": generation});
     let job = database
@@ -122,19 +122,19 @@ fn readiness_is_kernel_controlled_and_matches_the_attached_claim_set() {
     let claim_set_id = receipt.claim_set_id.clone();
     receipt.entity_fact_count = 0;
     assert!(matches!(
-        database.record_projection_ready(&all, &receipt, &lease),
+        database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
         Err(Error::Conflict(_))
     ));
     receipt.entity_fact_count = 1;
     receipt.knowledge_edge_count = 1;
     assert!(matches!(
-        database.record_projection_ready(&all, &receipt, &lease),
+        database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
         Err(Error::Conflict(_))
     ));
     receipt.knowledge_edge_count = 0;
     receipt.claim_set_id = Digest::of(b"wrong claim set");
     assert!(matches!(
-        database.record_projection_ready(&all, &receipt, &lease),
+        database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
         Err(Error::Conflict(_))
     ));
     receipt.claim_set_id = claim_set_id;
@@ -147,7 +147,7 @@ fn readiness_is_kernel_controlled_and_matches_the_attached_claim_set() {
 
     receipt.entity_fact_count = 1;
     database
-        .record_projection_ready(&all, &receipt, &lease)
+        .record_projection_ready(&all, &receipt, &lease, timing(5).now)
         .unwrap();
     assert_eq!(
         database
@@ -162,10 +162,10 @@ fn a_projection_receipt_is_once_only_and_scoped_to_its_generation() {
     let (scratch, database, all, receipt) = attached();
     let lease = projection_lease(&database, receipt.generation_id);
     database
-        .record_projection_ready(&all, &receipt, &lease)
+        .record_projection_ready(&all, &receipt, &lease, timing(5).now)
         .unwrap();
     assert!(matches!(
-        database.record_projection_ready(&all, &receipt, &lease),
+        database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
         Err(Error::Conflict(_))
     ));
     let denied = granted(
@@ -200,7 +200,7 @@ fn health_inventory_is_scoped_ordered_and_decodes_the_exact_receipt() {
     let (scratch, database, all, receipt) = attached();
     let lease = projection_lease(&database, receipt.generation_id);
     database
-        .record_projection_ready(&all, &receipt, &lease)
+        .record_projection_ready(&all, &receipt, &lease, timing(5).now)
         .unwrap();
     database.publish_generation(receipt.generation_id).unwrap();
     database
@@ -267,7 +267,7 @@ fn projection_inventory_preserves_typed_receipt_decode_errors() {
     let (scratch, database, all, receipt) = attached();
     let lease = projection_lease(&database, receipt.generation_id);
     database
-        .record_projection_ready(&all, &receipt, &lease)
+        .record_projection_ready(&all, &receipt, &lease, timing(5).now)
         .unwrap();
     database.publish_generation(receipt.generation_id).unwrap();
     let scope: Scope = "workspace/default/collection/graph".parse().unwrap();
@@ -299,7 +299,7 @@ fn health_inventory_omits_retired_receipts_and_unpublished_verified_generations(
     let (scratch, database, all, receipt) = attached();
     let lease = projection_lease(&database, receipt.generation_id);
     database
-        .record_projection_ready(&all, &receipt, &lease)
+        .record_projection_ready(&all, &receipt, &lease, timing(5).now)
         .unwrap();
     database.publish_generation(receipt.generation_id).unwrap();
     database.retire_generation(receipt.generation_id).unwrap();
@@ -343,8 +343,10 @@ fn concurrent_readiness_recorders_have_one_winner() {
     let (_scratch, database, all, receipt) = attached();
     let lease = projection_lease(&database, receipt.generation_id);
     let (first, second) = thread::scope(|scope| {
-        let first = scope.spawn(|| database.record_projection_ready(&all, &receipt, &lease));
-        let second = scope.spawn(|| database.record_projection_ready(&all, &receipt, &lease));
+        let first =
+            scope.spawn(|| database.record_projection_ready(&all, &receipt, &lease, timing(5).now));
+        let second =
+            scope.spawn(|| database.record_projection_ready(&all, &receipt, &lease, timing(5).now));
         (first.join().unwrap(), second.join().unwrap())
     });
     assert_ne!(first.is_ok(), second.is_ok());
@@ -389,7 +391,7 @@ fn projection_readiness_rejects_an_expired_projection_lease() {
         .take_job(lease.job, "takeover", timing(100).now, timing(100).term)
         .unwrap();
     assert!(matches!(
-        database.record_projection_ready(&all, &receipt, &lease),
+        database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
         Err(Error::Job(job::Error::Lost { .. }))
     ));
     assert_eq!(
@@ -413,7 +415,7 @@ fn a_building_generation_cannot_record_projection_readiness() {
     )
     .unwrap();
     assert!(matches!(
-        database.record_projection_ready(&all, &receipt, &lease),
+        database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
         Err(Error::Unauthorized)
     ));
 }
@@ -424,7 +426,7 @@ fn projection_readiness_rejects_a_nonpositive_generation() {
     let lease = projection_lease(&database, receipt.generation_id);
     receipt.generation_id = 0;
     assert!(matches!(
-        database.record_projection_ready(&all, &receipt, &lease),
+        database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
         Err(Error::Conflict(_))
     ));
 }
@@ -435,7 +437,7 @@ fn projection_readiness_rejects_a_path_instead_of_a_owned_filename() {
     let lease = projection_lease(&database, receipt.generation_id);
     receipt.file_name = "../outside.db".to_owned();
     assert!(matches!(
-        database.record_projection_ready(&all, &receipt, &lease),
+        database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
         Err(Error::Conflict(_))
     ));
     assert_eq!(

@@ -4,7 +4,7 @@
     reason = "the future engine adapter consumes this shared byte contract"
 )]
 
-use super::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope};
+use super::port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope};
 use maestro_canonicalization::is_receipt_basename;
 use maestro_kernel::{
     artifact::Digest,

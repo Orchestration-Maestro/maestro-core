@@ -12,3 +12,4 @@ mod cleanup_support;
 mod cleanup_boundaries;
 #[cfg(unix)]
 mod cleanup_process;
+mod lifecycle;

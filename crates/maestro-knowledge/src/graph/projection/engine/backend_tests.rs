@@ -34,6 +34,7 @@ impl Publication for Install {
 fn backend(fixture: &Fixture) -> Backend<Install> {
     Backend::new(
         RootDirectory::open(&fixture.path).unwrap(),
+        RootDirectory::open(&fixture.path).unwrap(),
         "staging.lbdb".into(),
         config(),
         Install(fixture.path.clone()),
@@ -278,6 +279,7 @@ fn native_shared_readers_keep_old_generation_after_later_publication() {
     let scopes = kernel.visible("reader").unwrap();
     let mut first = backend(&fixture);
     let mut second = Backend::new(
+        RootDirectory::open(&fixture.path).unwrap(),
         RootDirectory::open(&fixture.path).unwrap(),
         "next-staging.lbdb".into(),
         config(),

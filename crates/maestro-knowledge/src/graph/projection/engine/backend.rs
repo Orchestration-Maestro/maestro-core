@@ -1,15 +1,16 @@
-//! Private native projection adapter; E08b supplies publication and staging reservation.
+//! Private native projection adapter with lifecycle-owned publication and staging reservation.
 
 use super::{open::open, reader::Reader, schema, transaction::Transactions};
 use crate::graph::projection::{
-    EntityFact, ProjectionEdge, ProjectionScope, content,
+    content,
+    port::{EntityFact, ProjectionEdge, ProjectionScope},
     writer::{BuildVerification, ProjectionBackend, ProjectionBackendReader},
 };
 use lbug::{Connection, Database, RootDirectory, SystemConfig};
 use maestro_kernel::facts::ProjectionReceipt;
 
 /// Lifecycle-owned lease-bound, no-overwrite installation of a closed staging file.
-/// E08b provides the production implementation and reserves the staging name.
+/// The public lifecycle provides this implementation and reserves the staging name.
 pub(in crate::graph::projection) trait Publication {
     /// Install exactly this reserved child under the canonical receipt basename.
     fn install(&mut self, staging: &str, published: &str) -> Result<(), String>;
@@ -19,6 +20,8 @@ pub(in crate::graph::projection) trait Publication {
 pub(in crate::graph::projection) struct Backend<P: Publication> {
     /// Held root capability used by every native open.
     root: RootDirectory,
+    /// Final immutable files live in a separate held root.
+    final_root: RootDirectory,
     /// Explicit caller-owned settings, also reused for read-only opens.
     config: SystemConfig,
     /// Lifecycle-reserved staging child.
@@ -38,12 +41,14 @@ impl<P: Publication> Backend<P> {
     /// The caller reserves `staging` before construction; no filesystem publication lives here.
     pub(in crate::graph::projection) fn new(
         root: RootDirectory,
+        final_root: RootDirectory,
         staging: String,
         config: SystemConfig,
         publication: P,
     ) -> Self {
         Self {
             root,
+            final_root,
             staging,
             config,
             publication,
@@ -52,6 +57,11 @@ impl<P: Publication> Backend<P> {
             transactions: Transactions::default(),
             verified: false,
         }
+    }
+
+    /// Bind the prepared receipt to the lifecycle publication callback before closing.
+    pub(in crate::graph::projection) fn publication_mut(&mut self) -> &mut P {
+        &mut self.publication
     }
 
     /// Exercise actual native rollback poisoning through the test-only transaction helper.
@@ -154,6 +164,6 @@ impl<P: Publication> ProjectionBackend for Backend<P> {
         scope: &ProjectionScope,
         receipt: &ProjectionReceipt,
     ) -> Result<Self::Reader, String> {
-        Reader::published(&self.root, self.config.clone(), scope, receipt)
+        Reader::published(&self.final_root, self.config.clone(), scope, receipt)
     }
 }

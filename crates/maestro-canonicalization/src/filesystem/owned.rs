@@ -161,6 +161,50 @@ impl OwnedRoot {
         })
     }
 
+    /// Reserve a new private child, never adopting a pre-existing directory.
+    /// # Errors
+    /// Refuses unsafe names, collisions and filesystem failures.
+    pub fn reserve_child(&self, name: &str) -> io::Result<Self> {
+        child_name(name)?;
+        self.validate()?;
+        #[cfg(unix)]
+        self.directory.validate_private()?;
+        let root = Self {
+            path: self.path.join(name),
+            directory: Arc::new(self.directory.reserve_child(name)?),
+        };
+        self.validate()?;
+        root.validate()?;
+        Ok(root)
+    }
+
+    /// Return the resolved location only after validating its retained identity.
+    /// # Errors
+    /// Refuses relocated roots.
+    pub fn resolved_path(&self) -> io::Result<PathBuf> {
+        self.validate()?;
+        Ok(self.path.clone())
+    }
+
+    /// Install one closed file from a reserved direct child without overwriting.
+    /// # Errors
+    /// Refuses unsafe files, existing destinations and durability failures.
+    pub fn install_from(&self, staging: &Self, name: &str) -> io::Result<()> {
+        child_name(name)?;
+        self.validate()?;
+        staging.validate()?;
+        if staging.path.parent() != Some(self.path.as_path()) {
+            return Err(io::Error::other(
+                "publication staging must be a reserved direct child",
+            ));
+        }
+        #[cfg(unix)]
+        self.directory.validate_private()?;
+        self.directory.install_from(&staging.directory, name)?;
+        self.validate()?;
+        staging.validate()
+    }
+
     /// Confirm that the owned name still denotes the held directory.
     fn validate(&self) -> io::Result<()> {
         self.directory.validate_owned(&self.path)
@@ -261,6 +305,20 @@ impl ControlHandle {
             .directory
             .remove_receipt_file(name, expected.map(|file| &file.file))
     }
+}
+
+/// A single portable child name; no platform treats it as an escape or stream.
+fn child_name(name: &str) -> io::Result<()> {
+    if name.is_empty()
+        || name == "."
+        || name == ".."
+        || !name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+    {
+        return Err(io::Error::other("expected one plain child name"));
+    }
+    Ok(())
 }
 
 /// Whether a graph receipt basename is canonical, fixed-width and companion-safe.

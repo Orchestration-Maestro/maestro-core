@@ -192,7 +192,10 @@ fn times(
 ///
 /// [`Error::Time`] when there is no `time` or it falls before 1970 or after
 /// 9999, and [`Error::Store`] when SQLite cannot be asked.
-fn timestamp(connection: &Connection, time: Option<SystemTime>) -> Result<String, Error> {
+pub(crate) fn timestamp(
+    connection: &Connection,
+    time: Option<SystemTime>,
+) -> Result<String, Error> {
     let millis = time
         .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
         .and_then(|since| i64::try_from(since.as_millis()).ok());

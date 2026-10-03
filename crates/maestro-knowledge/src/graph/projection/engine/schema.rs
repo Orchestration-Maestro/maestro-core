@@ -1,7 +1,7 @@
 //! Native catalog mapping for the logical entity-key and adjacency access paths.
 
 use crate::graph::projection::{
-    ProjectionScope,
+    port::ProjectionScope,
     schema::{REQUIRED_INDEXES, SCHEMA_VERSION},
 };
 use lbug::{Connection, Value};

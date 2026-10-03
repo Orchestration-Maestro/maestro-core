@@ -32,6 +32,11 @@ files = [
   "crates/maestro-knowledge/src/graph/projection/engine/backend.rs",
   "crates/maestro-knowledge/src/graph/projection/engine/reader.rs",
   "crates/maestro/src/cli/setup/graph.rs",
+  "crates/maestro-knowledge/src/graph/projection/access.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/config.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/cancellation.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/producer.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/registry.rs",
 ]
 
 # The seams of the canonicalization crate that keep one caller: each door is a

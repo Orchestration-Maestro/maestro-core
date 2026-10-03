@@ -31,13 +31,13 @@ use std::{
 };
 
 /// Kernel/artifact scratch fixture, constructed through public write APIs.
-pub(super) struct Authority {
+pub(crate) struct Authority {
     /// Sole source of claims and original bytes.
-    pub(super) database: Database,
+    pub(crate) database: Database,
     /// Source scopes before any revocation.
-    pub(super) scopes: ScopeSet,
+    pub(crate) scopes: ScopeSet,
     /// Frozen generation view.
-    pub(super) pin: DescriptorPin,
+    pub(crate) pin: DescriptorPin,
     /// Frozen reviewed identity snapshot.
     pub(super) resolution: Digest,
     /// Last field: remove the directory only after the database closes.
@@ -49,7 +49,7 @@ struct Directory(PathBuf);
 
 impl Authority {
     /// Populate a real attached generation and admitted synthetic claims.
-    pub(super) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::with_chunks(true, true)
     }
 

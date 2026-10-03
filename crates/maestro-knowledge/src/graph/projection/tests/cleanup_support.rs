@@ -181,7 +181,7 @@ fn record_ready(
         .take_job(job.id, "projector", SystemTime::now(), timing().term)
         .unwrap();
     database
-        .record_projection_ready(scopes, receipt, &lease)
+        .record_projection_ready(scopes, receipt, &lease, SystemTime::now())
         .unwrap();
     database
         .complete_job(&lease, JobState::Succeeded, &json!({}))

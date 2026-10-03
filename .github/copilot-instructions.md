@@ -615,6 +615,7 @@ in place.
 │   │   │   │   │   ├── claims.rs                                            # Admitting claims: a whole set or nothing, unreviewed, recorded once by
 │   │   │   │   │   ├── mod.rs                                               # Tests of claims: admitting a verified set or nothing, reading it back
 │   │   │   │   │   ├── projection.rs                                        # Rust source: projection
+│   │   │   │   │   ├── projection_lease.rs                                  # Exact caller-clock project expiry, fencing, scope and renewal checks
 │   │   │   │   │   ├── resolution.rs                                        # Immutable sourced resolution snapshots and current-grant checks
 │   │   │   │   │   ├── resolution_guards.rs                                 # Frozen reviews, request coverage and rowid replacement regressions
 │   │   │   │   │   ├── schema.rs                                            # What the schema refuses whoever writes: replacing, changing or deleting
@@ -992,14 +993,23 @@ in place.
 │   │   │   │   │   ├── run.rs                                               # Candidate extraction and source-only evidence construction
 │   │   │   │   │   └── windows.rs                                           # Versioned, source-byte-bounded windows and quote pointers
 │   │   │   │   ├── projection/                                              # Public typed-edge and literal-fact projection ports and unpublished build writer
+│   │   │   │   │   ├── adapter/                                             # Compile-time composition only; every implementation is mutation-owned in its compiled mode
+│   │   │   │   │   │   └── mod.rs                                           # Compile-time composition only; every implementation is mutation-owned in its compiled mode
 │   │   │   │   │   ├── engine/                                              # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── backend.rs                                       # Private native projection adapter; E08b supplies publication and staging reservation
 │   │   │   │   │   │   ├── backend_tests.rs                                 # Private native adapter entry points into the unchanged fake/native contract
+│   │   │   │   │   │   ├── cancellation.rs                                  # Scoped native interrupt relay; no native reference survives a read
 │   │   │   │   │   │   ├── cleanup_tests.rs                                 # Native files/read-only handles for the feature-independent cleanup process suite
 │   │   │   │   │   │   ├── codec_tests.rs                                   # Synthetic canonical fact-vector and malformed-byte checks
+│   │   │   │   │   │   ├── config.rs                                        # The single native translation of caller-owned frozen graph settings
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── open.rs                                          # The native adapter's single rooted construction boundary
+│   │   │   │   │   │   ├── producer.rs                                      # Lease-bound native producer session behind the public facade
+│   │   │   │   │   │   ├── public_fixture.rs                                # Real kernel authority reused by public lifecycle tests, with private native scratch
+│   │   │   │   │   │   ├── public_guard_tests.rs                            # Every public open refuses a half-set-up root, without creating a replacement guard
+│   │   │   │   │   │   ├── public_tests.rs                                  # Production publication, factory, lease fences and immutable handle ownership
 │   │   │   │   │   │   ├── reader.rs                                        # Rooted immutable native reads, bound to one scope and the exact physical receipt file
+│   │   │   │   │   │   ├── registry.rs                                      # One native immutable handle per physical path across all public factories
 │   │   │   │   │   │   ├── rollback_repro.rs                                # Frozen native checkpoint/rollback matrix for LadybugDB PR 1049
 │   │   │   │   │   │   ├── rows.rs                                          # Strict native rows and the inverse of E05's complete binary fact contract
 │   │   │   │   │   │   ├── schema.rs                                        # Native catalog mapping for the logical entity-key and adjacency access paths
@@ -1016,15 +1026,24 @@ in place.
 │   │   │   │   │   │   ├── content_fields.rs                                # Each full-record field must affect durable projection verification
 │   │   │   │   │   │   ├── contract.rs                                      # Backend-generic projection writer contract; adapters call this unchanged
 │   │   │   │   │   │   ├── contract_reads.rs                                # Ordered application-ID reads and exact scope/family pin contract for every backend
+│   │   │   │   │   │   ├── lifecycle.rs                                     # Public lifecycle refusals paired with valid neighboring configurations
 │   │   │   │   │   │   ├── mod.rs                                           # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── port.rs                                          # Rust source: port
 │   │   │   │   │   │   └── projection_writer.rs                             # Backend-neutral projection writer and reader contract tests
+│   │   │   │   │   ├── absent.rs                                            # Named feature-absent implementation, owned only by featureless mutation runs
+│   │   │   │   │   ├── access.rs                                            # Permanent root-wide access and writer guards; no fallback lock domain
+│   │   │   │   │   ├── build.rs                                             # Backend-neutral authoritative build inputs and successful publication result
+│   │   │   │   │   ├── cancellation.rs                                      # Explicit read cancellation without a timeout, polling interval or detached native handle
 │   │   │   │   │   ├── cleanup.rs                                           # Reader-safe, single-receipt cleanup; native engine code is never opened here
 │   │   │   │   │   ├── content.rs                                           # Frozen application-ID encodings for projection content and receipt names
+│   │   │   │   │   ├── handle.rs                                            # Backend-neutral immutable handle retaining the backend's native ownership and guard
+│   │   │   │   │   ├── lifecycle.rs                                         # Public factory for lease-bound producers and immutable, guarded readers
 │   │   │   │   │   ├── mod.rs                                               # Public typed-edge and literal-fact projection ports and unpublished build writer
+│   │   │   │   │   ├── operations.rs                                        # Backend-neutral public operations on opaque lifecycle handles
 │   │   │   │   │   ├── port.rs                                              # Public application-ID boundary for disposable typed-edge projections
 │   │   │   │   │   ├── receipts.rs                                          # Read-only kernel readiness inventory used by graph health probes
 │   │   │   │   │   ├── schema.rs                                            # Versioned schema identifiers shared by writers, verifiers, and readers
+│   │   │   │   │   ├── settings.rs                                          # Explicit frozen graph settings; no defaults or independent settings resolver
 │   │   │   │   │   └── writer.rs                                            # Atomic backend-neutral writes and verification of unpublished projections
 │   │   │   │   ├── tests/                                                   # Tests of the first table rule: its closed form, the claims it extracts
 │   │   │   │   │   ├── build.rs                                             # Every frozen build field participates in submission identity
@@ -1337,6 +1356,10 @@ in place.
 │   │   │       │   ├── dispositions.rs                                      # The disposition report of a local run: identities, rules, reasons, counts
 │   │   │       │   ├── mod.rs                                               # The collection this machine names, imported for real and gated on demand
 │   │   │       │   └── real_import.rs                                       # The ignored run: a collection imported into the kernel data directory, then gated
+│   │   │       ├── projection_lifecycle/                                    # Independent-process production lifecycle checks
+│   │   │       │   ├── fixture.rs                                           # A synthetic authoritative literal claim built entirely through public kernel APIs
+│   │   │       │   ├── mod.rs                                               # Independent-process production lifecycle checks
+│   │   │       │   └── native_processes.rs                                  # Pipes acknowledge guard ownership; no sleeps or PID-file liveness guesses
 │   │   │       ├── qdrant_projection/                                       # The Qdrant projection (T026), against a fake Qdrant and a real one when named
 │   │   │       │   ├── fake/                                                # A fake Qdrant: a gRPC server in memory, on a loopback port
 │   │   │       │   │   ├── collections.rs                                   # The fake's collections: creation, existence, parameters and aliases
