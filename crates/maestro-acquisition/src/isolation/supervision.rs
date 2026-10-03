@@ -5,7 +5,7 @@ use maestro_kernel::retrieval::Clock;
 use rustix::event::{PollFd, PollFlags, Timespec, poll};
 use serde::Deserialize;
 use std::{
-    io::{Read as _, Write as _},
+    io::{Read as _, Write},
     process::Child,
     sync::{
         Arc,
@@ -57,7 +57,11 @@ impl Protocol {
         Ok(())
     }
     /// Consume a strict frame only after it fits the defensive format ceiling.
-    fn frame(&mut self, decode: &mut ParserDecode<'_>, child: &mut Child) -> Result<(), Refusal> {
+    fn frame(
+        &mut self,
+        decode: &mut ParserDecode<'_>,
+        ack: &mut Option<&mut dyn Write>,
+    ) -> Result<(), Refusal> {
         let frame: Frame = serde_json::from_slice(&self.frame).map_err(|_| Refusal::Output)?;
         self.frame.clear();
         match frame {
@@ -72,9 +76,7 @@ impl Protocol {
                 let bytes = request.expanded_bytes;
                 decode.admit(request).map_err(Refusal::Decode)?;
                 self.reserved = self.reserved.checked_add(bytes).ok_or(Refusal::Output)?;
-                child
-                    .stdin
-                    .as_mut()
+                ack.as_mut()
                     .ok_or(Refusal::Output)?
                     .write_all(b"OK\n")
                     .map_err(|_| Refusal::Output)?;
@@ -108,7 +110,7 @@ impl Protocol {
         bytes: &[u8],
         cap: u64,
         decode: &mut ParserDecode<'_>,
-        child: &mut Child,
+        mut ack: Option<&mut dyn Write>,
     ) -> Result<(), Refusal> {
         self.wire = self
             .wire
@@ -122,7 +124,7 @@ impl Protocol {
                 return Err(Refusal::Output);
             }
             if *byte == b'\n' {
-                self.frame(decode, child)?;
+                self.frame(decode, &mut ack)?;
                 continue;
             }
             if self.frame.len() as u64 >= cap.min(4 * 1024 * 1024) {
@@ -213,7 +215,7 @@ pub(super) fn run(
                 buffer.get(..count).ok_or(Refusal::Output)?,
                 cap,
                 decode,
-                child,
+                child.stdin.as_mut().map(|stdin| stdin as &mut dyn Write),
             )?;
         }
     }
@@ -235,6 +237,7 @@ pub(super) fn cleanup(worker: &Worker, child: &mut Child) -> Result<(), Refusal>
 
 #[cfg(test)]
 mod tests {
+
     use super::{Frame, Protocol, Refusal};
     #[test]
     fn n17_default_ipc_shapes_handshake_and_exact_output_reservations() {
@@ -267,5 +270,204 @@ mod tests {
         }
         assert!(serde_json::from_str::<Frame>(r#"{"kind":"done"}"#).is_ok());
         assert!(serde_json::from_str::<Frame>(r#"{"kind":"ready"}"#).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod protocol_tests {
+    use super::{Protocol, Refusal, Timing};
+    use crate::{
+        extraction::decode::{DecodeRequest, DecodeStage, ParserDecode},
+        isolation::test_support::{FixedClock, accounting},
+    };
+    use std::sync::{Mutex, atomic::Ordering};
+    use std::{
+        io,
+        sync::{Arc, atomic::AtomicBool},
+        time::{Duration, Instant},
+    };
+
+    fn protocol() -> Protocol {
+        Protocol {
+            frame: vec![],
+            output: vec![],
+            reserved: 0,
+            ready: false,
+            done: false,
+            wire: 0,
+        }
+    }
+    fn proposal() -> Vec<u8> {
+        let request = DecodeRequest {
+            stage: DecodeStage::Office,
+            input_bytes: 10,
+            expanded_bytes: 10,
+            levels: 0,
+            members: 0,
+            entities: 0,
+            pixels: 0,
+            memory_bytes: 0,
+        };
+        let mut wire =
+            serde_json::to_vec(&serde_json::json!({"kind": "decode", "value": request})).unwrap();
+        wire.push(b'\n');
+        wire
+    }
+    #[test]
+    fn n17_protocol_fragments_charge_ack_then_data_done() {
+        let mut ledger = accounting();
+        let mut decode = ParserDecode::new(&mut ledger);
+        let mut state = protocol();
+        let mut ack = vec![];
+        let mut wire = b"{\"kind\":\"ready\"}\n".to_vec();
+        wire.extend(proposal());
+        wire.extend(b"{\"kind\":\"data\",\"value\":\"1234567890\"}\n{\"kind\":\"done\"}\n");
+        for fragment in wire.chunks(3) {
+            state
+                .bytes(fragment, wire.len() as u64, &mut decode, Some(&mut ack))
+                .unwrap();
+        }
+        assert_eq!(ack, b"OK\n");
+        assert_eq!(state.output, b"1234567890");
+        assert!(state.ready && state.done && state.frame.is_empty());
+        assert_eq!(state.reserved, 0);
+        assert_eq!(state.wire, wire.len() as u64);
+        assert_eq!(decode.finish().unwrap().len(), 1);
+        assert_eq!(ledger.expanded_bytes(), 10);
+    }
+    #[test]
+    fn n17_protocol_refusals_keep_output_held_and_caps_exact() {
+        for (wire, expected) in [
+            (
+                "{\"kind\":\"data\",\"value\":\"x\"}\n",
+                Refusal::Unsupported,
+            ),
+            ("{\"kind\":\"done\"}\n", Refusal::Unsupported),
+            ("{\"kind\":\"decode\",\"value\":{}}\n", Refusal::Output),
+            (
+                "{\"kind\":\"ready\"}\n{\"kind\":\"ready\"}\n",
+                Refusal::Output,
+            ),
+            (
+                "{\"kind\":\"ready\"}\n{\"kind\":\"data\",\"value\":\"x\"}\n",
+                Refusal::Output,
+            ),
+            (
+                "{\"kind\":\"ready\"}\n{\"kind\":\"done\"}\nx",
+                Refusal::Output,
+            ),
+            ("{\"kind\":\"unknown\"}\n", Refusal::Output),
+            ("{\"kind\":\"ready\",\"extra\":1}\n", Refusal::Output),
+            ("garbage\n", Refusal::Output),
+        ] {
+            let mut ledger = accounting();
+            assert_eq!(
+                protocol().bytes(
+                    wire.as_bytes(),
+                    4096,
+                    &mut ParserDecode::new(&mut ledger),
+                    Some(&mut vec![])
+                ),
+                Err(expected),
+                "{wire}"
+            );
+        }
+        let mut ledger = accounting();
+        let mut decode = ParserDecode::new(&mut ledger);
+        let wire = b"{\"kind\":\"ready\"}\n";
+        assert!(
+            protocol()
+                .bytes(wire, wire.len() as u64, &mut decode, Some(&mut vec![]))
+                .is_ok()
+        );
+        assert_eq!(
+            protocol().bytes(wire, wire.len() as u64 - 1, &mut decode, Some(&mut vec![])),
+            Err(Refusal::Output)
+        );
+        let mut state = protocol();
+        state.wire = u64::MAX;
+        assert_eq!(
+            state.bytes(b"x", u64::MAX, &mut decode, Some(&mut vec![])),
+            Err(Refusal::Output)
+        );
+        let mut state = protocol();
+        state.frame = vec![b'x'; 4 * 1024 * 1024];
+        assert_eq!(
+            state.bytes(b"x", u64::MAX, &mut decode, Some(&mut vec![])),
+            Err(Refusal::Output)
+        );
+        let mut state = protocol();
+        state
+            .bytes(b"{", 1, &mut decode, Some(&mut vec![]))
+            .unwrap();
+        assert_eq!(state.frame, b"{");
+    }
+    /// Failed barrier acknowledgement must never admit data to the caller.
+    struct BrokenAck;
+    impl io::Write for BrokenAck {
+        fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+            Err(io::ErrorKind::BrokenPipe.into())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+    #[test]
+    fn n17_protocol_ack_overflow_pre_ready_and_cumulative_n16_refusals() {
+        let mut ledger = accounting();
+        let mut decode = ParserDecode::new(&mut ledger);
+        assert_eq!(
+            protocol().bytes(&proposal(), 4096, &mut decode, Some(&mut vec![])),
+            Err(Refusal::Unsupported)
+        );
+        let mut state = protocol();
+        state.ready = true;
+        assert_eq!(
+            state.bytes(&proposal(), 4096, &mut decode, Some(&mut BrokenAck)),
+            Err(Refusal::Output)
+        );
+        assert_eq!(decode.receipts().len(), 1);
+        let mut state = protocol();
+        state.ready = true;
+        state.reserved = u64::MAX;
+        assert_eq!(
+            state.bytes(&proposal(), 4096, &mut decode, Some(&mut vec![])),
+            Err(Refusal::Output)
+        );
+        let mut state = protocol();
+        state.ready = true;
+        let mut ack = vec![];
+        for _ in 0..8 {
+            state
+                .bytes(&proposal(), 4096, &mut decode, Some(&mut ack))
+                .unwrap();
+        }
+        assert_eq!(decode.receipts().len(), 10);
+        let prior = ack.clone();
+        assert!(matches!(
+            state.bytes(&proposal(), 4096, &mut decode, Some(&mut ack)),
+            Err(Refusal::Decode(_))
+        ));
+        assert_eq!(ack, prior);
+        assert!(decode.finish().is_err());
+    }
+    #[test]
+    fn n17_quantum_deadline_equality_and_cancellation_precedence() {
+        let now = Instant::now();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let mut timing = Timing {
+            deadline: now + Duration::from_millis(11),
+            clock: Arc::new(FixedClock(Mutex::new(now))),
+            cancelled: cancelled.clone(),
+        };
+        assert_eq!(timing.quantum(), Ok(Duration::from_millis(10)));
+        timing.deadline = now + Duration::from_millis(1);
+        assert_eq!(timing.quantum(), Ok(Duration::from_millis(1)));
+        timing.deadline = now;
+        assert_eq!(timing.quantum(), Err(Refusal::Timeout));
+        timing.deadline = now.checked_sub(Duration::from_millis(1)).unwrap();
+        assert_eq!(timing.quantum(), Err(Refusal::Timeout));
+        cancelled.store(true, Ordering::Release);
+        assert_eq!(timing.quantum(), Err(Refusal::Cancelled));
     }
 }

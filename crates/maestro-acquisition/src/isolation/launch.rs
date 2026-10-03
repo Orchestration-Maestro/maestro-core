@@ -8,7 +8,7 @@ use rustix::{
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
-    io::{Read as _, Seek as _, Write as _},
+    io::{Read, Seek as _, Write as _},
     os::{
         fd::AsRawFd as _,
         unix::fs::{MetadataExt as _, PermissionsExt as _},
@@ -50,6 +50,10 @@ fn read(file: &mut File, remaining: &mut u64) -> Result<Vec<u8>, Refusal> {
         .checked_sub(length)
         .ok_or(Refusal::Configuration)?;
     file.rewind().map_err(|_| Refusal::Configuration)?;
+    read_sized(file, length)
+}
+/// Read once against the observed length; refuse both shrink and growth.
+pub(super) fn read_sized(file: &mut impl Read, length: u64) -> Result<Vec<u8>, Refusal> {
     let mut bytes = Vec::new();
     file.take(length.saturating_add(1))
         .read_to_end(&mut bytes)
@@ -59,6 +63,7 @@ fn read(file: &mut File, remaining: &mut u64) -> Result<Vec<u8>, Refusal> {
     }
     Ok(bytes)
 }
+
 /// A digest pin applies to exactly the buffer passed onward; no second file read.
 fn checked(pinned: &mut PinnedFile, remaining: &mut u64) -> Result<Vec<u8>, Refusal> {
     let bytes = read(&mut pinned.file, remaining)?;
@@ -88,10 +93,14 @@ fn sealed(bytes: &[u8]) -> Result<File, Refusal> {
 /// Installed mode's immutable administrator-owned image metadata.
 pub(super) fn installed(file: &File) -> Result<(), Refusal> {
     let meta = file.metadata().map_err(|_| Refusal::LaunchPin)?;
-    if !meta.is_file() || meta.uid() != 0 || meta.mode() & 0o022 != 0 || meta.mode() & 0o111 == 0 {
+    if !trusted_metadata(meta.is_file(), meta.uid(), meta.mode(), true) {
         return Err(Refusal::LaunchPin);
     }
     Ok(())
+}
+/// Common immutable administrator-owned metadata; only a loader needs execute bits.
+pub(super) fn trusted_metadata(regular: bool, uid: u32, mode: u32, executable: bool) -> bool {
+    regular && uid == 0 && mode & 0o022 == 0 && (!executable || mode & 0o111 != 0)
 }
 /// Bootstrap pin and explicit host posture, with no auto-detection or fallback.
 pub(super) fn bootstrap(
@@ -187,7 +196,7 @@ pub(super) fn prepare(
             .file
             .metadata()
             .map_err(|_| Refusal::LaunchPin)?;
-        if !meta.is_file() || meta.uid() != 0 || meta.mode() & 0o022 != 0 {
+        if !trusted_metadata(meta.is_file(), meta.uid(), meta.mode(), false) {
             return Err(Refusal::LaunchPin);
         }
         let bytes = checked(&mut runtime.pinned, remaining)?;
@@ -222,6 +231,7 @@ pub(super) fn executable(file: &File) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
+
     use super::{
         File, PinnedFile, Refusal, bootstrap, installed, read, sealed, target, verify_snapshot,
     };
@@ -316,5 +326,174 @@ mod tests {
             Err(Refusal::LaunchPin)
         );
         fs::remove_dir_all(scratch).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod preparation_tests {
+    use super::{Refusal, prepare, write};
+    use crate::isolation::elf::interpreter;
+    use crate::isolation::{
+        port::{RuntimeFile, ScopedRead},
+        test_support::{directory, pin, request},
+    };
+    use rustix::{
+        fs::{SealFlags, fcntl_get_seals},
+        io::{FdFlags, fcntl_getfd},
+    };
+    use std::path::Path;
+    use std::{
+        fs::{self, File},
+        os::unix::fs::PermissionsExt as _,
+    };
+
+    #[test]
+    fn n17_prepare_complete_static_snapshots_inputs_modes_and_staging() {
+        let parent = directory();
+        let root = parent.join("root");
+        fs::create_dir(&root).unwrap();
+        let mut launch = request(&parent);
+        let input = parent.join("document");
+        fs::write(&input, b"scoped bytes").unwrap();
+        launch.inputs.push(ScopedRead {
+            name: "document".into(),
+            file: File::open(&input).unwrap(),
+        });
+        launch.runtime.push(RuntimeFile {
+            path: "etc/fixture".into(),
+            pinned: pin(Path::new("/etc/hostname")),
+            executable: false,
+        });
+        let runtime = fs::read("/etc/hostname").unwrap();
+        let length = fs::metadata(parent.join("image")).unwrap().len() + 12 + runtime.len() as u64;
+        let mut remaining = length;
+        let (parser, interpreter) = prepare(&root, &mut launch, &mut remaining).unwrap();
+        assert_eq!(interpreter, None);
+        assert_eq!(remaining, 0);
+        assert_eq!(
+            fs::read(root.join("parser")).unwrap(),
+            fs::read(parent.join("image")).unwrap()
+        );
+        assert_eq!(
+            fs::read(root.join("input/document")).unwrap(),
+            b"scoped bytes"
+        );
+        assert_eq!(fs::read(root.join("etc/fixture")).unwrap(), runtime);
+        for (name, mode) in [
+            ("parser", 0o555),
+            ("input/document", 0o444),
+            ("etc/fixture", 0o444),
+        ] {
+            assert_eq!(
+                fs::metadata(root.join(name)).unwrap().permissions().mode() & 0o777,
+                mode
+            );
+        }
+        assert!(root.join("work").is_dir() && root.join("old-root").is_dir());
+        assert_eq!(fcntl_getfd(&parser).unwrap(), FdFlags::empty());
+        assert!(
+            fcntl_get_seals(&parser)
+                .unwrap()
+                .contains(SealFlags::WRITE | SealFlags::GROW | SealFlags::SHRINK | SealFlags::SEAL)
+        );
+        assert_eq!(
+            write(&root.join("parser"), b"overwrite", false),
+            Err(Refusal::Configuration)
+        );
+        assert_eq!(
+            write(Path::new(""), b"invalid", false),
+            Err(Refusal::Configuration)
+        );
+        fs::remove_dir_all(parent).unwrap();
+    }
+    #[test]
+    fn n17_prepare_dynamic_loader_agreement_and_completeness() {
+        let parent = directory();
+        let mut launch = request(&parent);
+        launch.parser = pin(Path::new("/bin/true"));
+        let bytes = fs::read("/bin/true").unwrap();
+        let loader = interpreter(&bytes).unwrap().unwrap();
+        let root = parent.join("missing");
+        fs::create_dir(&root).unwrap();
+        assert!(matches!(
+            prepare(&root, &mut launch, &mut 10_000_000),
+            Err(Refusal::Configuration)
+        ));
+        launch.runtime.push(RuntimeFile {
+            path: loader.clone(),
+            pinned: pin(&Path::new("/").join(&loader)),
+            executable: false,
+        });
+        let root = parent.join("wrong");
+        fs::create_dir(&root).unwrap();
+        assert!(matches!(
+            prepare(&root, &mut launch, &mut 10_000_000),
+            Err(Refusal::Configuration)
+        ));
+        launch.runtime.first_mut().unwrap().executable = true;
+        let root = parent.join("complete");
+        fs::create_dir(&root).unwrap();
+        let (_, interpreter) = prepare(&root, &mut launch, &mut 10_000_000).unwrap();
+        assert_eq!(interpreter.as_deref(), Some(loader.as_str()));
+        assert_eq!(
+            fs::read(root.join(&loader)).unwrap(),
+            fs::read(Path::new("/").join(&loader)).unwrap()
+        );
+        assert_eq!(
+            fs::metadata(root.join(loader))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o555
+        );
+        fs::remove_dir_all(parent).unwrap();
+    }
+    #[test]
+    fn n17_prepare_argument_pid_runtime_and_scoped_name_neighbours() {
+        let parent = directory();
+        for (index, name) in ["", "../escape", "/absolute", "a/b", ".", ".."]
+            .into_iter()
+            .enumerate()
+        {
+            let root = parent.join(format!("input-{index}"));
+            fs::create_dir(&root).unwrap();
+            let mut launch = request(&parent);
+            launch.inputs.push(ScopedRead {
+                name: name.into(),
+                file: File::open(parent.join("image")).unwrap(),
+            });
+            assert!(
+                matches!(
+                    prepare(&root, &mut launch, &mut 1000),
+                    Err(Refusal::Configuration)
+                ),
+                "{name}"
+            );
+        }
+        for (index, pids, args) in [(0, 1, vec![]), (1, 2, vec!["bad\0argument".into()])] {
+            let root = parent.join(format!("invalid-{index}"));
+            fs::create_dir(&root).unwrap();
+            let mut launch = request(&parent);
+            launch.pids_max = pids;
+            launch.arguments = args;
+            assert!(matches!(
+                prepare(&root, &mut launch, &mut 1000),
+                Err(Refusal::Configuration)
+            ));
+        }
+        let root = parent.join("unowned-runtime");
+        fs::create_dir(&root).unwrap();
+        let mut launch = request(&parent);
+        launch.runtime.push(RuntimeFile {
+            path: "lib/data".into(),
+            pinned: pin(&parent.join("image")),
+            executable: false,
+        });
+        assert!(matches!(
+            prepare(&root, &mut launch, &mut 1000),
+            Err(Refusal::LaunchPin)
+        ));
+        fs::remove_dir_all(parent).unwrap();
     }
 }

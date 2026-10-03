@@ -379,15 +379,21 @@ in place.
 │   │   │   ├── isolation/                                                               # Replaceable process containment and platform-specific kernel controls
 │   │   │   │   ├── bootstrap.rs                                                         # Trusted single-threaded bootstrap, invoked only by the pinned launcher
 │   │   │   │   ├── cgroup.rs                                                            # Only the explicitly delegated per-run subtree is writable by this supervisor
+│   │   │   │   ├── cgroup_decision_tests.rs                                             # Refused controller readbacks and nonempty roots must not release a worker
+│   │   │   │   ├── cgroup_host.rs                                                       # Actual delegated-cgroup effects; ownership, parsing and rollback stay in drivers
+│   │   │   │   ├── child_tests.rs                                                       # Ordinary barrier-handshaken child processes exercise poll/read/wait and cleanup
 │   │   │   │   ├── elf.rs                                                               # Only the native ELF image's declared interpreter gains executable access
 │   │   │   │   ├── launch.rs                                                            # Read-once snapshots and sealed native executable handles
+│   │   │   │   ├── launch_metadata_tests.rs                                             # Installed metadata and short/changed-length read neighbours
 │   │   │   │   ├── linux.rs                                                             # Qualified Linux adapter
+│   │   │   │   ├── linux_configuration_tests.rs                                         # Host/configuration validation uses the shared private driver, never a public fallback
 │   │   │   │   ├── mod.rs                                                               # Replaceable process containment and platform-specific kernel controls
 │   │   │   │   ├── port.rs                                                              # A containment adapter receives already scoped handles, never source paths
 │   │   │   │   ├── sandbox.rs                                                           # Minimal private filesystem, capability removal and strict Landlock V3
 │   │   │   │   ├── scratch.rs                                                           # Atomic owned scratch admission and crash recovery; no source bytes in preparation
 │   │   │   │   ├── supervision.rs                                                       # Bounded parent-side parser IPC and owned whole-tree teardown
-│   │   │   │   └── syscalls.rs                                                          # Architecture-bound default-deny profile; namespace and management calls absent
+│   │   │   │   ├── syscalls.rs                                                          # Architecture-bound default-deny profile; namespace and management calls absent
+│   │   │   │   └── test_support.rs                                                      # Synthetic default-feature envelopes and ordered group effects, not kernel proof
 │   │   │   ├── lifecycle/                                                               # Process-local acquisition lifecycle accounting
 │   │   │   │   ├── full.rs                                                              # Full revalidation compares source evidence, never visible text alone
 │   │   │   │   ├── incremental.rs                                                       # Local verification windows do not claim a remote change index or snapshot

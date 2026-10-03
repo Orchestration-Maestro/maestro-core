@@ -6,6 +6,8 @@ use std::{
     fs::File,
     sync::{Arc, atomic::AtomicBool},
 };
+#[cfg(target_os = "linux")]
+use std::{io::Result as IoResult, path::Path};
 
 /// A provisioned executable or runtime file, checked once before launch.
 #[derive(Debug)]
@@ -82,4 +84,20 @@ pub trait Isolation: Debug + Send + Sync {
     /// # Errors
     /// Missing kernel controls, pin changes, cancellation, crash or budget hold.
     fn run(&self, launch: Launch, accounting: &mut Accounting) -> Result<Vec<u8>, Refusal>;
+}
+
+// Delegated cgroups exist only on Linux; public isolation remains unchanged.
+#[cfg(target_os = "linux")]
+/// Private effects shared by the checked driver and the real Linux leaf.
+pub(super) trait CgroupIo: Debug + Send + Sync {
+    /// Read one kernel observation.
+    fn read(&self, path: &Path) -> IoResult<String>;
+    /// Write one prepared controller value or PID.
+    fn write(&self, path: &Path, value: &str) -> IoResult<()>;
+    /// Create a manager/worker directory.
+    fn create(&self, path: &Path) -> IoResult<()>;
+    /// Remove a proven-empty owned directory.
+    fn remove(&self, path: &Path) -> IoResult<()>;
+    /// Check whole-tree kill capability without triggering it.
+    fn probe_kill(&self, path: &Path) -> IoResult<()>;
 }
