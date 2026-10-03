@@ -1,6 +1,6 @@
 //! Single-threaded native parser namespace bootstrap; never a privileged helper.
 #[cfg(target_os = "linux")]
-use maestro_acquisition::isolation::{bootstrap, port::Refusal as Failure};
+use maestro_acquisition::isolation::{bootstrap_host, port::Refusal as Failure};
 #[cfg(target_os = "linux")]
 use std::io;
 
@@ -13,7 +13,7 @@ use platform::failure::Failure;
 fn main() -> Result<(), Failure> {
     #[cfg(target_os = "linux")]
     {
-        bootstrap::run(&mut io::stdout(), &mut io::stderr())
+        bootstrap_host::run(&mut io::stdout(), &mut io::stderr())
     }
     #[cfg(not(target_os = "linux"))]
     {

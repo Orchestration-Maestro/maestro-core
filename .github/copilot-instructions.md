@@ -382,12 +382,14 @@ in place.
 │   │   │   ├── isolation/                                                               # Replaceable process containment and platform-specific kernel controls
 │   │   │   │   ├── bootstrap.rs                                                         # Trusted single-threaded bootstrap, invoked only by the pinned launcher
 │   │   │   │   ├── bootstrap_command_tests.rs                                           # Stage-two command construction is ordinary production code, not a host policy
+│   │   │   │   ├── bootstrap_dispatch_tests.rs                                          # Dispatch trust-boundary stimuli, independent of namespace availability
 │   │   │   │   ├── bootstrap_host.rs                                                    # Linux bootstrap effects only; decisions and prepared values stay in bootstrap
 │   │   │   │   ├── bootstrap_tests.rs                                                   # Default bootstrap decisions use the production dispatch and init drivers
 │   │   │   │   ├── cgroup.rs                                                            # Only the explicitly delegated per-run subtree is writable by this supervisor
 │   │   │   │   ├── cgroup_decision_tests.rs                                             # Refused controller readbacks and nonempty roots must not release a worker
 │   │   │   │   ├── cgroup_host.rs                                                       # Actual delegated-cgroup effects; ownership, parsing and rollback stay in drivers
 │   │   │   │   ├── child_tests.rs                                                       # Ordinary barrier-handshaken child processes exercise poll/read/wait and cleanup
+│   │   │   │   ├── cleanup_tests.rs                                                     # Deadline-bounded whole-tree collection without host kernel effects
 │   │   │   │   ├── elf.rs                                                               # Only the native ELF image's declared interpreter gains executable access
 │   │   │   │   ├── guard_tests.rs                                                       # Review-named default-driver guard stimuli; no privileged containment claims
 │   │   │   │   ├── launch.rs                                                            # Read-once snapshots and sealed native executable handles

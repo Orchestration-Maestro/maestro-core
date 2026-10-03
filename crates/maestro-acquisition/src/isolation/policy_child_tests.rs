@@ -58,7 +58,10 @@ fn n17_default_child_parser_loader_and_work_execute_rights() {
         fs::create_dir(root.join("input")).unwrap();
         fs::write(root.join("input/document"), "scoped").unwrap();
         for program in ["parser", "loader", "work/program"] {
-            executable(&root.join(program));
+            executable(
+                &root.join(program),
+                &[0xb8, 60, 0, 0, 0, 0x31, 0xff, 0x0f, 0x05],
+            );
         }
         let mut command = Command::new(env::current_exe().unwrap());
         command
@@ -124,8 +127,9 @@ fn collect(root: &Path, destination: &Path) {
 }
 
 /// No compiler, runtime libraries, vendor binary or dynamic loader is needed.
-fn executable(path: &Path) {
-    let mut image = vec![0_u8; 132];
+fn executable(path: &Path, code: &[u8]) {
+    let size = 120 + code.len();
+    let mut image = vec![0_u8; size];
     image[..7].copy_from_slice(b"\x7fELF\x02\x01\x01");
     image[16..18].copy_from_slice(&2_u16.to_le_bytes());
     image[18..20].copy_from_slice(&62_u16.to_le_bytes());
@@ -138,11 +142,83 @@ fn executable(path: &Path) {
     image[64..68].copy_from_slice(&1_u32.to_le_bytes());
     image[68..72].copy_from_slice(&5_u32.to_le_bytes());
     image[80..88].copy_from_slice(&0x40_0000_u64.to_le_bytes());
-    image[96..104].copy_from_slice(&132_u64.to_le_bytes());
-    image[104..112].copy_from_slice(&132_u64.to_le_bytes());
+    image[96..104].copy_from_slice(&(size as u64).to_le_bytes());
+    image[104..112].copy_from_slice(&(size as u64).to_le_bytes());
     image[112..120].copy_from_slice(&4096_u64.to_le_bytes());
-    // mov eax,60; xor edi,edi; syscall; padding (normal Linux process exit).
-    image[120..].copy_from_slice(&[0xb8, 60, 0, 0, 0, 0x31, 0xff, 0x0f, 0x05, 0, 0, 0]);
+    image[120..].copy_from_slice(code);
     fs::write(path, image).unwrap();
     fs::set_permissions(path, fs::Permissions::from_mode(0o555)).unwrap();
+}
+
+/// Execute a raw synthetic syscall and report its errno as the normal exit code.
+/// Null clone3 arguments cannot create a process, even before installing policy.
+fn syscall_image(path: &Path, number: u32) {
+    let mut code = vec![0xb8]; // mov eax, syscall number
+    code.extend(number.to_le_bytes());
+    code.extend([
+        0x31, 0xff, 0x31, 0xf6, // xor edi,edi; xor esi,esi
+        0x0f, 0x05, 0xf7, 0xd8, // syscall; neg eax (negative errno)
+        0x89, 0xc7, // mov edi,eax
+        0xb8, 60, 0, 0, 0, 0x0f, 0x05, // exit(errno)
+    ]);
+    executable(path, &code);
+}
+fn errno(path: &Path) -> i32 {
+    Command::new(path)
+        .env_clear()
+        .status()
+        .unwrap()
+        .code()
+        .unwrap()
+}
+#[test]
+fn n17_default_child_applies_clone3_fallback_and_default_deny() {
+    if let Some(root) = env::var_os("MAESTRO_N17_FILTER_CHILD") {
+        let root = Path::new(&root);
+        let parser = root.join("parser");
+        let loader = root.join("loader");
+        assert_eq!(
+            errno(&parser),
+            22,
+            "outer filter masks clone3: need unfiltered EINVAL control"
+        );
+        assert_eq!(
+            errno(&loader),
+            38,
+            "unknown syscall must be ENOSYS before policy"
+        );
+        assert_eq!(sandbox::landlock(root, Some("loader")), Ok(()));
+        assert_eq!(syscalls::restrict(), Ok(()));
+        assert_eq!(errno(&parser), 38, "clone3 fallback not applied");
+        assert_eq!(errno(&loader), 1, "default deny not applied");
+        return;
+    }
+    let root = disk_scratch_directory().unwrap();
+    fs::create_dir(root.join("work")).unwrap();
+    fs::create_dir(root.join("input")).unwrap();
+    fs::write(root.join("input/document"), "scoped").unwrap();
+    syscall_image(&root.join("parser"), 435); // Linux x86-64 clone3
+    syscall_image(&root.join("loader"), u32::MAX); // absent syscall, denied by default
+    let mut command = Command::new(env::current_exe().unwrap());
+    command
+        .env_clear()
+        .env("MAESTRO_N17_FILTER_CHILD", &root)
+        .args([
+            "--exact",
+            concat!(
+                "isolation::policy_child_tests::",
+                "n17_default_child_applies_clone3_fallback_and_default_deny"
+            ),
+            "--nocapture",
+        ]);
+    let parent_profile = env::var_os("LLVM_PROFILE_FILE").map(PathBuf::from);
+    if parent_profile.is_some() {
+        command.env("LLVM_PROFILE_FILE", root.join("work/filter-%p-%m.profraw"));
+    }
+    let output = command.output().unwrap();
+    assert!(output.status.success(), "{output:?}");
+    if let Some(destination) = parent_profile {
+        collect(&root, destination.parent().unwrap());
+    }
+    fs::remove_dir_all(root).unwrap();
 }

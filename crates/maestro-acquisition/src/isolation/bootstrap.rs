@@ -1,19 +1,15 @@
 //! Trusted single-threaded bootstrap, invoked only by the pinned launcher.
 use super::{
-    bootstrap_host,
     launch::Configuration,
     port::{BootstrapIo, Refusal},
-    sandbox,
-    sandbox_host::Host,
-    syscalls,
+    sandbox, syscalls,
 };
 use nix::{errno::Errno, fcntl::AtFlags, sched::CloneFlags, unistd::close};
 use rustix::{
-    process::{getgid, getpid, getuid},
+    process::{getgid, getuid},
     thread::no_new_privs,
 };
 use std::{
-    env,
     ffi::CString,
     fs::{self, File},
     io::{self, BufRead, Read as _},
@@ -57,7 +53,7 @@ pub(super) fn close_result(result: Result<(), Errno>) -> Result<(), Refusal> {
     }
 }
 /// Close unrelated inherited descriptors while proc still names this process.
-fn hygiene(keep: &[i32]) -> Result<(), Refusal> {
+pub(super) fn hygiene(keep: &[i32]) -> Result<(), Refusal> {
     let entries = fs::read_dir("/proc/self/fd").map_err(|_| Refusal::Containment)?;
     let descriptors = descriptors(
         entries.map(|entry| entry.map(|entry| entry.file_name().to_string_lossy().into_owned())),
@@ -100,18 +96,6 @@ pub(super) fn init_with(
     writeln!(output, "{{\"kind\":\"ready\"}}").map_err(|_| Refusal::Containment)?;
     output.flush().map_err(|_| Refusal::Containment)?;
     effects.exec(&parser, &arguments, &[], AtFlags::AT_EMPTY_PATH)
-}
-/// Capture only at the actual entrypoint; tests exercise this same bounded dispatcher.
-/// # Errors
-/// Every namespace, hard Landlock, seccomp or pinned-image failure refuses.
-pub fn run(output: &mut impl io::Write, diagnostics: &mut impl io::Write) -> Result<(), Refusal> {
-    dispatch(
-        env::args().skip(1),
-        &mut io::stdin().lock(),
-        (output, diagnostics),
-        profile_required(env::var("MAESTRO_N17_PROFILE").ok().as_deref()),
-        &Effects,
-    )
 }
 /// Explicit inputs keep environment capture out of the policy and bound both config routes.
 pub(super) fn dispatch(
@@ -181,53 +165,6 @@ pub(super) fn dispatch(
     }
     Ok(())
 }
-/// Mandatory production adapter; only the actual OS operations live in the host leaves.
-struct Effects;
-impl BootstrapIo for Effects {
-    fn hygiene(&self, keep: &[i32]) -> Result<(), Refusal> {
-        hygiene(keep)
-    }
-    fn profile(&self) -> Result<String, Refusal> {
-        fs::read_to_string("/proc/self/attr/current").map_err(|_| Refusal::Unsupported)
-    }
-    fn unshare(&self, flags: CloneFlags) -> Result<(), Refusal> {
-        bootstrap_host::enter(flags)
-    }
-    fn map(&self, path: &str, value: &str) -> Result<(), Refusal> {
-        bootstrap_host::map(path, value)
-    }
-    fn pid(&self) -> i32 {
-        getpid().as_raw_nonzero().get()
-    }
-    fn parser(&self, descriptor: i32) -> Result<File, Refusal> {
-        pinned_parser(descriptor)
-    }
-    fn filesystem(&self, root: &Path, memory_bytes: u64) -> Result<(), Refusal> {
-        sandbox::filesystem_with(root, memory_bytes, &Host)
-    }
-    fn landlock(&self, root: &Path, loader: Option<&str>) -> Result<(), Refusal> {
-        sandbox::landlock(root, loader)
-    }
-    fn capabilities(&self) -> Result<(), Refusal> {
-        sandbox::capabilities_with(&Host)
-    }
-    fn restrict(&self) -> Result<(), Refusal> {
-        syscalls::restrict()
-    }
-    fn exec(
-        &self,
-        parser: &File,
-        arguments: &[CString],
-        environment: &[CString],
-        flags: AtFlags,
-    ) -> Result<(), Refusal> {
-        bootstrap_host::execute(parser, arguments, environment, flags)
-    }
-    fn handoff(&self, command: &mut Command) -> Result<bool, Refusal> {
-        bootstrap_host::handoff(command)
-    }
-}
-
 /// Stock-runner qualification of the actual Landlock/seccomp policy, with no namespaces.
 fn unprivileged(
     root: &Path,

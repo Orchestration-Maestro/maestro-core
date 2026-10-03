@@ -30,10 +30,12 @@ mod test_support;
 #[cfg(target_os = "linux")]
 mod child_tests;
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(test)]
+#[cfg(target_os = "linux")]
 mod launch_metadata_tests;
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(test)]
+#[cfg(target_os = "linux")]
 mod cgroup_decision_tests;
 
 #[cfg(test)]
@@ -48,18 +50,30 @@ mod guard_tests;
 #[cfg(target_os = "linux")]
 mod launch_flag_tests;
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(test)]
+#[cfg(target_os = "linux")]
 mod bootstrap_command_tests;
 #[cfg(target_os = "linux")]
-mod bootstrap_host;
-#[cfg(all(test, target_os = "linux"))]
+pub mod bootstrap_host;
+#[cfg(test)]
+#[cfg(target_os = "linux")]
 mod bootstrap_tests;
 #[cfg(test)]
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 mod policy_child_tests;
 #[cfg(target_os = "linux")]
 mod sandbox_host;
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(test)]
+#[cfg(target_os = "linux")]
 mod sandbox_tests;
-#[cfg(all(test, target_os = "linux", target_arch = "x86_64"))]
+#[cfg(test)]
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 mod syscall_filter_tests;
+
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod bootstrap_dispatch_tests;
+
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod cleanup_tests;

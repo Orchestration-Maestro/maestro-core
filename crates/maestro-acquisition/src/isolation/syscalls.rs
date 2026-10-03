@@ -208,16 +208,13 @@ pub(super) fn restrict() -> Result<(), Refusal> {
     }
 }
 
-#[cfg(all(test, target_arch = "x86_64"))]
+#[cfg(test)]
+#[cfg(target_arch = "x86_64")]
 mod tests {
     use super::{libc, plan};
     use seccompiler::{SeccompCmpArgLen, SeccompCmpOp, SeccompCondition, SeccompRule};
 
     /// Independent Linux UAPI condition, not the policy builder under test.
-    #[expect(
-        clippy::unwrap_used,
-        reason = "independently authored valid UAPI test conditions"
-    )]
     fn zero_bits(argument: u8, mask: u64) -> SeccompCondition {
         SeccompCondition::new(
             argument,

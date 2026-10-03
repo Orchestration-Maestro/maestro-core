@@ -1,7 +1,7 @@
 //! Bounded parent-side parser IPC and owned whole-tree teardown.
 use super::{cgroup::Worker, port::Refusal};
 use crate::extraction::decode::{DecodeRequest, ParserDecode};
-use maestro_kernel::retrieval::Clock;
+use maestro_kernel::retrieval::{Clock, SystemClock};
 use rustix::event::{PollFd, PollFlags, Timespec, poll};
 use serde::Deserialize;
 use std::{
@@ -223,6 +223,7 @@ pub(super) fn run(
     }
 }
 /// Whole-tree kill, kernel emptiness and reaping precede cgroup/scratch deletion.
+/// Collection reuses the N17 §4 120-second ceiling; Pi has no kernel-handshake equivalent.
 pub(super) fn cleanup(worker: &Worker, child: &mut Child) -> Result<(), Refusal> {
     let killed = worker.kill();
     // Attach may have failed while the bootstrap was still outside the leaf.
@@ -231,8 +232,26 @@ pub(super) fn cleanup(worker: &Worker, child: &mut Child) -> Result<(), Refusal>
     child.wait().map_err(|_| Refusal::Cleanup)?;
     killed?;
     // SIGKILL tree teardown is asynchronous. Never substitute leader exit for emptiness.
-    while !worker.empty()? {
-        thread::yield_now();
+    wait_empty(
+        || worker.empty(),
+        Instant::now() + Duration::from_mins(2),
+        &SystemClock,
+    )
+}
+/// Private deadline/clock seam for asynchronous kernel emptiness observations.
+pub(super) fn wait_empty(
+    mut empty: impl FnMut() -> Result<bool, Refusal>,
+    deadline: Instant,
+    clock: &dyn Clock,
+) -> Result<(), Refusal> {
+    while !empty()? {
+        let remaining = deadline
+            .checked_duration_since(clock.now())
+            .unwrap_or_default();
+        if remaining.is_zero() {
+            return Err(Refusal::Cleanup);
+        }
+        thread::sleep(remaining.min(Duration::from_millis(10)));
     }
     Ok(())
 }

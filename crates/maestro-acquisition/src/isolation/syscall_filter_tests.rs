@@ -4,11 +4,6 @@ use nix::libc;
 use seccompiler::BpfProgram;
 
 /// Tiny interpreter for exactly the compiler's emitted instruction set, with bounded steps.
-#[expect(
-    clippy::unwrap_used,
-    clippy::panic,
-    reason = "independent bounded BPF evaluator test assertions"
-)]
 fn action(program: &BpfProgram, syscall: i64, args: [u64; 6]) -> u32 {
     let mut data = [0_u32; 16];
     data[0] = u32::try_from(syscall).unwrap();

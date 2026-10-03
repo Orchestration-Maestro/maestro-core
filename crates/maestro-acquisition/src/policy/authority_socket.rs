@@ -229,7 +229,8 @@ pub fn read_frame_with_clock(
     }
 }
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use super::{Clock, Duration, Instant, UnixStream, read_frame_with_clock};
     use crate::Refusal;

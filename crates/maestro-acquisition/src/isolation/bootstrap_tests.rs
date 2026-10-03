@@ -13,12 +13,13 @@ use std::{
 
 /// Ordered effects with an independently selected refusal point.
 #[derive(Default)]
-struct Effects {
-    events: RefCell<Vec<String>>,
+pub(super) struct Effects {
+    pub(super) events: RefCell<Vec<String>>,
     failure: Option<&'static str>,
     profile: String,
     pid: i32,
     success: bool,
+    parser_fd: RefCell<Option<i32>>,
 }
 impl Effects {
     fn record(&self, event: impl Into<String>) -> Result<(), Refusal> {
@@ -51,17 +52,19 @@ impl BootstrapIo for Effects {
     fn pid(&self) -> i32 {
         self.pid
     }
-    #[expect(clippy::unwrap_used, reason = "ordinary system fixture")]
     fn parser(&self, descriptor: i32) -> Result<File, Refusal> {
         self.record(format!("parser:{descriptor}"))?;
-        Ok(File::open("/dev/null").unwrap())
+        let parser = File::open("/dev/null").unwrap();
+        *self.parser_fd.borrow_mut() = Some(parser.as_raw_fd());
+        Ok(parser)
     }
     fn filesystem(&self, root: &Path, memory_bytes: u64) -> Result<(), Refusal> {
         assert_eq!(root, Path::new("/synthetic"));
         assert_eq!(memory_bytes, 123);
         self.record("filesystem")
     }
-    fn landlock(&self, _: &Path, loader: Option<&str>) -> Result<(), Refusal> {
+    fn landlock(&self, root: &Path, loader: Option<&str>) -> Result<(), Refusal> {
+        assert_eq!(root, Path::new("/"));
         self.record(format!("landlock:{loader:?}"))
     }
     fn capabilities(&self) -> Result<(), Refusal> {
@@ -81,7 +84,6 @@ impl BootstrapIo for Effects {
         assert_eq!(flags.bits(), 0x1000);
         self.record(format!("exec:{args:?}:env={environment:?}"))
     }
-    #[expect(clippy::unwrap_used, reason = "driver-produced test JSON")]
     fn handoff(&self, command: &mut Command) -> Result<bool, Refusal> {
         let args: Vec<_> = command.get_args().collect();
         assert_eq!(*args.first().unwrap(), "init");
@@ -98,7 +100,7 @@ impl BootstrapIo for Effects {
         Ok(self.success)
     }
 }
-fn config() -> Configuration {
+pub(super) fn config() -> Configuration {
     Configuration {
         root: "/synthetic".into(),
         parser_fd: 17,
@@ -108,7 +110,7 @@ fn config() -> Configuration {
         memory_bytes: 123,
     }
 }
-fn effects() -> Effects {
+pub(super) fn effects() -> Effects {
     Effects {
         pid: 1,
         success: true,
@@ -116,7 +118,7 @@ fn effects() -> Effects {
         ..Effects::default()
     }
 }
-fn invoke(
+pub(super) fn invoke(
     args: &[&str],
     bytes: &[u8],
     profile: bool,
@@ -341,10 +343,6 @@ struct Output<'a> {
     effects: &'a Effects,
     fail: Option<&'static str>,
 }
-#[expect(
-    clippy::unwrap_used,
-    reason = "ordered writer assertions in a test-only fixture"
-)]
 impl io::Write for Output<'_> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         assert_eq!(bytes, b"{\"kind\":\"ready\"}\n");
@@ -476,5 +474,21 @@ fn n17_bootstrap_required_profile_capture_is_explicit() {
     assert!(profile_required(Some("required")));
     for value in [None, Some(""), Some("optional"), Some("Required")] {
         assert!(!profile_required(value));
+    }
+}
+
+#[test]
+fn n17_bootstrap_init_preserves_reopened_fd_root_and_optional_loader() {
+    for loader in [None, Some("loader".to_owned())] {
+        let mut cfg = config();
+        cfg.interpreter = loader.clone();
+        cfg.parser_fd = -1;
+        let fx = effects();
+        assert_eq!(init_with(&cfg, &mut Vec::new(), &fx), Ok(()));
+        let fd = fx.parser_fd.borrow().unwrap();
+        assert_ne!(fd, cfg.parser_fd);
+        let events = fx.events.borrow();
+        assert_eq!(events[1], format!("fds:[{fd}]"));
+        assert_eq!(events[3], format!("landlock:{loader:?}"));
     }
 }
