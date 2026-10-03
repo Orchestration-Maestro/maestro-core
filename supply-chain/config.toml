@@ -24,7 +24,7 @@ url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/
 
 [policy.lbug]
 audit-as-crates-io = true
-notes = "S2 D8: lbug 0.20.4 fork 02d90e7 (E01–E03b, E01e strict rooted WAL replay), reviewed fork PRs #1–#9 and #17 and #18 (hash-index rollback fix)"
+notes = "S2 D8: lbug 0.20.4 fork f91b5bb (E01–E03b, E01e strict rooted WAL replay), reviewed fork PRs #1–#9 and #17 and #18 (hash-index rollback fix) and #19 (native cache key and built-in CMake preset) and #20 (source-checked bootstrap cfg cache reuse)"
 
 [[exemptions.ahash]]
 version = "0.8.12"
@@ -607,9 +607,9 @@ criteria = "safe-to-deploy"
 notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.lbug]]
-version = "0.20.4@git:02d90e71db83518c9bf31fdacd7280071e1dc021"
+version = "0.20.4@git:f91b5bba0ceb19ec80a9993d70ae83b245918cfc"
 criteria = "safe-to-deploy"
-notes = "S2 D8: fork E01–E03b and E01e strict rooted WAL replay; reviewed fork PRs #1–#9 and #17"
+notes = "S2 D8: fork E01–E03b and E01e strict rooted WAL replay; reviewed fork PRs #1–#9 and #17–#20"
 
 [[exemptions.libc]]
 version = "0.2.189"

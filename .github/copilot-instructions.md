@@ -31,7 +31,6 @@ in place.
 .                                                                            # Repository root
 ├── .cargo/                                                                  # Cargo settings for this workspace
 │   ├── config.toml                                                          # S2 G25 spike: lbug's build script otherwise downloads an unpinned, unchecked prebuilt liblbug (and a helper script from LadybugDB's main
-│   ├── lbug-debug-flags.cmake                                               # File: lbug debug flags
 │   └── mutants.toml                                                         # Mutants no test can kill, each with its reason: none changes behaviour a test can observe
 ├── .github/                                                                 # GitHub metadata, templates and workflows
 │   ├── assets/                                                              # Images and other assets

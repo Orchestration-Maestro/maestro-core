@@ -48,6 +48,12 @@ files = [
   "crates/maestro-knowledge/src/graph/projection/probe.rs",
 ]
 
+[native-cache]
+environment = "LBUG_NATIVE_CACHE_DIR"
+platforms = ["linux"]
+key-files = ["Cargo.lock"]
+published = ["entry-*"]
+
 # The seams of the canonicalization crate that keep one caller: each door is a
 # subsystem, and its one outside caller is the stage that composes it.
 [[exception]]

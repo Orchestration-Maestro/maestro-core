@@ -145,16 +145,23 @@ The patch lives in the organization's repository
 [`Orchestration-Maestro/lbug`](https://github.com/Orchestration-Maestro/lbug):
 the crates.io 0.20.4 crate imported unmodified, then the patch commits.
 The workspace depends on the fork directly, as a git dependency at commit
-`02d90e7` with `version = "=0.20.4"` and default features off (`Cargo.lock`
+`f91b5bb` with `version = "=0.20.4"` and default features off (`Cargo.lock`
 pins the full hash). It was a `[patch.crates-io]` until 2026-10-03:
 cargo-semver-checks builds each crate in a placeholder project that ignores
 `[patch]`, so its API check built crates.io lbug instead of the fork. Its DEP-001 exception in
 `maestro-quality.toml` allows that one git source, and `supply-chain`
 records its vet exemption. The current pin includes E01/E02 rooted
 filesystem operations, E03 external native-cache reuse, E03b source-only
-builds, E01e strict rooted WAL replay and E07b's hash-index rollback fix.
-Earlier three-OS qualification and the rollback repin evidence are recorded
-in [S2 research](../../specs/002-knowledge-graph/research.md#e07b-repin-02d90e7).
+builds, E01e strict rooted WAL replay, E07b's hash-index rollback fix and
+PR #19's native cache key and built-in CMake Debug preset, plus PR #20's
+source-checked bootstrap cfg reuse. Bootstrap-only cfgs added by
+cargo-semver-checks are ignored only for source trees that never mention
+`CARGO_CFG_`; the bundled tree qualifies, allowing API checks to reuse the
+shared engine build. Earlier three-OS qualification and the `02d90e7` rollback
+repin evidence remain recorded in
+[S2 research](../../specs/002-knowledge-graph/research.md#e07b-repin-02d90e7);
+the [native cache repin](../../specs/002-knowledge-graph/research.md#native-cache-repin-f91b5bb)
+records the move to `f91b5bb`.
 
 - **OpenSSL-free** (`575d94f`): a default Cargo feature,
   `extension_installer`, keeps upstream's behaviour. Without it, the CMake
@@ -175,17 +182,22 @@ in [S2 research](../../specs/002-knowledge-graph/research.md#e07b-repin-02d90e7)
   into every rlib (7 GB of rustc memory), and a finished build drops its
   object files.
 
-Without a fork patch, `.cargo/config.toml` also points `CMAKE_TOOLCHAIN_FILE`
-(read by cmake-rs, whose one user in the workspace is lbug) at
-`.cargo/lbug-debug-flags.cmake`. It builds the engine's CMake "Debug" type
-without debug information (`-O0`; MSVC `/Ob0 /Od /RTC1` with `cl` named, since
-a toolchain file stops cmake-rs from naming the compiler): cmake-rs picks
-"Debug" for any Rust opt-level 0, whatever the profile's `debug` says, so a
-profile override cannot drop `-g`. Release builds keep their flags, but the
-file applies to them too, so cmake-rs's own cross-compile setup and compiler
-naming are off in every build type. The reused CMake build does not see that
-file: after editing it, delete `target/*/build/lbug-cmake-*` and CI's target
-cache.
+Historically, `.cargo/config.toml` pointed `CMAKE_TOOLCHAIN_FILE` at
+`.cargo/lbug-debug-flags.cmake` to build the engine's CMake "Debug" type
+without debug information (`-O0`; MSVC `/Ob0 /Od /RTC1` with `cl` named).
+cmake-rs picks "Debug" for any Rust opt-level 0, whatever the profile's
+`debug` says, so a profile override cannot drop `-g`. The external toolchain
+file bypassed the fork's verified native cache and disabled cmake-rs's
+cross-compile setup and compiler naming in every build type. The reused
+CMake build did not see edits to that file without clearing its target cache.
+
+At `8bb2f70`, the same Debug-only preset lives in the fork's source-hashed
+`build.rs`; Release flags remain unchanged. The consumer toolchain assignment
+and `.cargo/lbug-debug-flags.cmake` are retired. `LBUG_BUILD_FROM_SOURCE` and
+`LBUG_REUSE_CMAKE_BUILD` remain set for source-only builds and target-local
+reuse when no external cache is supplied. `maestro-quality.toml` opts into
+`LBUG_NATIVE_CACHE_DIR` on Linux, keyed by `Cargo.lock` and publishing only
+completed `entry-*` directories for the gate's verified cache transport.
 
 E07a keeps native activation opt-in: `maestro-knowledge/engine` owns the
 rooted adapter and `maestro/engine` forwards it. The remaining spike
