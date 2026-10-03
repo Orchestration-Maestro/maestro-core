@@ -620,7 +620,7 @@ already uses sub-slices); its range is not an oversized lane authorization.
 | E10 | `P/cleanup.rs`, canonicalization anchored removal, CLI cleanup/how-to: Retired/Failed-with-receipt preview/confirmation, guard before lookup, no live-reader/unowned deletion or recursive cleanup. | E06, E08b; parallel with E09 | 3–6 h |
 | E11 | `S2/research.md`, how-to and required-check receipts: three-OS engine behavior, source-only runtime, complete feature/default/Windows gates and G22 engine packaging. | E04, E07a/E07b/E08a/E08b, E09, E10 | 2–4 h |
 
-The pin moved to `802abe2` in the combined-pin qualification (2026-10-02), then to `e0a1240` in E07a after E01e, then to `02d90e7` for the E07b rollback fix. E07a wires the first rooted adapter boundary.
+The pin moved to `802abe2` in the combined-pin qualification (2026-10-02), then to `e0a1240` in E07a after E01e, then to `02d90e7` for the E07b rollback fix, then to `8bb2f70` for the native cache key and built-in CMake preset, then to `f91b5bb` for source-checked bootstrap cfg cache reuse. E07a wires the first rooted adapter boundary.
 Deferred E07a obligation: after S2 and S3 share a branch, native activation reads the frozen `graphdb.*` settings through the S1 resolver.
 
 Ranges are planning estimates, not observed future durations. Basis: the

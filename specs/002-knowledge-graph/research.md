@@ -5,9 +5,44 @@ embedded LadybugDB graph engine, against the six-row adoption bar of
 [plan.md](plan.md) A1. This file holds the verdict, the measurements behind it
 and the rulings that followed. ADR-0021 records the resulting design.
 
+## Native cache repin (f91b5bb)
+
+The fork pin is now `f91b5bba0ceb19ec80a9993d70ae83b245918cfc`, the merge of
+[fork PR #20](https://github.com/Orchestration-Maestro/lbug/pull/20).
+It ignores cargo-semver-checks' bootstrap-only cfgs in the native cache key
+only for source trees that never mention `CARGO_CFG_`. The bundled engine
+source qualifies, so the API step can reuse the shared engine build.
+No other dependency or native-cache policy changes. The target checks time
+is 50–55 minutes, pending hosted measurement; this is not a measured result
+or a qualification waiver. Fresh three-OS qualification is dispatched for
+this pin; the earlier receipts below remain historical.
+
+## Native cache adoption (8bb2f70)
+
+The fork pin moved to `8bb2f70934cd07fa2f71206413e213b1f8484da6`, the merge of
+[fork PR #19](https://github.com/Orchestration-Maestro/lbug/pull/19). It adds
+the Rust-only native cache key allowlist and moves the no-symbol CMake Debug
+preset into the source-hashed fork build script. The consumer's
+`CMAKE_TOOLCHAIN_FILE` assignment and `.cargo/lbug-debug-flags.cmake` are
+retired; source-only builds and target-local CMake reuse remain enabled.
+`maestro-quality.toml` opts into the existing verified native cache on Linux
+with `LBUG_NATIVE_CACHE_DIR`, `Cargo.lock` as the key file and `entry-*` as
+the completed-entry selector. PRs still cannot save native Actions archives.
+
+With rust-workflows v4.8.4 sharing the root across coverage, API and feature
+checks, the expected empty-cache checks job is one native engine build for
+compatible head/baseline pins: an estimated `24 + 21 = 45 minutes`, plus
+unmeasured Rust instrumentation, copying and verification overhead. The
+pin-changing transition needs a separate baseline build: an estimated
+`24 + 2 * 21 = 66 minutes` before that overhead. These are sizing estimates
+until the first measured run, not workflow timing guarantees. Unsafe or
+incompatible restores still rebuild from source; no trusted pre-main S2
+warmer exists, and the repository's 10 GB Actions cache may evict entries.
+The historical measurements and retired-toolchain receipts below are unchanged.
+
 ## E07b repin (02d90e7)
 
-The fork pin is `02d90e71db83518c9bf31fdacd7280071e1dc021`, the merge of
+The fork pin moved to `02d90e71db83518c9bf31fdacd7280071e1dc021`, the merge of
 [fork PR #18](https://github.com/Orchestration-Maestro/lbug/pull/18).
 It cherry-picks upstream LadybugDB commit
 `08915c1c8e1a4bd79f3236d1189621a1fb1638c0`
@@ -176,10 +211,10 @@ CI change exists.
   imported unmodified (every file hash equal, plus upstream's `LICENSE`), then
   two patches: an optional extension installer (off here, so no OpenSSL) and
   one reused CMake build (ADR-0021).
-- `.cargo/config.toml` sets `LBUG_BUILD_FROM_SOURCE`,
+- At that pin, `.cargo/config.toml` set `LBUG_BUILD_FROM_SOURCE`,
   `LBUG_REUSE_CMAKE_BUILD` and `CMAKE_TOOLCHAIN_FILE`
   (`.cargo/lbug-debug-flags.cmake`: the C++ engine's debug builds without
-  debug information).
+  debug information; the consumer toolchain file is retired at `8bb2f70`).
 - Toolchains seen: Rust 1.98.1; GCC 13.3 with CMake 3.28-3.31 on Linux;
   MSVC `cl` with CMake 4.4.3 and Ninja 1.13.2 on Windows; Apple clang 17.0.0
   with CMake 4.4.3 on macOS.
@@ -331,7 +366,9 @@ the probe's tests with `engine` took 12:46 and 16:26 on ubuntu, 13:57 and
    reuse the debug and release builds.
 2. A rust-workflows change that caches that directory, keyed on the OS, the
    toolchain, `Cargo.lock` and `.cargo/lbug-debug-flags.cmake`, and fills it
-   without a cold checks run. The portability legs have no cache today.
+   without a cold checks run. The portability legs had no cache then. This
+   historical proposal's consumer toolchain file is retired at `8bb2f70`;
+   the native cache adoption above records the current policy.
 
 Both are separate work (supervisor ruling, 2026-09-28).
 
@@ -520,7 +557,8 @@ G27. Default builds therefore still compile no C++.
 Linux x86-64 (WSL2, 8 threads), 2026-09-29, network off: every run below ran
 in `unshare -rn`, a network namespace holding only a down loopback. The engine
 numbers come from the lbug-spike crate's engine build (the C++ debug build of
-`.cargo/lbug-debug-flags.cmake`, the only one this machine reuses), through
+the now-retired `.cargo/lbug-debug-flags.cmake`, the only one this machine
+reused then), through
 `examples/open_reopen.rs` on a scratch database of 1,000 nodes; three runs.
 
 | Measure | Result |

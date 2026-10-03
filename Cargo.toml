@@ -32,7 +32,7 @@ maestro-test-scratch = { path = "crates/maestro-test-scratch", version = "0.1.0"
 # says how to move to a new version. A direct git dependency, not a
 # [patch.crates-io]: cargo-semver-checks builds each crate in a placeholder
 # project that ignores [patch], and would build crates.io lbug instead.
-lbug = { git = "https://github.com/Orchestration-Maestro/lbug", rev = "02d90e71db83518c9bf31fdacd7280071e1dc021", version = "=0.20.4", default-features = false }
+lbug = { git = "https://github.com/Orchestration-Maestro/lbug", rev = "f91b5bba0ceb19ec80a9993d70ae83b245918cfc", version = "=0.20.4", default-features = false }
 pulldown-cmark = { version = "=0.13.4", default-features = false }
 # Qdrant's official client, over gRPC (ADR-0003, ADR-0020): no snapshot
 # downloads, so no second reqwest; serde for JSON payloads.
