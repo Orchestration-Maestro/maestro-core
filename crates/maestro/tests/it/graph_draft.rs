@@ -379,6 +379,7 @@ fn graph_draft_saves_unreviewed_private_labels_and_replays_without_inference() {
         let output = String::from_utf8(result.stdout).unwrap();
         assert!(!output.contains("PRIVATE"));
         let summary: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(summary["items"], 1);
         assert_eq!(summary["unreviewed"], 1);
         assert_eq!(summary["failed"], 0);
     }

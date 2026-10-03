@@ -44,7 +44,7 @@ fn graph_eval_private_ladder_parse_error_never_echoes_private_text() {
 }
 
 /// Writes a fully isolated synthetic check and returns its manifest path.
-fn manifest(home: &Home) -> PathBuf {
+pub(super) fn manifest(home: &Home) -> PathBuf {
     use maestro_kernel::artifact::Digest;
     use serde_json::json;
     let private = home.root().join("private");
@@ -113,6 +113,7 @@ fn graph_eval_check_is_inference_free_and_prints_only_counts_and_digests() {
     assert_eq!(value["items"], 1);
     assert_eq!(value["m2"], "blocked_g13_g27_g32");
     assert_eq!(value["unreviewed"], 1);
+    assert_eq!(value["unanswerable"], 1);
     assert!(result.stderr.is_empty());
     assert!(
         !home
@@ -165,7 +166,7 @@ fn graph_eval_refuses_missing_overlapping_and_expired_bindings_before_open() {
 }
 
 /// A private ladder uses the existing runner, with graph-check inputs bound by digest.
-fn ladder(home: &Home, graph: &PathBuf, route: &str) -> PathBuf {
+pub(super) fn ladder(home: &Home, graph: &PathBuf, route: &str) -> PathBuf {
     use serde_json::json;
     let output = home.root().join("private/results");
     fs::create_dir(&output).unwrap();
@@ -295,6 +296,8 @@ fn graph_eval_anchors_resolve_only_against_scoped_scratch_authority() {
     assert!(result.status.success(), "{result:?}");
     let summary: Value = serde_json::from_slice(&result.stdout).unwrap();
     assert_eq!(summary["anchors"], 1);
+    assert_eq!(summary["answerable"], 1);
+    assert_eq!(summary["links"], 1);
     assert!(!String::from_utf8_lossy(&result.stdout).contains("private-question-quote-sentinel"));
     home.configure("[access]\nread = []\n");
     let refused = run();

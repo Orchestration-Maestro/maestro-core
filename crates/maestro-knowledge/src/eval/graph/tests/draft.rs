@@ -18,7 +18,7 @@ pub(super) fn window() -> DraftWindow {
 }
 
 /// One draft encoded as the gateway's strict envelope.
-fn candidate() -> Value {
+pub(super) fn candidate() -> Value {
     let mut label = labels().remove(0);
     label["review"] = Value::Null;
     let suite = json!({"schema":"maestro-suite/1", "id":"q-1", "language":"en",
@@ -180,6 +180,11 @@ impl ModelPort for DraftModel {
 
 /// Immutable synthetic card; its temporary artifact is removed immediately.
 pub(super) fn card() -> ModelCard {
+    card_with(Role::Answerer, 4096, Some(1024))
+}
+
+/// Card variants isolate role, context and generation-cap admission.
+pub(super) fn card_with(role: Role, context: u32, output: Option<u32>) -> ModelCard {
     static NEXT: AtomicUsize = AtomicUsize::new(0);
     let root = env::temp_dir().join(format!(
         "maestro-draft-{}-{}",
@@ -187,15 +192,15 @@ pub(super) fn card() -> ModelCard {
         NEXT.fetch_add(1, Ordering::Relaxed)
     ));
     let fields = CardFields {
-        role: Role::Answerer,
+        role,
         router_entry: RouterEntry::parse("synthetic-drafter").unwrap(),
         file_digest: Digest::of(b"model"),
         template_digest: None,
         server_build: "synthetic".into(),
         dimensions: None,
         limits: Limits {
-            context_tokens: NonZeroU32::new(4096).unwrap(),
-            output_tokens: NonZeroU32::new(1024),
+            context_tokens: NonZeroU32::new(context).unwrap(),
+            output_tokens: output.and_then(NonZeroU32::new),
         },
         suite_results: vec![],
     };
@@ -436,4 +441,47 @@ async fn draft_refuses_adapters_without_template_rendering() {
             .unwrap_err(),
         DraftError::Unsupported
     );
+}
+
+#[test]
+fn draft_anchor_window_accepts_both_endpoints_and_rejects_each_escape() {
+    let span = super::support::span_of("| retries | 3 |\n");
+    for approved in [
+        span,
+        [span[0] + 1, span[1]],
+        [span[0], span[1] - 1],
+        [span[0] - 1, span[1]],
+    ] {
+        let mut window = window();
+        window.span = approved;
+        let result = check_candidate(&candidate().to_string(), &window, &BTreeSet::new());
+        if approved[0] <= span[0] && approved[1] >= span[1] {
+            assert!(result.is_ok(), "{approved:?}: {result:?}");
+        } else {
+            assert_eq!(result.unwrap_err(), DraftError::Source);
+        }
+    }
+}
+
+#[test]
+fn draft_debug_is_named_but_never_contains_private_fields() {
+    let window = window();
+    let card = card();
+    let prompt = Digest::of(b"draft");
+    let request = DraftRequest {
+        card: &card,
+        card_digest: card.digest(),
+        prompt: "private prompt",
+        prompt_digest: &prompt,
+        window: &window,
+        budget: budget(),
+    };
+    let draft = check_candidate(&candidate().to_string(), &window, &BTreeSet::new()).unwrap();
+    for (debug, name) in [
+        (format!("{window:?}"), "DraftWindow"),
+        (format!("{request:?}"), "DraftRequest"),
+        (format!("{draft:?}"), "DraftCandidate"),
+    ] {
+        assert_eq!(debug, format!("{name} {{ .. }}"));
+    }
 }

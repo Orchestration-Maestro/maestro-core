@@ -61,3 +61,5 @@ mod catalog_trusted_files;
 mod graph_draft;
 mod graph_draft_bounds;
 mod graph_draft_redirect;
+mod graph_draft_validation;
+mod graph_eval_boundaries;

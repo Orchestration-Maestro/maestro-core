@@ -368,7 +368,9 @@ in place.
 │   │   │       ├── graph_draft.rs                                           # Draft commands share the private refusal boundary before any default kernel open
 │   │   │       ├── graph_draft_bounds.rs                                    # Private drafting file bounds and receipt schema regressions
 │   │   │       ├── graph_draft_redirect.rs                                  # A drafting endpoint that redirects fails the window, and the redirect's
+│   │   │       ├── graph_draft_validation.rs                                # Each frozen manifest and inventory guard refuses independently before journaling
 │   │   │       ├── graph_eval.rs                                            # Graph evaluation refuses unsafe input without opening a default kernel
+│   │   │       ├── graph_eval_boundaries.rs                                 # Private ladder routing and prompt paths refuse before inference
 │   │   │       ├── graph_extract.rs                                         # Model graph extraction is an explicit, mutually exclusive build mode
 │   │   │       ├── graph_operations.rs                                      # G26: setup, status and doctor account for the local embedded graph
 │   │   │       ├── graph_operations_selection.rs                            # Review regressions for lock-only graph selection and preference precedence
@@ -1206,12 +1208,14 @@ in place.
 │   │   │   │   │   │   ├── completeness.rs                                  # Every suite, rung, repeat and item needs exactly one answered request
 │   │   │   │   │   │   ├── diagnostics.rs                                   # Observed proof losses and citation presence are distinct from support
 │   │   │   │   │   │   ├── draft.rs                                         # Draft candidates stay unreviewed and bounded by approved source windows
+│   │   │   │   │   │   ├── draft_boundaries.rs                              # Draft refusal conditions are independent; exact budget endpoints are admitted
 │   │   │   │   │   │   ├── draft_replay.rs                                  # Durable reservations prevent duplicate calls and budget resets after interruption
 │   │   │   │   │   │   ├── gates.rs                                         # The gate rules of the spec's table: pairing against same-run
 │   │   │   │   │   │   ├── gates_support.rs                                 # Synthetic frozen acceptance fixtures shared by the gate tests
 │   │   │   │   │   │   ├── golden.rs                                        # Golden support and refusal gates never substitute retrieval credit
 │   │   │   │   │   │   ├── labels.rs                                        # The label checker: a frozen set passes with only aggregates, IDs and
 │   │   │   │   │   │   ├── mod.rs                                           # Tests of graph evaluation: the strict proof labels and their checker, the
+│   │   │   │   │   │   ├── mutation_boundaries.rs                           # Independent population and diagnostic boundaries from the slice mutation misses
 │   │   │   │   │   │   ├── score.rs                                         # The scores: a proof counts only when every anchor of one allowed proof is
 │   │   │   │   │   │   └── support.rs                                       # What the graph evaluation tests share: a synthetic source, a suite of its
 │   │   │   │   │   ├── answers.rs                                           # Per-item answer attempts, separate from retrieval evidence
