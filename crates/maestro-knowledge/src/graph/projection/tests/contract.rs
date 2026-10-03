@@ -1,8 +1,9 @@
 //! Backend-generic projection writer contract; adapters call this unchanged.
 
+use super::contract_reads::assert_read_contract;
+
 use crate::graph::projection::{
-    EdgeFamily, EntityFact, ProjectionEdge, ProjectionError, ProjectionScope, TypedEdgeProjection,
-    content,
+    EdgeFamily, EntityFact, ProjectionEdge, ProjectionError, ProjectionScope, content,
     writer::{
         BuildVerification, CatalogRelationVocabulary, ProjectionBackend, ProjectionReader,
         ProjectionReadiness, ProjectionWriter,
@@ -18,16 +19,16 @@ use std::{
     slice,
 };
 
-pub(super) struct BackendContract<'a> {
-    pub(super) scopes: &'a ScopeSet,
-    pub(super) denied_scopes: &'a ScopeSet,
-    pub(super) scope: &'a ProjectionScope,
-    pub(super) edges: &'a [ProjectionEdge],
-    pub(super) facts: &'a [EntityFact],
-    pub(super) expected: BuildVerification,
+pub(in crate::graph::projection) struct BackendContract<'a> {
+    pub(in crate::graph::projection) scopes: &'a ScopeSet,
+    pub(in crate::graph::projection) denied_scopes: &'a ScopeSet,
+    pub(in crate::graph::projection) scope: &'a ProjectionScope,
+    pub(in crate::graph::projection) edges: &'a [ProjectionEdge],
+    pub(in crate::graph::projection) facts: &'a [EntityFact],
+    pub(in crate::graph::projection) expected: BuildVerification,
 }
 
-pub(super) fn fixture<'a>(
+pub(in crate::graph::projection) fn fixture<'a>(
     scopes: &'a ScopeSet,
     denied_scopes: &'a ScopeSet,
     scope: &'a ProjectionScope,
@@ -57,7 +58,7 @@ pub(super) fn fixture<'a>(
     }
 }
 
-pub(super) fn edge(generation_id: i64, family: EdgeFamily) -> ProjectionEdge {
+pub(in crate::graph::projection) fn edge(generation_id: i64, family: EdgeFamily) -> ProjectionEdge {
     ProjectionEdge {
         id: Digest::of(format!("edge-{generation_id}-{family:?}").as_bytes()),
         scope: ProjectionScope {
@@ -71,7 +72,7 @@ pub(super) fn edge(generation_id: i64, family: EdgeFamily) -> ProjectionEdge {
     }
 }
 
-pub(super) fn fact(scope: &ProjectionScope) -> EntityFact {
+pub(in crate::graph::projection) fn fact(scope: &ProjectionScope) -> EntityFact {
     use maestro_kernel::facts::{
         Claim, ClaimRecord, EntityKind, EntityName, Literal, LiteralKind, Object, Predicate,
         Provenance, ReviewState, Validity,
@@ -108,18 +109,66 @@ pub(super) fn fact(scope: &ProjectionScope) -> EntityFact {
     }
 }
 
-pub(super) fn run<B: ProjectionBackend>(backend: &mut B, contract: &BackendContract<'_>) {
+/// Deliberately reverse application order, with shared subjects/endpoints and both families.
+pub(in crate::graph::projection) fn ordered_rows(
+    scope: &ProjectionScope,
+) -> (Vec<ProjectionEdge>, Vec<EntityFact>) {
+    let knowledge = edge(scope.generation_id, EdgeFamily::KnowledgeClaim);
+    let mut edges = vec![
+        knowledge.clone(),
+        ProjectionEdge {
+            id: Digest::of(b"second-edge"),
+            ..knowledge.clone()
+        },
+        ProjectionEdge {
+            relation: "depends_on".into(),
+            ..edge(scope.generation_id, EdgeFamily::CatalogDependency)
+        },
+    ];
+    let mut facts = vec![fact(scope), fact(scope)];
+    facts[1].claim.id = Digest::of(b"second-fact");
+    edges.sort_by(|left, right| right.id.cmp(&left.id));
+    facts.sort_by(|left, right| right.claim.id.cmp(&left.claim.id));
+    (edges, facts)
+}
+
+pub(in crate::graph::projection) fn run<B: ProjectionBackend>(
+    backend: &mut B,
+    contract: &BackendContract<'_>,
+) {
     let claim_set_id = Digest::of(b"set");
     let initial_receipt = receipt(contract.scope, &contract.expected, &claim_set_id);
     assert_unpublished(backend, contract, &initial_receipt);
     let mut writer = ProjectionWriter::create(backend, contract.scope.clone()).unwrap();
     assert_invalid_batches(&mut writer, contract);
     assert_batch_rollback(&mut writer, contract);
-    let published_build =
-        verify_and_publish(&mut writer, contract, &claim_set_id, &initial_receipt);
-    drop(writer);
-    let receipt = receipt(contract.scope, &published_build, &claim_set_id);
-    assert_wrong_name(backend, contract, &receipt, &claim_set_id);
+    finish(writer, contract, &claim_set_id, &initial_receipt);
+}
+
+/// Also expose publication/read proof when the fork's fresh rollback is blocked.
+#[cfg(all(feature = "engine", not(windows)))]
+pub(in crate::graph::projection) fn run_verified<B: ProjectionBackend>(
+    backend: &mut B,
+    contract: &BackendContract<'_>,
+) {
+    let claim_set_id = Digest::of(b"set");
+    let initial_receipt = receipt(contract.scope, &contract.expected, &claim_set_id);
+    assert_unpublished(backend, contract, &initial_receipt);
+    let mut writer = ProjectionWriter::create(backend, contract.scope.clone()).unwrap();
+    assert_invalid_batches(&mut writer, contract);
+    finish(writer, contract, &claim_set_id, &initial_receipt);
+}
+
+fn finish<B: ProjectionBackend>(
+    mut writer: ProjectionWriter<'_, B>,
+    contract: &BackendContract<'_>,
+    claim_set_id: &Digest,
+    initial_receipt: &ProjectionReceipt,
+) {
+    let published_build = verify_and_publish(&mut writer, contract, claim_set_id, initial_receipt);
+    let backend = &mut *writer.backend;
+    let receipt = receipt(contract.scope, &published_build, claim_set_id);
+    assert_wrong_name(backend, contract, &receipt, claim_set_id);
     assert_read_contract(backend, contract, &receipt);
 }
 
@@ -252,9 +301,15 @@ fn verify_and_publish<B: ProjectionBackend>(
         contract.expected
     );
     let mut final_edges = contract.edges.to_vec();
-    let mut later_edge = contract.edges[0].clone();
+    let mut later_edge = contract
+        .edges
+        .iter()
+        .find(|edge| edge.family == EdgeFamily::KnowledgeClaim)
+        .unwrap()
+        .clone();
     later_edge.id = Digest::of(b"later edge");
     later_edge.source = Digest::of(b"later source");
+    later_edge.target = Digest::of(b"later target");
     writer
         .write_batch(contract.scopes, slice::from_ref(&later_edge), &[])
         .unwrap();
@@ -330,85 +385,6 @@ fn assert_wrong_name<B: ProjectionBackend>(
     );
 }
 
-fn assert_read_contract<B: ProjectionBackend>(
-    backend: &mut B,
-    contract: &BackendContract<'_>,
-    receipt: &ProjectionReceipt,
-) {
-    let mut wrong_claim_set = receipt.clone();
-    wrong_claim_set.claim_set_id = Digest::of(b"other set");
-    assert_eq!(
-        ProjectionReader::open(
-            backend,
-            &Ready(wrong_claim_set),
-            contract.scopes,
-            contract.scope.clone(),
-        )
-        .err(),
-        Some(ProjectionError::NotReady),
-        "the receipt claim set must bind to the same published basename"
-    );
-    let reader = ProjectionReader::open(
-        backend,
-        &Ready(receipt.clone()),
-        contract.scopes,
-        contract.scope.clone(),
-    )
-    .unwrap();
-    assert_eq!(reader.scope(), contract.scope);
-    for fact in contract.facts {
-        assert!(
-            reader
-                .entity_facts(contract.denied_scopes, contract.scope, &fact.subject)
-                .is_err()
-        );
-        assert_eq!(
-            reader
-                .entity_facts(contract.scopes, contract.scope, &fact.subject)
-                .unwrap(),
-            contract.facts
-        );
-    }
-    for edge in contract.edges {
-        assert_eq!(
-            reader
-                .neighbors(contract.scopes, contract.scope, edge.family, &edge.source)
-                .unwrap(),
-            vec![edge.clone()]
-        );
-        assert!(
-            reader
-                .neighbors(
-                    contract.denied_scopes,
-                    contract.scope,
-                    edge.family,
-                    &edge.source
-                )
-                .is_err()
-        );
-        let other_pin = ProjectionScope {
-            generation_id: contract.scope.generation_id + 1,
-            ..contract.scope.clone()
-        };
-        assert!(
-            reader
-                .neighbors(contract.scopes, &other_pin, edge.family, &edge.source)
-                .is_err()
-        );
-    }
-    assert!(backend.create_unpublished(contract.scope).is_err());
-    assert!(
-        backend
-            .write_batch(contract.scope, contract.edges, contract.facts)
-            .is_err()
-    );
-    assert!(
-        backend
-            .publish_unpublished(contract.scope, "not-a-receipt-name")
-            .is_err()
-    );
-}
-
 fn receipt(
     scope: &ProjectionScope,
     build: &BuildVerification,
@@ -442,7 +418,7 @@ impl CatalogRelationVocabulary for ContractVocabulary {
     }
 }
 
-struct Ready(ProjectionReceipt);
+pub(super) struct Ready(pub(super) ProjectionReceipt);
 impl ProjectionReadiness for Ready {
     fn projection_ready(
         &self,

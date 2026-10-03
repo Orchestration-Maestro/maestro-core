@@ -987,9 +987,12 @@ in place.
 │   │   │   │   │   └── windows.rs                                           # Versioned, source-byte-bounded windows and quote pointers
 │   │   │   │   ├── projection/                                              # Public typed-edge and literal-fact projection ports and unpublished build writer
 │   │   │   │   │   ├── engine/                                              # Native projection operations; only feature-enabled builds compile this door
+│   │   │   │   │   │   ├── backend.rs                                       # Private native projection adapter; E08b supplies publication and staging reservation
+│   │   │   │   │   │   ├── backend_tests.rs                                 # Private native adapter entry points into the unchanged fake/native contract
 │   │   │   │   │   │   ├── codec_tests.rs                                   # Synthetic canonical fact-vector and malformed-byte checks
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── open.rs                                          # The native adapter's single rooted construction boundary
+│   │   │   │   │   │   ├── reader.rs                                        # Rooted immutable native reads, bound to one scope and the exact physical receipt file
 │   │   │   │   │   │   ├── rollback_repro.rs                                # Frozen native checkpoint/rollback matrix for LadybugDB PR 1049
 │   │   │   │   │   │   ├── rows.rs                                          # Strict native rows and the inverse of E05's complete binary fact contract
 │   │   │   │   │   │   ├── schema.rs                                        # Native catalog mapping for the logical entity-key and adjacency access paths
@@ -1001,6 +1004,7 @@ in place.
 │   │   │   │   │   │   │   └── extra.rs                                     # Additional validation cases for the generic projection writer
 │   │   │   │   │   │   ├── content_fields.rs                                # Each full-record field must affect durable projection verification
 │   │   │   │   │   │   ├── contract.rs                                      # Backend-generic projection writer contract; adapters call this unchanged
+│   │   │   │   │   │   ├── contract_reads.rs                                # Ordered application-ID reads and exact scope/family pin contract for every backend
 │   │   │   │   │   │   ├── mod.rs                                           # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── port.rs                                          # Rust source: port
 │   │   │   │   │   │   └── projection_writer.rs                             # Backend-neutral projection writer and reader contract tests

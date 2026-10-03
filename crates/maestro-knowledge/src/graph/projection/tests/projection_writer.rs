@@ -254,16 +254,18 @@ impl ProjectionBackend for Fake {
         {
             return Err("wrong receipt name".to_owned());
         }
-        let edges = self
+        let mut edges = self
             .pending
             .get(&scope.generation_id)
             .cloned()
             .unwrap_or_default();
-        let facts = self
+        let mut facts = self
             .pending_facts
             .get(&scope.generation_id)
             .cloned()
             .unwrap_or_default();
+        edges.sort_by(|left, right| left.id.cmp(&right.id));
+        facts.sort_by(|left, right| left.claim.id.cmp(&right.claim.id));
         Ok(FakeReader {
             digest: content::digest(&edges, &facts)?,
             edges,
@@ -289,15 +291,7 @@ fn backend_contract_keeps_families_separate_and_publishes_only_verified_builds()
     let (path, database, all) = scoped();
     let denied = database.visible("no-grants").unwrap();
     let mut backend = Fake::default();
-    let edges = [
-        super::contract::edge(3, EdgeFamily::KnowledgeClaim),
-        ProjectionEdge {
-            relation: "depends_on".to_owned(),
-            source: Digest::of(b"catalog-source"),
-            ..super::contract::edge(3, EdgeFamily::CatalogDependency)
-        },
-    ];
-    let facts = [super::contract::fact(&scope)];
+    let (edges, facts) = super::contract::ordered_rows(&scope);
     let fixture = super::contract::fixture(&all, &denied, &scope, &edges, &facts);
     verified_backend_contract(&mut backend, &fixture);
     drop(database);
@@ -420,3 +414,12 @@ fn failed_batch_does_not_publish_or_leave_a_partial_batch() {
 #[cfg(test)]
 #[path = "writer/extra.rs"]
 mod extra;
+
+#[cfg(not(windows))]
+#[test]
+fn fake_shared_readers_keep_old_generation_after_later_publication() {
+    let (path, database, scopes) = scoped();
+    super::contract_reads::pinned_generations(&mut Fake::default(), &mut Fake::default(), &scopes);
+    drop(database);
+    fs::remove_dir_all(path).unwrap();
+}

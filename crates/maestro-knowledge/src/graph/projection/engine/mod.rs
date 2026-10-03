@@ -1,22 +1,16 @@
 //! Native projection operations; only feature-enabled builds compile this door.
 
+#[expect(
+    dead_code,
+    reason = "E08b wires the private native backend into the public lifecycle"
+)]
+pub(super) mod backend;
 mod open;
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "E08a consumes canonical native rows")
-)]
+mod reader;
 mod rows;
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "E08a consumes the native schema")
-)]
 mod schema;
 #[cfg(test)]
 mod tests;
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "E08a consumes native transactions")
-)]
 mod transaction;
 
 #[cfg(test)]
@@ -28,3 +22,6 @@ mod codec_tests;
 #[cfg(test)]
 #[cfg(not(windows))]
 mod validation_tests;
+
+#[cfg(test)]
+mod backend_tests;

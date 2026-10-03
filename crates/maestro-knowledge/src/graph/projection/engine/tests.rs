@@ -20,7 +20,7 @@ use std::{fs, path::PathBuf};
 /// A private owned native test root.
 pub(super) struct Fixture {
     /// Directory removed after all native handles drop.
-    path: PathBuf,
+    pub(super) path: PathBuf,
     /// Root capability held throughout the test.
     pub(super) root: RootDirectory,
 }

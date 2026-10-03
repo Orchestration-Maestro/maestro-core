@@ -214,9 +214,21 @@ fn write_fact(connection: &Connection<'_>, fact: &EntityFact) -> Result<(), Stri
 
 #[cfg(test)]
 #[cfg(not(windows))]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use crate::graph::projection::engine::tests::{Fixture, edge, full_fact, scope};
+
+    /// Produce real rollback poisoning for the backend's verify/publication guard tests.
+    pub(in crate::graph::projection::engine) fn poison(
+        transactions: &mut Transactions,
+        connection: &Connection<'_>,
+    ) {
+        assert!(
+            transactions
+                .finish(connection, Err("operation failed".into()))
+                .is_err()
+        );
+    }
 
     #[test]
     fn failed_native_rollback_poisons_all_later_session_operations() {

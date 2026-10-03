@@ -69,7 +69,7 @@ fn required_ci_owns_native_coverage_and_the_exact_engine_source() {
     );
     assert_eq!(
         policy["ci"]["mutation-engine"]["files"].as_array().unwrap(),
-        &["open", "schema", "transaction", "rows"].map(|name| {
+        &["open", "schema", "transaction", "rows", "backend", "reader"].map(|name| {
             Value::String(format!(
                 "crates/maestro-knowledge/src/graph/projection/engine/{name}.rs"
             ))

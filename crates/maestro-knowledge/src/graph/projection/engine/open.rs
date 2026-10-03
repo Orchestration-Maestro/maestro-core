@@ -3,10 +3,6 @@
 use lbug::{Database, Error, RootDirectory, SystemConfig};
 
 /// Opens one child of an already-held root; the fork validates every native operation.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "E07b consumes rooted construction")
-)]
 pub(super) fn open(
     root: &RootDirectory,
     name: &str,
