@@ -85,7 +85,7 @@ impl<'a> Session<'a> {
             return Err(ProjectionError::NotReady);
         }
         // Windows rooted writes refuse before reservation; no new orphan is created.
-        super::schema::writable().map_err(ProjectionError::Backend)?;
+        super::schema::writable(cfg!(windows)).map_err(ProjectionError::Backend)?;
         let reservation = format!(
             ".build-{}-{}-{}-{}",
             build.lease.job,

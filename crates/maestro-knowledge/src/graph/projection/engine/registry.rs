@@ -21,6 +21,7 @@ use maestro_kernel::{
 use std::path::Path;
 use std::{
     collections::BTreeMap,
+    fs,
     path::PathBuf,
     sync::{Arc, Mutex, PoisonError},
 };
@@ -61,10 +62,7 @@ pub(in crate::graph::projection) fn open(
         .projection_ready(scopes, scope.generation_id)
         .map_err(|error| ProjectionError::Backend(error.to_string()))?
         .ok_or(ProjectionError::NotReady)?;
-    let key = root
-        .resolved_path()
-        .map_err(|error| ProjectionError::Backend(error.to_string()))?
-        .join(&receipt.file_name);
+    let key = key(&root, &receipt.file_name)?;
     let mut registry = READERS
         .lock()
         .map_err(|_| ProjectionError::Backend("native handle registry poisoned".into()))?;
@@ -186,13 +184,24 @@ impl Drop for Shared {
     }
 }
 
+/// Normalize the held root's final leaf only after its no-follow identity validation.
+fn key(root: &OwnedRoot, basename: &str) -> Result<PathBuf, ProjectionError> {
+    let validated = root
+        .resolved_path()
+        .map_err(|error| ProjectionError::Backend(error.to_string()))?;
+    let canonical =
+        fs::canonicalize(validated).map_err(|error| ProjectionError::Backend(error.to_string()))?;
+    Ok(canonical.join(basename))
+}
+
 /// Test evidence: registry ownership plus live consumers of this one physical native handle.
 #[cfg(test)]
-pub(super) fn owner_count(path: &Path) -> usize {
+pub(super) fn owner_count(path: &Path, basename: &str) -> usize {
+    let key = key(&open_root(path).unwrap(), basename).unwrap();
     READERS
         .lock()
         .unwrap()
-        .get(path)
+        .get(&key)
         .map_or(0, |entry| Arc::strong_count(&entry.reader))
 }
 
@@ -221,5 +230,94 @@ impl TypedEdgeProjection for Guarded {
         subject: &Digest,
     ) -> Result<Vec<EntityFact>, ProjectionError> {
         self.reader.entity_facts(scopes, pin, subject)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::graph::projection::engine::{
+        public_fixture::{Fixture, settings},
+        public_tests::publish,
+    };
+    use crate::graph::projection::{ProjectionEngine, ProjectionFactory, content};
+    use maestro_canonicalization::SystemFileLock;
+
+    /// Open a supported factory spelling of the same fixture's owned root.
+    fn reader(fixture: &Fixture, path: &Path) -> ProjectionHandle {
+        ProjectionFactory::new(path, ProjectionEngine::Ladybug, settings(), &SystemFileLock)
+            .reader(
+                &fixture.authority.database,
+                &fixture.authority.scopes,
+                fixture.build.scope.clone(),
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn lifecycle_registry_shares_root_spellings_and_separates_other_roots() {
+        let fixture = Fixture::new();
+        publish(&fixture);
+        let name = content::basename(&fixture.build.scope, &fixture.build.claim_set_id).unwrap();
+        let path = &fixture.native.path;
+        let alias = path
+            .parent()
+            .unwrap()
+            .join(".")
+            .join(path.file_name().unwrap());
+        assert_ne!(path.as_os_str(), alias.as_os_str());
+        let first = reader(&fixture, path);
+        let second = reader(&fixture, &alias);
+        assert_eq!(owner_count(path, &name), 3);
+        assert_eq!(owner_count(&alias, &name), 3);
+        #[cfg(unix)]
+        {
+            use crate::graph::projection::engine::open::tests::Scratch;
+            use std::os::unix::fs::symlink;
+
+            let linked_parent = Scratch::new();
+            symlink(path.parent().unwrap(), linked_parent.0.join("parent")).unwrap();
+            let linked = linked_parent
+                .0
+                .join("parent")
+                .join(path.file_name().unwrap());
+            let third = reader(&fixture, &linked);
+            assert_eq!(owner_count(&linked, &name), 4);
+            assert_eq!(owner_count(path, &name), 4);
+            drop(third);
+        }
+        assert_eq!(owner_count(path, &name), 3);
+
+        let other = Fixture::new();
+        publish(&other);
+        let other_name = content::basename(&other.build.scope, &other.build.claim_set_id).unwrap();
+        let separate = reader(&other, &other.native.path);
+        assert_eq!(owner_count(&other.native.path, &other_name), 2);
+        assert_eq!(owner_count(path, &name), 3);
+        drop(separate);
+        assert_eq!(owner_count(&other.native.path, &other_name), 0);
+        drop(first);
+        assert_eq!(owner_count(&alias, &name), 2);
+        drop(second);
+        assert_eq!(owner_count(path, &name), 0);
+    }
+
+    #[cfg(any(windows, target_os = "macos"))]
+    #[test]
+    fn lifecycle_registry_shares_case_swapped_owned_leaf() {
+        let fixture = Fixture::new();
+        publish(&fixture);
+        let name = content::basename(&fixture.build.scope, &fixture.build.claim_set_id).unwrap();
+        let path = &fixture.native.path;
+        let leaf = path.file_name().unwrap().to_str().unwrap();
+        let alias = path.with_file_name(leaf.to_uppercase());
+        assert_ne!(path.as_os_str(), alias.as_os_str());
+        let first = reader(&fixture, path);
+        let second = reader(&fixture, &alias);
+        assert_eq!(owner_count(path, &name), 3);
+        assert_eq!(owner_count(&alias, &name), 3);
+        drop(first);
+        drop(second);
+        assert_eq!(owner_count(&alias, &name), 0);
     }
 }

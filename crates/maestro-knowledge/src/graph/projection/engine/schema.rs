@@ -20,7 +20,7 @@ const DDL: [&str; 3] = [
 
 /// Create the schema in a native transaction; Windows writers explicitly refuse.
 pub(super) fn create(connection: &Connection<'_>, scope: &ProjectionScope) -> Result<(), String> {
-    writable()?;
+    writable(cfg!(windows))?;
     connection
         .query("BEGIN TRANSACTION")
         .map_err(|error| error.to_string())?;
@@ -40,8 +40,8 @@ pub(super) fn create(connection: &Connection<'_>, scope: &ProjectionScope) -> Re
 }
 
 /// Guard every production mutation before executing any native operation.
-pub(super) fn writable() -> Result<(), String> {
-    if cfg!(windows) {
+pub(super) fn writable(windows: bool) -> Result<(), String> {
+    if windows {
         return Err(
             "native graph writes are unavailable on Windows; open a published graph read-only"
                 .into(),
@@ -173,10 +173,21 @@ fn text(value: &str) -> Value {
 }
 
 #[cfg(test)]
-#[cfg(windows)]
 pub(super) mod tests {
     use super::*;
+
+    #[test]
+    fn native_write_policy_refuses_windows_on_every_host() {
+        assert_eq!(
+            writable(true).unwrap_err(),
+            "native graph writes are unavailable on Windows; open a published graph read-only"
+        );
+        assert_eq!(writable(false), Ok(()));
+        assert_eq!(writable(cfg!(windows)).is_err(), cfg!(windows));
+    }
+
     /// Only the legacy immutable reader fixture may bypass Windows's write guard.
+    #[cfg(windows)]
     pub(in crate::graph::projection::engine) fn install_reader_fixture(
         connection: &Connection<'_>,
         scope: &ProjectionScope,

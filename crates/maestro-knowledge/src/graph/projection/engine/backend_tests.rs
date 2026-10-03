@@ -287,3 +287,54 @@ fn native_shared_readers_keep_old_generation_after_later_publication() {
     );
     contract_reads::pinned_generations(&mut first, &mut second, &scopes);
 }
+
+#[cfg(not(windows))]
+#[test]
+fn native_publication_refuses_other_collection_at_same_generation() {
+    let fixture = Fixture::new();
+    let mut backend = backend(&fixture);
+    let scope = scope();
+    backend.create_unpublished(&scope).unwrap();
+    let baseline = backend.verify_unpublished(&scope).unwrap();
+    let mut other = scope.clone();
+    other.collection_id = "other".into();
+    let name = content::basename(&other, &Digest::of(b"set")).unwrap();
+    assert_eq!(
+        backend.publish_unpublished(&other, &name).unwrap_err(),
+        "native projection has no writable session for this scope"
+    );
+    assert!(!fixture.path.join(&name).exists());
+    assert!(fixture.path.join("staging.lbdb").is_file());
+    assert_eq!(backend.verify_unpublished(&scope).unwrap(), baseline);
+    let name = content::basename(&scope, &Digest::of(b"set")).unwrap();
+    backend.publish_unpublished(&scope, &name).unwrap();
+    assert!(fixture.path.join(name).is_file());
+    assert!(!fixture.path.join("staging.lbdb").exists());
+}
+
+#[cfg(not(windows))]
+#[test]
+fn native_usable_refuses_poisoned_matching_and_unpoisoned_mismatched_scopes() {
+    let fixture = Fixture::new();
+    let mut backend = backend(&fixture);
+    let scope = scope();
+    backend.create_unpublished(&scope).unwrap();
+    backend.verify_unpublished(&scope).unwrap();
+    let mut other = scope.clone();
+    other.generation_id += 1;
+    let name = content::basename(&other, &Digest::of(b"set")).unwrap();
+    assert_eq!(
+        backend.publish_unpublished(&other, &name).unwrap_err(),
+        "native projection has no writable session for this scope"
+    );
+    assert!(!fixture.path.join(name).exists());
+    backend.verify_unpublished(&scope).unwrap();
+    backend.poison_for_test().unwrap();
+    let name = content::basename(&scope, &Digest::of(b"set")).unwrap();
+    assert_eq!(
+        backend.publish_unpublished(&scope, &name).unwrap_err(),
+        "native projection session is poisoned after rollback failure"
+    );
+    assert!(!fixture.path.join(name).exists());
+    assert!(fixture.path.join("staging.lbdb").is_file());
+}

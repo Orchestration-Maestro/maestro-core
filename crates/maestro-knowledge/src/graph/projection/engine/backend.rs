@@ -91,7 +91,7 @@ impl<P: Publication> ProjectionBackend for Backend<P> {
     }
 
     fn create_unpublished(&mut self, scope: &ProjectionScope) -> Result<(), String> {
-        schema::writable()?;
+        schema::writable(cfg!(windows))?;
         if self.scope.is_some() {
             return Err("native projection session has already been created".into());
         }

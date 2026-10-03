@@ -116,10 +116,7 @@ fn lifecycle_readiness_physical_binding_registry_and_guard_lifetimes() {
         .unwrap();
     assert_eq!(first.settings(), &settings());
     let name = content::basename(&fixture.build.scope, &fixture.build.claim_set_id).unwrap();
-    assert_eq!(
-        super::registry::owner_count(&fixture.native.path.join(&name)),
-        3
-    );
+    assert_eq!(super::registry::owner_count(&fixture.native.path, &name), 3);
     let held = OwnedRoot::open(&fixture.native.path, false).unwrap();
     let cleanup = held.open_control(ControlFile::Access).unwrap();
     assert!(
@@ -157,10 +154,7 @@ fn lifecycle_readiness_physical_binding_registry_and_guard_lifetimes() {
             .is_err()
     );
     drop(second);
-    assert_eq!(
-        super::registry::owner_count(&fixture.native.path.join(&name)),
-        0
-    );
+    assert_eq!(super::registry::owner_count(&fixture.native.path, &name), 0);
     cleanup
         .lock_with(&SystemFileLock, LockMode::Exclusive, false)
         .unwrap();

@@ -36,7 +36,7 @@ impl Transactions {
         edges: &[ProjectionEdge],
         facts: &[EntityFact],
     ) -> Result<(), String> {
-        schema::writable()?;
+        schema::writable(cfg!(windows))?;
         self.ensure_usable()?;
         connection
             .query("BEGIN TRANSACTION")

@@ -258,3 +258,105 @@ fn assert_valid_neighbours(
     .unwrap();
     assert_eq!(rows::read(connection, &scope()).unwrap().edges.len(), 2);
 }
+
+#[test]
+fn native_misattached_fact_refusal_is_independent_of_duplicate_ids() {
+    let fixture = Fixture::new();
+    let database = fixture.writer();
+    let connection = Connection::new(&database).unwrap();
+    schema::create(&connection, &scope()).unwrap();
+    let mut fact = full_fact();
+    // Both subjects remain referenced by the edge after the sole fact moves.
+    fact.subject = edge().source;
+    Transactions::default()
+        .write_batch(&connection, &scope(), &[edge()], &[fact])
+        .unwrap();
+    let mut statement = connection
+        .prepare(
+            "MATCH (s:Entity)-[:Edge]->(t:Entity)
+            SET t.facts = s.facts, s.facts = $empty",
+        )
+        .unwrap();
+    connection
+        .execute(
+            &mut statement,
+            vec![("empty", Value::List(LogicalType::Blob, vec![]))],
+        )
+        .unwrap();
+    let lists: Vec<_> = connection
+        .query("MATCH (e:Entity) RETURN size(e.facts) ORDER BY size(e.facts)")
+        .unwrap()
+        .collect();
+    assert_eq!(lists, [vec![Value::Int64(0)], vec![Value::Int64(1)]]);
+    assert_eq!(
+        rows::read(&connection, &scope()).err().unwrap(),
+        "fact property is attached to the wrong subject"
+    );
+}
+
+#[test]
+fn native_rows_refuse_null_fact_list_elements() {
+    let fixture = Fixture::new();
+    let database = fixture.writer();
+    let connection = Connection::new(&database).unwrap();
+    schema::create(&connection, &scope()).unwrap();
+    Transactions::default()
+        .write_batch(&connection, &scope(), &[edge()], &[full_fact()])
+        .unwrap();
+    let mut statement = connection
+        .prepare(
+            "MATCH (e:Entity) WHERE size(e.facts) > 0
+            SET e.facts = list_concat(e.facts, $nulls)",
+        )
+        .unwrap();
+    connection
+        .execute(
+            &mut statement,
+            vec![(
+                "nulls",
+                Value::List(LogicalType::Blob, vec![Value::Null(LogicalType::Blob)]),
+            )],
+        )
+        .unwrap();
+    assert_eq!(
+        rows::read(&connection, &scope()).err().unwrap(),
+        "non-blob fact property"
+    );
+}
+
+#[test]
+fn fact_encoder_rejects_reversed_support_spans() {
+    let fixture = Fixture::new();
+    let database = fixture.writer();
+    let connection = Connection::new(&database).unwrap();
+    schema::create(&connection, &scope()).unwrap();
+    let mut tx = Transactions::default();
+    tx.write_batch(&connection, &scope(), &[edge()], &[full_fact()])
+        .unwrap();
+    let baseline = rows::read(&connection, &scope())
+        .unwrap()
+        .verification()
+        .unwrap();
+    let mut fact = full_fact();
+    fact.claim.id = Digest::of(b"fresh-fact");
+    assert!(rows::encode_fact(&fact).is_ok());
+    for end in [2, 1] {
+        fact.claim.claim.supports[0].span.end = end;
+        assert_eq!(
+            rows::encode_fact(&fact).unwrap_err(),
+            "malformed or duplicate fact support"
+        );
+        assert_eq!(
+            tx.write_batch(&connection, &scope(), &[], slice::from_ref(&fact))
+                .unwrap_err(),
+            "malformed or duplicate fact support"
+        );
+        assert_eq!(
+            rows::read(&connection, &scope())
+                .unwrap()
+                .verification()
+                .unwrap(),
+            baseline
+        );
+    }
+}
