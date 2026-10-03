@@ -107,7 +107,8 @@ fn decision(
 /// No authority decision or credential bytes are sent by this helper.
 ///
 /// # Errors
-/// Saturated backlogs and in-progress connects are bounded; expiry is `Deadline`.
+/// Linux `AF_UNIX` connects synchronously; a full backlog refuses as `Unqualified`.
+/// An expired absolute deadline refuses as `Deadline` before connecting.
 #[cfg(target_os = "linux")]
 pub fn connect_bounded(
     path: &Path,
@@ -115,15 +116,10 @@ pub fn connect_bounded(
     clock: &dyn Clock,
 ) -> Result<UnixStream, Refusal> {
     use rustix::{
-        event::{PollFd, PollFlags, Timespec, poll},
         fs::{OFlags, fcntl_getfl, fcntl_setfl},
-        io::Errno,
-        net::{
-            AddressFamily, SocketAddrUnix, SocketFlags, SocketType, connect, socket_with,
-            sockopt::socket_error,
-        },
+        net::{AddressFamily, SocketAddrUnix, SocketFlags, SocketType, connect, socket_with},
     };
-    use std::slice::from_mut;
+    frame_timeout(deadline, clock.now())?;
     let address = SocketAddrUnix::new(path).map_err(|_| Refusal::Unqualified)?;
     let socket = socket_with(
         AddressFamily::UNIX,
@@ -132,40 +128,8 @@ pub fn connect_bounded(
         None,
     )
     .map_err(|_| Refusal::Unqualified)?;
-    loop {
-        let left = frame_timeout(deadline, clock.now())?;
-        let connected = connect(&socket, &address);
-        if connected.is_ok() || connected == Err(Errno::ISCONN) {
-            break;
-        }
-        if connected != Err(Errno::AGAIN) && connected != Err(Errno::INPROGRESS) {
-            return Err(Refusal::Unqualified);
-        }
-        let term = Timespec::try_from(left).map_err(|_| Refusal::Unqualified)?;
-        let mut fd = PollFd::new(&socket, PollFlags::OUT);
-        let polled = poll(from_mut(&mut fd), Some(&term));
-        if polled == Err(Errno::INTR) {
-            continue;
-        }
-        let count = polled.map_err(|_| Refusal::Unqualified)?;
-        frame_timeout(deadline, clock.now())?;
-        if count == 0 {
-            return Err(Refusal::Deadline);
-        }
-        socket_error(&socket)
-            .map_err(|_| Refusal::Unqualified)?
-            .map_err(|_| Refusal::Unqualified)?;
-        if fd
-            .revents()
-            .intersects(PollFlags::HUP | PollFlags::ERR | PollFlags::NVAL)
-        {
-            return Err(Refusal::Unqualified);
-        }
-        if connected == Err(Errno::INPROGRESS) {
-            break;
-        }
-        // Unix EAGAIN did not start a connect: retry only after the bounded poll.
-    }
+    // EAGAIN never starts an AF_UNIX connect: refuse a full backlog, do not poll it.
+    connect(&socket, &address).map_err(|_| Refusal::Unqualified)?;
     frame_timeout(deadline, clock.now())?;
     let flags = fcntl_getfl(&socket).map_err(|_| Refusal::Unqualified)?;
     fcntl_setfl(&socket, flags & !OFlags::NONBLOCK).map_err(|_| Refusal::Unqualified)?;

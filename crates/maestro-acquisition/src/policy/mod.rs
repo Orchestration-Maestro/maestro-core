@@ -8,6 +8,12 @@ pub mod decisions;
 pub mod identity;
 pub mod limits;
 pub mod manifest;
+#[cfg(test)]
+mod mutation_authority;
+#[cfg(test)]
+mod mutation_checks;
+#[cfg(test)]
+mod mutation_shape;
 pub mod resolve;
 pub mod resource;
 pub mod schema;
