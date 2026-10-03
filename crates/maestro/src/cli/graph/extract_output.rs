@@ -142,7 +142,30 @@ mod tests {
 
     #[test]
     fn fixed_rejection_reasons_map_to_closed_output_codes() {
-        assert_eq!(rejection_code("empty quote"), "empty_quote");
+        for (reason, code) in [
+            ("source verification failed", "source_verification_failed"),
+            ("extractor call refused", "extractor_call_refused"),
+            ("block belongs to another revision", "foreign_source_block"),
+            ("ambiguous source block span", "ambiguous_source_span"),
+            ("invalid source block span", "invalid_source_span"),
+            ("window count exceeds policy", "window_limit_exceeded"),
+            (
+                "window policy splits a UTF-8 character",
+                "window_splits_character",
+            ),
+            (
+                "window overlap prevents progress",
+                "window_overlap_prevents_progress",
+            ),
+            ("predicate is not claimable", "predicate_not_claimable"),
+            ("empty quote", "empty_quote"),
+            ("quote is not in its source window", "quote_not_in_window"),
+            ("ambiguous quote", "ambiguous_quote"),
+            ("quote source mismatch", "quote_source_mismatch"),
+            ("quote splits a UTF-8 character", "quote_splits_character"),
+        ] {
+            assert_eq!(rejection_code(reason), code, "{reason}");
+        }
         assert_eq!(rejection_code("PRIVATE_MODEL_QUOTE"), "candidate_rejected");
     }
 
@@ -167,6 +190,13 @@ mod tests {
             rejected: 1,
             rejections: &rejections,
         });
+        assert_eq!(
+            super::summary(&report),
+            format!(
+                "graph extraction: 0 accepted, 1 rejected (1 retained); job {}",
+                Ulid::nil()
+            )
+        );
         let text = serde_json::to_string(&report).expect("summary serializes");
         assert!(!text.contains("PRIVATE_MODEL_QUOTE"));
         assert!(text.contains("candidate_rejected"));

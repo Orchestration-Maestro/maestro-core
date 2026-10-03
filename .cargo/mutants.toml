@@ -4,6 +4,8 @@
 # back as missed and its exclusion is reviewed again (tasks.md, T019).
 test_tool = "nextest"
 exclude_re = [
+  # The final window breaks before start can equal the nonempty span's end.
+  '^crates/maestro-knowledge/src/graph/extract/windows\.rs:85:21: replace < with <= in windows$',
   # `<=` only adds the empty range, which holds no content: the same findings.
   '^crates/maestro-canonicalization/src/validate/structure\.rs:155:19: replace < with <= in check_uncovered$',
   '^crates/maestro-canonicalization/src/validate/structure\.rs:165:14: replace < with <= in check_gap$',
