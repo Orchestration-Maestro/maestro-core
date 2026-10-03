@@ -17,6 +17,7 @@ mod configuration;
 mod content;
 #[cfg(feature = "engine")]
 mod handle;
+mod import;
 pub use cancellation::ProjectionCancellation;
 #[cfg(feature = "engine")]
 mod engine;
@@ -34,6 +35,7 @@ mod settings;
 pub use build::{ProjectionBuild, PublishedProjection};
 #[cfg(feature = "engine")]
 pub use handle::ProjectionHandle;
+pub use import::ProjectionSnapshot;
 #[cfg(feature = "engine")]
 pub use lifecycle::{ProjectionFactory, ProjectionProducer};
 pub use settings::{EngineSettings, ProjectionEngine};
