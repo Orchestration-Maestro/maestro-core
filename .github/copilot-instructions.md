@@ -791,6 +791,7 @@ in place.
 │   │   │   ├── tests.rs                                                     # Rust source: tests
 │   │   │   ├── unix.rs                                                      # Unix filesystem access: every name resolves against an open directory, never a path
 │   │   │   ├── unix_creation.rs                                             # Unix created objects retain identity through hardening, publication and rollback
+│   │   │   ├── unix_mutation_tests.rs                                       # Unix boundary checks for filesystem mutation regressions
 │   │   │   ├── windows.rs                                                   # Windows filesystem access: held directories and open flags that never follow a link
 │   │   │   ├── windows_behavior_tests.rs                                    # Native Windows directory leases, reads and quarantine refusals
 │   │   │   ├── windows_flags.rs                                             # Safe Win32 file sharing and no-follow flags shared by held-handle adapters

@@ -25,6 +25,8 @@ mod tests;
 mod unix;
 #[cfg(unix)]
 mod unix_creation;
+#[cfg(all(test, unix))]
+mod unix_mutation_tests;
 #[cfg(windows)]
 mod windows;
 #[cfg(all(test, windows))]
