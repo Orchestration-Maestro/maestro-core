@@ -21,7 +21,6 @@ mutation-windows = [
   "crates/maestro-filesystem/src/windows.rs",
   "crates/maestro-filesystem/src/windows_owned.rs",
   "crates/maestro-filesystem/src/windows_security.rs",
-  "crates/maestro-filesystem/src/canonical_windows_identity_tests.rs",
 ]
 
 # Package-local native mutation ownership; no unrelated package gains lbug.
