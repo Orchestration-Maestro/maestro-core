@@ -10,6 +10,14 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Test code only: real kernel qualification requires explicit scoped host setup.
+parser-containment-tests = []
+
+[[bin]]
+name = "maestro-parser-bootstrap"
+path = "src/bin/parser_bootstrap.rs"
+
 [dependencies]
 maestro-kernel.workspace = true
 maestro-canonicalization.workspace = true
@@ -37,6 +45,9 @@ tokio-rustls.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix.workspace = true
+landlock.workspace = true
+seccompiler.workspace = true
+nix.workspace = true
 
 [dev-dependencies]
 rusqlite.workspace = true

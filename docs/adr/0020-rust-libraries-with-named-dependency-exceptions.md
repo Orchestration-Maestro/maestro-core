@@ -142,6 +142,84 @@ Every later addition repeats the probe against its then-current lock and records
 each forcing library/version, licence, native link and duplicate-removal condition
 before any DEP-001/vet record or dependency adoption.
 
+## S6 amendment: N17 Linux parser containment
+
+The owner approved Option A and its scoped host setup on **2026-10-02**
+("yes go"). This adapter uses nix namespaces instead of architecture 03's
+bubblewrap route, behind the replaceable isolation port. It conveys no source,
+grant, extraction, publication, private-data or platform authority.
+
+Exact additions, defaults off: `landlock =0.4.7`, `seccompiler =0.5.0` (no JSON
+frontend), and `nix =0.31.3` with only `fs,mount,process,sched` (implicit `uio`).
+Existing `rustix =1.1.5` adds `thread`. Against S6 `51c56a2`, the lock moves from
+**260 to 266 packages**: six additions, no removals/upgrades, no new duplicate
+families or Cargo native `links`. DEP-001 needs no new duplicate exception.
+Cargo-vet's named exemptions are adoption records, not completed security audits.
+
+| Package | Licence | Registry checksum (SHA-256) |
+| --- | --- | --- |
+| cfg_aliases 0.2.2 | MIT | `f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527` |
+| enumflags2 0.7.12 | MIT OR Apache-2.0 | `1027f7680c853e056ebcec683615fb6fbbc07dbaa13b4d5d9442b146ded4ecef` |
+| enumflags2_derive 0.7.12 | MIT OR Apache-2.0 | `67c78a4d8fdf9953a5c9d458f9efe940fd97a0cab0941c075a813ac594733827` |
+| landlock 0.4.7 | MIT OR Apache-2.0 | `4cca98e95f35b29d469dade6724c6f96cec9236640f745a0e99b0334ec320ab1` |
+| nix 0.31.3 | MIT | `cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d` |
+| seccompiler 0.5.0 | Apache-2.0 OR BSD-3-Clause | `a4ae55de56877481d112a559bbc12667635fdaf5e005712fd4e2b2fa50ffc884` |
+
+Mandatory controls: user/mount/PID/network/IPC/UTS namespaces; a private immutable
+filesystem; strictly fully enforced Landlock V3+; capability removal and
+`no_new_privs`; x86-64 default-deny seccomp; delegated cgroup-v2 memory (swap 0),
+CPU and PID ceilings with read-back; finite parent output/deadline budgets from
+OA3/composed envelopes; one cumulative N09/N16 IPC decode ledger. Missing controls
+refuse, with no unsupported-host fallback. Windows/macOS remain N18/N19.
+
+The executable closure is the pinned parser/bootstrap and the digest-pinned ELF
+interpreter declared by the parser. Libraries are copied from explicit root-owned,
+non-group/world-writable read-only handles into the immutable view; no ambient
+library directories are mounted. Only parser/interpreter gain Landlock Execute.
+Input and scratch are noexec, with no Execute right. Loader environment is empty.
+Seccomp additionally forbids anonymous/RWX executable mappings, adding Execute by
+mprotect, memfd creation and other executable-memory/management bypasses.
+
+Every initial parser exec uses a sealed digest-checked memfd. Descendants may
+re-exec only the core-written `/parser` snapshot, digest-verified after writing
+and before launch, under the read-only root mount and Landlock. They cannot
+write, rename or replace it. The supervisor approved this closure rather than
+adding procfs (which would reopen executable-memory bypasses); Linux refuses a
+bind mount of the anonymous memfd inode. No fallback or procfs is added.
+Explicit bootstrap mode has no default: WSL without AppArmor userns restrictions
+uses a sealed copy; installed
+Ubuntu mode opens/hashes one regular executable root-owned, non-group/world-writable
+inode and executes its FD, preserving launcher-bound AppArmor attachment. CI
+asserts actual attachment when the scoped profile was needed.
+
+This machine uses a per-run user systemd scope with `Delegate=cpu memory pids`.
+The trusted supervisor/ancestors occupy a manager leaf outside bounded workers.
+Ubuntu CI's reviewed provisioner creates transient non-root runner services with
+that delegation, `KillMode=control-group` and their own memory cap. An application-
+scoped `userns,` profile attaches only to the root-owned verified bootstrap under
+`/opt/maestro/n17/<digest>/bootstrap`, only when its namespace probe requires it.
+No global AppArmor/sysctl disable, privileged parser or native-helper exception.
+The provisioner removes its units, profile and installed image after qualification.
+
+Success, refusal, crash, timeout and cancellation all kill/reap the owned tree,
+remove its leaf/scratch and close memfds before any output is released. On trusted
+supervisor death, systemd collects the owned tree/unit; next start reclaims only
+owned scratch with an absent/empty recorded cgroup. Active receipts refuse. A
+locked receipt-only preparing directory is atomically renamed with no-replace
+before snapshots or workers exist; recovery deletes it only after obtaining its
+nonblocking exclusive lock. Live preparers are preserved. Cleanup failures hold.
+
+Default tests assert the syscall, filesystem, namespace and cgroup plans as data
+and apply actual unprivileged Landlock/seccomp in a child without namespace setup.
+Privileged host-only mutation coverage remains a pre-S6-main obligation; baseline
+qualification is not mutation evidence.
+
+WSL and hosted Ubuntu are qualified separately by the real `n17_` tests, not by
+kernel versions, cross-compilation or dependency probes. CI uploads exact tested
+SHA, lock/image hashes, kernel/ABI and denied-effect/cleanup receipts. Retire this
+stack only after an owner-approved replacement behind the port proves the same
+controls/host setup; remove its unused dependency closure then.
+
 ## Considered options
 
 - Hand-written HTTP clients, T026's first design: no duplicates, but maestro

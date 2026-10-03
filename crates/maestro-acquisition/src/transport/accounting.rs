@@ -120,7 +120,7 @@ impl Accounting {
         self.check_time()
     }
     /// Start or tighten a document deadline; reuse cannot restart its time budget.
-    pub(super) fn deadline(&mut self) -> Result<Instant, Failure> {
+    pub(crate) fn deadline(&mut self) -> Result<Instant, Failure> {
         let term = Duration::from_millis(
             self.limits
                 .elapsed_ms
@@ -141,7 +141,7 @@ impl Accounting {
         self.run_deadline = Some(self.run_deadline.map_or(deadline, |old| old.min(deadline)));
     }
     /// Snapshot the effective owned cutoff and clock for the read boundary.
-    pub(super) fn read_timing(&self) -> Result<(Arc<dyn Clock>, StdInstant), Failure> {
+    pub(crate) fn read_timing(&self) -> Result<(Arc<dyn Clock>, StdInstant), Failure> {
         let deadline = self.deadline.ok_or(Failure::Configuration)?;
         Ok((Arc::clone(&self.clock), deadline.into_std()))
     }

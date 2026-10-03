@@ -36,10 +36,13 @@ in place.
 │   │   ├── CREDITS.md                                                                   # Banner credits
 │   │   ├── how-it-works.svg                                                             # A Markdown collection passes through import and quality, then chunking and embedding with the embedder's tokenizer
 │   │   └── maestro-core.jpg                                                             # Maestro Core: ask anything, cite everything
+│   ├── scripts/                                                                         # Maintenance scripts
+│   │   └── parser-containment-ci.sh                                                     # Reviewed N17-only administrative provisioner; application code never invokes sudo
 │   ├── workflows/                                                                       # GitHub Actions workflows
 │   │   ├── dependabot-auto-merge.yml                                                    # Dependabot auto-merge
 │   │   ├── event-schemas.yml                                                            # Released event schema compatibility
 │   │   ├── integration.yml                                                              # Qdrant integration: the projection's tests against a Qdrant 1.19 image pinned by digest
+│   │   ├── parser-containment.yml                                                       # Linux parser containment qualification
 │   │   └── scorecard.yml                                                                # OpenSSF Scorecard
 │   ├── CODEOWNERS                                                                       # Who reviews each path
 │   ├── copilot-instructions.md                                                          # This guide, written by rust-gate guide at every commit
@@ -350,6 +353,8 @@ in place.
 │   │   │   │   ├── recovery_tests.rs                                                    # Each transition guard is checked directly, without lineage checks masking it
 │   │   │   │   ├── storage.rs                                                           # Local overlay I/O and protected receipt identity helpers
 │   │   │   │   └── writer.rs                                                            # Immutable baseline plus scoped local overlays; pointer replacement commits
+│   │   │   ├── bin/                                                                     # Binaries, one file per executable
+│   │   │   │   └── parser_bootstrap.rs                                                  # Single-threaded native parser namespace bootstrap; never a privileged helper
 │   │   │   ├── capture/                                                                 # Immutable captures and content-free distinct-item run outcomes
 │   │   │   │   ├── commit.rs                                                            # N11 accounting before kernel-owned immutable capture preparation
 │   │   │   │   ├── envelope.rs                                                          # N09 response projection into the single kernel-owned envelope contract
@@ -369,6 +374,18 @@ in place.
 │   │   │   │   ├── model.rs                                                             # Strict immutable profile definitions; field order is part of digest version two
 │   │   │   │   ├── outcome.rs                                                           # Immutable checked handles and content-free registry outcomes
 │   │   │   │   └── registry.rs                                                          # Pure replaceable registry adapter and core revalidation boundaries
+│   │   │   ├── isolation/                                                               # Replaceable process containment and platform-specific kernel controls
+│   │   │   │   ├── bootstrap.rs                                                         # Trusted single-threaded bootstrap, invoked only by the pinned launcher
+│   │   │   │   ├── cgroup.rs                                                            # Only the explicitly delegated per-run subtree is writable by this supervisor
+│   │   │   │   ├── elf.rs                                                               # Only the native ELF image's declared interpreter gains executable access
+│   │   │   │   ├── launch.rs                                                            # Read-once snapshots and sealed native executable handles
+│   │   │   │   ├── linux.rs                                                             # Qualified Linux adapter
+│   │   │   │   ├── mod.rs                                                               # Replaceable process containment and platform-specific kernel controls
+│   │   │   │   ├── port.rs                                                              # A containment adapter receives already scoped handles, never source paths
+│   │   │   │   ├── sandbox.rs                                                           # Minimal private filesystem, capability removal and strict Landlock V3
+│   │   │   │   ├── scratch.rs                                                           # Atomic owned scratch admission and crash recovery; no source bytes in preparation
+│   │   │   │   ├── supervision.rs                                                       # Bounded parent-side parser IPC and owned whole-tree teardown
+│   │   │   │   └── syscalls.rs                                                          # Architecture-bound default-deny profile; namespace and management calls absent
 │   │   │   ├── lifecycle/                                                               # Process-local acquisition lifecycle accounting
 │   │   │   │   ├── full.rs                                                              # Full revalidation compares source evidence, never visible text alone
 │   │   │   │   ├── incremental.rs                                                       # Local verification windows do not claim a remote change index or snapshot
@@ -433,7 +450,10 @@ in place.
 │   │   │   │   ├── address-table.json                                                   # JSON data: address table
 │   │   │   │   ├── collection.json                                                      # JSON data: collection
 │   │   │   │   ├── decisions.json                                                       # JSON data: decisions
+│   │   │   │   ├── executable_memory.c                                                  # File: executable memory
+│   │   │   │   ├── hostile_child.rs                                                     # Independently authored hostile public fixture
 │   │   │   │   ├── http.json                                                            # JSON data: http
+│   │   │   │   ├── loader_canary.c                                                      # File: loader canary
 │   │   │   │   ├── n12-envelope.json                                                    # JSON data: n12 envelope
 │   │   │   │   ├── n12-headers.json                                                     # JSON data: n12 headers
 │   │   │   │   ├── n12-identity.json                                                    # JSON data: n12 identity
@@ -507,6 +527,9 @@ in place.
 │   │   │       ├── n16_fix_regressions.rs                                               # Review regressions for shared reservations, provenance and exact fidelity
 │   │   │       ├── n16_physical_order_index.rs                                          # Indexed physical-order matching preserves exact identity and first-match semantics
 │   │   │       ├── n16_stage_regressions.rs                                             # Counter-specific provenance and exact worst-ratio completion regressions
+│   │   │       ├── n17_kernel.rs                                                        # Owner-approved real Linux effects; absence of provisioning fails this suite
+│   │   │       ├── n17_qualify_linux_parser_process_containment.rs                      # Real kernel qualification is opt-in, with required host setup, never a skip
+│   │   │       ├── n17_support.rs                                                       # Host-provisioned public containment fixtures and explicit synthetic envelopes
 │   │   │       ├── n30_additional_contracts.rs                                          # Typed proposal inputs, fresh CAS and scoped inheritance regressions
 │   │   │       ├── n30_implement_proposal_and_activation_manifest_write_port.rs         # Synthetic write-port conformance; no installed catalog admission is claimed
 │   │   │       ├── n30_lineage_regressions.rs                                           # Digest-consistent payload substitutions must not break effective ancestry

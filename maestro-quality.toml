@@ -245,6 +245,9 @@ path = "crates/maestro-knowledge/src/lexical/mod.rs"
 item = "Passage"
 reason = "the analyzer's public passage weights: the index weighs a generation's passages through them, and the analyzer's contract tests call them from outside the crate's sources"
 
+# N17 (ADR-0020): landlock 0.4.7, seccompiler 0.5.0 and nix 0.31.3 add six
+# single-version packages, with no native links or new DEP-001 duplicate family.
+# No dependency exception is needed for this measured containment closure.
 # The second versions qdrant-client 1.19 forces (ADR-0020), each removed when
 # the crates that hold it move to the version maestro-core uses: syn 2 for the
 # procedural macros of its gRPC stack, base64 0.22 for tonic, and getrandom 0.2
