@@ -5,13 +5,8 @@
 //! away; `curl` serves [`SERVED`], which is not Qdrant's archive.
 
 use super::support::Home;
-use std::{
-    env,
-    ffi::OsString,
-    fs::{self, Permissions},
-    os::unix::fs::PermissionsExt as _,
-    path::PathBuf,
-};
+use maestro_test_scratch::write_executable;
+use std::{env, ffi::OsString, fs, path::PathBuf};
 
 /// What the fake `curl` serves, whatever it is asked for.
 pub(crate) const SERVED: &[u8] = b"not the archive of Qdrant 1.19.1\n";
@@ -77,7 +72,6 @@ impl Fakes {
             "#!/bin/sh\necho \"{name} $*\" >> '{}'\n{body}\n",
             log.display()
         );
-        fs::write(&path, script).unwrap();
-        fs::set_permissions(&path, Permissions::from_mode(0o700)).unwrap();
+        write_executable(&path, script.as_bytes()).unwrap();
     }
 }

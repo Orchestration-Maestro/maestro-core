@@ -156,3 +156,39 @@ fn a_platform_without_statvfs_reports_no_free_space() {
     assert_eq!(free_space(&directory), None);
     fs::remove_dir(&directory).unwrap();
 }
+
+#[cfg(unix)]
+#[test]
+fn executable_fixtures_keep_their_bytes_mode_and_quoted_path() {
+    use super::{disk_scratch_directory, write_executable};
+    use std::{os::unix::fs::PermissionsExt as _, process::Command};
+
+    let root = disk_scratch_directory().unwrap();
+    let path = root.join("tool with ' quotes $ and spaces");
+    let bytes = b"#!/bin/sh\nprintf '%s' 'literal $content'\nexit 7\n";
+    write_executable(&path, bytes).unwrap();
+    assert_eq!(fs::read(&path).unwrap(), bytes);
+    assert_eq!(
+        fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+        0o700
+    );
+    let output = Command::new(&path).output().unwrap();
+    assert_eq!(output.status.code(), Some(7));
+    assert_eq!(output.stdout, b"literal $content");
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn executable_fixtures_refuse_a_failed_writer() {
+    use super::{disk_scratch_directory, write_executable};
+
+    let root = disk_scratch_directory().unwrap();
+    let error = write_executable(&root.join("absent/tool"), b"").unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Other);
+    assert!(
+        error.to_string().contains("fixture writer exited"),
+        "{error}"
+    );
+    fs::remove_dir_all(root).unwrap();
+}

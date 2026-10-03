@@ -163,7 +163,8 @@ fn an_engine_path_from_the_caller_is_refused_before_anything_opens() {
 /// refused. Returns what it printed and the tools it called.
 #[cfg(unix)]
 fn setup_offline(home: &Home, arguments: &[&str]) -> (Value, String, String) {
-    use std::{env, os::unix::fs::PermissionsExt as _};
+    use maestro_test_scratch::write_executable;
+    use std::env;
     let tools = home.tools();
     let calls = tools.join("calls");
     let script = format!(
@@ -172,8 +173,7 @@ fn setup_offline(home: &Home, arguments: &[&str]) -> (Value, String, String) {
     );
     for tool in ["curl", "tar", "systemctl"] {
         let path = tools.join(tool);
-        fs::write(&path, &script).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        write_executable(&path, script.as_bytes()).unwrap();
     }
     let path = format!("{}:{}", tools.display(), env::var("PATH").unwrap());
     let mut command = home.command(arguments);
