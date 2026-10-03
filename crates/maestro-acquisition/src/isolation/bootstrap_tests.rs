@@ -16,7 +16,7 @@ use std::{
 pub(super) struct Effects {
     pub(super) events: RefCell<Vec<String>>,
     failure: Option<&'static str>,
-    profile: String,
+    pub(super) profile: String,
     pid: i32,
     success: bool,
     parser_fd: RefCell<Option<i32>>,

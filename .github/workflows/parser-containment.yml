@@ -34,15 +34,35 @@ jobs:
           toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$toolchain" --profile minimal
           echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Test the unprivileged provisioner contract
+        run: python3 .github/scripts/test_parser_containment_ci.py
       - name: Provision non-root delegated services and qualify real kernel effects
         run: bash .github/scripts/parser-containment-ci.sh
+      - name: Independently clean only the reserved qualification scope
+        if: always()
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/parser-containment"
+          if [[ ! -f "$root/baseline-before/request.json" ]]; then exit 0; fi
+          python3 - "$root" <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          request = json.loads((root / 'baseline-before/request.json').read_text())
+          reports = root / 'cleanup'
+          reports.mkdir(exist_ok=True)
+          request.update(scenario='cleanup', scenario_id='cleanup', mutant=None,
+                         patched_source_sha256='', baseline_posture=None,
+                         scratch=str(root / 'scratch/cleanup'), reports=str(reports))
+          (reports / 'request.json').write_text(json.dumps(request))
+          PY
+          bash .github/scripts/parser-containment-ci.sh --gate-host-v1 \
+            "$root/cleanup/request.json" "$root/cleanup/result.json"
       - name: Upload SHA-bound public containment evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: parser-containment-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
-            ${{ runner.temp }}/parser-containment/*.log
-            ${{ runner.temp }}/parser-containment/*.txt
-            ${{ runner.temp }}/parser-containment/apparmor-profile
+            ${{ runner.temp }}/parser-containment/**/*.log
+            ${{ runner.temp }}/parser-containment/**/*.json
           if-no-files-found: error

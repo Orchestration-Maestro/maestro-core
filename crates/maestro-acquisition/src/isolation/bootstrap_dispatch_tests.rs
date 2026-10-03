@@ -94,3 +94,50 @@ fn n17_bootstrap_probe_and_diagnostics_write_errors_refuse_before_namespaces() {
         );
     }
 }
+
+#[test]
+fn n17_bootstrap_profile_requires_exact_installed_or_numeric_scoped_name_and_mode() {
+    let encoded = serde_json::to_vec(&config()).unwrap();
+    for (profile, accepted) in [
+        ("maestro-n17-parser-bootstrap (enforce)", true),
+        ("maestro-n17-parser-bootstrap (unconfined)\n", true),
+        ("maestro-n17-parser-bootstrap-123-1 (enforce)\n", true),
+        ("maestro-n17-parser-bootstrap-123-1 (unconfined)", true),
+        ("maestro-n17-parser-bootstrap (complain)", false),
+        ("maestro-n17-parser-bootstrap-123-1 (complain)", false),
+        ("maestro-n17-parser-bootstrap-lookalike (enforce)", false),
+        ("maestro-n17-parser-bootstrap-abc-1 (enforce)", false),
+        ("maestro-n17-parser-bootstrap-1-abc (enforce)", false),
+        ("maestro-n17-parser-bootstrap-1-2-3 (enforce)", false),
+        ("maestro-n17-parser-bootstrap-1 (enforce)", false),
+        ("maestro-n17-parser-bootstrap--1 (enforce)", false),
+        ("maestro-n17-parser-bootstrap-1- (enforce)", false),
+        ("maestro-n17-parser-bootstrap-١-1 (enforce)", false),
+        ("maestro-n17-parser-bootstrap", false),
+        ("maestro-n17-parser-bootstrap ", false),
+        ("maestro-n17-parser-bootstrap (enforce) extra", false),
+        ("maestro-n17-parser-bootstrap (enforce) ", false),
+        (" maestro-n17-parser-bootstrap (enforce)", false),
+    ] {
+        let mut fx = effects();
+        fx.profile = profile.into();
+        let result = invoke(&[], &encoded, true, &fx).0;
+        assert_eq!(
+            result,
+            if accepted {
+                Ok(())
+            } else {
+                Err(Refusal::Unsupported)
+            },
+            "profile {profile:?}"
+        );
+        assert_eq!(
+            fx.events
+                .borrow()
+                .iter()
+                .any(|event| event.starts_with("unshare:")),
+            accepted,
+            "profile refusal must precede namespaces"
+        );
+    }
+}

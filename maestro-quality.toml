@@ -20,6 +20,16 @@ mutation-windows = [
   "crates/maestro-canonicalization/src/filesystem/windows.rs",
 ]
 
+# Complete full-file host mutation, never a coverage or mutation exclusion.
+[ci.mutation-provisioned-host]
+files = [
+  "crates/maestro-acquisition/src/isolation/bootstrap_host.rs",
+  "crates/maestro-acquisition/src/isolation/sandbox_host.rs",
+  "crates/maestro-acquisition/src/isolation/cgroup_host.rs",
+]
+features = ["maestro-acquisition/parser-containment-tests"]
+provisioner = ".github/scripts/parser-containment-ci.sh"
+
 # The seams of the canonicalization crate that keep one caller: each door is a
 # subsystem, and its one outside caller is the stage that composes it.
 [[exception]]
