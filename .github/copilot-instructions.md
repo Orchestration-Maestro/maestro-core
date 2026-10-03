@@ -768,6 +768,7 @@ in place.
 │   │   │   ├── unix_creation.rs                                             # Unix created objects retain identity through hardening, publication and rollback
 │   │   │   ├── windows.rs                                                   # Windows filesystem access: held directories and open flags that never follow a link
 │   │   │   ├── windows_flags.rs                                             # Safe Win32 file sharing and no-follow flags shared by held-handle adapters
+│   │   │   ├── windows_replacement_security.rs                              # Pure comparison of validated Windows replacement security fields
 │   │   │   └── windows_security.rs                                          # The sole unsafe boundary: security information belongs to an already-held handle
 │   │   └── Cargo.toml                                                       # Crate manifest
 │   ├── maestro-kernel/                                                      # Maestro kernel

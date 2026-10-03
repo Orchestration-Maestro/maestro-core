@@ -30,6 +30,8 @@ mod windows;
 #[cfg(windows)]
 mod windows_flags;
 #[cfg(windows)]
+mod windows_replacement_security;
+#[cfg(windows)]
 mod windows_security;
 #[cfg(unix)]
 pub use unix::{Directory, open_nofollow};

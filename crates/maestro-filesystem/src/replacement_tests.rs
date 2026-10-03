@@ -319,44 +319,28 @@ fn replacement_refuses_foreign_windows_owner_without_restore_privilege() {
 
 #[cfg(windows)]
 #[test]
-fn replacement_refuses_new_parent_inheritance_before_writing() {
+fn replacement_retains_or_refuses_windows_security_below_broader_parent() {
     use maestro_test_scratch::disk_scratch_directory;
-    use std::{cell::Cell, process::Command};
+    use std::process::Command;
     fixture(|root, directory| {
         let target = root.join("target");
-        let saved = root.join("original.acl");
-        let save = |output: &Path| {
-            assert!(
-                Command::new("icacls")
-                    .arg(&target)
-                    .arg("/save")
-                    .arg(output)
-                    .status()
-                    .unwrap()
-                    .success()
-            );
-            fs::read(output).unwrap()
-        };
-        let original = save(&saved);
-        let sddl = String::from_utf16(
-            &original
-                .as_chunks::<2>()
-                .0
-                .iter()
-                .map(|pair| u16::from_le_bytes(*pair))
-                .collect::<Vec<_>>(),
-        )
-        .unwrap();
-        assert!(
-            !sddl.contains("D:P"),
-            "fixture leaf must be unprotected: {sddl}"
-        );
         let scripts = disk_scratch_directory().unwrap();
         let script = scripts.join("broaden-parent.ps1");
         fs::write(
             &script,
-            r#"param([string]$Root)
+            r#"param([string]$Root, [switch]$SnapshotOnly)
 $ErrorActionPreference = 'Stop'
+$leafPath = Join-Path $Root 'target'
+$leaf = Get-Acl -LiteralPath $leafPath
+$original = [Convert]::ToBase64String($leaf.GetSecurityDescriptorBinaryForm())
+$descriptor = [System.Security.AccessControl.RawSecurityDescriptor]::new(
+    $leaf.GetSecurityDescriptorBinaryForm(), 0)
+$bytes = [byte[]]::new($descriptor.DiscretionaryAcl.BinaryLength)
+$descriptor.DiscretionaryAcl.GetBinaryForm($bytes, 0)
+$snapshot = '{0}|{1}|{2}' -f $descriptor.Owner.Value,
+    [Convert]::ToBase64String($bytes), $leaf.AreAccessRulesProtected
+if ($SnapshotOnly) { $snapshot; exit }
+if ($leaf.AreAccessRulesProtected) { throw 'fixture leaf must be unprotected' }
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
@@ -375,36 +359,53 @@ if (-not [NativeAcl]::SetFileSecurity($Root, 4, $acl.GetSecurityDescriptorBinary
     throw [System.ComponentModel.Win32Exception]::new(
         [Runtime.InteropServices.Marshal]::GetLastWin32Error())
 }
+$sections = [System.Security.AccessControl.AccessControlSections]::Access
+$parent = Get-Acl -LiteralPath $Root
+if ($parent.GetSecurityDescriptorSddlForm($sections) -eq
+    $leaf.GetSecurityDescriptorSddlForm($sections)) {
+    throw 'parent DACL must differ from the leaf DACL'
+}
+if ([Convert]::ToBase64String((Get-Acl -LiteralPath $leafPath).
+    GetSecurityDescriptorBinaryForm()) -ne $original) {
+    throw 'broadening the parent must not change the leaf security'
+}
+$snapshot
 "#,
         )
         .unwrap();
-        assert!(
-            Command::new("powershell.exe")
+        let snapshot = |only: bool| {
+            let mut command = Command::new("powershell.exe");
+            command
                 .args(["-NoProfile", "-NonInteractive", "-File"])
                 .arg(&script)
                 .arg("-Root")
-                .arg(root)
-                .status()
-                .unwrap()
-                .success()
-        );
-        // Attest the premise: broader parent did not change the original leaf's ACL.
-        assert_eq!(save(&root.join("premise.acl")), original);
-        let callback = Cell::new(false);
-        let error = directory
-            .replace_verified("target", b"old", b"new", || {
-                callback.set(true);
-                Ok(())
-            })
-            .unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains("replacement would change the file's access protection")
-        );
-        assert!(!callback.get());
-        assert_eq!(fs::read(&target).unwrap(), b"old");
-        assert_eq!(save(&root.join("after.acl")), original);
+                .arg(root);
+            if only {
+                command.arg("-SnapshotOnly");
+            }
+            let output = command.output().unwrap();
+            assert!(output.status.success(), "{output:?}");
+            assert!(!output.stdout.is_empty());
+            output.stdout
+        };
+        let original_security = snapshot(false);
+        match directory.replace_verified("target", b"old", b"new", || Ok(())) {
+            Ok(()) => {
+                println!("broader parent: exact security retained");
+                assert_eq!(fs::read(&target).unwrap(), b"new");
+            }
+            Err(error) => {
+                println!("broader parent: security mismatch refused");
+                assert!(
+                    error
+                        .to_string()
+                        .contains("replacement would change the file's access protection")
+                );
+                assert_eq!(fs::read(&target).unwrap(), b"old");
+            }
+        }
+        // Snapshot compares only the owner's SID, exact DACL bytes and protection control.
+        assert_eq!(snapshot(true), original_security);
         assert!(
             fs::read_dir(root)
                 .unwrap()

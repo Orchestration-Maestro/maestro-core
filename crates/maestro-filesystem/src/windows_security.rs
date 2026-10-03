@@ -4,7 +4,10 @@
     reason = "the sole audited held-handle Win32 security boundary"
 )]
 #![deny(clippy::undocumented_unsafe_blocks)]
-use crate::windows_flags::{FILE_SHARE_READ_WRITE, OPEN_REPARSE_DIRECTORY_FLAGS};
+use crate::{
+    windows_flags::{FILE_SHARE_READ_WRITE, OPEN_REPARSE_DIRECTORY_FLAGS},
+    windows_replacement_security::check_replacement_security,
+};
 use std::slice;
 use std::{
     ffi::c_void,
@@ -222,17 +225,11 @@ pub(super) fn retain_replacement_security(original: &File, staged: &File) -> io:
         return Err(io::Error::from_raw_os_error(result.cast_signed()));
     }
     let retained = SecurityDescriptor::read(staged)?;
-    if !equal_sid(descriptor.owner, retained.owner)
-        || descriptor.acl_bytes()? != retained.acl_bytes()?
-        || protection != retained.protection()?
-    {
-        return Err(io::Error::other(
-            "replacement would change the file's access protection; \
-             its permissions or its folder's inheritable permissions differ; \
-             fix them, then rerun",
-        ));
-    }
-    Ok(())
+    check_replacement_security(
+        equal_sid(descriptor.owner, retained.owner),
+        (descriptor.acl_bytes()?, retained.acl_bytes()?),
+        (protection, retained.protection()?),
+    )
 }
 
 /// Check owner and DACL on a held file or directory, never by name.
