@@ -69,9 +69,11 @@ fn required_ci_owns_native_coverage_and_the_exact_engine_source() {
     );
     assert_eq!(
         policy["ci"]["mutation-engine"]["files"].as_array().unwrap(),
-        &[Value::String(
-            "crates/maestro-knowledge/src/graph/projection/engine/open.rs".into()
-        ),]
+        &["open", "schema", "transaction", "rows"].map(|name| {
+            Value::String(format!(
+                "crates/maestro-knowledge/src/graph/projection/engine/{name}.rs"
+            ))
+        })
     );
     let mutants = document(".cargo/mutants.toml");
     assert!(mutants.get("features").is_none());

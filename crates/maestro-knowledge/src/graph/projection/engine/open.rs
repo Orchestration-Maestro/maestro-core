@@ -16,7 +16,7 @@ pub(super) fn open(
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use lbug::{Connection, Value};
     use maestro_test_scratch::scratch_directory;
@@ -48,7 +48,7 @@ mod tests {
     }
 
     /// Small explicit native test limits, not product graphdb settings.
-    fn config() -> SystemConfig {
+    pub(in crate::graph::projection::engine) fn config() -> SystemConfig {
         SystemConfig::default()
             .buffer_pool_size(16 * 1024 * 1024)
             .max_db_size(64 * 1024 * 1024)
@@ -57,7 +57,7 @@ mod tests {
 
     /// Fixture ACLs only: the production adapter never repairs permissions.
     #[cfg(windows)]
-    fn private_windows_fixture(path: &Path) {
+    pub(in crate::graph::projection::engine) fn private_windows_fixture(path: &Path) {
         use std::process::Command;
         let script = r"
 $ErrorActionPreference = 'Stop'

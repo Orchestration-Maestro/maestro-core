@@ -987,8 +987,15 @@ in place.
 │   │   │   │   │   └── windows.rs                                           # Versioned, source-byte-bounded windows and quote pointers
 │   │   │   │   ├── projection/                                              # Public typed-edge and literal-fact projection ports and unpublished build writer
 │   │   │   │   │   ├── engine/                                              # Native projection operations; only feature-enabled builds compile this door
+│   │   │   │   │   │   ├── codec_tests.rs                                   # Synthetic canonical fact-vector and malformed-byte checks
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
-│   │   │   │   │   │   └── open.rs                                          # The native adapter's single rooted construction boundary
+│   │   │   │   │   │   ├── open.rs                                          # The native adapter's single rooted construction boundary
+│   │   │   │   │   │   ├── rollback_repro.rs                                # Frozen native checkpoint/rollback matrix for LadybugDB PR 1049
+│   │   │   │   │   │   ├── rows.rs                                          # Strict native rows and the inverse of E05's complete binary fact contract
+│   │   │   │   │   │   ├── schema.rs                                        # Native catalog mapping for the logical entity-key and adjacency access paths
+│   │   │   │   │   │   ├── tests.rs                                         # Native schema, rows and transaction contract tests
+│   │   │   │   │   │   ├── transaction.rs                                   # Prepared atomic native batches; the one-shot fault hook is unit-test-only
+│   │   │   │   │   │   └── validation_tests.rs                              # Native corruption and storage-shape refusals, independent of writer authorization
 │   │   │   │   │   ├── tests/                                               # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── writer/                                          # Writer
 │   │   │   │   │   │   │   └── extra.rs                                     # Additional validation cases for the generic projection writer

@@ -24,7 +24,12 @@ mutation-windows = [
 # Package-local native mutation ownership; no unrelated package gains lbug.
 [ci.mutation-engine]
 features = ["engine"]
-files = ["crates/maestro-knowledge/src/graph/projection/engine/open.rs"]
+files = [
+  "crates/maestro-knowledge/src/graph/projection/engine/open.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/schema.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/transaction.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/rows.rs",
+]
 
 # The seams of the canonicalization crate that keep one caller: each door is a
 # subsystem, and its one outside caller is the stage that composes it.

@@ -21,6 +21,8 @@
 /// Projection schema and required indexes for the typed-edge records.
 pub(super) const SCHEMA_VERSION: &str = "maestro-typed-edges/1";
 
-/// Stable index names an adapter verifies before publication.
+/// Logical access paths an adapter proves from its durable catalog before publication.
+/// Native edges use entity primary keys plus typed adjacency; facts use the entity
+/// primary key and complete subject properties, not invented secondary indexes.
 pub(super) const REQUIRED_INDEXES: &[&str] =
     &["edge_by_scope_family_source", "fact_by_scope_subject"];

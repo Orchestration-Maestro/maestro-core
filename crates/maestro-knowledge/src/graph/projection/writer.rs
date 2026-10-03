@@ -57,6 +57,7 @@ pub(crate) trait ProjectionBackend {
     /// The handle for one open immutable projection.
     type Reader: ProjectionBackendReader;
     /// Fail the next batch deterministically for the shared adapter contract suite.
+    #[cfg(test)]
     fn inject_batch_failure(&mut self) -> Result<(), String>;
     /// Create a new file for this unpublished scope; never reuse a published file.
     fn create_unpublished(&mut self, scope: &ProjectionScope) -> Result<(), String>;
