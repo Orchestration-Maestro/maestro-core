@@ -151,9 +151,15 @@ checks are not evidence that any downstream v4 consumer or release is complete.
 S2 MUST preserve **qualification → C48 → G22 → C49a**, never C48 ↔ G22.
 C49a also requires **E11 and G28**; qualified pins come from actual execution
 receipts, never invented metadata. C49a remains S3-owned, not a new S2 task.
-The increment is **7 h** (4 G + 3 E), retaining **37 G tasks and 14 E slices**:
-**149 h** bounded G + **43–89 h** E = **192–238 h** full-plan effort, not remaining
-work or elapsed time. Task files, tests and acceptance ownership are retained.
+The original increment is **7 h** (4 G + 3 E), retaining **37 G tasks and
+14 E slices**. The supervisor's 2026-10-03 16:38 Oracle budget ruling in ledger
+`s1-knowledge-kernel/progress.md` replaces G28's 5 h (including its 1 h
+cross-slice allocation) with **four ordered slices: 2 + 4 + 4 + 3 = 13 h**.
+The old estimate predates the resolution pin, durable binding and explicit
+resume obligations surfaced in implementation; scope and acceptance do not
+change. The **+8 h** gives **157 h** bounded G + **43–89 h** E = **200–246 h**
+full-plan effort, not remaining work or elapsed time. Do not count G28's
+included cross-slice hour again. Task acceptance ownership is retained.
 
 ## Needs owner action
 
