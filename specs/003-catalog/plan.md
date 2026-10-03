@@ -1,11 +1,15 @@
 # Implementation Plan: Catalog
 
-**Branch**: `docs/s3-manifest-v4` (base `815ff33`) | **Amended**: 2026-09-30 | **Spec**: [spec.md](spec.md)
+**Branch**: `docs/s3-c10-c64-plan-amendment`
+(base `cf9afe92a2f0b011a119d7d8ba5cfcfa6fd72d1f`)
+
+**Amended**: 2026-10-03 | **Spec**: [spec.md](spec.md)
 
 **Input**: the approved S3 draft, owner decisions of 2026-09-28 01:56, 08:12,
 11:25, 11:50, 11:55, 12:00, 12:05 and evening kind/model-card/settings amendments,
 the owner-approved 2026-09-30 final manifest v4 design (minimal Phase 1),
-all gap additions and corrected G12 Phase 2 placement, and the review rulings,
+all gap additions and corrected G12 Phase 2 placement, the review rulings,
+and the 2026-10-03 C10/C64 and migration rulings cited below from `progress.md`;
 architecture [03](../../docs/architecture/03-agent-orchestration.md),
 [06](../../docs/architecture/06-roadmap.md) and
 [08](../../docs/architecture/08-traceability.md). Tasks: [tasks.md](tasks.md).
@@ -103,7 +107,7 @@ The fresh planning clone starts at
 | Evaluation | `crates/maestro-knowledge/src/eval/` scores sections, not workflow IDs; reuse statistical methods, not section labels masquerading as intent labels |
 | Preferences | `maestro-kernel/src/scope/config.rs` strictly parses user `config.toml` with only `[access]`; do not turn workspace discovery into this grant loader. Reuse `maestro_kernel::paths::config_dir` for separate user `preferences.toml` |
 | Answers | `maestro-knowledge/src/answer/{prompt.rs,generate.rs,types.rs}` requests/detects the question's language, emits en/fr refusals and the public `lang` field. C05d adds explicit session language, retaining question-language fallback and evaluation isolation |
-| Kernel | Scoped records, artifacts, journal, jobs and backup exist. Migrations end at `0011_exact_identifiers.sql`; catalog numbering must exceed every landed/reserved number on main, S1/S2/S3 and the deployment-modes track |
+| Kernel | Scoped records, artifacts, journal, jobs and backup exist. This 2026-09-28 snapshot ended at `0011_exact_identifiers.sql`; new S3 migration allocation now follows the 2026-10-03 block rule in [Data model](#data-model) |
 | Filesystem | `crates/maestro-canonicalization/src/filesystem/{mod.rs,root.rs,unix.rs,windows.rs}` owns ADR-0018 held handles and no-follow opens; C04a moves it, not copies it |
 | Hosts and content | The draft recorded Pi 0.87.1, MCP adapter 2.37.0 and subagents 0.64.0; Copilot was absent from PATH and `maestro-manifests` did not exist. These are historical observations, not refreshed approvals or qualification |
 
@@ -362,9 +366,55 @@ stream/nesting limit, including manifest bytes, tar headers/padding/end blocks.
 A source-valid but archive-too-large closure must fail compilation, never
 produce an unreadable release. The writer and reader use the same `Limits`.
 
-Compile sorted tar entries with fixed archive metadata and canonical bundle
-JSON; no compression is needed. The reader rejects extra/duplicate entries,
-links, traversal, device entries, oversized bodies and truncation. Verify every
+#### Bundle metadata sources
+
+**Supervisor rulings, `progress.md`, 2026-10-03:** C10 metadata **12:45**,
+corrected by C10 unit **12:46**, and C10 area roots **13:26**. Compile the
+**whole checked snapshot**: every package/area, its exact requires closure and
+checked non-resource config/assets, not one selected package. The root
+`package.toml` supplies bundle identity, not the boundary of the snapshot.
+
+| `bundle.json` field | Source of truth |
+| --- | --- |
+| `id`, `version` | Root `package.toml` package name and exact version |
+| `source_commit` | Required `--source-commit SHA`: 40 or 64 lowercase hex characters; no default or Git call; no `--metadata` file |
+| Entries, owners, maturity, resource/workflow closures | Exact captured bytes and descriptor-checked resources, area ownership and shared dependency edges from the same snapshot |
+| `requires.runtime` | Each declaring `Layout::Area` root's runtime constraint, keyed/sorted by qualified package/language/standard ID; absence adds no constraint, no declarations yields an empty map |
+| `entry_points` | Every `Layout::Area` root's sorted direct `metadata.requires`, keyed/sorted by its qualified ID; do not restrict this to package-kind roots |
+| `policy_digest` | C10's documented empty-set digest: SHA-256 of the canonical bytes `[]`, `sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945` |
+| `requires.features`, `requires.tool_contracts` | Empty typed lists until their source declarations are admitted; no guessed defaults |
+
+**C10 edges 12:55:** one `pub(crate) Catalog::dependency_edges` in
+`source/closure.rs` supplies declared, hook-derived and implicit-preset edges to
+both `check::edges` and the compiler. Reuse the crate-private checked snapshot
+and registry hook accessor; no second read/resolver, public hook trait or
+closure-to-registry import cycle. Publication uses the existing held
+`maestro_filesystem::Directory` and `publish_verified`.
+
+#### Deferred metadata obligations
+
+The C10 metadata/unit rulings defer declaration sources, not compatibility or
+M3 quality requirements. C10 remains complete; these are not reopened steps.
+
+| Obligation | Holder |
+| --- | --- |
+| Supply the checked policy-set declaration and canonical sorted-set digest instead of the empty-set digest when policy placement is admitted | C22b, which introduces native policy placement and the shared checked set |
+| Introduce bundle feature requirement declarations and populate their typed list | **unassigned: needs an owning task before S3 merges to main** |
+| Introduce bundle tool-contract requirement declarations and populate their typed list | **unassigned: needs an owning task before S3 merges to main** |
+
+C58's extension-local tool input/output contracts do not define this bundle
+compatibility list. No new task, phase or hours are assigned here. Any changed
+persisted shape needs its own version bump; empty lists claim no implemented
+declaration mechanism.
+
+**C10 tar format 13:09:** compile sorted plain deterministic ustar entries with
+fixed archive metadata and canonical bundle JSON; no compression or GNU/PAX
+entries. Use the 155-byte prefix plus 100-byte name split at `/`; a name that
+fits directly needs no prefix. Refuse only when no valid split exists, before
+publication. C10 tests 100/101-byte names and the full 155+1+100 path/one-past
+neighbours. C11 must refuse PAX/GNU extension entries rather than interpret or
+silently skip them. The reader also rejects extra/duplicate entries, links,
+traversal, device entries, oversized bodies and truncation. Verify every
 entry and compatibility before activation. Artifacts may be staged, but no
 partial install or discovery generation becomes current. Each protected catalog
 release includes an SPDX 2.3 JSON SBOM: exact pinned component IDs/versions and
@@ -455,8 +505,10 @@ C09 records crates added, duplicate versions, native links, feature choices,
 licences and vet requirements against the current lock. D4 already approves
 these libraries: the supervisor verifies measured features, DEP-001 exceptions
 and selection of the JSON Schema validator under ADR-0020, without re-asking
-for that approval. Any unlisted licence still needs the authorized maintainer's
-organization allowlist action, recorded under OA4. No worker changes that
+for that approval. **C10 adoption, `progress.md`, 2026-10-03 12:42:** D4 approves
+`tar 0.4.46`, pinned as `=0.4.46` with `default-features = false`; keep the
+archive-library adapter in `bundle/write.rs`. Any unlisted licence still needs
+the authorized maintainer's organization allowlist action, recorded under OA4. No worker changes that
 setting. A hand-written schema or Cedar substitute is not the minimal solution.
 
 ### D5 Baseline routing and measured hybrid
@@ -1752,7 +1804,7 @@ necessary; no file-loaded executable validator is admitted.
 | Shape | Required contract beyond common metadata |
 | --- | --- |
 | Agent/skill/instruction | Existing native fields and fixed agent sections; specification-backed skill metadata and explicit inert assets; instruction applicability plus sidecar |
-| Prompt/handoff | Bounded nonempty prompt plus input/output contract IDs; sender/recipient and Inputs/Context/Deliverables/Acceptance sections for handoff |
+| Prompt/handoff | Bounded nonempty prompt plus input/output contract IDs; handoff at `handoffs/<name>/handoff.md` plus in-folder `handoff.maestro.toml`, sender/recipient and Inputs/Context/Deliverables/Acceptance sections; declaration v1 below |
 | Contract | `contract:<namespace>/<name>` at `contracts/<name>.schema.json` plus `<name>.maestro.toml`; strict native JSON, draft 2020-12 typed object, `$id` exactly the qualified ID, checked local references below |
 | Workflow | Flat source/2 frontmatter, generic root metadata placement and one `requires`; D7's exact start/terminal, bindings, edges, state, budgets and twelve-rule checks |
 | Policy | `policy:<namespace>/<name>` at `policies/<name>.cedar` plus `<name>.maestro.toml`; real Cedar, stable `@id` annotations and strict sidecar `[policy]` below; universal policies are standard-owned |
@@ -1764,7 +1816,7 @@ necessary; no file-loaded executable validator is admitted.
 | Model card | Exact kernel card identity/version at `llm/models/<role>/`, separate from session/quality profiles; role matches path and kernel validator owns canonical bytes |
 | Knowledge source | `knowledge/sources/<name>/source.toml` plus explicitly inventoried strict JSON URL policy, decisions/promotions/expiry and identity migrations; immutable pins/provenance/classification and local credential/storage references; signed-review rule admission below, never an ingested collection |
 | Hook/host | `hooks/<point>/<name>.toml`: point, target/action/tool, timeout/budget/failure behavior; host config has type/version/adapter/native aliases and explicit evidence state for all ten points; implicit engine event protocol, not a resource dependency |
-| Eval | Registered driver, subject IDs, explicit synthetic JSON inputs/cases, expected outputs/statuses, limits and required checks; fixtures now, generic driver execution Phase 2/E1 |
+| Eval | Declaration v1 below: C64 checks driver format, subject/check references, exact synthetic JSON asset paths, expected outputs/statuses and limits; C67 completes registered-driver resolution and schema-instance evaluation with Phase 2/E1 execution |
 | Bootstrap/preset | Explicit area-local source/output/digest inventory with binding/tool requirements; preset exact package/language requirements and area/inventory selectors, mandatory standards added/pinned by closure |
 | Defaults/backend | Typed canonical S1 defaults and registered base/extension shapes in D14; authority/secrets/duplicate default producers refuse |
 
@@ -1781,6 +1833,46 @@ prerequisite still gates JSON Schema adoption; no additional library is approved
 C85a supplies `capabilities/practice/project-creation/package.toml` and its
 `requires` reference to `extension:project-creation/starter-renderer`, rather
 than installing an extension without an owning area.
+
+#### Handoff and eval declaration v1
+
+**Supervisor record, `progress.md`, 2026-10-03:** C64 **12:27** limits prompt
+template refusal to `{{…}}` and `${…}`; ordinary `<…>` text is not a template.
+C64 review **13:07, F1–F3** corrects the handoff placement and incomplete eval
+fields and requires binding-omission regressions. C64 fix eval schema **13:08**
+pins the following static v1 shape; the earlier narrow eval ruling is withdrawn.
+
+Handoffs are area-relative `handoffs/<name>/handoff.md` with
+`handoffs/<name>/handoff.maestro.toml`. Refuse missing sidecars and the flat
+`<name>.handoff.md` alternative. Keep sender/recipient agent references and the
+four required body sections. Prompts, handoffs and evals each require
+`description`, `input_contract` and `output_contract`; both contract IDs are
+qualified, declared in `metadata.requires` and resolved by the shared checker.
+Independently omitting either binding from each kind must refuse (F3).
+
+Eval cases live at `evals/<name>.toml` with embedded `[metadata]`:
+
+| Required field | C64 static validation |
+| --- | --- |
+| `driver` | Lower-case hyphenated name, format only; C67 resolves the registered driver and refuses unknown names |
+| `subjects`, `checks` | Nonempty qualified IDs declared in `metadata.requires`, resolved through the shared checker; each check is a `standard-check` |
+| `inputs`, `cases` | Nonempty lists of exact JSON asset paths, inventoried in the bounded checked snapshot; no glob, traversal or external URL |
+| `expected.outputs`, `expected.statuses` | Ordered nonempty sequences with one output JSON asset and one status per case in `cases` order; statuses are only `passed` or `failed`; repeats are allowed, length mismatch refuses |
+| `limits.timeout_ms` | Required integer in `1..=1_800_000`; no omitted-field default; unknown keys in both nested tables refuse |
+
+The timeout ceiling mirrors Pi's **30-minute default run timeout**, not a new
+eval default: `pi-subagents/docs/agents.md` (`timeoutMs`) and
+`docs/configuration.md` (`timeoutMs`) document 1,800,000 ms; live Pi settings
+have no timeout override. The 13:08 ruling chooses that ceiling and validation
+in the eval hook, without coupling it to `maestro-settings`.
+
+This is declaration/inventory checking, **no schema-instance evaluation**, driver
+execution or fetch. C67 owns instance evaluation plus registered-driver and
+unknown-driver refusal; its later declaration extensions require a version bump.
+C64 remains v1 because the correction preceded landing. Handoff runtime
+governance remains outside these static checks. **C64 size 12:42** authorized
+only moving unchanged `root_support_table_is_exact` to the existing
+`source/tests/placement_boundaries.rs`; no file-size exception was approved.
 
 #### Native admission and snapshot locks
 
@@ -2186,17 +2278,16 @@ Phase 2 never gates M3. No synthetic result qualifies a live runtime.
 ## Data model
 
 Reuse kernel artifacts, scopes, journal and transactions; do not duplicate
-collection or model registries. C12's migration is next free at landing, above
-every migration landed or reserved on `main`, `feat/s1-integration`,
-`feat/s2-integration`, `feat/s3-integration` and the deployment-modes track.
-C00's 2026-09-28 check observed main at 0005 and S1/S2/S3 at 0011; that historical
-check does not reserve a number or clear later deployment-modes reservations.
-S2 uses the same next-free rule. Recheck all moving heads and lane reservations
-with the supervisor at every landing. C00 allocates no number;
-`NNNN_catalog.sql` is the number assigned at landing, never a fixed/gapped reservation.
-C13/C14/C25 use the same record seam for authority, authenticated state and
-discovery respectively; each owns its next-free migration/registration, never
-an edit to an applied migration.
+collection or model registries. **Supervisor ruling, `progress.md`, 2026-10-03,
+migration numbers 15:16:** new S3 kernel migrations use **0040–0049**; S2 uses
+0030–0039 and S6 uses 0050–0059. Coordinate unused numbers within S3's block
+with the supervisor at landing. `NNNN_catalog.sql` is the assigned S3 number,
+not a number chosen by this plan. C12/C13/C14/C25 and any later S3 schema
+addition use this allocation and the shared record seam; do not edit an applied
+migration. The existing S2/S6 collision at 0019 is renumbered by the slice that
+merges to main second, not by this documentation amendment.
+
+Historical cross-slice next-free rule: **superseded 2026-10-03 15:16**.
 
 | Record | Stored identity and invariant |
 | --- | --- |
@@ -2224,7 +2315,7 @@ there is no raw SDK configuration passthrough.
 | --- | --- |
 | Authoring check | `maestro catalog check --catalog-dir DIR`; `maestro-source/2`, area-scoped descriptors, qualified `requires`, fixed body sections, owner/maturity/08 checks; JSON output `maestro-cli/catalog-check/2`. C03 source formats remain Markdown/frontmatter and TOML until later JSON consumers |
 | Generated ownership | `maestro catalog codeowners --catalog-dir DIR` renders anchored rules to stdout; `--check` refuses tracked-file drift without writing. Normal source checking validates mirrors; no command configures GitHub protection or approves owners |
-| Compile | `maestro catalog compile --catalog-dir DIR --output FILE`; deterministic tar with `bundle.json`, normalized entries/closures, source and runtime/feature/tool requirements |
+| Compile | `maestro catalog compile --catalog-dir DIR --output FILE --source-commit SHA`; whole checked snapshot, plain deterministic ustar with `bundle.json`; D2 fixes metadata sources, no `--metadata` input |
 | Catalog authority | `maestro catalog authority set --catalog-repository OWNER/REPO --catalog-workflow PATH --catalog-issuer URL --runtime-repository OWNER/REPO --runtime-workflow PATH --runtime-issuer URL --gh-path FILE --gh-sha256 HEX [--confirm HEX]`; D2's complete proposal/revision confirmation, terminal default-no or exact proposal digest, journalled atomic provisioning/rotation; never `--yes`, environment approval or MCP |
 | Release assets | Canonical SemVer `VERSION` without leading `v` maps exactly to tag `vVERSION`. Payloads: `maestro-catalog-VERSION.tar` and `maestro-catalog-VERSION.spdx.json`; checksum file: `SHA256SUMS`. One lowercase SHA-256, two ASCII spaces, exact basename and LF per payload, sorted by basename; no paths, duplicates or extra entries. Attestation subjects are those two exact payload names/digests under D2's publisher/source bindings. C15 workflow checks and C16 download fixtures assert this same contract |
 | Install/update | `maestro catalog install VERSION`, `maestro catalog update`; verified compatible releases only, explicit project lock update, no authoring or unsigned option |
@@ -2351,7 +2442,7 @@ publish a tag, install clients or send private data to a provider.
 | Privacy or missing qualification | Synthetic default, exact approvals; S4-only roles yield real `incompatible`, not a vacuous measured routing success |
 | Trivial routing scores | C23 CORE compiled fixture pinned by digest, ten eligible synthetic workflows, recorded split sizes, held-out top-1 denominator and seeded paired interval |
 | S2 G25/G27 late or incompatible | C27a owns catalog schema/adapters; S2 owns the public port. Block impact/M3 until qualified; no fabricated evidence claims or implicit fallback |
-| Migration collision across slices | Supervisor allocates above all landed/reserved numbers on main, S1/S2/S3 and deployment-modes |
+| Migration collision across slices | Supervisor allocates new S3 numbers within 0040–0049 under the 2026-10-03 15:16 ruling; the slice merging to main second renumbers the existing 0019 collision |
 | S2/S3 shared retrieval or MCP changes | Serialize C26 with S2 G12/G14 and all MCP dispatch edits; cover every retrieval branch present at landing, including R4 graph, or prove catalog queries cannot enter it |
 | S1 settings or kernel roles differ at landing | Reuse integrated APIs; retain S3 preference/authority/discovery rules. Extractor waits for G17, query_expander refuses until S1's role follow-up; no silent alias or second registry |
 

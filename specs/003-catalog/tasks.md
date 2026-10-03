@@ -25,8 +25,11 @@ reuse; round 2 incorporates the 21:02 review ruling, explicit C16h registration,
 the owner's 20:48 registry-generated every-setting editor and 20:50 later glossary/
 source-class kinds. The final manifest v4 amendment (2026-09-30) updates C30–C43 and adds
 C44–C96b: mandatory standards, root languages, delegated ownership, three
-backends, typed content/lifecycle/checkpoints and bounded gap kits under D13–D15. Research, data model and contracts are in
-the plan.
+backends, typed content/lifecycle/checkpoints and bounded gap kits under D13–D15.
+The 2026-10-03 C10/C64 metadata/declaration and migration rulings from
+`progress.md` are recorded on their holders below; no hours, phases, task IDs,
+requirement mappings or acceptance bars change. Research, data model and
+contracts are in the plan.
 
 **Format:** `Cnn [USn] title (hours)`, with red/green/check steps. Each task's
 **Phase** and **After** fields are authoritative; physical workstream order is
@@ -137,9 +140,9 @@ for the existing dependency edge and generated-guide registration.
   `preToolUse` in S3, deferring other hooks. **Superseded by C44:** four-client
   MCP stays S3; all live hooks, including C20, move to S4 qualification.
   Name C27a's catalog schema/
-  adapters and S2 G27's public port. Coordinate next-free migrations above all
-  landed/reserved numbers across main, S1/S2/S3 and deployment-modes, never a
-  fixed/gapped block.
+  adapters and S2 G27's public port. Migration allocation now follows the
+  supervisor's `progress.md` ruling **2026-10-03 15:16**: new S3 migrations use
+  **0040–0049**, coordinated within that block; see the plan's Data model.
 - [x] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-conventions catalog_traceability`,
   `rumdl check specs/003-catalog`, and offline links for the edited Markdown.
@@ -1258,6 +1261,14 @@ perform no effect and missing S4 capability stays unsupported. A smaller languag
 needs an approved 08 disposition, not omission. These are required checks, not
 reported executions; any extra effort/split remains the supervisor's accounting.
 
+**Deferred C10 policy-set handoff:** C22b introduces the native policy placement
+and checked shared set. When admitted, use that exact set in canonical sorted
+order for bundle policy metadata instead of C10's empty-set digest, without a
+second read or parser. Any changed persisted shape needs a version bump.
+Source: `progress.md`, **2026-10-03 C10 metadata 12:45 / C10 unit 12:46**.
+This retains the policy-declaration obligation; it does not reopen completed C10
+or relax policy/graph acceptance.
+
 ### C21 Knowledge workflow and shared policies [US3, US5] (3 h)
 
 **Phase:** P1/M3
@@ -1364,6 +1375,8 @@ remote review, observed independence or S4 execution; no unused role is added.
 `crates/maestro-catalog/src/bundle/tests/{mod.rs,write.rs}`,
 `crates/maestro/src/cli/catalog/compile.rs`,
 `crates/maestro/tests/it/catalog_compile.rs`;
+shared `source/{closure.rs,check.rs,registry.rs}` seams under maestro-catalog
+for the approved dependency-edge extraction and checked-snapshot reuse;
 measured tar dependency registration and adoption-time `maestro-quality.toml`/
 `supply-chain/audits.toml` entries from the shared list.
 **Requirements:** FR-S3-008, FR-S3-037, SC-S3-002, SC-S3-013.
@@ -1392,6 +1405,29 @@ marker; authoring and bundle schemas are separate and versioned.
 C10/C11 `bundle_preserves_config_closure`: bundles preserve the checked
 non-resource config closure.
 
+**Recorded C10 contract, `progress.md`, 2026-10-03:**
+
+- **C10 metadata 12:45 / C10 unit 12:46:** compile the whole checked snapshot.
+  Root `package.toml` gives bundle ID/version; explicit `--source-commit` must
+  be 40 or 64 lowercase hex characters, with no default, Git call or `--metadata`.
+  Derive entries/owners/maturity/closures from the snapshot. Policy digest is
+  SHA-256 of canonical `[]` as documented in D2; features/tool contracts are
+  empty typed lists, not invented declarations.
+- **C10 edges 12:55:** one `pub(crate) Catalog::dependency_edges` serves source
+  checking and compilation, including declared, hook and implicit-preset edges.
+  Reuse held `Directory` publication; no duplicated resolver or source read.
+- **C10 area roots 13:26:** runtime constraints and direct entry points cover
+  every descriptor-declared `Layout::Area` root, keyed/sorted by qualified ID,
+  including languages and standards; absent runtime adds no constraint.
+- **C10 tar format 13:09; D4 adoption 12:42:** plain deterministic ustar only,
+  155-byte prefix plus 100-byte name split at `/`, no GNU/PAX entries. Refuse
+  paths with no valid split before publication; exact/one-past neighbours stay
+  required. `tar =0.4.46`, `default-features = false`, is the approved adapter.
+
+C10 is complete. C22b carries policy-set declaration/digest work; the plan's
+[deferred metadata obligations](plan.md#deferred-metadata-obligations) flag the
+unassigned feature/tool-contract declaration sources. No acceptance is waived.
+
 ### C11 Hostile bundle reader [US2] (4 h)
 
 The bundle reader verifies C53a's exact package pins and runtime compatibility
@@ -1405,7 +1441,10 @@ The bundle reader verifies C53a's exact package pins and runtime compatibility
 
 - [ ] **Step 1: Red.** Build hostile archive fixtures for duplicate, traversal,
   link, device, undeclared and oversized entries, bad schema/digest, truncation,
-  unknown features, incompatible runtime and unsupported tool-contract versions.
+  PAX/GNU extension entries, unknown features, incompatible runtime and
+  unsupported tool-contract versions. Pair extension refusals with plain ustar
+  neighbours, including the valid 155-byte prefix/100-byte name split
+  (`progress.md`, **2026-10-03 C10 tar format 13:09**).
   Test exact/one-past entry bytes, stream/aggregate payload, entry count including
   the manifest and manifest nesting at small injected `Limits`; load C03's same
   synthetic kind via its descriptor and reject an absent/unsupported descriptor,
@@ -1416,8 +1455,10 @@ The bundle reader verifies C53a's exact package pins and runtime compatibility
   Read a model-card bundle with an unsupported kernel role and require the same
   kernel unknown-role refusal as C03a, before registration is reachable.
 - [ ] **Step 2: Green.** Revalidate the normalized schema and every entry under
-  the same `Limits` as C10 before returning a verified shape. Do not extract arbitrary
-  paths first or treat the author's successful compile as validation.
+  the same `Limits` as C10 before returning a verified shape. Refuse every PAX
+  and GNU extension entry rather than interpret or silently skip it. Do not
+  extract arbitrary paths first or treat the author's successful compile as
+  validation.
 - [ ] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-catalog bundle::tests::read`.
 
@@ -1428,18 +1469,19 @@ or writes outside staging; compatibility fails before activation.
 
 **Phase:** P1/M3
 
-**After:** C11; migration numbers above every migration landed or reserved
-on `main`, `feat/s1-integration`, `feat/s2-integration` and
-`feat/s3-integration` and the deployment-modes track, assigned next free at
-landing by the supervisor in coordination with the other slices.
+**After:** C11; new S3 migration number within 0040–0049, coordinated by the
+supervisor under `progress.md`, **2026-10-03 migration numbers 15:16**.
+S2/S6 use their separate blocks; the slice merging to main second renumbers
+its existing 0019 collision, not this task.
 **Files:** `crates/maestro-kernel/src/catalog/{mod.rs,records.rs,store.rs}`,
 `crates/maestro-kernel/src/catalog/tests/{mod.rs,installs.rs,pins.rs}`,
 `crates/maestro-kernel/migrations/NNNN_catalog.sql`,
 `crates/maestro-kernel/src/store/migration.rs`,
 `crates/maestro-catalog/src/install/{mod.rs,record.rs}`,
 `crates/maestro-catalog/src/install/tests/{mod.rs,records.rs}`.
-`NNNN` is the next free number assigned at landing, the only intentional path
-binding awaiting integration coordination; do not edit an applied migration.
+`NNNN` is an unused number within 0040–0049 assigned at landing, the only
+intentional path binding awaiting integration coordination; do not edit an
+applied migration.
 **Requirements:** FR-S3-012, FR-S3-037, SC-S3-003, SC-S3-013.
 
 - [ ] **Step 1: Red.** Test scoped invisibility, reopen, concurrent installs,
@@ -1470,7 +1512,7 @@ C12's kernel record seam, not OA4 live publisher provisioning.
 `crates/maestro/src/cli/health/tests/catalog_verifier.rs`,
 `crates/maestro-kernel/src/catalog/{authority.rs,tests/authority.rs}`,
 `crates/maestro-kernel/migrations/NNNN_catalog_authority.sql`,
-`crates/maestro-kernel/src/store/migration.rs`,
+`crates/maestro-kernel/src/store/migration.rs` (S3 0040–0049 allocation per C12),
 `docs/how-to/catalog.md`, `docs/standards/security.md`.
 **Requirements:** FR-S3-010, FR-S3-013, SC-S3-003.
 
@@ -1546,7 +1588,7 @@ as well.
 `crates/maestro-catalog/src/trust/tests/{freshness.rs,revocation.rs}`,
 `crates/maestro-kernel/src/catalog/{trust.rs,tests/trust.rs}`,
 `crates/maestro-kernel/migrations/NNNN_catalog_trust.sql`,
-`crates/maestro-kernel/src/store/migration.rs` (next free at landing).
+`crates/maestro-kernel/src/store/migration.rs` (S3 0040–0049 allocation per C12).
 **Requirements:** FR-S3-011, FR-S3-022, SC-S3-003.
 
 - [ ] **Step 1: Red.** Test five-minute refresh and refusal exactly at
@@ -1811,7 +1853,8 @@ and adapter/contract tests, not changes to discovery-policy callers.
 `crates/maestro-catalog/src/install/tests/{receipts.rs,rollback.rs}`,
 `crates/maestro-kernel/src/catalog/{updates.rs,tests/updates.rs}`,
 `crates/maestro/src/cli/catalog/update.rs`, `crates/maestro/src/cli/update.rs`;
-next-free migration/registration only if existing records cannot represent it.
+S3 0040–0049 migration/registration per C12 only if existing records cannot
+represent it.
 **Requirements:** FR-S3-034, FR-S3-036, SC-S3-010, SC-S3-011, SC-S3-012.
 
 - [ ] **Step 1: Red.** Interrupt every receipt/pin/activation boundary; assert
@@ -2059,7 +2102,7 @@ no failed or empty-denominator comparison is called a passing baseline.
 **Files:** `crates/maestro-catalog/src/discovery/{mod.rs,cards.rs,publish.rs,tests.rs}`,
 `crates/maestro-kernel/src/catalog/{discovery.rs,tests/discovery.rs}`,
 `crates/maestro-kernel/migrations/NNNN_catalog_discovery.sql`,
-`crates/maestro-kernel/src/store/migration.rs` (next free at landing),
+`crates/maestro-kernel/src/store/migration.rs` (S3 0040–0049 allocation per C12),
 `crates/maestro-knowledge/tests/it/catalog_discovery.rs`.
 **Requirements:** FR-S3-023, SC-S3-007.
 
@@ -3186,7 +3229,9 @@ prompt/contracts neighbour uses production descriptors, not substitutes.
 
 **Phase:** P1/M3
 **After:** C32, C22b.
-**Files:** crates/maestro-catalog/src/source/kinds/{prompt.rs,handoff.rs,contract.rs,eval.rs}; crates/maestro-catalog/src/source/tests/contracts.rs; tests/fixtures/catalog/contracts/.
+**Files:** crates/maestro-catalog/src/source/kinds/{prompt.rs,handoff.rs,contract.rs,eval.rs}; crates/maestro-catalog/src/source/tests/{contracts.rs,contracts_eval.rs}; tests/fixtures/catalog/contracts/.
+Approved shared seams: generic folder/sidecar support in `source/{registry.rs,area_walk.rs}`;
+unchanged root-support test moved to `source/tests/placement_boundaries.rs`.
 **Requirements:** FR-S3-002, FR-S3-016, FR-S3-037, FR-S3-055, SC-S3-005, SC-S3-021.
 **Design coverage:** MD02 (approved design §8.4).
 **Named tests:** `common_contract_reference_accepts`, `unfilled_prompt_template_refuses`, `handoff_missing_section_refuses`, `external_contract_reference_refuses`, `dangling_contract_refuses`; required cases, not reported results.
@@ -3199,6 +3244,32 @@ prompt/contracts neighbour uses production descriptors, not substitutes.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 
 **Acceptance:** Prompt/handoff/eval-case descriptors and isolated body/reference checks using existing JSON contract consumer. Unfilled template, missing sections and dangling contracts refuse.
+
+**Recorded C64 v1 contract, `progress.md`, 2026-10-03:** C64 **12:27**,
+**C64 size 12:42**, **C64 review F1–F3 13:07** and
+**C64 fix eval schema 13:08**, as specified in
+[D13](plan.md#handoff-and-eval-declaration-v1).
+
+- Handoffs use `handoffs/<name>/handoff.md` plus in-folder
+  `handoff.maestro.toml`; missing sidecar and flat spelling refuse (F1).
+  Keep sender/recipient references and Inputs/Context/Deliverables/Acceptance.
+- Prompt template refusal is only `{{…}}` and `${…}`, not `<…>`. All three
+  kinds require input/output contract bindings; independently omit each from
+  each kind to prove refusal (F3).
+- Eval v1 requires driver format only; nonempty declared/resolved
+  `subjects` and `checks` (standard-check IDs), exact JSON `inputs`/`cases`/
+  `expected.outputs`, and one output/status per case in case order. Status is
+  `passed` or `failed`; unknown keys, length mismatches and unsafe assets refuse.
+  `limits.timeout_ms` is a required integer in `1..=1_800_000`, with no default;
+  test 1/1,800,000 and 0/1,800,001 plus fractional refusal (F2).
+- Keep `c64_handoff_folder_layout_accepts`, `c64_eval_full_declaration_accepts`,
+  `c64_eval_missing_driver_refuses`, `c64_eval_expectations_match_case_order`
+  and `c64_missing_contract_bindings_refuse`, plus the static-field/asset
+  refusal matrix. The size ruling moves an unchanged test, not a size exception.
+
+No instance evaluation, execution or fetch occurs in C64. C67 owns registered
+driver resolution, unknown-driver refusal and schema-instance evaluation;
+C64's completion does not claim those Phase 2 outcomes.
 
 ### C65 Quality profiles separate from session profiles [US1, US5] (4 h)
 
@@ -3256,6 +3327,15 @@ only after reviewed fixes land; not the S6 runtime catalog adapter.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 
 **Acceptance:** Registered offline package-eval drivers and exact revision-bound reports. Wrong expectation, missing driver, zero tests and unauthorized egress fail.
+
+**C64 handoff, `progress.md`, 2026-10-03 C64 fix eval schema 13:08:** resolve
+the format-checked v1 `driver` through C67's registered driver set and require
+unknown-driver refusal. Add eval schema-instance evaluation through the existing
+admitted contract consumer; inventory validation is not an instance-validation
+pass. Retain
+positive/refusal neighbours and zero execution during check/compile/install.
+A declaration extension needs a version bump. This stays Phase 2/E1, not an
+M3 prerequisite or a reopening of C64.
 
 ### C68 Four-checkpoint CI wiring [US1, US5] (3 h)
 

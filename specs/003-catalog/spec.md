@@ -1,6 +1,7 @@
 # Feature Specification: Catalog
 
-**Feature Branch**: `docs/s3-manifest-v4`, from `feat/s3-integration` at `815ff33`
+**Feature Branch**: `docs/s3-c10-c64-plan-amendment`, from `feat/s3-integration`
+at `cf9afe92a2f0b011a119d7d8ba5cfcfa6fd72d1f`
 
 **Created**: 2026-09-28
 
@@ -341,6 +342,24 @@ C66 needs the existing core wire types synchronized, including N07's
 `IdentityMigration` after its review fixes land. Private URL inventories use
 C69's admitted private manifest packages; C42's restricted mount is not widened.
 See [D13's source-rule contract](plan.md#manifest-owned-source-rules).
+
+### C10/C64 execution rulings, 2026-10-03
+
+The supervisor's `progress.md` rulings supply the missing FR-S3-008 field
+sources, not a new acceptance bar: **C10 metadata 12:45**, corrected by
+**C10 unit 12:46**, then **C10 edges 12:55**, **C10 tar format 13:09** and
+**C10 area roots 13:26**. [D2](plan.md#bundle-metadata-sources) records the
+whole-snapshot contract; D4's approved C10 adoption is `tar 0.4.46` with defaults
+off. Empty feature/tool-contract lists and the empty-set policy digest do not
+claim that later declarations have been implemented.
+
+**C64 12:27**, **C64 size 12:42**, **C64 review F1–F3 13:07** and
+**C64 fix eval schema 13:08** pin folder handoffs, template refusal and the
+[D13 declaration v1](plan.md#handoff-and-eval-declaration-v1). C64 checks driver
+format, not registration or instances; C67 owns registered-driver resolution,
+unknown-driver refusal and schema-instance evaluation at Phase 2/E1. No eval
+runs during check, compile or install. Requirements, milestones, estimates and
+quality targets remain unchanged.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -686,15 +705,28 @@ invalid graph rule and policy fixture through the real checks.
   preserving citations, refusals, scope denial and unavailable/uncalibrated
   markers. Codex and Claude Code receive MCP registration guidance, not agent
   projection. Private content and receipts MUST stay private.
-- **FR-S3-008**: Compile deterministic sorted tar plus `bundle.json`, including
-  entry digests, owners, maturity, source commit, exact workflow closures,
-  policy digest, entry points, runtime range, features and tool contracts.
-  Compilation MUST NOT execute catalog content or publish a bundle exceeding
-  any C11 archive entry/count/size/stream/nesting limit. Source validity alone
-  does not guarantee the closure fits; writer and reader share D2's `Limits`.
+- **FR-S3-008**: Compile deterministic sorted plain ustar plus `bundle.json`,
+  including entry digests, owners, maturity, source commit, exact workflow
+  closures, policy digest, entry points, runtime requirements, features and
+  tool contracts. The unit is the whole checked snapshot, not an install
+  selection. Bundle ID/version come from root `package.toml`; `requires.runtime`
+  and direct entry points come from every descriptor-declared `Layout::Area`
+  root (package, language and standard), keyed and sorted by qualified ID.
+  Absent runtime declarations impose no constraint. Require `--source-commit`
+  as 40 or 64 lowercase hex characters, with no default, Git invocation or
+  `--metadata` input. Derive entries, ownership, maturity and closures from that
+  one checked snapshot. C10 records the documented SHA-256 of canonical `[]`
+  as its policy digest, and features/tool contracts as empty typed lists until
+  their declaration sources are admitted; D2 records the deferred obligations.
+  Ustar paths use at most a 155-byte prefix and 100-byte name split at `/`;
+  refuse a path without a valid split before publication, never add GNU/PAX
+  entries. Compilation MUST NOT execute catalog content or publish a bundle
+  exceeding any C11 archive entry/count/size/stream/nesting limit. Source
+  validity alone does not guarantee the closure fits; writer and reader share
+  D2's `Limits`.
 - **FR-S3-009**: Revalidate the bundle schema, every byte digest and compatibility
   on load. Reject undeclared, duplicate, unsafe, oversized or truncated entries
-  before any installation becomes current.
+  and all PAX/GNU extension entries before any installation becomes current.
 - **FR-S3-010**: Verify with pinned `gh`, fixed arguments and bounded time/output;
   bind exact bytes to the expected repository, workflow, issuer, source and
   digest. Trust-root bindings and the version/digest/executable pin are kernel
@@ -1132,6 +1164,18 @@ invalid graph rule and policy fixture through the real checks.
   framework contracts stay in core. JSON Schema 2020-12 references are local,
   declared and digest-locked; external HTTP references refuse. Prompt bodies,
   handoff sections/sender/recipient and source provenance/bindings are checked.
+  Handoffs use area-relative `handoffs/<name>/handoff.md` with in-folder
+  `handoff.maestro.toml`, not a flat handoff file. Prompt template refusal is
+  limited to `{{…}}` and `${…}`, never ordinary `<…>` text. Prompt, handoff and
+  eval declarations require both input/output contract bindings; missing either
+  refuses. Eval declaration v1 checks a lower-case hyphenated driver name only;
+  nonempty `subjects`/`checks` must be qualified and declared in `metadata.requires`
+  (`checks` names standard-checks). `inputs`, `cases` and `expected.outputs`
+  name exact JSON assets; outputs and closed `passed`/`failed` statuses each
+  have one entry per case in case order. Require integer `limits.timeout_ms`
+  in `1..=1_800_000`, with no implicit default; unknown keys refuse. C64 performs
+  no instance evaluation. C67 owns driver resolution/unknown-driver refusal
+  and schema-instance evaluation, without moving Phase 2 execution into M3.
   A knowledge source owns the admitted URL rules under FR-S3-068, but is not
   an ingested collection. Check/install performs zero fetching; signed review
   admission never substitutes for current local access/processing grants. Hook-event protocols remain engine-owned,
