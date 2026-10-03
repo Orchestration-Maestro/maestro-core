@@ -225,3 +225,47 @@ fn canonical_location_result(path: &Path, resolved: io::Result<PathBuf>) -> io::
         Err(error) => Err(error),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(unix)]
+    mod unix {
+        use super::super::canonical_location_result;
+        use maestro_test_scratch::scratch_directory;
+        use std::{fs, io, os::unix::fs::PermissionsExt as _};
+
+        #[test]
+        fn canonical_location_only_recovers_the_named_absence_errors() {
+            let root = scratch_directory().unwrap().canonicalize().unwrap();
+            let blocked = root.join("blocked");
+            fs::create_dir(&blocked).unwrap();
+            fs::set_permissions(&blocked, fs::Permissions::from_mode(0o0)).unwrap();
+            let existing = canonical_location_result(&blocked, Ok(blocked.clone()));
+            // A vanished entry followed by an inaccessible ancestor is not absence.
+            let missing = canonical_location_result(
+                &blocked.join("absent"),
+                Err(io::Error::from(io::ErrorKind::NotFound)),
+            );
+            fs::set_permissions(&blocked, fs::Permissions::from_mode(0o700)).unwrap();
+            assert_eq!(
+                existing.unwrap_err().kind(),
+                io::ErrorKind::PermissionDenied
+            );
+            assert_eq!(missing.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+            fs::remove_dir_all(root).unwrap();
+        }
+
+        #[test]
+        fn canonical_location_refuses_non_absence_entry_metadata_errors() {
+            let root = scratch_directory().unwrap().canonicalize().unwrap();
+            let parent = root.join("parent");
+            fs::write(&parent, b"parent replaced by a file after canonicalization").unwrap();
+            let result = canonical_location_result(
+                &parent.join("absent"),
+                Err(io::Error::from(io::ErrorKind::NotFound)),
+            );
+            assert_eq!(result.unwrap_err().kind(), io::ErrorKind::NotADirectory);
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+}

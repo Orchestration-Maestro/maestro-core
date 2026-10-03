@@ -10,3 +10,5 @@ mod resolution;
 mod standards;
 
 pub(super) use resolution::{TestLayers, registry, resolve, value};
+mod discovery_boundaries;
+mod standard_boundaries;

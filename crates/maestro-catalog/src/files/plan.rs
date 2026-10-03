@@ -341,8 +341,6 @@ pub(super) fn validate_relative_path(path: &str) -> io::Result<()> {
     }
     for part in path.split('/') {
         if part.is_empty()
-            || part == "."
-            || part == ".."
             || part.contains(':')
             || part.ends_with('.')
             || part.ends_with(' ')

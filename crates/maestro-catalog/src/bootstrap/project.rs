@@ -368,3 +368,41 @@ fn refuse_old_lock(root: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{is_executable, tool_found};
+    use maestro_test_scratch::scratch_directory;
+    use std::fs;
+
+    #[test]
+    fn prerequisites_distinguish_missing_directories_and_executable_files() {
+        let root = scratch_directory().unwrap();
+        let path = root.join("tool");
+        assert!(!is_executable(&path));
+        assert!(!tool_found(path.to_str().unwrap()));
+        fs::create_dir(&path).unwrap();
+        assert!(!is_executable(&path));
+        assert!(!tool_found(path.to_str().unwrap()));
+        fs::remove_dir(&path).unwrap();
+        fs::write(&path, b"inert, never executed").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+            assert!(!is_executable(&path));
+            assert!(!tool_found(path.to_str().unwrap()));
+            for mode in [0o100, 0o010, 0o001] {
+                fs::set_permissions(&path, fs::Permissions::from_mode(mode)).unwrap();
+                assert!(is_executable(&path));
+                assert!(tool_found(path.to_str().unwrap()));
+            }
+        }
+        #[cfg(windows)]
+        {
+            assert!(is_executable(&path));
+            assert!(tool_found(path.to_str().unwrap()));
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+}

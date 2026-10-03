@@ -523,6 +523,7 @@ in place.
 │   │   │   │   │   ├── lock_limits.rs                                       # Serialized authoring locks stay within their replay read bound
 │   │   │   │   │   ├── locks.rs                                             # Complete source locks, stale-input refusals and owned user-byte preservation
 │   │   │   │   │   ├── mod.rs                                               # Bootstrap contract tests, grouped by adapter
+│   │   │   │   │   ├── mutation_boundaries.rs                               # Empty optional ports, captured absence and version-specific recovery
 │   │   │   │   │   ├── nonresource.rs                                       # Runtime inputs share the captured closure and C04 replay refusal
 │   │   │   │   │   ├── project.rs                                           # Rust source: project
 │   │   │   │   │   ├── selection.rs                                         # C36: composition admits only the source-checked mandatory closure
@@ -540,6 +541,7 @@ in place.
 │   │   │   │   │   ├── crashes.rs                                           # Rust source: crashes
 │   │   │   │   │   ├── mod.rs                                               # Rust source: mod
 │   │   │   │   │   ├── ownership.rs                                         # Committed metadata bounds are independent of injected output byte ceilings
+│   │   │   │   │   ├── plan_boundaries.rs                                   # Hostile persisted records and exact ownership comparisons
 │   │   │   │   │   ├── races.rs                                             # Rust source: races
 │   │   │   │   │   ├── removal.rs                                           # Rust source: removal
 │   │   │   │   │   ├── replacement.rs                                       # C04 replacement plans capture old bytes and recover only their journaled transition
@@ -580,11 +582,13 @@ in place.
 │   │   │   ├── policy/                                                      # Effect-free Cedar checking and separately supplied trusted host facts
 │   │   │   │   ├── tests/                                                   # Integration tests
 │   │   │   │   │   ├── check.rs                                             # Allow/deny/error neighbours reach Cedar, never an effect executor
-│   │   │   │   │   └── mod.rs                                               # Rust source: mod
+│   │   │   │   │   ├── mod.rs                                               # Rust source: mod
+│   │   │   │   │   └── mutation_boundaries.rs                               # Cedar diagnostic and aggregate boundaries are observable decisions
 │   │   │   │   ├── workspace/                                               # User-approved workspace records with a non-replaceable root refusal floor
 │   │   │   │   │   ├── tests/                                               # Workspace trust approval and mandatory refusal contracts
 │   │   │   │   │   │   ├── approval.rs                                      # Default-no IO, adapter floor, and private digest receipts
 │   │   │   │   │   │   ├── mod.rs                                           # Workspace trust approval and mandatory refusal contracts
+│   │   │   │   │   │   ├── mutation_boundaries.rs                           # Diagnostics and non-UTF-8 ancestry remain observable policy contracts
 │   │   │   │   │   │   ├── path_effects.rs                                  # Effect-time secret rebinding and checked-parent creation leases
 │   │   │   │   │   │   ├── path_refusals.rs                                 # Failure and alias cases sharing the real filesystem path fixtures
 │   │   │   │   │   │   ├── path_secrets.rs                                  # Secret-data, platform-binding and strict-schema path contracts
@@ -603,11 +607,13 @@ in place.
 │   │   │   │   │   ├── default_secrets.rs                                   # Common defaults have no secret setting; refusals never quote literal values
 │   │   │   │   │   ├── defaults.rs                                          # Manifest producers and the frozen four-layer registry contract
 │   │   │   │   │   ├── discovery.rs                                         # Real planted files on every host, with no mocked owner/write metadata
+│   │   │   │   │   ├── discovery_boundaries.rs                              # Discovery distinguishes unusable starts, malformed approval and unsafe markers
 │   │   │   │   │   ├── discovery_windows.rs                                 # Real Windows ACL, unreadability and reparse-point probes, run on the CI host
 │   │   │   │   │   ├── instructions.rs                                      # Rust source: instructions
 │   │   │   │   │   ├── mod.rs                                               # Settings contracts over shared S1 descriptors and preference adapters
 │   │   │   │   │   ├── preferences.rs                                       # Strict init drafts use the same S1 file/parser API as all preference consumers
 │   │   │   │   │   ├── resolution.rs                                        # Rust source: resolution
+│   │   │   │   │   ├── standard_boundaries.rs                               # Restriction equality keeps provenance and does not report widening
 │   │   │   │   │   └── standards.rs                                         # Standard values override every C17 preference layer without duplicating resolution
 │   │   │   │   ├── defaults.rs                                              # One redacting S1 default producer, shared by source checking and sessions
 │   │   │   │   ├── discovery.rs                                             # Safe session snapshots over S1's bounded parser and discovery walk
