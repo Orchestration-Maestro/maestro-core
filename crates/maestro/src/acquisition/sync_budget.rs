@@ -109,3 +109,35 @@ impl RunBudget {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{RunBudget, Usage};
+    use crate::acquisition::{
+        flow_fixture::{Fixture, clean},
+        flow_tests::Host,
+    };
+    use maestro_acquisition::lifecycle::resources::Resources;
+    use std::sync::Arc;
+
+    #[test]
+    fn debt_run_reservation_keeps_prior_staging_not_source_usage() {
+        let fixture = Fixture::new(clean);
+        let limits = fixture.policy.policy().aggregate_limits.clone();
+        let resources = Resources::new(Arc::new(Host(limits.clone())));
+        let mut budget = RunBudget::new(&limits).unwrap();
+        budget.staging = 123;
+        let reservation = budget
+            .reserve(
+                &resources,
+                Usage {
+                    staging_bytes: 5,
+                    ..Usage::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(resources.usage().unwrap().staging_bytes, 123);
+        drop(reservation);
+        fixture.finish();
+    }
+}

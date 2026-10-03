@@ -25,7 +25,7 @@ use std::{
 /// Wire requests do not carry authenticated owner/model/manifest claims.
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
-enum Request {
+pub(super) enum Request {
     /// Create or edit one exact grant, confirmed in full.
     Grant {
         /// Exact effect to grant or edit.
@@ -63,14 +63,15 @@ enum Response {
     },
     /// Expiry closes dispatch, including owner inspection.
     Expired {
-        /// Exact expired grant identity.
-        grant_id: String,
+        /// Required wire identity, deliberately not exposed by the CLI.
+        #[serde(rename = "grant_id")]
+        _grant_id: String,
     },
     /// No effect or permit.
     Refused {},
 }
 /// Unlink only the socket this serving invocation successfully bound.
-struct SocketPath(PathBuf);
+pub(super) struct SocketPath(pub(super) PathBuf);
 impl Drop for SocketPath {
     fn drop(&mut self) {
         drop(fs::remove_file(&self.0));
@@ -99,7 +100,11 @@ pub(super) fn serve(
     Err(unqualified())
 }
 /// Authenticate before parsing any caller-supplied scope or approval.
-fn handle(stream: &mut UnixStream, host: &Host, store: &mut Store) -> Result<Value, Failure> {
+pub(super) fn handle(
+    stream: &mut UnixStream,
+    host: &Host,
+    store: &mut Store,
+) -> Result<Value, Failure> {
     stream
         .set_read_timeout(Some(Duration::from_secs(2)))
         .map_err(|_| unqualified())?;
@@ -141,7 +146,7 @@ fn handle(stream: &mut UnixStream, host: &Host, store: &mut Store) -> Result<Val
     }
 }
 /// The sole mutation route: exact confirmation AND actual owner peer identity.
-fn change(
+pub(super) fn change(
     host: &Host,
     store: &mut Store,
     peer: u32,
@@ -221,11 +226,7 @@ pub(super) fn request(socket: &Path, authority_uid: u32, file: &Path) -> Result<
         (Request::Grant { .. } | Request::Revoke { .. }, Response::Ok {}) => {
             Ok(json!({"status":"ok"}))
         }
-        (_, Response::Expired { grant_id }) => {
-            // Expired grant identity stays internal; CLI refuses dispatch.
-            drop(grant_id);
-            Err(Failure::refused("authority refused"))
-        }
+        // Every other response, including Expired, refuses; its grant identity stays internal.
         _ => Err(Failure::refused("authority refused")),
     }
 }

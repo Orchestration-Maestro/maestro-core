@@ -184,3 +184,41 @@ impl Entry {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Entry, Report};
+    use maestro_kernel::acquisition::Handle;
+
+    #[test]
+    fn debt_report_deduplicates_and_sorts_each_disposition_without_merging_reasons() {
+        let mut report = Report::new();
+        let left = Entry::new("a", "captured");
+        let right = Entry::new("b", "held");
+        for entries in [
+            &mut report.completed,
+            &mut report.pending,
+            &mut report.discarded,
+        ] {
+            entries.extend([right.clone(), left.clone(), right.clone()]);
+        }
+        report.deduplicate();
+        let mut expected = vec![left, right];
+        expected.sort_by(|left, right| left.reference.as_str().cmp(right.reference.as_str()));
+        assert_eq!(report.completed, expected);
+        assert_eq!(report.pending, expected);
+        assert_eq!(report.discarded, expected);
+    }
+    #[test]
+    fn debt_report_zero_overflow_has_no_inventory_limit_line() {
+        let mut report = Report::new();
+        report.run = Some(Handle::new());
+        assert!(!report.text().contains("inventory limit reached"));
+        report.overflow = 1;
+        assert!(
+            report
+                .text()
+                .contains("1 links pending: inventory limit reached")
+        );
+    }
+}

@@ -54,8 +54,11 @@ in place.
 │   │   │   ├── acquisition/                                                             # Native acquisition's local authority boundary
 │   │   │   │   ├── authority.rs                                                         # Owner authority commands; no pipeline writer or same-user store fallback
 │   │   │   │   ├── authority_host.rs                                                    # Linux host qualification, kept outside the serving path
+│   │   │   │   ├── authority_host_debt_tests.rs                                         # Descriptor and digest contracts, independent of live qualification
+│   │   │   │   ├── authority_host_tests.rs                                              # Real host metadata regression fixtures
 │   │   │   │   ├── authority_probe.rs                                                   # One-shot qualification evidence authenticated by Linux peer credentials
 │   │   │   │   ├── authority_service.rs                                                 # Bounded Linux Unix-socket IPC authenticated with kernel peer credentials
+│   │   │   │   ├── authority_service_tests.rs                                           # Synthetic IPC peers exercise the real authentication and mutation route
 │   │   │   │   ├── authority_store.rs                                                   # Authority-only SQLite writer; grant changes and audit commit atomically
 │   │   │   │   ├── bindings-golden.json                                                 # JSON data: bindings golden
 │   │   │   │   ├── bindings.rs                                                          # Machine-local file bindings, never grant material or portable source configuration
@@ -70,6 +73,8 @@ in place.
 │   │   │   │   ├── history_tests.rs                                                     # Cursor paging and the frozen OS-to-kernel mapping use the real durable ports
 │   │   │   │   ├── inspect.rs                                                           # Inspect reads authorized durable records only; no policy, authority or transport
 │   │   │   │   ├── mod.rs                                                               # Native acquisition's local authority boundary
+│   │   │   │   ├── mutation_flow_tests.rs                                               # Dispositions and admission must agree with the real durable frontier
+│   │   │   │   ├── mutation_support.rs                                                  # Borrow existing synthetic ports for private source contracts, without live IO
 │   │   │   │   ├── n37_probe_tests.rs                                                   # The real qualifier launcher must reap a hostile long-running owned probe
 │   │   │   │   ├── n37_runtime_tests.rs                                                 # Production retained-capture paths cannot bypass current authority on resume
 │   │   │   │   ├── oa3.json                                                             # JSON data: oa3
@@ -88,6 +93,7 @@ in place.
 │   │   │   │   ├── sync_reader_tests.rs                                                 # Deterministic reader costs and the opt-in N14 large-history profile
 │   │   │   │   ├── sync_source.rs                                                       # One source writer; frontier pages, never a second authoritative queue
 │   │   │   │   ├── sync_window.rs                                                       # Verification coverage reuses immutable bounded kernel partition checkpoints
+│   │   │   │   ├── sync_window_debt_tests.rs                                            # Exact staging ceilings and frozen pending-window boundaries
 │   │   │   │   ├── timer.rs                                                             # Owner stop is durable kernel state, never PID signalling or a timeout-only success
 │   │   │   │   ├── window_budget_tests.rs                                               # Verification partition ceilings and per-run dispatch attempt rebasing
 │   │   │   │   ├── window_edges.rs                                                      # N36 pending targets, chunk crashes and non-text source revalidation

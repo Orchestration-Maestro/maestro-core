@@ -74,8 +74,27 @@ mod scale_port_tests;
 #[cfg(any(target_os = "linux", test))]
 mod sync_keys;
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(test)]
+#[cfg(target_os = "linux")]
 mod n37_probe_tests;
 
 #[cfg(test)]
 mod n37_runtime_tests;
+
+#[cfg(test)]
+mod mutation_support;
+
+#[cfg(test)]
+mod mutation_flow_tests;
+
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod authority_host_debt_tests;
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod authority_host_tests;
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod authority_service_tests;
+#[cfg(test)]
+mod sync_window_debt_tests;

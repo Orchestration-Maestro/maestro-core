@@ -50,4 +50,15 @@ exclude_re = [
   '^crates/maestro-acquisition/src/extraction/registry\.rs:408:38: replace > with >= in select$',
   # Shifted history and the incoming byte occupy disjoint bits.
   '^crates/maestro-acquisition/src/transport/wire_quota\.rs:118:38: replace \| with \^ in HeaderGate::push$',
+  # RDONLY is zero; NOFOLLOW and NONBLOCK have disjoint bits.
+  '^crates/maestro/src/acquisition/authority_host\.rs:76:28: replace \| with \^ in protected_file$',
+  # RDONLY is zero; NOFOLLOW and NONBLOCK have disjoint bits.
+  '^crates/maestro/src/acquisition/authority_host\.rs:76:47: replace \| with \^ in protected_file$',
+  # Offline network is a no-op; revisit if Controls::network gains a refusal.
+  '^crates/maestro/src/acquisition/controls\.rs:177:9: replace <impl AdmissionControls for Readiness<\x27_>>::network -> Result<\(\), Refusal> with Ok\(\(\)\)$',
+  # Adding zero inventory overflow cannot overflow or change the total.
+  '^crates/maestro/src/acquisition/sync_discovery\.rs:111:33: replace > with >= in discovery$',
+  # Non-Linux cfg: inactive on Linux; elsewhere Report has no Default
+  # (native Windows E0277), so no build can run this replacement.
+  '^crates/maestro/src/acquisition/cli\.rs:223:5: replace configured -> Result<Report, Failure> with Ok\(Default::default\(\)\)$',
 ]

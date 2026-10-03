@@ -254,4 +254,51 @@ mod tests {
             "read-only expiry decisions wrote authority state"
         );
     }
+    #[test]
+    fn debt_store_metadata_guards_are_independent() {
+        let (_directory, mut host, store, _) = fixture();
+        drop(store);
+        let path = host.store.join("authority.sqlite3");
+        host.owner_uid += 1;
+        assert!(Store::open(&host).is_err());
+        host.owner_uid -= 1;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(Store::open(&host).is_err());
+        fs::remove_file(&path).unwrap();
+        fs::create_dir(&path).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(Store::open(&host).is_err());
+    }
+    #[test]
+    fn debt_store_expired_grant_and_exact_revoke_are_audited_atomically() {
+        use maestro_acquisition::Refusal;
+        let (_directory, host, mut store, grant) = fixture();
+        let mut expired = grant.clone();
+        expired.id = "expired".into();
+        expired.expires_at = "2000-01-01T00:00:00Z".into();
+        assert_eq!(
+            store.change(&expired, false, host.owner_uid),
+            Err(Refusal::Access)
+        );
+        let mut mismatch = grant.clone();
+        mismatch.expires_at = "2098-01-01T00:00:00Z".into();
+        assert_eq!(
+            store.change(&mismatch, true, host.owner_uid),
+            Err(Refusal::Access)
+        );
+        assert!(store.change(&grant, true, host.owner_uid).is_ok());
+        assert_eq!(
+            store.change(&grant, true, host.owner_uid),
+            Err(Refusal::Access)
+        );
+        let actions: Vec<String> = store
+            .0
+            .prepare("SELECT action FROM audit ORDER BY sequence")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(actions, ["grant", "expired_refusal", "revoke"]);
+    }
 }

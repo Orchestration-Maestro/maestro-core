@@ -377,4 +377,26 @@ mod tests {
             "owned child was not reaped by Drop"
         );
     }
+    #[test]
+    fn debt_probe_send_delivers_exact_denials() {
+        use super::{Report, send};
+        use std::io::{BufRead as _, BufReader};
+        let (mut sender, reader) = UnixStream::pair().unwrap();
+        reader
+            .set_read_timeout(Some(Duration::from_secs(10)))
+            .unwrap();
+        let report = Report {
+            create_denied: true,
+            edit_denied: false,
+            delete_denied: true,
+        };
+        send(&mut sender, &report).unwrap();
+        drop(sender);
+        let mut line = String::new();
+        assert!(BufReader::new(reader).read_line(&mut line).unwrap() > 0);
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&line).unwrap(),
+            serde_json::json!({"create_denied":true,"edit_denied":false,"delete_denied":true})
+        );
+    }
 }

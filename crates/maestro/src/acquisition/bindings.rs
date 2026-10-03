@@ -187,7 +187,7 @@ mod tests {
             .unwrap()
             .push(expected["resources"][0].clone());
         assert!(files(serde_json::from_value(duplicated).unwrap(), Path::new(".")).is_err());
-        for length in [0, 1001] {
+        for length in [0, 1000, 1001] {
             let mut wire = expected.clone();
             wire["resources"] = serde_json::json!(
                 (0..length)
@@ -198,7 +198,10 @@ mod tests {
                     })
                     .collect::<Vec<_>>()
             );
-            assert!(files(serde_json::from_value(wire).unwrap(), Path::new(".")).is_err());
+            assert_eq!(
+                files(serde_json::from_value(wire).unwrap(), Path::new(".")).is_ok(),
+                length == 1000
+            );
         }
         let mut wrong = expected;
         wrong["schema"] = "unsupported".into();
@@ -208,6 +211,8 @@ mod tests {
     fn n14_direct_input_reads_are_bounded() {
         let root = maestro_test_scratch::scratch_directory().unwrap();
         let path = root.join("oversized.json");
+        fs::write(&path, vec![b' '; super::MAX_BYTES]).unwrap();
+        assert_eq!(super::read_bytes(&path).unwrap().len(), super::MAX_BYTES);
         fs::write(&path, vec![b' '; super::MAX_BYTES + 1]).unwrap();
         assert!(super::read_bytes(&path).is_err());
         fs::remove_dir_all(root).unwrap();

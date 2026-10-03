@@ -158,11 +158,12 @@ fn recover_depths<S: Partitions + Receipts, T>(
                     .ok_or_else(storage)?;
                 let envelope: CaptureEnvelope =
                     serde_json::from_slice(bytes.bytes()).map_err(|_| storage())?;
-                entry.insert(
-                    envelope.source == work.source.id
-                        && envelope.profile == work.source.acquisition_profile.digest
-                        && envelope.authorization_context == authorization,
-                );
+                entry.insert(provenance(
+                    &envelope,
+                    &work.source.id,
+                    &work.source.acquisition_profile.digest,
+                    &authorization,
+                ));
             }
             if verified.get(&item.capture) == Some(&true) {
                 depths
@@ -172,6 +173,17 @@ fn recover_depths<S: Partitions + Receipts, T>(
         }
     }
     Ok(())
+}
+/// All immutable parent provenance fields must match before recovering a depth.
+fn provenance(
+    envelope: &CaptureEnvelope,
+    source: &str,
+    profile: &Digest,
+    authorization: &Digest,
+) -> bool {
+    envelope.source == source
+        && envelope.profile == *profile
+        && envelope.authorization_context == *authorization
 }
 /// Retry only unaccepted, eligible historical parents; accepted history needs no reread.
 fn reconcile_checkpoints<S: Partitions, T>(
@@ -340,4 +352,99 @@ fn inventory_pages<S: Receipts, T>(
             items: items.to_vec(),
         })
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{execute, inventory_pages};
+    use crate::acquisition::{
+        flow_fixture::{Fixture, clean},
+        mutation_support::with_work,
+        output::Report,
+    };
+    use maestro_kernel::acquisition::{ItemDisposition, StageItem};
+    use serde_json::json;
+    use std::{collections::BTreeMap, time::SystemTime};
+    use tokio::runtime::Builder;
+    use ulid::Ulid;
+
+    #[test]
+    fn debt_source_execute_reserves_cpu_and_memory() {
+        let fixture = Fixture::new(|value| {
+            clean(value);
+            value["sources"][0]["discovery"] = json!([]);
+        });
+        with_work(&fixture, SystemTime::now(), |work, resources, run| {
+            Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(execute(work, &mut Report::new(), run))
+                .unwrap();
+            let usage = resources.usage().unwrap();
+            assert_eq!(usage.cpu_millicores, run.bounds[0].cpu_millicores.get());
+            assert_eq!(usage.memory_bytes, run.bounds[0].memory_bytes.get());
+        });
+        fixture.finish();
+    }
+
+    #[test]
+    fn debt_source_inventory_only_accepted_unchanged_and_denied_are_complete() {
+        let fixture = Fixture::new(clean);
+        with_work(&fixture, SystemTime::now(), |work, _, _| {
+            for disposition in [
+                ItemDisposition::Accepted,
+                ItemDisposition::Unchanged,
+                ItemDisposition::Denied,
+                ItemDisposition::Pending,
+            ] {
+                let id = Ulid::generate();
+                let inventory = BTreeMap::from([(
+                    id,
+                    StageItem {
+                        item: id.into(),
+                        disposition,
+                        evidence: None,
+                    },
+                )]);
+                let pages = inventory_pages(work, inventory).unwrap();
+                assert_eq!(pages[0].complete, disposition != ItemDisposition::Pending);
+            }
+        });
+        fixture.finish();
+    }
+    #[test]
+    fn debt_source_parent_provenance_requires_each_identity() {
+        use super::provenance;
+        use maestro_kernel::{
+            acquisition::{CaptureEnvelope, Captures, Frontier, Receipts},
+            artifact::Digest,
+        };
+        let fixture = Fixture::new(clean);
+        fixture.sync();
+        let item = Frontier::page(&fixture.db, &fixture.scopes, "notes", None, 100)
+            .unwrap()
+            .remove(0);
+        let capture = fixture
+            .db
+            .capture_for(&fixture.scope, &item)
+            .unwrap()
+            .unwrap();
+        let mut envelope: CaptureEnvelope =
+            serde_json::from_slice(fixture.db.read("reader", capture).unwrap().unwrap().bytes())
+                .unwrap();
+        let source = envelope.source.clone();
+        let profile = envelope.profile.clone();
+        let authorization = envelope.authorization_context.clone();
+        assert!(provenance(&envelope, &source, &profile, &authorization));
+        envelope.source = "other-source".into();
+        assert!(!provenance(&envelope, &source, &profile, &authorization));
+        envelope.source = source.clone();
+        envelope.profile = Digest::of(b"other-profile");
+        assert!(!provenance(&envelope, &source, &profile, &authorization));
+        envelope.profile = profile.clone();
+        envelope.authorization_context = Digest::of(b"other-reader");
+        assert!(!provenance(&envelope, &source, &profile, &authorization));
+        fixture.finish();
+    }
 }

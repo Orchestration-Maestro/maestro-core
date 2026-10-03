@@ -231,7 +231,7 @@ fn record_stop(error: &Failure, report: &mut Report, started: bool) -> Result<bo
     Ok(handled)
 }
 /// Freeze original manifest and resource digests with the effective caller/scope.
-fn freeze<T>(
+pub(super) fn freeze<T>(
     store: &dyn Receipts,
     scope: &Scope,
     runtime: &Runtime<'_, T>,
@@ -329,5 +329,53 @@ impl<S: Frontier> Drop for Writers<'_, S> {
                 ));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{record_stop, resolve};
+    use crate::acquisition::{
+        flow_fixture::{Fixture, clean},
+        flow_tests::fixture_with,
+        output::Report,
+    };
+    use crate::failure::Failure;
+    use maestro_acquisition::Principal;
+    use maestro_kernel::acquisition::Handle;
+    use serde_json::json;
+    use std::env;
+
+    #[test]
+    fn debt_command_seed_ceiling_accepts_exactly_one_thousand() {
+        let fixture = Fixture::new(clean);
+        let principal = Principal {
+            id: "reader",
+            platform: env::consts::OS,
+            scopes: &fixture.scopes,
+        };
+        for count in [1000, 1001] {
+            let (collection, files) = fixture_with(|policy| {
+                policy["sources"][0]["seeds"] = json!(
+                    (0..count)
+                        .map(|index| format!("https://garden.example/docs/{index}"))
+                        .collect::<Vec<_>>()
+                );
+            });
+            assert_eq!(
+                resolve(&files, &collection, &principal).is_ok(),
+                count == 1000
+            );
+        }
+        fixture.finish();
+    }
+    #[test]
+    fn debt_command_stop_reason_distinguishes_clock_and_source_owner() {
+        let mut report = Report::new();
+        report.receipt = Some(Handle::new());
+        record_stop(&Failure::refused("clock failure"), &mut report, false).unwrap();
+        assert_eq!(report.pending[0].reason, "verification_clock");
+        record_stop(&Failure::refused(super::SOURCE_OWNED), &mut report, false).unwrap();
+        assert_eq!(report.pending[1].reason, "source_lease_unavailable");
     }
 }

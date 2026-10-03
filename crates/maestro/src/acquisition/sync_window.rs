@@ -226,7 +226,7 @@ pub(crate) fn coverage<S: Partitions + Receipts, T>(
 }
 
 /// Reserve retained checkpoint bytes before the kernel can allocate them.
-fn charge(state: &mut Drain<'_>, bytes: u64) -> Result<bool, Failure> {
+pub(super) fn charge(state: &mut Drain<'_>, bytes: u64) -> Result<bool, Failure> {
     let staging_bytes = state
         .usage
         .staging_bytes
@@ -256,7 +256,7 @@ fn charge(state: &mut Drain<'_>, bytes: u64) -> Result<bool, Failure> {
 }
 
 /// Oldest crashed target under the exact current caller, scope and resource refs.
-fn recover_target<S: Receipts, T>(
+pub(super) fn recover_target<S: Receipts, T>(
     work: &SourceWork<'_, S, T>,
     watermark: Option<u64>,
 ) -> Result<Option<Window>, Failure> {

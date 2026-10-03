@@ -192,10 +192,7 @@ fn configured(command: &Acquire, inputs: &Inputs) -> Result<Report, Failure> {
         epoch: Instant::now(),
         run_now: SystemTime::now(),
         clock: &SystemTime::now,
-        mode: match command {
-            Acquire::Sync { mode, .. } if mode == "full" => Mode::Full,
-            _ => Mode::Incremental,
-        },
+        mode: lifecycle_mode(command),
         collection,
         kernel_principal: LOCAL,
         frontier_page_size: 1000,
@@ -211,6 +208,14 @@ fn configured(command: &Acquire, inputs: &Inputs) -> Result<Report, Failure> {
             &runtime,
             &resources,
         ))
+}
+/// Freeze the explicit CLI lifecycle selection without changing adapter composition.
+#[cfg(target_os = "linux")]
+fn lifecycle_mode(command: &Acquire) -> Mode {
+    match command {
+        Acquire::Sync { mode, .. } if mode == "full" => Mode::Full,
+        _ => Mode::Incremental,
+    }
 }
 /// There is no unqualified or same-user authority fallback on another host.
 #[cfg(not(target_os = "linux"))]
@@ -266,5 +271,51 @@ mod tests {
             };
             assert_eq!(deadline_ms, expected);
         }
+    }
+    #[test]
+    fn debt_cli_latest_returns_exact_authorized_receipt() {
+        use crate::acquisition::flow_fixture::{Fixture, clean};
+        use maestro_kernel::scope::LOCAL;
+        let fixture = Fixture::mapped(clean, "reader", LOCAL);
+        let report = fixture.sync();
+        assert_eq!(
+            super::latest(&fixture.db, report.run.unwrap()).unwrap(),
+            report.receipt.unwrap()
+        );
+        fixture.finish();
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn debt_cli_lifecycle_mode_preserves_full_and_incremental() {
+        use super::{Inputs, Mode, lifecycle_mode};
+        use std::path::PathBuf;
+        for (mode, expected) in [("full", Mode::Full), ("incremental", Mode::Incremental)] {
+            let inputs = Inputs {
+                manifest: PathBuf::new(),
+                bindings: PathBuf::new(),
+                authority_socket: PathBuf::new(),
+                authority_uid: 0,
+            };
+            assert_eq!(
+                lifecycle_mode(&Acquire::Sync {
+                    mode: mode.into(),
+                    inputs
+                }),
+                expected
+            );
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn debt_cli_unqualified_hosts_refuse_instead_of_empty_report() {
+        use super::Inputs;
+        use std::path::PathBuf;
+        let inputs = Inputs {
+            manifest: PathBuf::new(),
+            bindings: PathBuf::new(),
+            authority_socket: PathBuf::new(),
+            authority_uid: 0,
+        };
+        assert!(super::configured(&Acquire::Timer, &inputs).is_err());
     }
 }

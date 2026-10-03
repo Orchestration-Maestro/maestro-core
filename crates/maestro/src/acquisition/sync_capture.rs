@@ -322,13 +322,7 @@ where
         .reservation
         .checkpoint(
             work.aggregate_bounds,
-            Usage {
-                staging_bytes: work
-                    .carried_staging
-                    .checked_add(work.usage.staging_bytes)
-                    .ok_or_else(storage)?,
-                ..*work.usage
-            },
+            retained_usage(work.carried_staging, *work.usage)?,
         )
         .is_err()
     {
@@ -385,6 +379,15 @@ where
         },
         response,
     )))
+}
+/// Every pre-fetch reservation includes bytes retained by earlier sources.
+fn retained_usage(carried_staging: u64, usage: Usage) -> Result<Usage, Failure> {
+    Ok(Usage {
+        staging_bytes: carried_staging
+            .checked_add(usage.staging_bytes)
+            .ok_or_else(storage)?,
+        ..usage
+    })
 }
 /// N10 rules are obtained only through N09's admitted, paced operation.
 async fn ensure_robots<S, T>(
@@ -477,5 +480,24 @@ fn http<'a, S, T>(work: &CaptureWork<'_, 'a, S, T>) -> Http<'a, T> {
                 .elapsed_ms
                 .get(),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Usage, retained_usage};
+    #[test]
+    fn debt_capture_retained_usage_keeps_earlier_sources_before_fetch() {
+        let usage = Usage {
+            staging_bytes: 7,
+            cpu_millicores: 2,
+            memory_bytes: 3,
+            ..Usage::default()
+        };
+        let owned = retained_usage(11, usage).unwrap();
+        assert_eq!(owned.staging_bytes, 18);
+        assert_eq!(owned.cpu_millicores, 2);
+        assert_eq!(owned.memory_bytes, 3);
+        assert!(retained_usage(u64::MAX, usage).is_err());
     }
 }

@@ -49,11 +49,11 @@ pub(super) fn read<T: DeserializeOwned>(path: &Path) -> Result<T, Failure> {
     serde_json::from_slice(&bytes).map_err(|_| unqualified())
 }
 /// Bound reads before allocation, including malicious local request files.
-fn bytes(path: &Path) -> Result<Vec<u8>, Failure> {
+pub(super) fn bytes(path: &Path) -> Result<Vec<u8>, Failure> {
     bounded(File::open(path).map_err(|_| unqualified())?)
 }
 /// Read a previously validated descriptor, never reopen the path.
-fn bounded(file: File) -> Result<Vec<u8>, Failure> {
+pub(super) fn bounded(file: File) -> Result<Vec<u8>, Failure> {
     let mut bytes = Vec::new();
     file.take(16_385)
         .read_to_end(&mut bytes)
@@ -69,7 +69,7 @@ pub(super) fn read_protected<T: DeserializeOwned>(path: &Path, owner: u32) -> Re
     serde_json::from_slice(&bounded(file)?).map_err(|_| unqualified())
 }
 /// No symlink traversal or blocking special file; fstat checks the same descriptor read later.
-fn protected_file(path: &Path, owner: u32) -> Result<File, Failure> {
+pub(super) fn protected_file(path: &Path, owner: u32) -> Result<File, Failure> {
     let file = File::from(
         open(
             path,
@@ -85,7 +85,7 @@ fn protected_file(path: &Path, owner: u32) -> Result<File, Failure> {
     Ok(file)
 }
 /// Canary identity and digest are observed through one protected opened descriptor.
-fn witness_state(path: &Path, owner: u32) -> Result<(u32, u32, String), Failure> {
+pub(super) fn witness_state(path: &Path, owner: u32) -> Result<(u32, u32, String), Failure> {
     let file = protected_file(path, owner)?;
     let metadata = file.metadata().map_err(|_| unqualified())?;
     Ok((
@@ -115,7 +115,7 @@ pub(super) fn checked(path: &Path) -> Result<Host, Failure> {
     Ok(host)
 }
 /// Identity invariants independent of filesystem state and source configuration.
-fn separated(host: &Host, actual_uid: u32) -> Result<(), Failure> {
+pub(super) fn separated(host: &Host, actual_uid: u32) -> Result<(), Failure> {
     if host.owner_uid == 0
         || host.pipeline_uid == 0
         || host.connector_uid == 0
@@ -129,18 +129,31 @@ fn separated(host: &Host, actual_uid: u32) -> Result<(), Failure> {
     Ok(())
 }
 /// Reject symlinks and writable ancestors; root-owned sticky scratch roots are safe.
-fn protected(path: &Path, owner: u32) -> Result<(), Failure> {
+pub(super) fn protected(path: &Path, owner: u32) -> Result<(), Failure> {
     for ancestor in path.ancestors() {
         let metadata = fs::symlink_metadata(ancestor).map_err(|_| unqualified())?;
-        let sticky_root = metadata.is_dir() && metadata.uid() == 0 && metadata.mode() & 0o1000 != 0;
-        if metadata.file_type().is_symlink()
-            || (metadata.uid() != owner && metadata.uid() != 0)
-            || (metadata.mode() & 0o022 != 0 && !sticky_root)
-        {
+        if !protected_metadata(
+            metadata.is_dir(),
+            metadata.uid(),
+            metadata.mode(),
+            metadata.file_type().is_symlink(),
+            owner,
+        ) {
             return Err(unqualified());
         }
     }
     Ok(())
+}
+/// Mandatory per-ancestor protection predicate, independent of filesystem ownership.
+pub(super) fn protected_metadata(
+    directory: bool,
+    uid: u32,
+    mode: u32,
+    symlink: bool,
+    owner: u32,
+) -> bool {
+    let sticky_root = directory && uid == 0 && mode & 0o1000 != 0;
+    !(symlink || (uid != owner && uid != 0) || (mode & 0o022 != 0 && !sticky_root))
 }
 /// Digest binds identities, paths, owner/modes and exact launcher bytes.
 pub(super) fn binding(host: &Host) -> Result<String, Failure> {
@@ -164,7 +177,7 @@ pub(super) fn binding(host: &Host) -> Result<String, Failure> {
     )
 }
 /// Cache only this process's immutable executable; mutable probe/launcher bytes rehash.
-fn runtime_digest() -> Result<Vec<u8>, Failure> {
+pub(super) fn runtime_digest() -> Result<Vec<u8>, Failure> {
     static DIGEST: OnceLock<Result<Vec<u8>, ()>> = OnceLock::new();
     DIGEST
         .get_or_init(|| {
@@ -178,6 +191,14 @@ fn runtime_digest() -> Result<Vec<u8>, Failure> {
 
 /// Qualify using real subprocess identities, retaining a protected matching receipt.
 pub(super) fn qualify(path: &Path, budget: Duration) -> Result<Value, Failure> {
+    qualify_with(path, budget, probes)
+}
+/// Mandatory probe operation; tests can alter the canary at the real qualification fence.
+pub(super) fn qualify_with(
+    path: &Path,
+    budget: Duration,
+    run_probes: impl FnOnce(&Host, Duration) -> Result<(), Failure>,
+) -> Result<Value, Failure> {
     let host = checked(path)?;
     let receipt = host.store.join("qualification");
     // A failed requalification invalidates any previous receipt first.
@@ -196,7 +217,7 @@ pub(super) fn qualify(path: &Path, budget: Duration) -> Result<Value, Failure> {
     file.sync_all().map_err(|_| unqualified())?;
     drop(file);
     let original = witness_state(&witness, host.owner_uid)?;
-    let result = probes(&host, budget);
+    let result = run_probes(&host, budget);
     let untouched = witness_state(&witness, host.owner_uid).is_ok_and(|state| state == original);
     fs::remove_file(&witness).map_err(|_| unqualified())?;
     result?;
@@ -221,12 +242,22 @@ pub(super) fn qualify(path: &Path, budget: Duration) -> Result<Value, Failure> {
 }
 /// Real probe completions authenticate through the kernel; launcher stdout is diagnostic only.
 fn probes(host: &Host, budget: Duration) -> Result<(), Failure> {
+    probes_with(host, budget, |probe, budget| {
+        authority_probe::qualify(probe, budget, &SystemClock)
+    })
+}
+/// Every probe dispatch passes the executable identity fence first.
+pub(super) fn probes_with(
+    host: &Host,
+    budget: Duration,
+    qualify_probe: impl Fn(&Probe<'_>, Duration) -> Result<(), Failure>,
+) -> Result<(), Failure> {
     let binary = probe_binary(host)?;
     if binary_digest(&binary)? != runtime_digest()? {
         return Err(unqualified());
     }
     for uid in [host.pipeline_uid, host.connector_uid] {
-        authority_probe::qualify(
+        qualify_probe(
             &Probe {
                 launcher: &host.launcher,
                 binary: &binary,
@@ -235,7 +266,6 @@ fn probes(host: &Host, budget: Duration) -> Result<(), Failure> {
                 uid,
             },
             budget,
-            &SystemClock,
         )?;
     }
     Ok(())
@@ -251,7 +281,7 @@ fn probe_binary(host: &Host) -> Result<PathBuf, Failure> {
     Ok(binary)
 }
 /// Stream binary identity without materializing large executables in memory.
-fn binary_digest(path: &Path) -> Result<Vec<u8>, Failure> {
+pub(super) fn binary_digest(path: &Path) -> Result<Vec<u8>, Failure> {
     let mut file = File::open(path).map_err(|_| unqualified())?;
     let mut digest = Sha256::new();
     let mut buffer = [0; 8192];
@@ -297,135 +327,4 @@ pub(super) fn qualified(host: &Host) -> Result<(), Failure> {
         return Err(unqualified());
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Host, binding, checked, probe, protected, qualified, separated};
-    use maestro_test_scratch::scratch_directory;
-    use rustix::process::geteuid;
-    use std::{
-        fs,
-        os::unix::{
-            fs::{PermissionsExt as _, symlink},
-            net::UnixListener,
-        },
-        path::{Path, PathBuf},
-    };
-
-    /// Only pure metadata/identity tests; never runs a launcher or qualifies live grants.
-    struct Scratch(PathBuf);
-    impl Drop for Scratch {
-        fn drop(&mut self) {
-            fs::remove_dir_all(&self.0).unwrap();
-        }
-    }
-    fn fixture() -> (Scratch, Host, PathBuf) {
-        let scratch = Scratch(scratch_directory().unwrap());
-        let store = scratch.0.join("store");
-        fs::create_dir(&store).unwrap();
-        fs::set_permissions(&store, fs::Permissions::from_mode(0o700)).unwrap();
-        let launcher = scratch.0.join("launcher");
-        fs::write(&launcher, "synthetic metadata only").unwrap();
-        fs::set_permissions(&launcher, fs::Permissions::from_mode(0o700)).unwrap();
-        fs::write(
-            scratch.0.join("maestro"),
-            "synthetic probe bytes, never executable",
-        )
-        .unwrap();
-        fs::set_permissions(scratch.0.join("maestro"), fs::Permissions::from_mode(0o600)).unwrap();
-        let host = Host {
-            store,
-            socket: scratch.0.join("socket"),
-            owner_uid: geteuid().as_raw(),
-            pipeline_uid: 65534,
-            connector_uid: 65533,
-            launcher,
-        };
-        let config = scratch.0.join("config.json");
-        fs::write(&config, serde_json::to_vec(&host).unwrap()).unwrap();
-        (scratch, host, config)
-    }
-    #[test]
-    fn n05_host_identity_separation_has_no_root_or_same_user_fallback() {
-        let (_scratch, mut host, _config) = fixture();
-        assert!(separated(&host, host.owner_uid).is_ok());
-        let original = host.owner_uid;
-        for identities in [
-            [0, 65534, 65533],
-            [original, 0, 65533],
-            [original, 65534, 0],
-            [original, original, 65533],
-            [original, 65534, original],
-            [original, 65534, 65534],
-            [original + 1, 65534, 65533],
-        ] {
-            host.owner_uid = identities[0];
-            host.pipeline_uid = identities[1];
-            host.connector_uid = identities[2];
-            assert!(separated(&host, original).is_err());
-        }
-    }
-    #[test]
-    fn n05_host_metadata_and_configuration_are_strict_before_launch() {
-        let (scratch, host, config) = fixture();
-        assert!(checked(&config).is_ok());
-        for mode in [0o755, 0o770, 0o1700] {
-            fs::set_permissions(&host.store, fs::Permissions::from_mode(mode)).unwrap();
-            assert!(checked(&config).is_err());
-        }
-        fs::set_permissions(&host.store, fs::Permissions::from_mode(0o700)).unwrap();
-        for mode in [0o600, 0o720] {
-            fs::set_permissions(&host.launcher, fs::Permissions::from_mode(mode)).unwrap();
-            assert!(checked(&config).is_err());
-        }
-        fs::set_permissions(&host.launcher, fs::Permissions::from_mode(0o700)).unwrap();
-        let link = scratch.0.join("link");
-        symlink(&host.store, &link).unwrap();
-        assert!(protected(&link, host.owner_uid).is_err());
-        assert!(protected(&host.store, host.owner_uid + 1).is_err());
-        assert!(protected(Path::new("relative"), host.owner_uid).is_err());
-        fs::set_permissions(&scratch.0, fs::Permissions::from_mode(0o777)).unwrap();
-        assert!(protected(&host.store, host.owner_uid).is_err());
-        fs::set_permissions(&scratch.0, fs::Permissions::from_mode(0o700)).unwrap();
-        let original = fs::read(&config).unwrap();
-        let mut oversized = original.clone();
-        oversized.resize(16_385, b' ');
-        fs::write(&config, oversized).unwrap();
-        assert!(checked(&config).is_err());
-        fs::write(&config, original).unwrap();
-        let mut value = serde_json::to_value(&host).unwrap();
-        value["model_approval"] = true.into();
-        fs::write(&config, serde_json::to_vec(&value).unwrap()).unwrap();
-        assert!(checked(&config).is_err());
-        fs::write(&config, "{\"owner_uid\":1000,\"owner_uid\":1000}").unwrap();
-        assert!(checked(&config).is_err());
-        // Being writable by the actual owner is explicitly not a passing separation probe.
-        fs::write(host.store.join("probe-witness"), "authority-probe").unwrap();
-        let _listener = UnixListener::bind(&host.socket).unwrap();
-        assert!(probe(&host.store, &host.socket).is_err());
-    }
-    #[test]
-    fn n05_receipts_bind_current_host_metadata_and_protected_bytes() {
-        let (_scratch, mut host, _config) = fixture();
-        let receipt = host.store.join("qualification");
-        assert!(qualified(&host).is_err());
-        fs::write(&receipt, binding(&host).unwrap()).unwrap();
-        fs::set_permissions(&receipt, fs::Permissions::from_mode(0o600)).unwrap();
-        // Tests only the receipt validator; never starts a server with fabricated evidence.
-        assert!(qualified(&host).is_ok());
-        fs::set_permissions(&receipt, fs::Permissions::from_mode(0o644)).unwrap();
-        assert!(qualified(&host).is_err());
-        fs::set_permissions(&receipt, fs::Permissions::from_mode(0o600)).unwrap();
-        host.connector_uid = 65532;
-        assert!(qualified(&host).is_err());
-        host.connector_uid = 65533;
-        fs::write(&host.launcher, "substituted launcher").unwrap();
-        assert!(qualified(&host).is_err());
-        fs::write(&receipt, "forged").unwrap();
-        assert!(qualified(&host).is_err());
-        fs::remove_file(&receipt).unwrap();
-        symlink(&host.launcher, &receipt).unwrap();
-        assert!(qualified(&host).is_err());
-    }
 }
