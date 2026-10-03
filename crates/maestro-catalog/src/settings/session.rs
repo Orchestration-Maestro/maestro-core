@@ -1,5 +1,6 @@
 //! Frozen defaults admitted by trust and the lock's own committed C04 ownership.
 use super::{
+    admission_error::AdmissionError,
     defaults::manifest_registry,
     discovery::{SessionPreferences, recovery},
 };
@@ -39,6 +40,7 @@ struct LockedFile {
 impl SessionPreferences {
     /// Admit the lock's defaults after trust, safe bounded reads and own C04 ownership.
     /// Output drift is a note; catalogs are never reread during a session.
+    /// Verification is read-only, including refusals; health may use it non-fatally.
     ///
     /// # Errors
     /// Refuses untrusted, changed, malformed, oversized or uncommitted locks,
@@ -48,7 +50,7 @@ impl SessionPreferences {
         trust: &CheckedTrust<'_>,
         compiled: &BTreeSet<String>,
         limits: &Limits,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, AdmissionError> {
         let Some(path) = self.lock.take().transpose()? else {
             return Ok(self);
         };
@@ -57,10 +59,9 @@ impl SessionPreferences {
             .and_then(Path::parent)
             .ok_or_else(|| recovery(&path, "invalid lock placement"))?;
         if trust.containing_root(root).is_none() {
-            return Err(recovery(
-                &path,
-                "project defaults require a trusted containing root",
-            ));
+            return Err(
+                recovery(&path, "project defaults require a trusted containing root").into(),
+            );
         }
         let bytes = trust
             .authorize(
@@ -76,16 +77,16 @@ impl SessionPreferences {
         if envelope.get("schema").and_then(serde_json::Value::as_str)
             != Some("maestro-authoring-lock/3")
         {
-            return Err(recovery(&path, "unsupported project lock"));
+            return Err(recovery(&path, "unsupported project lock").into());
         }
         let lock: Lock = serde_json::from_value(envelope)
             .map_err(|_| recovery(&path, "invalid project lock"))?;
         let mut total = u64::try_from(bytes.len()).map_err(|error| recovery(&path, error))?;
         if lock.files.len() >= limits.archive_entries {
-            return Err(recovery(&path, "project lock output count exceeds limit"));
+            return Err(recovery(&path, "project lock output count exceeds limit").into());
         }
         if total > limits.archive_total_bytes {
-            return Err(recovery(&path, "project lock output bytes exceed limit"));
+            return Err(recovery(&path, "project lock output bytes exceed limit").into());
         }
         let owned =
             FilePlan::committed_file(root, ".maestro/authoring.lock.json", &bytes, trust, limits)
@@ -103,15 +104,15 @@ impl SessionPreferences {
                     .map_or(note.clone(), |prior| format!("{prior}; {note}")),
             );
         }
-        if lock
+        if let Some(backend) = lock
             .backend_types
             .iter()
-            .any(|kind| kind != "none" && !compiled.contains(kind))
+            .find(|kind| *kind != "none" && !compiled.contains(*kind))
         {
-            return Err(recovery(
-                &path,
-                "backend adapter is not compiled into this build",
-            ));
+            return Err(AdmissionError::BackendNotCompiled {
+                backend: backend.clone(),
+                message: recovery(&path, "backend adapter is not compiled into this build"),
+            });
         }
         self.registry = manifest_registry(
             &Registry::built_in().map_err(|error| recovery(&path, error))?,
@@ -119,6 +120,7 @@ impl SessionPreferences {
             limits,
         )
         .map_err(|(_, key, message)| recovery(&path, format!("{key}: {message}")))?;
+        self.frozen_lock = Some(digest(&bytes));
         Ok(self)
     }
 }

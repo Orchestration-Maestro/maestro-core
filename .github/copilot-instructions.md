@@ -296,6 +296,7 @@ in place.
 │   │   │   │   └── tests.rs                                                 # Strict embedded data and non-recursive interpolation contracts
 │   │   │   ├── settings/                                                    # The session's settings, resolved once for the CLI and the MCP server, and
 │   │   │   │   ├── graph.rs                                                 # The configured local graph engine
+│   │   │   │   ├── graph_tests.rs                                           # Typed native consumers use the admitted snapshot, not a second defaults producer
 │   │   │   │   ├── knowledge.rs                                             # The knowledge operations' settings, read from a session's resolved
 │   │   │   │   ├── mod.rs                                                   # The session's settings, resolved once for the CLI and the MCP server, and
 │   │   │   │   ├── session.rs                                               # A session's settings: the registry, the files it reads and the explicit
@@ -647,6 +648,7 @@ in place.
 │   │   │   │   │   ├── preferences.rs                                       # Strict init drafts use the same S1 file/parser API as all preference consumers
 │   │   │   │   │   ├── resolution.rs                                        # Rust source: resolution
 │   │   │   │   │   └── standards.rs                                         # Standard values override every C17 preference layer without duplicating resolution
+│   │   │   │   ├── admission_error.rs                                       # Typed availability refusals; ordinary admission errors retain their existing diagnostics
 │   │   │   │   ├── defaults.rs                                              # One redacting S1 default producer, shared by source checking and sessions
 │   │   │   │   ├── discovery.rs                                             # Safe session snapshots over S1's bounded parser and discovery walk
 │   │   │   │   ├── instructions.rs                                          # English model instructions over already resolved session preferences
@@ -1321,6 +1323,7 @@ in place.
 │   │   │   │   │   │   ├── rollback_repro.rs                                # Frozen native checkpoint/rollback matrix for LadybugDB PR 1049
 │   │   │   │   │   │   ├── rows.rs                                          # Strict native rows and the inverse of E05's complete binary fact contract
 │   │   │   │   │   │   ├── schema.rs                                        # Native catalog mapping for the logical entity-key and adjacency access paths
+│   │   │   │   │   │   ├── settings_tests.rs                                # Active native readers refuse independently changed settings and frozen lock identities
 │   │   │   │   │   │   ├── tests.rs                                         # Native schema, rows and transaction contract tests
 │   │   │   │   │   │   ├── transaction.rs                                   # Prepared atomic native batches; the one-shot fault hook is unit-test-only
 │   │   │   │   │   │   └── validation_tests.rs                              # Native corruption and storage-shape refusals, independent of writer authorization

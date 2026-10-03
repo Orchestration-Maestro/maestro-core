@@ -1,5 +1,7 @@
 //! Typed restrictive resolution over the canonical S1 settings descriptors.
 
+mod admission_error;
+pub use admission_error::AdmissionError;
 pub(crate) mod defaults;
 mod discovery;
 mod instructions;

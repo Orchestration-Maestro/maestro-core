@@ -3,13 +3,24 @@
 //! key. The kernel's `config.toml` has a check of its own.
 
 use super::check::Check;
-use crate::settings::Session;
+use crate::{failure::Failure, settings::Session};
 use maestro_settings::USER_FILE;
 use std::path::Path;
 
 /// The check of the session `session`, whose user file is in `config_dir`.
-pub(super) fn settings_check(config_dir: &Path, session: &Session) -> Check {
+pub(super) fn settings_check(config_dir: &Path, session: Result<&Session, Failure>) -> Check {
     let target = config_dir.join(USER_FILE).display().to_string();
+    let session = match session {
+        Ok(session) => session,
+        Err(error) => {
+            return Check::failed(
+                "settings",
+                &target,
+                error.to_string(),
+                "fix the named preferences file, then run maestro doctor again",
+            );
+        }
+    };
     let user = if session.layers.user.is_some() {
         "user file read"
     } else {

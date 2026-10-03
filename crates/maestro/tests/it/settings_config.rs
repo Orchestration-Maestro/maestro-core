@@ -233,15 +233,20 @@ fn a_refused_key_is_named_by_config_and_by_doctor() {
         format!("{}: unknown key \"search.foo\"", user.display())
     );
     let doctor = home.run(&["--json", "doctor"]);
-    assert_eq!(doctor.code, Some(2), "{doctor:?}");
+    assert_eq!(doctor.code, Some(1), "{doctor:?}");
+    let document = doctor.json();
+    let settings = document["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|check| check["name"] == "settings")
+        .unwrap();
     assert_eq!(
-        doctor.stderr.trim(),
+        settings["detail"],
         format!("{}: unknown key \"search.foo\"", user.display())
     );
-    assert!(
-        doctor.stdout.is_empty(),
-        "startup refuses before health effects"
-    );
+    assert_eq!(settings["passed"], false);
+    assert!(settings["next_action"].as_str().unwrap().contains("fix"));
     fs::remove_file(&user).unwrap();
     let refused = home.run(&["config", "set", "search.k", "0"]);
     assert_eq!(refused.code, Some(2), "{refused:?}");

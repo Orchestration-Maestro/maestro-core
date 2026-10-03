@@ -27,7 +27,7 @@ impl WorkspaceTrust for NoWorkspaceTrust {
 }
 
 /// An immutable per-process snapshot; edits become visible only to the next session.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SessionPreferences {
     /// Selected file and local-only warnings/provenance.
     pub discovery: Discovery,
@@ -37,6 +37,8 @@ pub struct SessionPreferences {
     pub(super) registry: Registry,
     /// Independently discovered nearest safe lock, frozen before effects.
     pub(super) lock: Option<Result<PathBuf, String>>,
+    /// Complete identity of the verified lock bytes, never just its defaults subset.
+    pub(super) frozen_lock: Option<String>,
 }
 
 impl SessionPreferences {
@@ -107,11 +109,24 @@ impl SessionPreferences {
             layers,
             registry,
             lock: None,
+            frozen_lock: None,
         })
+    }
+
+    /// Discard pending lock discovery for repair and health diagnostics only;
+    /// never runtime resolution. This does not admit defaults or create an identity.
+    #[must_use]
+    pub fn preferences_only(mut self) -> Self {
+        self.lock = None;
+        self
     }
 }
 
 impl WorkspacePreferences for SessionPreferences {
+    fn frozen_lock(&self) -> Option<&str> {
+        self.frozen_lock.as_deref()
+    }
+
     fn registry(&self) -> Result<Registry, String> {
         if let Some(lock) = &self.lock {
             return Err(match lock {

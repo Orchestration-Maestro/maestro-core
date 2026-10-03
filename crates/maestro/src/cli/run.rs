@@ -89,7 +89,6 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
     }
     let session = match &arguments.noun {
         Noun::Mcp { workspace } => session::for_mcp(workspace.as_deref(), &flags)?,
-        Noun::Doctor => session::for_health(&flags)?,
         _ => session::for_cli(&flags)?,
     };
     let output = if matches!(&arguments.noun, Noun::Mcp { .. }) {
@@ -150,8 +149,8 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Catalog(command) => catalog::dispatch::run(output, command),
         Noun::Policy(command) => policy::run(output, command),
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
-        Noun::Doctor => health::doctor::run(output, &session),
-        Noun::Init { .. }
+        Noun::Doctor
+        | Noun::Init { .. }
         | Noun::Setup { .. }
         | Noun::Status
         | Noun::Backup { .. }
@@ -182,6 +181,12 @@ fn independent_command(
     flags: &[String],
 ) -> Option<Result<ExitCode, Failure>> {
     match noun {
+        Noun::Doctor => Some(health::doctor::run(
+            output,
+            session::for_health(flags)
+                .as_ref()
+                .map_err(|error| Failure::refused(error.to_string())),
+        )),
         Noun::Setup { yes } => Some(setup::run(
             output,
             *yes,

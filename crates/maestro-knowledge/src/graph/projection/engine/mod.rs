@@ -17,6 +17,8 @@ mod registry_tests;
 mod rows;
 mod schema;
 #[cfg(test)]
+mod settings_tests;
+#[cfg(test)]
 mod tests;
 mod transaction;
 

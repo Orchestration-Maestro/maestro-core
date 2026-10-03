@@ -1,11 +1,14 @@
 //! CLI composition root for the process's immutable preferences snapshot.
 
 use super::trust;
-use crate::{failure::Failure, settings::Session};
+use crate::{
+    failure::Failure,
+    settings::{GraphActivationError, Session},
+};
 use maestro_catalog::{
     limits::Limits,
     policy::workspace::{CheckedTrust, JournalTrust},
-    settings::{NoWorkspaceTrust, SessionPreferences, WorkspaceTrust},
+    settings::{AdmissionError, NoWorkspaceTrust, SessionPreferences},
 };
 use maestro_kernel::{
     paths::{self, Environment},
@@ -35,7 +38,7 @@ pub(crate) fn for_cli(flags: &[String]) -> Result<Session, Failure> {
     )
 }
 
-/// Health and repair resolve preferences once, without frozen-lock or adapter admission.
+/// Health resolves preferences once; existing-lock verification is read-only and nonfatal.
 pub(crate) fn for_health(flags: &[String]) -> Result<Session, Failure> {
     let database = trust::existing_database()?;
     let adapter = JournalTrust::optional(
@@ -53,17 +56,15 @@ pub(crate) fn for_health(flags: &[String]) -> Result<Session, Failure> {
     )
 }
 
-/// Preferences-only health resolution through the same bounded, trusted discovery.
+/// Preferences-only health with nonfatal, write-free verification of an existing lock.
 pub(crate) fn health_at(
     config_dir: &Path,
     start: Option<&Path>,
     home: Option<&Path>,
     flags: &[String],
-    trust: &dyn WorkspaceTrust,
+    trust: &CheckedTrust<'_>,
 ) -> Result<Session, Failure> {
-    let snapshot = SessionPreferences::load(config_dir, start, home, trust, &Limits::PRODUCTION)
-        .map_err(Failure::refused)?;
-    Session::from_preferences(config_dir, &snapshot, snapshot.discovery.clone(), flags)
+    resolved_at((config_dir, start, home), flags, trust, true)
 }
 
 /// Init reads its own user/root preferences without discovering or admitting a lock.
@@ -111,25 +112,6 @@ pub(crate) fn for_mcp(workspace: Option<&Path>, flags: &[String]) -> Result<Sess
     current_at(&config_dir()?, workspace, env::home_dir().as_deref(), flags)
 }
 
-/// [`for_mcp`] with the directories given.
-#[cfg(test)]
-pub(crate) fn for_mcp_at(
-    config_dir: &Path,
-    workspace: Option<&Path>,
-    home: Option<&Path>,
-    flags: &[String],
-) -> Result<Session, Failure> {
-    if let Some(workspace) = workspace
-        && !workspace.is_dir()
-    {
-        return Err(Failure::refused(format!(
-            "--workspace {}: the path is not a directory: no project file is read",
-            workspace.display()
-        )));
-    }
-    at(config_dir, workspace, home, flags)
-}
-
 /// No-authority fallback: preferences only; pending lock registries fail closed.
 pub(crate) fn at(
     config_dir: &Path,
@@ -137,8 +119,20 @@ pub(crate) fn at(
     home: Option<&Path>,
     flags: &[String],
 ) -> Result<Session, Failure> {
-    let session = health_at(config_dir, start, home, flags, &NoWorkspaceTrust)?;
-    admit_backend(session)
+    let snapshot = SessionPreferences::load(
+        config_dir,
+        start,
+        home,
+        &NoWorkspaceTrust,
+        &Limits::PRODUCTION,
+    )
+    .map_err(Failure::refused)?;
+    admit_backend(Session::from_preferences(
+        config_dir,
+        &snapshot,
+        snapshot.discovery.clone(),
+        flags,
+    )?)
 }
 
 /// Production sessions consult kernel authority without creating a fresh database.
@@ -155,33 +149,50 @@ fn current_at(
     };
     let boundaries = trust::boundaries()?;
     let adapter = JournalTrust::new(&database);
-    at_with_trust(
-        config_dir,
-        start,
-        home,
+    admit_backend(resolved_at(
+        (config_dir, start, home),
         flags,
         &CheckedTrust::new(&adapter, &boundaries),
-    )
+        false,
+    )?)
 }
 
-/// Common storage-independent discovery path; injected tests need no process authority.
-fn at_with_trust(
-    config_dir: &Path,
-    start: Option<&Path>,
-    home: Option<&Path>,
+/// One captured source; only health can display a nonfatal admission refusal.
+fn resolved_at(
+    locations: (&Path, Option<&Path>, Option<&Path>),
     flags: &[String],
     trust: &CheckedTrust<'_>,
+    health_diagnostic: bool,
 ) -> Result<Session, Failure> {
-    let compiled = compiled_backends();
+    let (config_dir, start, home) = locations;
     let snapshot = SessionPreferences::load(config_dir, start, home, trust, &Limits::PRODUCTION)
-        .and_then(|snapshot| snapshot.admit_defaults(trust, &compiled, &Limits::PRODUCTION))
         .map_err(Failure::refused)?;
-    admit_backend(Session::from_preferences(
-        config_dir,
-        &snapshot,
-        snapshot.discovery.clone(),
-        flags,
-    )?)
+    if !health_diagnostic {
+        let admitted = snapshot
+            .admit_defaults(trust, &compiled_backends(), &Limits::PRODUCTION)
+            .map_err(|error| Failure::refused(error.to_string()))?;
+        return Session::from_preferences(config_dir, &admitted, admitted.discovery.clone(), flags);
+    }
+    let (snapshot, error) =
+        match snapshot
+            .clone()
+            .admit_defaults(trust, &compiled_backends(), &Limits::PRODUCTION)
+        {
+            Ok(admitted) => (admitted, None),
+            Err(error) => {
+                let activation = match error {
+                    AdmissionError::BackendNotCompiled { backend, .. } if backend == "ladybug" => {
+                        GraphActivationError::EngineMissing
+                    }
+                    error => GraphActivationError::Refused(error.to_string()),
+                };
+                (snapshot.preferences_only(), Some(activation))
+            }
+        };
+    let mut session =
+        Session::from_preferences(config_dir, &snapshot, snapshot.discovery.clone(), flags)?;
+    session.graph_activation_error = error;
+    Ok(session)
 }
 
 /// Both authority paths enforce availability after the four layers resolve.
@@ -204,8 +215,11 @@ fn config_dir() -> Result<PathBuf, Failure> {
     paths::config_dir(&Environment::current()).map_err(|error| Failure::failed_by(&error))
 }
 
-/// Existing S1 vector/MCP adapters linked by this composition root.
-/// S3 has no qualified native graph adapter; explicit `none` needs no adapter.
-pub(super) fn compiled_backends() -> BTreeSet<String> {
-    BTreeSet::from(["qdrant".to_owned(), "knowledge".to_owned()])
+/// Linked adapters; native graph availability exactly follows the engine feature.
+pub(crate) fn compiled_backends() -> BTreeSet<String> {
+    let mut compiled = BTreeSet::from(["qdrant".to_owned(), "knowledge".to_owned()]);
+    if cfg!(feature = "engine") {
+        compiled.insert("ladybug".to_owned());
+    }
+    compiled
 }

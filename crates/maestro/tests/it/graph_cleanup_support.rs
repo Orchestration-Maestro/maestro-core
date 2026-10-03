@@ -20,6 +20,17 @@ use std::{
 
 /// One real rule build, generation attachment and immutable readiness receipt.
 pub(super) fn retired(home: &Home) -> (i64, String) {
+    ready(home, false)
+}
+
+/// Canonically named published corruption fixture for read-only health checks.
+#[cfg(feature = "engine")]
+pub(super) fn published(home: &Home) -> (i64, String) {
+    ready(home, true)
+}
+
+/// Reuse the real build/attachment protocol; preserve cleanup's historical fixture bytes.
+fn ready(home: &Home, published: bool) -> (i64, String) {
     let rule = pilot(home);
     let built = home.run(&[
         "--json",
@@ -66,10 +77,7 @@ pub(super) fn retired(home: &Home) -> (i64, String) {
         .complete_job(&lease, JobState::Succeeded, &json!({}))
         .unwrap();
     database.verify_generation(generation, 0).unwrap();
-    let name = format!(
-        "g{}.lbdb",
-        Digest::of(generation.to_string().as_bytes()).as_str()
-    );
+    let name = receipt_name(generation, &attachment.claim_set_id, published);
     let inputs = json!({"generation": generation});
     let project = database
         .submit_job(
@@ -112,7 +120,9 @@ pub(super) fn retired(home: &Home) -> (i64, String) {
         .complete_job(&lease, JobState::Succeeded, &json!({}))
         .unwrap();
     database.publish_generation(generation).unwrap();
-    database.retire_generation(generation).unwrap();
+    if !published {
+        database.retire_generation(generation).unwrap();
+    }
     guards(home);
     fs::write(home.data().join("graph").join(&name), b"disposable").unwrap();
     (generation, name)
@@ -159,4 +169,22 @@ pub(super) fn document(
         "action": action, "reason": reason, "generation": generation,
         "collection": "synthetic-graph", "file_name": name, "present": present
     })
+}
+
+/// Pin health's canonical fixture without a second filename encoder.
+fn receipt_name(generation: i64, claim_set: &Digest, published: bool) -> String {
+    if published {
+        // Frozen on-disk receipt name; a change here is a format change.
+        assert_eq!(generation, 1);
+        assert_eq!(
+            claim_set.as_str(),
+            "1f5f4c507e4af32b83821c439c03e83f0e7a2d6ea874a76853e867d5a4e18207"
+        );
+        "g079edff35ec54ceb10172871a6d7dad732af9ff99fb7de1e367be9aaffb855c0.lbdb".to_owned()
+    } else {
+        format!(
+            "g{}.lbdb",
+            Digest::of(generation.to_string().as_bytes()).as_str()
+        )
+    }
 }

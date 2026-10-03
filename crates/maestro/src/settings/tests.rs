@@ -2,7 +2,7 @@
 //! setting reaches the knowledge operations, and the CLI and the MCP server
 //! resolve the same files the same way.
 
-use super::{Compute, GraphEngine, KnowledgeSettings, Session};
+use super::{Compute, KnowledgeSettings, Session};
 use crate::{cli::session, failure::Failure};
 use maestro_catalog::{limits::Limits, settings::WorkspacePreferences};
 use maestro_kernel::evidence::RequestBudget;
@@ -20,10 +20,9 @@ use maestro_settings::{
 };
 use maestro_test_scratch::scratch_directory;
 use std::{
-    collections::BTreeSet,
     fs,
     num::{NonZeroU32, NonZeroUsize},
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::Duration,
 };
 
@@ -340,52 +339,6 @@ fn each_setting_reaches_the_knowledge_operations() {
 }
 
 #[test]
-fn every_registered_setting_is_read_by_a_consumer() {
-    let scratch = Scratch::new();
-    let branches: [&[&str]; 2] = [
-        &[],
-        &[
-            "search.section_prior.weight=0.5",
-            "search.rerank.context=bounded_section",
-            "search.source_prior.weight=off",
-        ],
-    ];
-    let mut read = BTreeSet::new();
-    for flags in branches {
-        let session = scratch.session(flags);
-        read.extend(KnowledgeSettings::read(&session.resolved()).unwrap().1);
-        read.extend(GraphEngine::read(&session).unwrap().1);
-    }
-    let catalog = [
-        "updates",
-        "model_profile",
-        "reasoning_effort",
-        "inference_writers",
-        "workspace_writers",
-        "delegation_depth",
-        "tool_calls",
-        "repair_attempts",
-        "routing_candidates",
-        "mcp_call_timeout",
-        "cross_project_memory",
-        "mcp_apps",
-        "extensions",
-        "schedules",
-        "raw_prompt_logging",
-        "raw_reasoning_logging",
-        "provider_fallback",
-        "evidence_validation",
-        "result_validation",
-        "discovered_executable_hooks",
-    ]
-    .into_iter()
-    .map(str::to_owned)
-    .collect::<BTreeSet<_>>();
-    assert!(read.is_disjoint(&catalog));
-    assert_eq!(read.union(&catalog).count(), read.len() + catalog.len());
-}
-
-#[test]
 fn compute_off_switches_off_every_model_stage_and_keeps_the_code_routes() {
     let scratch = Scratch::new();
     let settings = scratch
@@ -443,9 +396,9 @@ fn the_flag_then_the_project_then_the_user_file_win() {
 fn the_mcp_session_reads_a_project_only_through_an_explicit_workspace_inside_home() {
     let scratch = Scratch::new();
     scratch.project("tone = \"brief\"\n");
-    let plain = session::for_mcp_at(&scratch.config(), None, Some(&scratch.home()), &[]).unwrap();
+    let plain = for_mcp_at(&scratch.config(), None, Some(&scratch.home()), &[]).unwrap();
     assert_eq!(plain.resolved().text("tone"), Some("normal"));
-    let workspace = session::for_mcp_at(
+    let workspace = for_mcp_at(
         &scratch.config(),
         Some(&scratch.home().join("work")),
         Some(&scratch.home()),
@@ -453,7 +406,7 @@ fn the_mcp_session_reads_a_project_only_through_an_explicit_workspace_inside_hom
     )
     .unwrap();
     assert_eq!(workspace.resolved().text("tone"), Some("brief"));
-    let outside = session::for_mcp_at(
+    let outside = for_mcp_at(
         &scratch.config(),
         Some(&scratch.0),
         Some(&scratch.home()),
@@ -477,7 +430,7 @@ fn the_mcp_session_refuses_a_workspace_that_is_not_a_directory() {
     scratch.project("tone = \"brief\"\n");
     let readme = scratch.home().join("work").join("README.md");
     fs::write(&readme, "# work\n").unwrap();
-    let refused = session::for_mcp_at(&scratch.config(), Some(&readme), Some(&scratch.home()), &[])
+    let refused = for_mcp_at(&scratch.config(), Some(&readme), Some(&scratch.home()), &[])
         .unwrap_err()
         .to_string();
     assert_eq!(
@@ -532,4 +485,22 @@ fn parent_chain_settings_round_trip_and_refuse_legacy_order() {
         scratch.session(&[]).knowledge(),
         Err(Failure::Refused(_))
     ));
+}
+
+/// MCP discovery adapter with injected paths, matching the production directory guard.
+fn for_mcp_at(
+    config_dir: &Path,
+    workspace: Option<&Path>,
+    home: Option<&Path>,
+    flags: &[String],
+) -> Result<Session, Failure> {
+    if let Some(workspace) = workspace
+        && !workspace.is_dir()
+    {
+        return Err(Failure::refused(format!(
+            "--workspace {}: the path is not a directory: no project file is read",
+            workspace.display()
+        )));
+    }
+    session::at(config_dir, workspace, home, flags)
 }

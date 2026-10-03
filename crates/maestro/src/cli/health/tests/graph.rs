@@ -12,7 +12,10 @@ use super::{
     support::{Scratch, failure},
 };
 use crate::{cli::session, failure::Failure, settings::Session};
-use maestro_catalog::settings::NoWorkspaceTrust;
+use maestro_catalog::{
+    policy::workspace::{CheckedTrust, TrustBoundaries},
+    settings::NoWorkspaceTrust,
+};
 use maestro_kernel::paths::Environment;
 use maestro_knowledge::graph::projection::health::{
     OpenGraph, ProbeError, PublishedFile, PublishedGraph, Receipt,
@@ -188,13 +191,9 @@ impl Home {
     /// The session with `flags`.
     fn session(&self, flags: &[&str]) -> Result<Session, Failure> {
         let flags: Vec<String> = flags.iter().map(|&flag| flag.to_owned()).collect();
-        session::health_at(
-            &self.scratch.config(),
-            None,
-            None,
-            &flags,
-            &NoWorkspaceTrust,
-        )
+        let boundaries = TrustBoundaries::new(&self.scratch.data(), &[]).unwrap();
+        let trust = CheckedTrust::new(&NoWorkspaceTrust, &boundaries);
+        session::health_at(&self.scratch.config(), None, None, &flags, &trust)
     }
 
     /// The check with `graph.engine = lbug`, in a build with the engine.

@@ -13,7 +13,7 @@ use std::fs;
 fn settings_check_names_the_files_read_and_what_it_found() {
     let scratch = Scratch::new();
     let session = session::at(&scratch.config(), None, None, &[]).unwrap();
-    let check = settings_check(&scratch.config(), &session);
+    let check = settings_check(&scratch.config(), Ok(&session));
     let user = scratch.config().join(USER_FILE);
     assert_eq!(check.target, user.display().to_string());
     assert_eq!(
@@ -27,12 +27,12 @@ fn settings_check_names_the_files_read_and_what_it_found() {
     let work = scratch.data();
     let session = session::at(&scratch.config(), Some(&work), None, &[]).unwrap();
     assert!(
-        detail(&settings_check(&scratch.config(), &session))
+        detail(&settings_check(&scratch.config(), Ok(&session)))
             .contains("outside home without workspace trust")
     );
     let session = session::at(&scratch.config(), Some(&work), Some(&scratch.data()), &[]).unwrap();
     assert_eq!(
-        detail(&settings_check(&scratch.config(), &session)),
+        detail(&settings_check(&scratch.config(), Ok(&session))),
         "user file read; no project file found"
     );
 }
@@ -69,7 +69,7 @@ fn doctor_settings_reports_the_original_snapshot_after_preferences_change_or_rem
                 "schema = 'maestro-preferences/1'\ntone = 'detailed'\n",
             );
         }
-        let check = settings_check(&scratch.config(), &session);
+        let check = settings_check(&scratch.config(), Ok(&session));
         assert_eq!(detail(&check), "user file read; no project file found");
         assert_eq!(session.resolved().text("tone"), Some("brief"));
     }

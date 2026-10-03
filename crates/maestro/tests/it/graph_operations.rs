@@ -8,10 +8,12 @@ use super::support::{Ended, Home};
 #[cfg(all(unix, feature = "engine"))]
 use maestro_kernel::store::Database;
 use serde_json::Value;
-#[cfg(unix)]
 use std::fs;
 #[cfg(all(unix, feature = "engine"))]
 use std::path::Path;
+use std::path::PathBuf;
+#[cfg(feature = "engine")]
+use std::time::Instant;
 
 /// The graph's entry of a `status` or `doctor` document.
 fn graph(document: &Value) -> &Value {
@@ -216,7 +218,9 @@ fn with_the_engine_setup_owns_the_directory_and_health_opens_nothing_yet() {
         serde_json::json!([".access.guard", ".writer.guard"])
     );
     assert!(!graph_directory.exists());
+    let started = Instant::now();
     let (applied, calls, _) = setup_offline(&home, &[&lbug[..], &["--yes"]].concat());
+    println!("G26_SETUP_INSTALL_US={}", started.elapsed().as_micros());
     assert_eq!(applied["graph"]["changed"], true, "{applied}");
     assert!(graph_directory.is_dir());
     assert!(!calls.contains("curl") && !calls.contains("tar"), "{calls}");
@@ -228,10 +232,8 @@ fn with_the_engine_setup_owns_the_directory_and_health_opens_nothing_yet() {
     assert_missing_graph_authority(&home);
     drop(Database::open_in(&home.data()).unwrap());
     let doctor = home.run(&["--set", "graph.engine=ladybug", "--json", "doctor"]);
-    assert_eq!(
-        detail(&doctor),
-        "no graph is published yet, so no file was opened"
-    );
+    assert!(detail(&doctor).starts_with("no graph is published yet, so no file was opened"));
+    assert!(detail(&doctor).contains("no admitted authoring lock"));
     assert_eq!(graph(&doctor.json())["checked"], false);
     assert_eq!(
         fs::read_to_string(graph_directory.join("unpublished.lbug")).unwrap(),
@@ -317,4 +319,125 @@ fn assert_missing_graph_authority(home: &Home) {
             .unwrap()
             .contains("collection add")
     );
+}
+
+#[cfg(feature = "engine")]
+#[test]
+fn graph_operations_real_lock_enables_read_only_corruption_and_lock_diagnoses() {
+    use maestro_filesystem::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
+    let home = Home::new();
+    let (_, name) = super::graph_cleanup_support::published(&home);
+    let directory = home.data().join("graph");
+    let path = directory.join(name);
+    let before = fs::read(&path).unwrap();
+    let no_lock = home.run(&["--set", "graph.engine=ladybug", "--json", "doctor"]);
+    assert!(
+        detail(&no_lock).contains("no admitted authoring lock"),
+        "{no_lock:?}"
+    );
+    assert_eq!(fs::read(&path).unwrap(), before);
+    let workspace = admitted_workspace(&home, "schema = 'maestro-preferences/1'\n");
+    let lock_path = workspace.join(".maestro/authoring.lock.json");
+    let lock_before = fs::read(&lock_path).unwrap();
+    for command in ["status", "doctor"] {
+        let report = home.run_in(
+            &workspace,
+            &["--set", "graph.engine=ladybug", "--json", command],
+        );
+        assert!(
+            detail(&report).contains("corrupt or unreadable"),
+            "{report:?}"
+        );
+        assert!(!detail(&report).contains("not activated"));
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert_eq!(fs::read(&lock_path).unwrap(), lock_before);
+    }
+    let root = OwnedRoot::open(&directory, false).unwrap();
+    let writer = root.open_control(ControlFile::Writer).unwrap();
+    writer
+        .lock_with(&SystemFileLock, LockMode::Exclusive, false)
+        .unwrap();
+    let locked = home.run_in(
+        &workspace,
+        &["--set", "graph.engine=ladybug", "--json", "doctor"],
+    );
+    assert_eq!(detail(&locked), "a writer holds the graph file's lock");
+    assert_eq!(fs::read(&path).unwrap(), before);
+    drop(writer);
+    fs::write(&lock_path, [lock_before.as_slice(), b"\n"].concat()).unwrap();
+    let changed = fs::read(&lock_path).unwrap();
+    let refused = home.run_in(
+        &workspace,
+        &["--set", "graph.engine=ladybug", "--json", "doctor"],
+    );
+    assert!(
+        detail(&refused).contains("authoring.lock.json"),
+        "{refused:?}"
+    );
+    assert!(
+        !detail(&refused).contains("corrupt"),
+        "no native open without activation"
+    );
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(fs::read(&lock_path).unwrap(), changed);
+    let runtime = home.run_in(&workspace, &["knowledge", "collections"]);
+    assert_eq!(runtime.code, Some(2), "{runtime:?}");
+}
+
+/// A real C04-owned lock, approved through the user-local journal, not lock self-authority.
+fn admitted_workspace(home: &Home, defaults: &str) -> PathBuf {
+    use maestro_catalog::{
+        files::{self, FileInput, FilePlan},
+        policy::workspace::{CheckedTrust, JournalTrust, TrustBoundaries},
+    };
+    let workspace = home.root().join("project");
+    fs::create_dir(&workspace).unwrap();
+    let workspace = workspace.canonicalize().unwrap();
+    let text = workspace.to_str().unwrap();
+    let approved = home.run(&["trust", "add", text, "--confirm-path", text]);
+    assert_eq!(approved.code, Some(0), "{approved:?}");
+    let kernel = home.database();
+    let adapter = JournalTrust::new(&kernel);
+    let boundaries = TrustBoundaries::new(home.root(), &[home.data(), home.config()]).unwrap();
+    let trust = CheckedTrust::new(&adapter, &boundaries);
+    let bytes = serde_json::to_vec(&serde_json::json!({
+        "schema": "maestro-authoring-lock/3", "defaults": defaults,
+        "backend_types": ["ladybug"], "files": [],
+        "sources": [{"path":"core/backends/graphdb/config.toml","sha256":"synthetic"}]
+    }))
+    .unwrap();
+    let plan = FilePlan::preview(
+        &workspace,
+        [FileInput::new(".maestro/authoring.lock.json", bytes)],
+        &trust,
+    )
+    .unwrap();
+    files::apply(&workspace, &plan, &trust).unwrap();
+    workspace
+}
+
+#[cfg(not(feature = "engine"))]
+#[test]
+fn graph_operations_lock_selected_uncompiled_engine_is_named_without_writes() {
+    let home = Home::bare();
+    let workspace = admitted_workspace(
+        &home,
+        "schema = 'maestro-preferences/1'\n[overrides]\n'graph.engine' = 'ladybug'\n",
+    );
+    let lock = workspace.join(".maestro/authoring.lock.json");
+    let before = fs::read(&lock).unwrap();
+    for command in ["status", "doctor"] {
+        let report = home.run_in(&workspace, &["--json", command]);
+        assert_eq!(
+            detail(&report),
+            "graph.engine = ladybug, but this maestro was built without the engine",
+            "{report:?}"
+        );
+        assert_eq!(report.code, Some(i32::from(command != "status")));
+    }
+    assert_eq!(fs::read(lock).unwrap(), before);
+    assert!(!home.data().join("graph").exists());
+    let runtime = home.run_in(&workspace, &["knowledge", "collections"]);
+    assert_eq!(runtime.code, Some(2));
+    assert!(runtime.stderr.contains("not compiled"));
 }

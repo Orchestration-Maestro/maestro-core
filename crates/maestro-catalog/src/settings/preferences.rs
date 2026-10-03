@@ -11,6 +11,12 @@ use std::{collections::BTreeMap, fmt::Write as _, path::Path};
 
 /// Replaceable source of strictly parsed preferences selected for the session.
 pub trait WorkspacePreferences {
+    /// Complete SHA-256 identity of the admitted authoring lock, without a second format.
+    /// Preferences-only sources carry no native activation identity.
+    fn frozen_lock(&self) -> Option<&str> {
+        None
+    }
+
     /// The immutable lowest defaults slot captured at admission.
     ///
     /// # Errors

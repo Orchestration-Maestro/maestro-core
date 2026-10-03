@@ -14,7 +14,25 @@ use maestro_catalog::{
 use maestro_settings::{
     Discovery, FileLayers, Flag, Layers, Registry, Resolved, parse_flags, resolve,
 };
-use std::path::Path;
+use std::{fmt, path::Path};
+
+/// Nonfatal activation diagnostics retained independently of preference display.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum GraphActivationError {
+    /// An existing verified lock selects the uncompiled native graph base.
+    EngineMissing,
+    /// A named trust, ownership, schema or settings refusal.
+    Refused(String),
+}
+impl fmt::Display for GraphActivationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EngineMissing => formatter
+                .write_str("graph.engine = ladybug, but this maestro was built without the engine"),
+            Self::Refused(message) => formatter.write_str(message),
+        }
+    }
+}
 
 /// One session's settings.
 #[derive(Debug)]
@@ -29,6 +47,10 @@ pub(crate) struct Session {
     pub(crate) layers: Layers,
     /// The explicit `--set` flags.
     pub(crate) flags: Vec<Flag>,
+    /// Complete authoring-lock identity from read-only catalog admission.
+    pub(crate) frozen_lock: Option<String>,
+    /// A nonfatal health activation refusal; runtime sessions never carry one.
+    pub(crate) graph_activation_error: Option<GraphActivationError>,
 }
 
 impl Session {
@@ -61,6 +83,8 @@ impl Session {
             discovery,
             layers,
             flags,
+            frozen_lock: source.frozen_lock().map(str::to_owned),
+            graph_activation_error: None,
         })
     }
 
@@ -120,6 +144,10 @@ impl Session {
 }
 
 impl WorkspacePreferences for Session {
+    fn frozen_lock(&self) -> Option<&str> {
+        self.frozen_lock.as_deref()
+    }
+
     fn registry(&self) -> Result<Registry, String> {
         Ok(self.registry.clone())
     }
@@ -141,6 +169,8 @@ mod tests {
             discovery: Discovery::default(),
             layers: Layers::default(),
             flags: Vec::new(),
+            frozen_lock: None,
+            graph_activation_error: None,
         }
     }
 

@@ -78,14 +78,23 @@ struct CheckDocument<'a> {
 ///
 /// [`Failure::Failed`] when the kernel's directories cannot be resolved, or
 /// its database, once it opened, cannot be read.
-pub(in crate::cli) fn run(output: Output, session: &Session) -> Result<ExitCode, Failure> {
+pub(in crate::cli) fn run(
+    output: Output,
+    session: Result<&Session, Failure>,
+) -> Result<ExitCode, Failure> {
     let environment = Environment::current();
     let data = paths::data_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let config_dir = paths::config_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let (config, read) = config_check(&config_dir);
     let (database, opened) = database_check(&data, read.as_ref());
-    let settings = settings_check(&config_dir, session);
-    let graph = graph::check(&environment, Ok(session), read.as_ref());
+    let settings = settings_check(
+        &config_dir,
+        session
+            .as_ref()
+            .copied()
+            .map_err(|error| Failure::refused(error.to_string())),
+    );
+    let graph = graph::check(&environment, session, read.as_ref());
     let mut checks = vec![
         config,
         settings,

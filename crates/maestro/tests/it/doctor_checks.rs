@@ -53,6 +53,42 @@ fn assert_next_action_matches_outcome(check: &Value) {
 }
 
 #[test]
+fn doctor_keeps_health_checks_when_preferences_are_invalid() {
+    let home = Home::bare();
+    fs::write(home.config().join("preferences.toml"), b"schema = [\n").unwrap();
+    let ended = checked(&home, &["doctor", "--json"]);
+    assert_eq!(ended.code, Some(1), "{ended:?}");
+    let document = ended.json();
+    assert_eq!(document["schema"], "maestro-cli/doctor/1");
+    assert_eq!(checks(&document).len(), 11);
+    let settings = check(&document, "settings");
+    assert_eq!(settings["passed"], false);
+    assert!(
+        settings["detail"]
+            .as_str()
+            .unwrap()
+            .contains("preferences.toml")
+    );
+    assert!(settings["next_action"].as_str().unwrap().contains("fix"));
+    for name in [
+        "config",
+        "bindings",
+        "database",
+        "graph",
+        "artifacts",
+        "qdrant",
+        "router",
+    ] {
+        assert_next_action_matches_outcome(check(&document, name));
+    }
+    assert!(!home.data().join("kernel.sqlite3").exists());
+    assert_eq!(
+        fs::read(home.config().join("preferences.toml")).unwrap(),
+        b"schema = [\n"
+    );
+}
+
+#[test]
 fn every_failed_check_names_its_next_action() {
     let home = Home::bare();
     let ended = checked(&home, &["doctor", "--json"]);

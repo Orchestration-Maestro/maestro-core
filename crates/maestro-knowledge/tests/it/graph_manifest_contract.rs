@@ -67,6 +67,27 @@ fn has_handoff_link(text: &str) -> bool {
 }
 
 #[test]
+fn s2_traceability_references_use_the_s2_reconciliation_section() {
+    let text =
+        fs::read_to_string(workspace().join("docs/architecture/08-traceability.md")).unwrap();
+    assert!(text.contains("## 24. S2"), "the S2 reconciliation heading");
+    for key in [
+        "owner.n020",
+        "rag.N016 claims",
+        "rag.N052 layers",
+        "rag.N023 roles",
+        "rag.N023 access",
+        "rag.N023 variants",
+        "rag.N023 editions",
+        "rag.N016 methods",
+    ] {
+        let prefix = format!("| {key} |");
+        let row = text.lines().find(|line| line.starts_with(&prefix)).unwrap();
+        assert!(row.ends_with("§24 |"), "{key}: {row}");
+    }
+}
+
+#[test]
 fn graph_fixture_bounds_match_approved_s3_d14() {
     let plan = fs::read_to_string(workspace().join(CONTRACT_DOCUMENTS[1])).unwrap();
     for (text, approved) in [

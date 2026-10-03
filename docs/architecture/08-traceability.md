@@ -69,7 +69,7 @@ portion, integrated code or test evidence, and remaining work.
 | owner.n007 | The best fully local Rust pipeline from crawl to answer, automated | Kept | [01](01-knowledge-pipeline.md), [02](02-retrieval-and-knowledge-graph.md) |
 | owner.n012 | A graph database and how agents consume it (MCP, agents) | Kept | [02 §8–§9](02-retrieval-and-knowledge-graph.md#8-knowledge-graph-s2) |
 | owner.n017 | Is Oxigraph dead; what is SurrealDB | Answered: Oxigraph is maintained but RDF is not needed; SurrealDB not chosen (§16) | §16 |
-| owner.n020 | Qdrant and Neo4j combined with fusion | Adapted (§15 A29): embedded-first S2, later selected Neo4j | ADR-0003, ADR-0021, [02 §4](02-retrieval-and-knowledge-graph.md#4-fusion), §22 |
+| owner.n020 | Qdrant and Neo4j combined with fusion | Adapted (§15 A29): embedded-first S2, later selected Neo4j | ADR-0003, ADR-0021, [02 §4](02-retrieval-and-knowledge-graph.md#4-fusion), §24 |
 | owner.n024 | An Archify diagram of the whole architecture | Deferred: regenerate the atlas from this design once S0 publishes it | [06 S0](06-roadmap.md#s0-foundation) |
 | owner.n029, n065 | BM25 versus BGE-M3; why not BM25 | Kept: both, at different layers | [01 §8](01-knowledge-pipeline.md#8-l6-representations), [02 §3](02-retrieval-and-knowledge-graph.md#3-retrieval-routes) |
 | owner.n031 | Source to answer step by step, with fusion, reranking and deduplication | Kept | [01 §6](01-knowledge-pipeline.md#6-l4-deduplication), [02 §4–§6](02-retrieval-and-knowledge-graph.md#4-fusion) |
@@ -311,14 +311,14 @@ portion, integrated code or test evidence, and remaining work.
 
 | ID | Requirement | Status | Where |
 | --- | --- | --- | --- |
-| rag.N016 claims | Qualified claims; three logical graphs; world and record time; contradictions visible | Adapted (§15 A29): source structure remains canonical; navigation deferred | [02 §8.2](02-retrieval-and-knowledge-graph.md#82-graph-model), §22 |
+| rag.N016 claims | Qualified claims; three logical graphs; world and record time; contradictions visible | Adapted (§15 A29): source structure remains canonical; navigation deferred | [02 §8.2](02-retrieval-and-knowledge-graph.md#82-graph-model), §24 |
 | rag.N016 resolution | Reliable identifiers first; reversible merges; answers never evidence | Kept | [02 §8.2–8.3](02-retrieval-and-knowledge-graph.md#83-construction-pipeline) |
-| rag.N052 layers | Structural graph first, extracted knowledge later; claims anchored to spans; coverage visible | Adapted (§15 A29): reuse block references, no Document/Section projection nodes | [02 §8.2–8.3](02-retrieval-and-knowledge-graph.md#82-graph-model), §22 |
-| rag.N023 roles | Qdrant for passages, Neo4j for relations, Rust for fusion; graph results mapped to passages before fusion | Adapted (§15 A29): LadybugDB in S2, whole source proofs | [02 §8.4–8.5](02-retrieval-and-knowledge-graph.md#84-authority-and-projection), §22 |
-| rag.N023 access | neo4rs or the official HTTP Query API behind a graph interface; application IDs | Adapted (§15 A29): G27 typed-edge port; selected Neo4j later via deployment-modes D07 | [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection), §22 |
-| rag.N023 variants | Compare Qdrant only, Neo4j only and the pairing | Adapted (§15 A29): same-run passage-only (all S1 default routes, graph `none`), LadybugDB-only and pairing | [02 §10](02-retrieval-and-knowledge-graph.md#10-evaluation), §22 |
-| rag.N023 editions | Community single instance, GPL, GDS limits; no global analytics interactively | Deferred: requalify for the later selected Neo4j adapter, not S2 | ADR-0021, §22 |
-| rag.N016 methods | GraphRAG global and DRIFT, HippoRAG 2, LightRAG, LazyGraphRAG, HyperGraphRAG, in order and on evidence | Deferred: measured gain and a later plan required; S2 is bounded traversal only | [02 §8.5](02-retrieval-and-knowledge-graph.md#85-graph-retrieval-route-r4), §22 |
+| rag.N052 layers | Structural graph first, extracted knowledge later; claims anchored to spans; coverage visible | Adapted (§15 A29): reuse block references, no Document/Section projection nodes | [02 §8.2–8.3](02-retrieval-and-knowledge-graph.md#82-graph-model), §24 |
+| rag.N023 roles | Qdrant for passages, Neo4j for relations, Rust for fusion; graph results mapped to passages before fusion | Adapted (§15 A29): LadybugDB in S2, whole source proofs | [02 §8.4–8.5](02-retrieval-and-knowledge-graph.md#84-authority-and-projection), §24 |
+| rag.N023 access | neo4rs or the official HTTP Query API behind a graph interface; application IDs | Adapted (§15 A29): G27 typed-edge port; selected Neo4j later via deployment-modes D07 | [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection), §24 |
+| rag.N023 variants | Compare Qdrant only, Neo4j only and the pairing | Adapted (§15 A29): same-run passage-only (all S1 default routes, graph `none`), LadybugDB-only and pairing | [02 §10](02-retrieval-and-knowledge-graph.md#10-evaluation), §24 |
+| rag.N023 editions | Community single instance, GPL, GDS limits; no global analytics interactively | Deferred: requalify for the later selected Neo4j adapter, not S2 | ADR-0021, §24 |
+| rag.N016 methods | GraphRAG global and DRIFT, HippoRAG 2, LightRAG, LazyGraphRAG, HyperGraphRAG, in order and on evidence | Deferred: measured gain and a later plan required; S2 is bounded traversal only | [02 §8.5](02-retrieval-and-knowledge-graph.md#85-graph-retrieval-route-r4), §24 |
 | rag.N052 publication | Graph and indexes published together; claims in later publications | Kept | [01 §9](01-knowledge-pipeline.md#9-l7-indexing-and-publication), [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
 | rag.N016, N052 authority | Neo4j as the authority for jobs, metadata and claims | Adapted (§15 A1) | ADR-0002 |
 

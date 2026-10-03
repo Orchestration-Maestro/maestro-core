@@ -7,9 +7,13 @@ use crate::{
     files::tests::support::with_trust,
     limits::Limits,
     policy::workspace::{CheckedTrust, TrustBoundaries},
-    settings::{NoWorkspaceTrust, SessionPreferences, WorkspacePreferences},
+    settings::{AdmissionError, NoWorkspaceTrust, SessionPreferences, WorkspacePreferences},
 };
-use std::{collections::BTreeSet, fs};
+use std::{
+    collections::BTreeSet,
+    fs,
+    path::{Path, PathBuf},
+};
 
 /// One genuine init lock, independent of live engines and machine settings.
 pub(super) fn initialized() -> Fixture {
@@ -40,8 +44,52 @@ fn snapshot(fixture: &Fixture) -> SessionPreferences {
 /// Production admission with fixture authority, returning the diagnostic for exact tests.
 pub(super) fn admit(fixture: &Fixture, limits: &Limits) -> Result<SessionPreferences, String> {
     with_trust(&fixture.project, |trust| {
-        snapshot(fixture).admit_defaults(trust, &BTreeSet::new(), limits)
+        snapshot(fixture)
+            .admit_defaults(trust, &BTreeSet::new(), limits)
+            .map_err(|error| error.to_string())
     })
+}
+
+#[test]
+fn session_lock_retains_the_complete_identity_without_writing() {
+    use crate::files::digest;
+    let fixture = initialized();
+    let path = fixture.project.join(".maestro/authoring.lock.json");
+    let bytes = fs::read(&path).unwrap();
+    let before = project_bytes(&fixture.project);
+    let admitted = admit(&fixture, &Limits::PRODUCTION).unwrap();
+    assert_eq!(admitted.frozen_lock(), Some(digest(&bytes).as_str()));
+    assert_eq!(project_bytes(&fixture.project), before);
+    fs::write(&path, [bytes.as_slice(), b"\n"].concat()).unwrap();
+    let changed = project_bytes(&fixture.project);
+    assert!(admit(&fixture, &Limits::PRODUCTION).is_err());
+    assert_eq!(project_bytes(&fixture.project), changed);
+    assert_eq!(admitted.frozen_lock(), Some(digest(&bytes).as_str()));
+    fs::remove_file(&path).unwrap();
+    let missing = project_bytes(&fixture.project);
+    assert!(admit(&fixture, &Limits::PRODUCTION).is_err());
+    assert_eq!(project_bytes(&fixture.project), missing);
+}
+
+/// Exact relative names and bytes, including ownership journals, without following links.
+fn project_bytes(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+    fn collect(root: &Path, path: &Path, rows: &mut Vec<(PathBuf, Vec<u8>)>) {
+        for entry in fs::read_dir(path).unwrap() {
+            let entry = entry.unwrap();
+            if entry.file_type().unwrap().is_dir() {
+                collect(root, &entry.path(), rows);
+            } else {
+                rows.push((
+                    entry.path().strip_prefix(root).unwrap().to_owned(),
+                    fs::read(entry.path()).unwrap(),
+                ));
+            }
+        }
+    }
+    let mut rows = Vec::new();
+    collect(root, root, &mut rows);
+    rows.sort();
+    rows
 }
 
 #[test]
@@ -53,6 +101,7 @@ fn session_lock_requires_trust_beside_legacy_defaults() {
         snapshot(&fixture)
             .admit_defaults(&denied, &BTreeSet::new(), &Limits::PRODUCTION)
             .unwrap_err()
+            .to_string()
             .contains("trusted containing root")
     );
     assert_eq!(
@@ -172,12 +221,10 @@ fn session_unavailable_base_refuses_beside_disabled_graph() {
             )
             .unwrap()
         };
-        assert!(
-            load()
-                .admit_defaults(trust, &BTreeSet::new(), &Limits::PRODUCTION)
-                .unwrap_err()
-                .contains("not compiled")
-        );
+        assert!(matches!(
+            load().admit_defaults(trust, &BTreeSet::new(), &Limits::PRODUCTION),
+            Err(AdmissionError::BackendNotCompiled { backend, .. }) if backend == "ladybug"
+        ));
         assert!(
             load()
                 .admit_defaults(trust, &compiled, &Limits::PRODUCTION)
@@ -324,7 +371,7 @@ fn untrusted_unreadable_lock_refuses_before_read() {
     let denied = CheckedTrust::new(&NoWorkspaceTrust, &boundaries);
     let result = captured.admit_defaults(&denied, &BTreeSet::new(), &Limits::PRODUCTION);
     fs::set_permissions(&lock, fs::Permissions::from_mode(0o600)).unwrap();
-    let error = result.unwrap_err();
+    let error = result.unwrap_err().to_string();
     assert!(error.contains("trusted containing root"), "{error}");
 }
 

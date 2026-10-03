@@ -240,6 +240,23 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn cli_health_fixture_receipt_name_is_frozen() {
+        // Frozen on-disk receipt name; a change here is a format change.
+        assert_eq!(
+            basename(
+                &ProjectionScope {
+                    collection_id: "synthetic-graph".into(),
+                    generation_id: 1
+                },
+                &Digest::parse("1f5f4c507e4af32b83821c439c03e83f0e7a2d6ea874a76853e867d5a4e18207")
+                    .unwrap()
+            )
+            .unwrap(),
+            "g079edff35ec54ceb10172871a6d7dad732af9ff99fb7de1e367be9aaffb855c0.lbdb"
+        );
+    }
+
+    #[test]
     fn basename_encoding_is_frozen_and_companion_safe() {
         let scope = ProjectionScope {
             collection_id: "c".to_owned(),
