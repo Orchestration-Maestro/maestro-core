@@ -145,11 +145,11 @@ checks are not evidence that any downstream v4 consumer or release is complete.
 | G26 | +1 h for registry-backed graph settings in setup/health. | C46, G25, G01. |
 | G27 E07a | +2 h for the frozen settings/lock handoff into native activation. | C47a, G01, combined fork, G25, released E04. |
 | E08b | +1 h to carry settings/locks through reader, writer and publication. | E08a and E06, unchanged; these paths describe scope, not new edges. |
-| G28 | +1 h to bind those inputs to the existing loader/rebuild. | C47a and G26/G27/G35 graph prerequisites. |
+| G28 | +1 h to bind those inputs to the existing loader/rebuild, included in the replacement 13 h slice budget below. | C47a, G26, G35 and G27's qualified native lifecycle through E10; E11 is not a start gate (2026-10-03 13:33 ruling). |
 | G22 | +1 h for qualified backend declarations in the native/release drill. | C48 and existing release inputs. |
 
 S2 MUST preserve **qualification → C48 → G22 → C49a**, never C48 ↔ G22.
-C49a also requires **E11 and G28**; qualified pins come from actual execution
+C49a also requires **E11 and G28d**; qualified pins come from actual execution
 receipts, never invented metadata. C49a remains S3-owned, not a new S2 task.
 The original increment is **7 h** (4 G + 3 E), retaining **37 G tasks and
 14 E slices**. The supervisor's 2026-10-03 16:38 Oracle budget ruling in ledger
