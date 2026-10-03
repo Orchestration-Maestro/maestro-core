@@ -129,10 +129,7 @@ impl Linux {
             interpreter,
             memory_bytes: limits.memory_bytes.min(limits.decode.memory_bytes).get(),
         };
-        let encoded = serde_json::to_string(&config).map_err(|_| Refusal::Configuration)?;
-        if encoded.len() > 4 * 1024 * 1024 {
-            return Err(Refusal::Configuration);
-        }
+        let encoded = encode(&config)?;
         let worker = self.delegation.worker(name, &limits, request.pids_max)?;
         let mut command = Command::new(launch::executable(&bootstrap));
         command
@@ -208,6 +205,15 @@ impl Isolation for Linux {
         fs::remove_dir_all(run).map_err(|_| Refusal::Cleanup)?;
         result
     }
+}
+
+/// Bound exactly the serialization handed to this launch's live child.
+pub(super) fn encode(config: &Configuration) -> Result<String, Refusal> {
+    let encoded = serde_json::to_string(config).map_err(|_| Refusal::Configuration)?;
+    if encoded.len() > 4 * 1024 * 1024 {
+        return Err(Refusal::Configuration);
+    }
+    Ok(encoded)
 }
 
 #[cfg(test)]

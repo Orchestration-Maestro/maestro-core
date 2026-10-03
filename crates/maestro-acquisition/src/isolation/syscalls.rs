@@ -1,7 +1,7 @@
 //! Architecture-bound default-deny profile; namespace and management calls absent.
 use super::port::Refusal;
 #[cfg(target_arch = "x86_64")]
-use nix::libc;
+use nix::{libc, sched::CloneFlags};
 #[cfg(target_arch = "x86_64")]
 use seccompiler::{
     BpfProgram, SeccompAction, SeccompCmpArgLen, SeccompCmpOp, SeccompCondition, SeccompFilter,
@@ -10,21 +10,26 @@ use seccompiler::{
 #[cfg(target_arch = "x86_64")]
 use std::collections::BTreeMap;
 
+/// Descendants may clone normally, but cannot create any namespace.
+#[cfg(target_arch = "x86_64")]
+const NAMESPACES: CloneFlags = CloneFlags::CLONE_NEWUSER
+    .union(CloneFlags::CLONE_NEWNS)
+    .union(CloneFlags::CLONE_NEWPID)
+    .union(CloneFlags::CLONE_NEWNET)
+    .union(CloneFlags::CLONE_NEWIPC)
+    .union(CloneFlags::CLONE_NEWUTS)
+    .union(CloneFlags::CLONE_NEWCGROUP);
+
 /// Clone permits descendants/threads, but never namespace creation or escape.
 #[cfg(target_arch = "x86_64")]
 fn clone_rule() -> Result<SeccompRule, Refusal> {
-    let namespaces = libc::CLONE_NEWUSER
-        | libc::CLONE_NEWNS
-        | libc::CLONE_NEWPID
-        | libc::CLONE_NEWNET
-        | libc::CLONE_NEWIPC
-        | libc::CLONE_NEWUTS
-        | libc::CLONE_NEWCGROUP;
     SeccompRule::new(vec![
         SeccompCondition::new(
             0,
             SeccompCmpArgLen::Dword,
-            SeccompCmpOp::MaskedEq(u64::try_from(namespaces).map_err(|_| Refusal::Containment)?),
+            SeccompCmpOp::MaskedEq(
+                u64::try_from(NAMESPACES.bits()).map_err(|_| Refusal::Containment)?,
+            ),
             0,
         )
         .map_err(|_| Refusal::Containment)?,
@@ -163,9 +168,9 @@ fn plan() -> Result<BTreeMap<i64, Vec<SeccompRule>>, Refusal> {
     );
     Ok(calls)
 }
-/// Install default-deny after all trusted namespace/mount setup.
+/// Compile both filters before applying either; default tests execute their actual BPF.
 #[cfg(target_arch = "x86_64")]
-pub(super) fn restrict() -> Result<(), Refusal> {
+pub(super) fn compiled() -> Result<[BpfProgram; 2], Refusal> {
     let calls = plan()?;
     // glibc falls back to clone only on ENOSYS; clone3's pointed flags cannot be filtered.
     let fallback: BpfProgram = SeccompFilter::new(
@@ -177,7 +182,6 @@ pub(super) fn restrict() -> Result<(), Refusal> {
     .map_err(|_| Refusal::Containment)?
     .try_into()
     .map_err(|_| Refusal::Containment)?;
-    seccompiler::apply_filter(&fallback).map_err(|_| Refusal::Unsupported)?;
     let profile: BpfProgram = SeccompFilter::new(
         calls,
         SeccompAction::Errno(1),
@@ -187,12 +191,21 @@ pub(super) fn restrict() -> Result<(), Refusal> {
     .map_err(|_| Refusal::Containment)?
     .try_into()
     .map_err(|_| Refusal::Containment)?;
-    seccompiler::apply_filter(&profile).map_err(|_| Refusal::Unsupported)
+    Ok([fallback, profile])
 }
-/// Other Linux architectures remain unqualified and refuse rather than relax.
-#[cfg(not(target_arch = "x86_64"))]
+/// Apply the qualified architecture's filters; other Linux architectures refuse.
 pub(super) fn restrict() -> Result<(), Refusal> {
-    Err(Refusal::Unsupported)
+    #[cfg(target_arch = "x86_64")]
+    {
+        for filter in &compiled()? {
+            seccompiler::apply_filter(filter).map_err(|_| Refusal::Unsupported)?;
+        }
+        Ok(())
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        Err(Refusal::Unsupported)
+    }
 }
 
 #[cfg(all(test, target_arch = "x86_64"))]

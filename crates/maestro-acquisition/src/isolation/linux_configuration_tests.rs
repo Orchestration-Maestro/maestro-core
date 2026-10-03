@@ -127,22 +127,22 @@ fn n17_r1_guard_parent_configuration_and_caps() {
     let config: serde_json::Value = serde_json::from_slice(&fs::read(&observed).unwrap()).unwrap();
     assert_eq!(config["memory_bytes"], 500_000);
     assert_eq!(io.child_environment.lock().unwrap().last().unwrap(), b"");
-    // Exact serialized barrier boundary, measured with the same live descriptors.
-    let base = fs::read(&observed).unwrap().len() + 2; // one empty string argument
-    let mut launch = request(&parent);
-    launch.arguments = vec!["x".repeat(4 * 1024 * 1024 - base)];
-    let mut equality_ledger = accounting();
-    equality_ledger.tighten(&bounds);
-    assert_eq!(adapter.run(launch, &mut equality_ledger), Ok(vec![]));
-    assert_eq!(fs::read(&observed).unwrap().len(), 4 * 1024 * 1024);
-    let mut launch = request(&parent);
-    launch.arguments = vec!["x".repeat(4 * 1024 * 1024 - base + 1)];
-    let mut overflow_ledger = accounting();
-    overflow_ledger.tighten(&bounds);
-    assert_eq!(
-        adapter.run(launch, &mut overflow_ledger),
-        Err(Refusal::Configuration)
-    );
+    // Bound the same serialized config, independently of live FD digit counts.
+    for descriptor in [7, 1007] {
+        let mut config: super::launch::Configuration =
+            serde_json::from_slice(&fs::read(&observed).unwrap()).unwrap();
+        config.parser_fd = descriptor;
+        config.bootstrap_fd = descriptor + 1;
+        config.arguments = vec![String::new()];
+        let base = serde_json::to_string(&config).unwrap().len();
+        config.arguments[0] = "x".repeat(4 * 1024 * 1024 - base);
+        assert_eq!(
+            super::linux::encode(&config).unwrap().len(),
+            4 * 1024 * 1024
+        );
+        config.arguments[0].push('x');
+        assert_eq!(super::linux::encode(&config), Err(Refusal::Configuration));
+    }
     adapter.host.bootstrap = pin(Path::new("/bin/sh"));
     adapter.host.bootstrap_mode = BootstrapMode::Installed;
     adapter.host.apparmor_required = true;

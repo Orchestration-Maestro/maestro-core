@@ -1,13 +1,21 @@
 //! A containment adapter receives already scoped handles, never source paths.
 use crate::{extraction::decode::DecodeRefusal, transport::stream::Accounting};
 use maestro_kernel::artifact::Digest;
+#[cfg(target_os = "linux")]
+use nix::{
+    fcntl::AtFlags,
+    mount::{MntFlags, MsFlags},
+    sched::CloneFlags,
+};
+#[cfg(target_os = "linux")]
+use rustix::thread::{CapabilitiesSecureBits, CapabilitySets};
+#[cfg(target_os = "linux")]
+use std::{ffi::CString, io::Result as IoResult, path::Path, process::Command};
 use std::{
     fmt::Debug,
     fs::File,
     sync::{Arc, atomic::AtomicBool},
 };
-#[cfg(target_os = "linux")]
-use std::{io::Result as IoResult, path::Path};
 
 /// A provisioned executable or runtime file, checked once before launch.
 #[derive(Debug)]
@@ -100,4 +108,76 @@ pub(super) trait CgroupIo: Debug + Send + Sync {
     fn remove(&self, path: &Path) -> IoResult<()>;
     /// Check whole-tree kill capability without triggering it.
     fn probe_kill(&self, path: &Path) -> IoResult<()>;
+}
+
+// Only Linux has the required namespace and filesystem primitives.
+#[cfg(target_os = "linux")]
+/// Private bootstrap observations/effects; production always selects kernel operations.
+pub(super) trait BootstrapIo {
+    /// Close every unrelated descriptor before the next boundary.
+    fn hygiene(&self, keep: &[i32]) -> Result<(), Refusal>;
+    /// Observe the current `AppArmor` attachment.
+    fn profile(&self) -> Result<String, Refusal>;
+    /// Enter one prepared namespace set.
+    fn unshare(&self, flags: CloneFlags) -> Result<(), Refusal>;
+    /// Apply a prepared identity map.
+    fn map(&self, path: &str, value: &str) -> Result<(), Refusal>;
+    /// Observe the namespace PID.
+    fn pid(&self) -> i32;
+    /// Reopen the pinned descriptor read-only before hiding proc.
+    fn parser(&self, descriptor: i32) -> Result<File, Refusal>;
+    /// Apply the default-tested mount sequence.
+    fn filesystem(&self, root: &Path, memory_bytes: u64) -> Result<(), Refusal>;
+    /// Apply the strict filesystem policy.
+    fn landlock(&self, root: &Path, loader: Option<&str>) -> Result<(), Refusal>;
+    /// Clear capability authority.
+    fn capabilities(&self) -> Result<(), Refusal>;
+    /// Apply the compiled syscall policy.
+    fn restrict(&self) -> Result<(), Refusal>;
+    /// Replace this process with the pinned image and explicit arguments.
+    fn exec(
+        &self,
+        parser: &File,
+        arguments: &[CString],
+        environment: &[CString],
+        flags: AtFlags,
+    ) -> Result<(), Refusal>;
+    /// Wait for PID-namespace init using only the prepared descriptor/configuration.
+    fn handoff(&self, command: &mut Command) -> Result<bool, Refusal>;
+}
+
+#[cfg(target_os = "linux")]
+/// Prepared mount and capability operations, with no policy in the host leaf.
+pub(super) trait SandboxIo {
+    /// Mount exactly the prepared source, target, type, flags and options.
+    fn mount(&self, operation: Mount<'_>) -> Result<(), Refusal>;
+    /// Change to the prepared private root.
+    fn pivot(&self, root: &Path, old: &Path) -> Result<(), Refusal>;
+    /// Change to a prepared directory.
+    fn chdir(&self, path: &Path) -> Result<(), Refusal>;
+    /// Detach the prepared old root.
+    fn unmount(&self, path: &Path, flags: MntFlags) -> Result<(), Refusal>;
+    /// Apply exactly the prepared securebits.
+    fn securebits(&self, bits: CapabilitiesSecureBits) -> Result<(), Refusal>;
+    /// Remove ambient capabilities.
+    fn clear_ambient(&self) -> Result<(), Refusal>;
+    /// Apply exactly the prepared capability sets.
+    fn capabilities(&self, sets: CapabilitySets) -> Result<(), Refusal>;
+    /// Observe whether host management remains visible.
+    fn read(&self, path: &Path) -> IoResult<Vec<u8>>;
+}
+
+#[cfg(target_os = "linux")]
+/// One fully prepared mount; the adapter never chooses paths, options or flags.
+pub(super) struct Mount<'a> {
+    /// Optional bind/device source.
+    pub source: Option<&'a Path>,
+    /// Explicit mount point.
+    pub target: &'a Path,
+    /// Optional filesystem type.
+    pub filesystem: Option<&'a str>,
+    /// Required security flags.
+    pub flags: MsFlags,
+    /// Optional already bounded tmpfs options.
+    pub options: Option<&'a str>,
 }
