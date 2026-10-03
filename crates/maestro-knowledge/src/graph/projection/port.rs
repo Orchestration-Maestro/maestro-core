@@ -1,10 +1,13 @@
 //! Public application-ID boundary for disposable typed-edge projections.
 
+use maestro_kernel::facts::PROJECTION_REBUILD_REPAIR;
 use maestro_kernel::{artifact::Digest, facts::ClaimRecord, scope::ScopeSet};
 use std::{
     error::Error as StdError,
     fmt::{Display, Formatter, Result as FmtResult},
 };
+
+pub use maestro_kernel::facts::InputMismatchKind;
 
 /// A pinned collection generation, never an engine-specific identifier.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -87,18 +90,24 @@ pub enum ProjectionError {
     NotReady,
     /// Input does not match the pinned collection/generation/family.
     Invalid(String),
+    /// A durable input differs from the current admission or receipt.
+    InputMismatch(InputMismatchKind),
     /// Projection backend refused an operation.
     Backend(String),
 }
 
 impl Display for ProjectionError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
-        formatter.write_str(match self {
-            Self::Unauthorized => "projection access is not authorized",
-            Self::NotReady => "projection is not ready",
-            Self::Invalid(_) => "projection input is invalid",
-            Self::Backend(_) => "projection backend operation failed",
-        })
+        match self {
+            Self::Unauthorized => formatter.write_str("projection access is not authorized"),
+            Self::NotReady => formatter.write_str("projection is not ready"),
+            Self::Invalid(_) => formatter.write_str("projection input is invalid"),
+            Self::Backend(_) => formatter.write_str("projection backend operation failed"),
+            Self::InputMismatch(kind) => write!(
+                formatter,
+                "graph input mismatch ({kind}); {PROJECTION_REBUILD_REPAIR}"
+            ),
+        }
     }
 }
 

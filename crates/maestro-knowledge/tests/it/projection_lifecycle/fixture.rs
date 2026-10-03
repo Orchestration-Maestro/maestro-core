@@ -2,6 +2,9 @@
 #![cfg(test)]
 use maestro_canonicalization::{CanonicalizeInput, canonicalize};
 use maestro_filesystem::{ControlFile, OwnedRoot, SystemFileLock};
+use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::facts::ResolutionInput;
+use maestro_kernel::scope::ScopeSet;
 use maestro_kernel::{
     artifact::Digest,
     chunk_set::{Chunk, NewChunkSet},
@@ -136,12 +139,17 @@ impl Fixture {
         let root = OwnedRoot::open(&directory.0.join("graph"), true).unwrap();
         root.ensure_control(ControlFile::Access).unwrap();
         root.ensure_control(ControlFile::Writer).unwrap();
+        let resolution = frozen_resolution(&kernel, &scopes, &set.id);
         Self {
             kernel,
             now,
             build: ProjectionBuild {
                 scope,
                 claim_set_id: set.id,
+                resolution_id: resolution,
+                resolver_version: EXACT_RESOLVER_VERSION.into(),
+                settings_identity: settings().identity(),
+                frozen_lock: settings().frozen_lock().clone(),
                 lease: projector,
             },
             directory,
@@ -294,4 +302,22 @@ fn record_source(kernel: &Database) {
             source_ref: "synthetic:lifecycle".into(),
         })
         .unwrap();
+}
+
+/// Freeze the explicit source set used by this projection fixture.
+pub(super) fn frozen_resolution(database: &Database, scopes: &ScopeSet, set: &Digest) -> Digest {
+    database
+        .record_resolution(
+            scopes,
+            "lifecycle",
+            &ResolutionInput {
+                resolver_version: EXACT_RESOLVER_VERSION.into(),
+                sets: vec![set.clone()],
+                previous: None,
+                decisions: vec![],
+            },
+            &|_| Ok(()),
+        )
+        .unwrap()
+        .id
 }

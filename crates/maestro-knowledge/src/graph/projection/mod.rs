@@ -9,6 +9,7 @@ pub mod probe;
 mod access;
 #[cfg(feature = "engine")]
 mod adapter;
+mod binding;
 mod build;
 mod cancellation;
 pub mod cleanup;
@@ -42,7 +43,8 @@ pub use settings::{EngineSettings, ProjectionEngine};
 pub use writer::{BuildVerification, CatalogRelationVocabulary};
 pub(crate) mod writer;
 pub use port::{
-    EdgeFamily, EntityFact, ProjectionEdge, ProjectionError, ProjectionScope, TypedEdgeProjection,
+    EdgeFamily, EntityFact, InputMismatchKind, ProjectionEdge, ProjectionError, ProjectionScope,
+    TypedEdgeProjection,
 };
 #[cfg(test)]
 mod tests;

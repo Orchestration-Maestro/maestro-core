@@ -19,7 +19,7 @@
 //! dot-free stems cannot be prefixes or native companion stems of each other.
 
 /// Projection schema and required indexes for the typed-edge records.
-pub(super) const SCHEMA_VERSION: &str = "maestro-typed-edges/1";
+pub(super) const SCHEMA_VERSION: &str = "maestro-typed-edges/2";
 
 /// Logical access paths an adapter proves from its durable catalog before publication.
 /// Native edges use entity primary keys plus typed adjacency; facts use the entity

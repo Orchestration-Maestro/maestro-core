@@ -1,5 +1,6 @@
 //! Application health ports and typed failures, independent of the optional engine.
 
+use super::port::InputMismatchKind;
 use std::{fmt, path::Path};
 
 /// Typed health failure; raw native diagnostics never become public CLI text.
@@ -9,6 +10,8 @@ pub enum ProbeError {
     CleanupInProgress,
     /// Frozen backend settings have not been activated; no native call was made.
     NotActivated,
+    /// Durable settings or complete lock differ from current admission.
+    InputMismatch(InputMismatchKind),
     /// Explicit native settings violate the approved D14 ranges.
     InvalidSettings,
     /// A writer guard or an observed native lock diagnostic refused access.

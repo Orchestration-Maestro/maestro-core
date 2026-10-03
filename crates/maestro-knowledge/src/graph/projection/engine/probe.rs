@@ -1,6 +1,9 @@
 //! Guarded read-only graph health bridge, bypassing the native handle registry.
 
+use super::input_pins;
 use super::{config::native, open::open, rows};
+use crate::graph::projection::binding;
+use crate::graph::projection::port::ProjectionError;
 use crate::graph::projection::{
     EngineSettings, content,
     health::{OpenGraph, ProbeError, PublishedFile, Receipt},
@@ -10,6 +13,7 @@ use crate::graph::projection::{
 };
 use lbug::{Connection, Database, RootDirectory, SystemConfig, Value};
 use maestro_filesystem::{ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot};
+use maestro_kernel::facts::Error as FactError;
 use maestro_kernel::{
     facts::{InventoryState, ProjectionInventory, ProjectionReceipt},
     scope::{Config, LOCAL},
@@ -114,10 +118,10 @@ impl Probe {
         let root = OwnedRoot::open(directory, false).map_err(|_| ProbeError::GuardUnavailable)?;
         let access = acquire(&root, ControlFile::Access, locks)?;
         let writer = acquire(&root, ControlFile::Writer, locks)?;
-        let entries = match inventory
-            .inventory(LOCAL)
-            .map_err(|_| ProbeError::InventoryUnreadable)?
-        {
+        let entries = match inventory.inventory(LOCAL).map_err(|error| match error {
+            FactError::ProjectionInputMismatch(kind) => ProbeError::InputMismatch(kind),
+            _ => ProbeError::InventoryUnreadable,
+        })? {
             InventoryState::Missing => return Err(ProbeError::AuthorityMissing),
             InventoryState::NeedsMigration(_) => return Err(ProbeError::NeedsMigration),
             InventoryState::NewerSchema(_) => return Err(ProbeError::NewerSchema),
@@ -134,6 +138,14 @@ impl Probe {
             check_file(&root, &receipt.file_name)?;
         }
         let settings = settings.ok_or(ProbeError::NotActivated)?;
+        for (_, receipt) in &receipts {
+            binding::admitted(&binding::receipt_pins(receipt), &settings).map_err(|error| {
+                match error {
+                    ProjectionError::InputMismatch(kind) => ProbeError::InputMismatch(kind),
+                    error => ProbeError::Corrupt(error.to_string()),
+                }
+            })?;
+        }
         let config = native(&settings).read_only(true);
         let held = Arc::new(HeldRoot {
             native: RootDirectory::open(directory)
@@ -246,14 +258,23 @@ impl OpenGraph for ProbeOpen {
                 .query("RETURN 1")
                 .map_err(|error| ProbeError::Corrupt(error.to_string()))?,
         )?;
-        let verification = rows::read(&connection, &self.file.scope)
-            .and_then(|rows| rows.verification())
-            .map_err(ProbeError::Corrupt)?;
+        let rows = rows::read(&connection, &self.file.scope).map_err(|error| match error {
+            ProjectionError::InputMismatch(kind) => ProbeError::InputMismatch(kind),
+            error => ProbeError::Corrupt(error.to_string()),
+        })?;
+        let verification = rows.verification().map_err(ProbeError::Corrupt)?;
+        input_pins::compare(&rows.pins, &binding::receipt_pins(&self.file.receipt)).map_err(
+            |error| match error {
+                ProjectionError::InputMismatch(kind) => ProbeError::InputMismatch(kind),
+                error => ProbeError::Corrupt(error.to_string()),
+            },
+        )?;
         let mapped = receipt_from_verification(
             &self.file.scope,
             self.file.receipt.claim_set_id.clone(),
             self.file.receipt.file_name.clone(),
             &verification,
+            &rows.pins,
         )
         .map_err(|_| ProbeError::Stale)?;
         if mapped != self.file.receipt {

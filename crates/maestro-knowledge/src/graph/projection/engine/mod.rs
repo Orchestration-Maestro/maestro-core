@@ -3,6 +3,9 @@
 pub(super) mod backend;
 mod cancellation;
 mod config;
+mod input_pins;
+#[cfg(test)]
+mod input_pins_tests;
 mod open;
 pub(super) mod probe;
 #[cfg(test)]

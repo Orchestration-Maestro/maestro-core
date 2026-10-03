@@ -340,3 +340,13 @@ fn draft_preferences(
         settings::draft_preferences(root, source, choices, limits, trust)
     })
 }
+
+#[test]
+fn preferences_only_sources_have_no_admitted_lock_identity() {
+    let source = FilePreferences::new(Path::new("config"), Path::new("project"));
+    assert_eq!(
+        source.frozen_lock(),
+        None,
+        "preferences-only source cannot invent a durable graph input pin"
+    );
+}

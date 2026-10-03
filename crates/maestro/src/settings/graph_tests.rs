@@ -2,7 +2,7 @@
 use super::{GraphActivationError, GraphEngine, KnowledgeSettings, Session};
 use maestro_catalog::{
     limits::Limits,
-    settings::{AdmissionError, WorkspacePreferences},
+    settings::{AdmissionError, FilePreferences, WorkspacePreferences},
 };
 use maestro_kernel::artifact::Digest;
 use maestro_knowledge::graph::projection::EngineSettings;
@@ -46,6 +46,23 @@ fn native_graph_settings_carry_all_resolved_values_and_the_complete_lock() {
     assert_eq!(
         session.graph_settings().unwrap(),
         Some(EngineSettings::new(33_554_432, 134_217_728, 2, lock.clone()).unwrap())
+    );
+    assert_eq!(
+        WorkspacePreferences::frozen_lock(&session),
+        Some(source.identity.as_str()),
+        "admitted source identity cannot become None, empty or xyzzy"
+    );
+    let replayed =
+        Session::from_preferences(Path::new("config"), &session, Discovery::default(), &flags)
+            .unwrap();
+    let admitted = replayed
+        .graph_settings()
+        .expect("admitted lock survives session replay")
+        .unwrap();
+    assert_eq!(
+        admitted.frozen_lock(),
+        &lock,
+        "session replay must retain complete frozen lock for durable pins"
     );
     let narrowed_flags = ["graph.engine=ladybug", "graphdb.max_num_threads=1"].map(str::to_owned);
     let narrowed = Session::from_preferences(
@@ -274,5 +291,29 @@ fn every_registered_setting_is_read_by_a_consumer() {
     assert_eq!(
         covered, registered,
         "each registered key has an actual reader or a named owner"
+    );
+}
+
+#[test]
+fn preferences_only_sources_cannot_invent_durable_graph_lock_pins() {
+    let source = FilePreferences::new(Path::new("config"), Path::new("project"));
+    assert_eq!(
+        source.frozen_lock(),
+        None,
+        "preferences-only source has no admitted frozen lock"
+    );
+    let session = Session::from_preferences(
+        Path::new("config"),
+        &source,
+        Discovery::default(),
+        &["graph.engine=ladybug".into()],
+    )
+    .unwrap();
+    assert!(
+        session
+            .graph_settings()
+            .unwrap_err()
+            .to_string()
+            .contains("authoring lock")
     );
 }

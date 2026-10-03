@@ -1,13 +1,18 @@
 //! Rooted immutable native reads, bound to one scope and the exact physical receipt file.
 
+use super::input_pins;
 use super::{open::open, rows};
+use crate::graph::projection::binding;
+#[cfg(test)]
+use crate::graph::projection::tests::contract;
 use crate::graph::projection::{
     cancellation::ProjectionCancellation,
     content,
-    port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope},
+    port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionError, ProjectionScope},
     writer::{BuildVerification, ProjectionBackendReader, receipt_from_verification},
 };
 use lbug::{Connection, Database, RootDirectory, SystemConfig};
+use maestro_kernel::facts::PROJECTION_REBUILD_REPAIR;
 use maestro_kernel::{artifact::Digest, facts::ProjectionReceipt};
 
 /// Read-only native handle to one immutable physical projection file.
@@ -39,22 +44,30 @@ impl Reader {
         config: SystemConfig,
         scope: &ProjectionScope,
         receipt: &ProjectionReceipt,
-    ) -> Result<Self, String> {
-        if content::basename(scope, &receipt.claim_set_id)? != receipt.file_name {
-            return Err(
+    ) -> Result<Self, ProjectionError> {
+        if content::basename(scope, &receipt.claim_set_id).map_err(ProjectionError::Backend)?
+            != receipt.file_name
+        {
+            return Err(ProjectionError::Backend(
                 "native projection receipt does not name this scope's physical file".into(),
-            );
+            ));
         }
-        let reader = Self::open(root, &receipt.file_name, config, scope)?;
+        let reader = Self::open(root, &receipt.file_name, config, scope)
+            .map_err(ProjectionError::Backend)?;
+        let rows = reader.rows()?;
+        input_pins::compare(&rows.pins, &binding::receipt_pins(receipt))?;
         let mapped = receipt_from_verification(
             scope,
             receipt.claim_set_id.clone(),
             receipt.file_name.clone(),
-            &reader.verification()?,
-        )
-        .map_err(|error| error.to_string())?;
+            &rows.verification().map_err(ProjectionError::Backend)?,
+            &rows.pins,
+        )?;
         if mapped != *receipt {
-            return Err("native projection physical content does not match its receipt".into());
+            return Err(ProjectionError::Backend(format!(
+                "native projection physical content or input pins do not match its receipt; \
+                 {PROJECTION_REBUILD_REPAIR}"
+            )));
         }
         Ok(reader)
     }
@@ -63,24 +76,31 @@ impl Reader {
     pub(super) fn cancellable_rows(
         &self,
         token: &ProjectionCancellation,
-    ) -> Result<rows::Rows, String> {
-        let connection = Connection::new(&self.database).map_err(|error| error.to_string())?;
-        super::cancellation::run(&connection, token, || rows::read(&connection, &self.scope))
+    ) -> Result<rows::Rows, ProjectionError> {
+        let connection = Connection::new(&self.database)
+            .map_err(|error| ProjectionError::Backend(error.to_string()))?;
+        super::cancellation::run(&connection, token, || {
+            rows::read(&connection, &self.scope).map_err(|error| error.to_string())
+        })
+        .map_err(ProjectionError::Backend)
     }
 
     /// Validate canonical rows in the same immutable handle on every read.
-    fn rows(&self) -> Result<rows::Rows, String> {
+    pub(super) fn rows(&self) -> Result<rows::Rows, ProjectionError> {
         // ponytail: validate all rows per read; use scoped index reads
         // if query measurements need it.
         rows::read(
-            &Connection::new(&self.database).map_err(|error| error.to_string())?,
+            &Connection::new(&self.database)
+                .map_err(|error| ProjectionError::Backend(error.to_string()))?,
             &self.scope,
         )
     }
 }
 impl ProjectionBackendReader for Reader {
     fn verification(&self) -> Result<BuildVerification, String> {
-        self.rows()?.verification()
+        self.rows()
+            .map_err(|error| error.to_string())?
+            .verification()
     }
 
     fn edges_adjacent(
@@ -89,7 +109,8 @@ impl ProjectionBackendReader for Reader {
         entity: &Digest,
     ) -> Result<Vec<ProjectionEdge>, String> {
         Ok(self
-            .rows()?
+            .rows()
+            .map_err(|error| error.to_string())?
             .edges
             .into_iter()
             .filter(|edge| {
@@ -100,7 +121,8 @@ impl ProjectionBackendReader for Reader {
 
     fn facts_for(&self, subject: &Digest) -> Result<Vec<EntityFact>, String> {
         Ok(self
-            .rows()?
+            .rows()
+            .map_err(|error| error.to_string())?
             .facts
             .into_iter()
             .filter(|fact| fact.subject == *subject)
@@ -127,9 +149,9 @@ mod tests {
             let database = fixture.writer();
             let connection = Connection::new(&database).unwrap();
             #[cfg(not(windows))]
-            schema::create(&connection, &scope()).unwrap();
+            schema::create(&connection, &scope(), &contract::pins()).unwrap();
             #[cfg(windows)]
-            install_reader_fixture(&connection, &scope());
+            install_reader_fixture(&connection, &scope(), &contract::pins());
             connection.query("CHECKPOINT").unwrap();
         }
         #[cfg(windows)]

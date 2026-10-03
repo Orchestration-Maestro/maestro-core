@@ -8,6 +8,8 @@ use crate::graph::{
     },
 };
 use maestro_filesystem::{ControlFile, OwnedRoot, SystemFileLock};
+use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::facts::ResolutionInput;
 use maestro_kernel::{artifact::Digest, facts::Object, job::NewJob, scope::collection_path};
 use serde_json::json;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -93,12 +95,31 @@ impl Fixture {
         let root = OwnedRoot::open(&native.path, false).unwrap();
         root.ensure_control(ControlFile::Access).unwrap();
         root.ensure_control(ControlFile::Writer).unwrap();
+        let resolution = authority
+            .database
+            .record_resolution(
+                &authority.scopes,
+                "builder",
+                &ResolutionInput {
+                    resolver_version: EXACT_RESOLVER_VERSION.into(),
+                    sets: vec![set.clone()],
+                    previous: None,
+                    decisions: vec![],
+                },
+                &|_| Ok(()),
+            )
+            .unwrap()
+            .id;
         Self {
             authority,
             native,
             build: ProjectionBuild {
                 scope,
                 claim_set_id: set,
+                resolution_id: resolution,
+                resolver_version: EXACT_RESOLVER_VERSION.into(),
+                settings_identity: settings().identity(),
+                frozen_lock: settings().frozen_lock().clone(),
                 lease,
             },
             edges,

@@ -1,6 +1,7 @@
 //! Every typed refusal has an actionable, path-safe public diagnosis.
 
 use super::super::{check::Outcome, graph_failure::failed};
+use maestro_kernel::facts::InputMismatchKind;
 use maestro_knowledge::graph::projection::health::ProbeError;
 use std::path::Path;
 
@@ -12,6 +13,11 @@ fn graph_failures_are_distinct_actionable_and_never_expose_native_diagnostics() 
             ProbeError::NotActivated,
             "configured but not activated",
             "activation handoff",
+        ),
+        (
+            ProbeError::InputMismatch(InputMismatchKind::Settings),
+            "input pins mismatch",
+            "maestro knowledge graph rebuild",
         ),
         (
             ProbeError::InvalidSettings,
@@ -69,7 +75,7 @@ fn graph_failures_are_distinct_actionable_and_never_expose_native_diagnostics() 
         (
             ProbeError::InventoryUnreadable,
             "receipt cannot be read",
-            "kernel's database",
+            "maestro knowledge graph rebuild",
         ),
     ];
     for (error, diagnosis, repair) in cases {

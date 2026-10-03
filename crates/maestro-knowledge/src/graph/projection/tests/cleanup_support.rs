@@ -1,5 +1,7 @@
 //! Synthetic kernel authority for feature-independent cleanup tests.
 use maestro_filesystem::{ControlFile, OwnedRoot};
+use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::facts::ResolutionInput;
 use maestro_kernel::{
     artifact::Digest,
     document::Collection,
@@ -72,12 +74,30 @@ impl Fixture {
             &set,
         )
         .unwrap();
+        let resolution = database
+            .record_resolution(
+                &scopes,
+                "cleaner",
+                &ResolutionInput {
+                    resolver_version: EXACT_RESOLVER_VERSION.into(),
+                    sets: vec![set.clone()],
+                    previous: None,
+                    decisions: vec![],
+                },
+                &|_| Ok(()),
+            )
+            .unwrap()
+            .id;
         let receipt = ProjectionReceipt {
             collection_id: "cleanup".into(),
             generation_id: generation,
             claim_set_id: set,
+            resolution_id: resolution,
+            resolver_version: EXACT_RESOLVER_VERSION.into(),
+            settings_identity: Digest::of(b"settings"),
+            frozen_lock: Digest::of(b"frozen-lock"),
             file_name,
-            schema_version: "maestro-typed-edges/1".into(),
+            schema_version: "maestro-typed-edges/2".into(),
             knowledge_edge_count: 0,
             catalog_dependency_edge_count: 0,
             entity_fact_count: 0,
@@ -97,6 +117,7 @@ impl Fixture {
                 generation_id: generation,
             },
             &receipt.file_name,
+            super::super::binding::receipt_pins(&receipt),
         );
         #[cfg(not(all(feature = "engine", unix)))]
         fs::write(graph.join(&receipt.file_name), b"disposable").unwrap();

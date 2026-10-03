@@ -85,14 +85,21 @@ pub(super) fn check(
         &Published::new(environment, config, settings),
     );
     if let Some(activation) = activation {
+        let activated = activation.is_ok();
         let note = match activation {
-            Ok(_) => "settings identity not yet bound to published graph".to_owned(),
+            Ok(_) => "published input pins bound to admitted settings and lock".to_owned(),
             Err(error) => format!("graph activation unavailable: {error}"),
         };
         match &mut check.outcome {
-            Outcome::Passed(detail) | Outcome::NotChecked(detail) => {
+            Outcome::Passed(detail) => {
                 detail.push_str("; ");
                 detail.push_str(&note);
+            }
+            Outcome::NotChecked(detail) => {
+                if !activated {
+                    detail.push_str("; ");
+                    detail.push_str(&note);
+                }
             }
             Outcome::Failed { problem, next } => {
                 if problem.contains("configured but not activated") {

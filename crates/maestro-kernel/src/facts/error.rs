@@ -1,5 +1,6 @@
 //! Why the kernel refused to admit or read claims.
 
+use super::projection_binding::{InputMismatchKind, PROJECTION_REBUILD_REPAIR};
 use crate::{artifact::Digest, evidence::Span, job, store};
 use std::{error, fmt};
 
@@ -79,6 +80,8 @@ pub enum Error {
     },
     /// A durable graph build conflicts with its frozen plan or receipt.
     Conflict(String),
+    /// A legacy projection lacks the required durable input format.
+    ProjectionInputMismatch(InputMismatchKind),
     /// The validator refused the proposed resolution snapshot before persistence.
     ResolutionRejected,
     /// A lease operation failed.
@@ -145,6 +148,10 @@ impl fmt::Display for Error {
                 write!(formatter, "graph build budget {limit} exceeded by {needed}")
             }
             Self::Conflict(reason) => write!(formatter, "graph build conflict: {reason}"),
+            Self::ProjectionInputMismatch(kind) => write!(
+                formatter,
+                "graph input mismatch ({kind}); {PROJECTION_REBUILD_REPAIR}"
+            ),
             Self::ResolutionRejected => formatter.write_str("resolution snapshot rejected"),
             Self::Job(error) => fmt::Display::fmt(error, formatter),
             Self::Store(error) => fmt::Display::fmt(error, formatter),
@@ -158,6 +165,7 @@ impl error::Error for Error {
             Self::Store(error) => Some(error),
             Self::Job(error) => Some(error),
             Self::Unauthorized
+            | Self::ProjectionInputMismatch(_)
             | Self::ResolutionRejected
             | Self::Invalid(_)
             | Self::UnknownRevision { .. }

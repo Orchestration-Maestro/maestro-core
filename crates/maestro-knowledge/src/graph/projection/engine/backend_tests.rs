@@ -36,7 +36,7 @@ fn backend(fixture: &Fixture) -> Backend<Install> {
         RootDirectory::open(&fixture.path).unwrap(),
         RootDirectory::open(&fixture.path).unwrap(),
         "staging.lbdb".into(),
-        config(),
+        (config(), contract::pins()),
         Install(fixture.path.clone()),
     )
 }
@@ -103,7 +103,8 @@ fn native_receipt_opens_only_matching_physical_file_and_content() {
     let set = Digest::of(b"set");
     let name = content::basename(&scope, &set).unwrap();
     backend.publish_unpublished(&scope, &name).unwrap();
-    let receipt = receipt_from_verification(&scope, set, name.clone(), &build).unwrap();
+    let receipt =
+        receipt_from_verification(&scope, set, name.clone(), &build, &contract::pins()).unwrap();
     let reader = backend.open_published(&scope, &receipt).unwrap();
     assert_eq!(
         reader.edges_adjacent(edge.family, &edge.target).unwrap(),
@@ -244,7 +245,7 @@ fn windows_native_immutable_fixture_runs_shared_ordered_pinned_reader_contract()
     {
         let database = fixture.writer();
         let connection = Connection::new(&database).unwrap();
-        install_reader_fixture(&connection, &scope);
+        install_reader_fixture(&connection, &scope, &contract::pins());
         populate_reader_fixture(&connection, &scope, &edges, &facts);
         connection.query("CHECKPOINT").unwrap();
     }
@@ -255,7 +256,14 @@ fn windows_native_immutable_fixture_runs_shared_ordered_pinned_reader_contract()
         .unwrap();
     super::open::tests::private_windows_fixture(&fixture.path);
     let backend = backend(&fixture);
-    let receipt = receipt_from_verification(&scope, set, name.clone(), &contract.expected).unwrap();
+    let receipt = receipt_from_verification(
+        &scope,
+        set,
+        name.clone(),
+        &contract.expected,
+        &contract::pins(),
+    )
+    .unwrap();
     let before = fs::read(fixture.path.join(&name)).unwrap();
     contract_reads::assert_reads(&backend, &contract, &receipt);
     assert_eq!(
@@ -282,7 +290,7 @@ fn native_shared_readers_keep_old_generation_after_later_publication() {
         RootDirectory::open(&fixture.path).unwrap(),
         RootDirectory::open(&fixture.path).unwrap(),
         "next-staging.lbdb".into(),
-        config(),
+        (config(), contract::pins()),
         Install(fixture.path.clone()),
     );
     contract_reads::pinned_generations(&mut first, &mut second, &scopes);
@@ -337,4 +345,42 @@ fn native_usable_refuses_poisoned_matching_and_unpoisoned_mismatched_scopes() {
     );
     assert!(!fixture.path.join(name).exists());
     assert!(fixture.path.join("staging.lbdb").is_file());
+}
+
+/// Verification never invokes filesystem installation in this proof.
+#[cfg(unix)]
+struct NoInstall;
+#[cfg(unix)]
+impl Publication for NoInstall {
+    fn install(&mut self, _: &str, _: &str) -> Result<(), String> {
+        Err("verification must not publish".into())
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn reopened_build_refuses_changed_expected_pins_and_matching_pins_verify() {
+    let fixture = Fixture::new();
+    let pins = contract::pins();
+    let mut backend = Backend::new(
+        RootDirectory::open(&fixture.path).unwrap(),
+        RootDirectory::open(&fixture.path).unwrap(),
+        "staging.lbdb".into(),
+        (config(), pins.clone()),
+        NoInstall,
+    );
+    backend.create_unpublished(&scope()).unwrap();
+    let mut changed = pins.clone();
+    changed[0] = Digest::of(b"changed snapshot").as_str().into();
+    backend.replace_expected_pins_for_test(changed);
+    assert!(
+        backend
+            .verify_unpublished(&scope())
+            .expect_err("changed input cannot replay durable native stamp")
+            .contains("maestro knowledge graph rebuild")
+    );
+    backend.replace_expected_pins_for_test(pins);
+    backend
+        .verify_unpublished(&scope())
+        .expect("matching inputs verify after independent reopen");
 }

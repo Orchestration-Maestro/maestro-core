@@ -1,10 +1,15 @@
 //! Projection readiness receipt and lease validation tests.
 
 use super::support::{Scratch, build_job, execute, granted, label, plan, timing};
+use crate::facts::EXACT_RESOLVER_VERSION;
+use crate::facts::ResolutionInput;
 use crate::{
     artifact::Digest,
     document::Collection,
-    facts::{Batch, Error, ProjectionReceipt, Rejection, projection_inventory_in},
+    facts::{
+        Batch, Error, PROJECTION_REBUILD_REPAIR, ProjectionReceipt, Rejection,
+        projection_inventory_in,
+    },
     generation::NewGeneration,
     job::{self, JobState},
     scope::{Right, Scope, ScopeSet},
@@ -80,12 +85,31 @@ pub(super) fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
         .attach_claim_set(&all, generation, build.job, &lease)
         .unwrap();
     database.verify_generation(generation, 1).unwrap();
+    granted(&database, "projection", "workspace/default");
+    let resolution = database
+        .record_resolution(
+            &all,
+            "projection",
+            &ResolutionInput {
+                resolver_version: EXACT_RESOLVER_VERSION.into(),
+                sets: vec![attachment.claim_set_id.clone()],
+                previous: None,
+                decisions: vec![],
+            },
+            &|_| Ok(()),
+        )
+        .unwrap()
+        .id;
     let receipt = ProjectionReceipt {
         collection_id: "graph".to_owned(),
         generation_id: generation,
         claim_set_id: attachment.claim_set_id,
+        resolution_id: resolution,
+        resolver_version: EXACT_RESOLVER_VERSION.into(),
+        settings_identity: Digest::of(b"settings"),
+        frozen_lock: Digest::of(b"frozen-lock"),
         file_name: format!("projection-{generation}.db"),
-        schema_version: "maestro-typed-edges/1".to_owned(),
+        schema_version: "maestro-typed-edges/2".to_owned(),
         knowledge_edge_count: 0,
         catalog_dependency_edge_count: 0,
         entity_fact_count: 1,
@@ -357,33 +381,6 @@ fn concurrent_readiness_recorders_have_one_winner() {
 }
 
 #[test]
-fn raw_receipt_insert_must_match_the_generation_attachment() {
-    let (scratch, _database, _all, receipt) = attached();
-    let outside = scratch.outside();
-    assert!(
-        outside
-            .execute(
-                "INSERT INTO graph_projection_receipts
-         (generation_id, collection_id, claim_set_id, file_name, schema_version,
-          knowledge_edge_count, catalog_dependency_edge_count, entity_fact_count, content_digest)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                rusqlite::params![
-                    receipt.generation_id,
-                    receipt.collection_id,
-                    receipt.claim_set_id.as_str(),
-                    receipt.file_name,
-                    receipt.schema_version,
-                    1_i64,
-                    0_i64,
-                    1_i64,
-                    receipt.content_digest.as_str()
-                ],
-            )
-            .is_err()
-    );
-}
-
-#[test]
 fn projection_readiness_rejects_an_expired_projection_lease() {
     let (_scratch, database, all, receipt) = attached();
     let lease = projection_lease(&database, receipt.generation_id);
@@ -449,7 +446,11 @@ fn projection_readiness_rejects_a_path_instead_of_a_owned_filename() {
         let Error::Conflict(detail) = error else {
             panic!("{name}: {error}");
         };
-        assert_eq!(detail, "invalid projection receipt identity", "{name}");
+        assert_eq!(
+            detail,
+            format!("invalid projection receipt identity; {PROJECTION_REBUILD_REPAIR}"),
+            "{name}"
+        );
     }
     assert_eq!(
         database

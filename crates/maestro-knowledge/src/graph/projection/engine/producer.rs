@@ -1,9 +1,11 @@
 //! Lease-bound native producer session behind the public facade.
 
+use super::input_pins;
 use super::{
     backend::{Backend, Publication},
     config::native,
 };
+use crate::graph::projection::binding;
 use crate::graph::projection::{
     access::{Access, open_root},
     build::{ProjectionBuild, PublishedProjection},
@@ -18,6 +20,7 @@ use crate::graph::projection::{
 };
 use lbug::RootDirectory;
 use maestro_filesystem::OwnedRoot;
+use maestro_kernel::facts::Error as FactError;
 use maestro_kernel::{facts::ProjectionReceipt, job::JobState, scope::ScopeSet, store::Database};
 use serde_json::json;
 use std::{
@@ -67,6 +70,19 @@ impl<'a> Session<'a> {
         clock: &'a dyn Fn() -> SystemTime,
     ) -> Result<Self, ProjectionError> {
         check_read_scope(scopes, &build.scope, &build.scope)?;
+        let pins = input_pins::build_pins(&build);
+        binding::admitted(&pins, &factory.settings)?;
+        kernel
+            .validate_projection_inputs(
+                scopes,
+                &build.claim_set_id,
+                &build.resolution_id,
+                &build.resolver_version,
+            )
+            .map_err(|error| match error {
+                FactError::ProjectionInputMismatch(kind) => ProjectionError::InputMismatch(kind),
+                error => ProjectionError::Backend(error.to_string()),
+            })?;
         let root = open_root(&factory.path)?;
         let access = Access::acquire(&root, factory.locks)?;
         access.serialize_writer(factory.locks)?;
@@ -126,7 +142,7 @@ impl<'a> Session<'a> {
             staged_root,
             final_root,
             file_name,
-            native(&factory.settings),
+            (native(&factory.settings), pins),
             install,
         );
         drop(ProjectionWriter::create(&mut backend, build.scope.clone())?);
@@ -185,6 +201,7 @@ impl<'a> Session<'a> {
             self.build.claim_set_id.clone(),
             file_name,
             expected,
+            &input_pins::build_pins(&self.build),
         )?;
         self.backend.publication_mut().receipt = Some(receipt.clone());
         ProjectionWriter::resume(&mut self.backend, self.build.scope.clone())
@@ -294,6 +311,7 @@ mod tests {
             fixture.build.claim_set_id.clone(),
             name.clone(),
             &BuildVerification::expected(&fixture.edges, &[]).unwrap(),
+            &input_pins::build_pins(&fixture.build),
         )
         .unwrap();
         let clock = || now(0);
