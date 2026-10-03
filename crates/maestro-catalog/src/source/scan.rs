@@ -34,6 +34,13 @@ pub(crate) struct Snapshot {
     pub(super) diagnostics: Vec<Diagnostic>,
 }
 
+impl Snapshot {
+    /// Every checked snapshot file, in archive path order.
+    pub(crate) fn paths(&self) -> impl Iterator<Item = &String> {
+        self.files.keys()
+    }
+}
+
 impl SourceTree for Snapshot {
     fn list(&self, directory: &str) -> io::Result<Vec<Entry>> {
         self.directories

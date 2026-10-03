@@ -54,5 +54,6 @@ pub use types::{
     Problems, Refusal, Resource, ResourceId, SCHEMA, Value, frozen_rows,
 };
 
+pub(crate) use check::checked_snapshot;
 pub(crate) use defaults::{DEFAULTS_PATH, from_resources};
 pub(crate) use scan::Snapshot;
