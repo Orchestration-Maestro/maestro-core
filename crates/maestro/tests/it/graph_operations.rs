@@ -26,7 +26,7 @@ fn graph(document: &Value) -> &Value {
 }
 
 /// The graph's detail in the document `ended` printed.
-fn detail(ended: &Ended) -> String {
+pub(super) fn detail(ended: &Ended) -> String {
     graph(&ended.json())["detail"]
         .as_str()
         .expect("a detail")
@@ -385,7 +385,7 @@ fn graph_operations_real_lock_enables_read_only_corruption_and_lock_diagnoses() 
 }
 
 /// A real C04-owned lock, approved through the user-local journal, not lock self-authority.
-fn admitted_workspace(home: &Home, defaults: &str) -> PathBuf {
+pub(super) fn admitted_workspace(home: &Home, defaults: &str) -> PathBuf {
     use maestro_catalog::{
         files::{self, FileInput, FilePlan},
         policy::workspace::{CheckedTrust, JournalTrust, TrustBoundaries},

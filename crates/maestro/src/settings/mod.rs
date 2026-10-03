@@ -2,6 +2,8 @@
 //! the knowledge operations' view of them.
 
 mod graph;
+#[cfg(any(feature = "engine", test))]
+mod graph_native;
 #[cfg(test)]
 mod graph_tests;
 mod knowledge;

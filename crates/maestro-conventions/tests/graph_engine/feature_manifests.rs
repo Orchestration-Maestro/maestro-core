@@ -112,3 +112,14 @@ fn required_ci_owns_native_coverage_and_the_exact_engine_source() {
     assert!(mutants.get("features").is_none());
     assert!(mutants.get("test_workspace").is_none());
 }
+
+#[test]
+fn graph_settings_feature_isolation() {
+    let shared = fs::read_to_string(root().join("crates/maestro/src/settings/graph.rs")).unwrap();
+    assert!(
+        !shared.contains("feature ="),
+        "native settings belong in a sibling module gated on its mod line"
+    );
+    let door = fs::read_to_string(root().join("crates/maestro/src/settings/mod.rs")).unwrap();
+    assert!(door.contains("#[cfg(any(feature = \"engine\", test))]\nmod graph_native;"));
+}

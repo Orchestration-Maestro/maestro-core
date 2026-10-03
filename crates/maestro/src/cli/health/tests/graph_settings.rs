@@ -5,6 +5,7 @@ use maestro_catalog::{
     policy::workspace::{CheckedTrust, TrustBoundaries},
     settings::NoWorkspaceTrust,
 };
+use maestro_knowledge::graph::projection::health::{ProbeError, PublishedGraph, Receipt};
 
 #[test]
 fn health_preferences_ignore_unadmitted_authoring_locks_without_relaxing_runtime() {
@@ -72,4 +73,50 @@ fn the_graph_engine_is_none_unless_ladybug_is_selected() {
         .to_string(),
         "backend adapter is not compiled into this build",
     );
+}
+
+/// Health must never request a receipt when selection or admission forbids activation.
+struct NoReceipt;
+impl PublishedGraph for NoReceipt {
+    fn receipt(&self) -> Result<Receipt<'_>, ProbeError> {
+        panic!("receipt/native calls are forbidden");
+    }
+}
+
+#[test]
+fn retained_graph_refusal_and_explicit_none_read_no_receipt() {
+    use super::super::{check::Outcome, graph::check_with};
+    use crate::settings::GraphActivationError;
+    use maestro_kernel::paths::Environment;
+    let scratch = Scratch::new();
+    let mut environment = Environment::default();
+    environment.xdg_data_home = Some(scratch.data().into_os_string());
+    let boundaries = TrustBoundaries::new(&scratch.data(), &[]).unwrap();
+    let trust = CheckedTrust::new(&NoWorkspaceTrust, &boundaries);
+    let mut session = session::health_at(
+        &scratch.config(),
+        None,
+        None,
+        &["graph.engine=none".into()],
+        &trust,
+    )
+    .unwrap();
+    for engine_built in [false, true] {
+        session.graph_activation_error = Some(GraphActivationError::EngineMissing);
+        let check = check_with(&environment, Ok(&session), engine_built, &NoReceipt);
+        let Outcome::NotChecked(detail) = check.outcome else {
+            panic!("{check:?}");
+        };
+        assert_eq!(detail, "the graph is off (graph.engine = none)");
+        session.graph_activation_error = Some(GraphActivationError::Refused(
+            "authoring.lock.json changed; run maestro init".into(),
+        ));
+        let check = check_with(&environment, Ok(&session), engine_built, &NoReceipt);
+        let Outcome::Failed { problem, next } = check.outcome else {
+            panic!("{check:?}");
+        };
+        assert!(problem.contains("authoring.lock.json"));
+        assert!(next.contains("maestro init"));
+    }
+    assert!(!scratch.data().join("maestro/graph").exists());
 }

@@ -32,6 +32,7 @@ mod graph_cleanup_support;
 mod graph_eval;
 mod graph_extract;
 mod graph_operations;
+mod graph_operations_selection;
 mod graph_resume;
 mod import_jobs;
 mod job_waits;

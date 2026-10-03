@@ -296,6 +296,7 @@ in place.
 │   │   │   │   └── tests.rs                                                 # Strict embedded data and non-recursive interpolation contracts
 │   │   │   ├── settings/                                                    # The session's settings, resolved once for the CLI and the MCP server, and
 │   │   │   │   ├── graph.rs                                                 # The configured local graph engine
+│   │   │   │   ├── graph_native.rs                                          # Native graph settings from the admitted session snapshot
 │   │   │   │   ├── graph_tests.rs                                           # Typed native consumers use the admitted snapshot, not a second defaults producer
 │   │   │   │   ├── knowledge.rs                                             # The knowledge operations' settings, read from a session's resolved
 │   │   │   │   ├── mod.rs                                                   # The session's settings, resolved once for the CLI and the MCP server, and
@@ -370,6 +371,7 @@ in place.
 │   │   │       ├── graph_eval.rs                                            # Graph evaluation refuses unsafe input without opening a default kernel
 │   │   │       ├── graph_extract.rs                                         # Model graph extraction is an explicit, mutually exclusive build mode
 │   │   │       ├── graph_operations.rs                                      # G26: setup, status and doctor account for the local embedded graph
+│   │   │       ├── graph_operations_selection.rs                            # Review regressions for lock-only graph selection and preference precedence
 │   │   │       ├── graph_resume.rs                                          # Durable CLI resume and separate attachment, using real authority and rule artifacts
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown

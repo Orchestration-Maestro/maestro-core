@@ -12,7 +12,7 @@ use super::{
 use crate::{
     cli::setup::graph::{DIRECTORY, is_private},
     failure::Failure,
-    settings::{GraphEngine, Session},
+    settings::{GraphActivationError, GraphEngine, Session},
 };
 use maestro_kernel::paths::{self, Environment};
 use maestro_knowledge::graph::projection::health::{PublishedFile, PublishedGraph, Receipt};
@@ -46,6 +46,17 @@ pub(super) fn check_with(
         }
     };
     let target = directory.display().to_string();
+    if let Ok(session) = &session
+        && let Some(GraphActivationError::Refused(problem)) = &session.graph_activation_error
+    {
+        return Check::failed(
+            NAME,
+            &target,
+            format!("graph activation unavailable: {problem}"),
+            "restore the admitted authoring lock and fix graphdb settings; \
+             run maestro init in a trusted workspace, then maestro doctor",
+        );
+    }
     let engine = match session.and_then(GraphEngine::from_session) {
         Ok(engine) => engine,
         Err(error) => {
