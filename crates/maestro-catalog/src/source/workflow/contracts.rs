@@ -4,7 +4,7 @@ use super::super::{
     load::{Loaded, Native},
     types::{Diagnostic, Resource, ResourceId},
 };
-use jsonschema::{Draft, Registry, Validator};
+use jsonschema::{Draft, Registry, Validator, uri};
 use serde_json::Value;
 use std::{collections::BTreeMap, ptr};
 
@@ -50,7 +50,9 @@ pub(crate) fn check(loaded: &[Loaded]) -> Vec<Diagnostic> {
         }
     };
     for (resource, schema) in schemas.values() {
-        if let Err(message) = validator(schema, &registry) {
+        if let Err(message) = fragments(resource, schema, &schemas, &registry)
+            .and_then(|()| validator(schema, &registry).map(|_| ()))
+        {
             diagnostics.push(Diagnostic::new(&resource.path, "contract", message));
         }
     }
@@ -127,6 +129,55 @@ fn reference(
         ));
     }
     Ok(())
+}
+
+/// Resolve fragments with the real resolver, but admit only draft schema positions.
+fn fragments(
+    resource: &Resource,
+    schema: &Value,
+    schemas: &BTreeMap<ResourceId, (&Resource, &Value)>,
+    registry: &Registry<'_>,
+) -> Result<(), String> {
+    let resolver = registry
+        .resolver(uri::from_str(&resource.id.to_string()).map_err(|error| error.to_string())?);
+    let mut pending = vec![schema];
+    while let Some(node) = pending.pop() {
+        for key in ["$ref", "$dynamicRef"] {
+            let Some(text) = node.get(key).and_then(Value::as_str) else {
+                continue;
+            };
+            let Some((target, _)) = text.split_once('#') else {
+                continue;
+            };
+            let id = ResourceId::parse(target).unwrap_or_else(|| resource.id.clone());
+            let (_, root) = schemas.get(&id).ok_or("missing checked contract")?;
+            let resolved = resolver.lookup(text).map_err(|error| {
+                format!("reference {text:?}: {error}; move the schema under $defs")
+            })?;
+            if !schema_position(root, resolved.contents()) {
+                let pointer = pointer(root, resolved.contents()).unwrap_or_default();
+                return Err(format!(
+                    "reference {text:?} targets data position {pointer}; \
+                     move the schema under $defs"
+                ));
+            }
+        }
+        pending.extend(Draft::Draft202012.subresources_of(node));
+    }
+    Ok(())
+}
+
+/// A fragment cannot promote annotations or unknown keywords into schema semantics.
+// ponytail: scan per fragment; index draft positions if bounded contracts outgrow it.
+fn schema_position(root: &Value, target: &Value) -> bool {
+    let mut pending = vec![root];
+    while let Some(node) = pending.pop() {
+        if ptr::eq(node, target) {
+            return true;
+        }
+        pending.extend(Draft::Draft202012.subresources_of(node));
+    }
+    false
 }
 
 /// Locate an already identified schema node only when its refusal needs a pointer.

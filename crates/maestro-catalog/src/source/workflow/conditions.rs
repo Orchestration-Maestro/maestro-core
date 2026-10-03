@@ -254,6 +254,17 @@ impl<'a> Parser<'a> {
         if array.kind != "array" {
             return Err("any/all needs an array".to_owned());
         }
+        if array
+            .schema
+            .and_then(|schema| schema.get("prefixItems"))
+            .and_then(Value::as_array)
+            .is_some_and(|items| !items.is_empty())
+        {
+            return Err(
+                "any/all cannot type non-empty prefixItems: items only types the array tail"
+                    .to_owned(),
+            );
+        }
         self.require(",")?;
         let Some(Token::Name(variable)) = self.tokens.get(self.position).cloned() else {
             return Err("any/all needs a predicate variable".to_owned());

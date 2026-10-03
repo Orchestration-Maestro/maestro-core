@@ -88,7 +88,7 @@ fn native_contract_semantics_use_one_original_snapshot_read() {
 }
 
 /// A checked in-memory schema registry, shared with the condition resolver.
-fn check(text: &str, schema: &Value) -> Result<(), String> {
+pub(super) fn check(text: &str, schema: &Value) -> Result<(), String> {
     let mut schema = schema.clone();
     if schema.get("$id").is_none() {
         schema["$id"] = json!("contract:core/test-report");
@@ -104,7 +104,7 @@ fn check(text: &str, schema: &Value) -> Result<(), String> {
 }
 
 /// A native contract paired with the existing strict metadata envelope.
-fn contract_tree(text: &str) -> MemoryTree {
+pub(super) fn contract_tree(text: &str) -> MemoryTree {
     MemoryTree::valid()
         .with("core/contracts/test-report.schema.json", text)
         .with(
@@ -287,6 +287,7 @@ fn native_contract_depth_limit_has_an_exact_valid_neighbour() {
                 "{refusal}"
             );
             assert!(refusal.contains("JSON depth exceeds"), "{refusal}");
+            assert!(!refusal.contains("policy"), "{refusal}");
         }
     }
 }

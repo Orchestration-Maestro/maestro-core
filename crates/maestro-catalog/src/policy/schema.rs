@@ -209,10 +209,7 @@ pub(crate) fn bound_json(text: &str, limits: &Limits) -> Result<(), String> {
             }
         }
         if depth > limits.source_depth {
-            return Err(format!(
-                "policy JSON depth exceeds {} levels",
-                limits.source_depth
-            ));
+            return Err(format!("JSON depth exceeds {} levels", limits.source_depth));
         }
     }
     Ok(())

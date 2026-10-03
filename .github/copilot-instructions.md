@@ -656,6 +656,8 @@ in place.
 │   │   │   │   ├── workflow/                                                # Internal graph checks, not source admission, routing or execution
 │   │   │   │   │   ├── tests/                                               # Topology compilation's synthetic checked inputs and refusal neighbours
 │   │   │   │   │   │   ├── contracts.rs                                     # Contract conditions: typed neighbours and hostile text never execute
+│   │   │   │   │   │   ├── fragment_positions.rs                            # Fragment targets are schemas only at positions defined by the admitted draft
+│   │   │   │   │   │   ├── fragments.rs                                     # Checkpoint review regressions for fragment admission and tuple predicates
 │   │   │   │   │   │   ├── mod.rs                                           # Topology compilation's synthetic checked inputs and refusal neighbours
 │   │   │   │   │   │   ├── references.rs                                    # Exact reference closure, lifecycle evidence and typed identity vectors
 │   │   │   │   │   │   ├── support.rs                                       # Synthetic checked topology inputs and explicit review admission, tests only
