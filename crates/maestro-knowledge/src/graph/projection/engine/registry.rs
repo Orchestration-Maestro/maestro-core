@@ -4,12 +4,13 @@ use super::{config::native, reader::Reader};
 use crate::graph::projection::{
     access::{Access, open_root},
     cancellation::ProjectionCancellation,
+    configuration::ProjectionConfiguration,
     handle::ProjectionHandle,
     port::{
         EdgeFamily, EntityFact, ProjectionEdge, ProjectionError, ProjectionScope,
         TypedEdgeProjection,
     },
-    settings::{EngineSettings, ProjectionConfiguration},
+    settings::EngineSettings,
     writer::{BuildVerification, ProjectionBackendReader, ProjectionReader, check_read_scope},
 };
 use lbug::RootDirectory;
@@ -234,90 +235,203 @@ impl TypedEdgeProjection for Guarded {
 }
 
 #[cfg(test)]
-mod tests {
+mod read_tests {
     use super::*;
-    use crate::graph::projection::engine::{
-        public_fixture::{Fixture, settings},
-        public_tests::publish,
+    #[cfg(not(windows))]
+    use crate::graph::projection::engine::transaction::Transactions;
+    #[cfg(windows)]
+    use crate::graph::projection::engine::transaction::tests::populate_reader_fixture;
+    use crate::graph::projection::{
+        engine::{
+            schema,
+            tests::{Fixture, config, scope},
+        },
+        tests::contract,
     };
-    use crate::graph::projection::{ProjectionEngine, ProjectionFactory, content};
-    use maestro_canonicalization::SystemFileLock;
+    use lbug::Connection;
+    use maestro_kernel::scope::{Right, Scope};
 
-    /// Open a supported factory spelling of the same fixture's owned root.
-    fn reader(fixture: &Fixture, path: &Path) -> ProjectionHandle {
-        ProjectionFactory::new(path, ProjectionEngine::Ladybug, settings(), &SystemFileLock)
-            .reader(
+    #[test]
+    fn cancellable_handle_filters_both_endpoints_family_and_fact_subject() {
+        let fixture = Fixture::new();
+        let scope = scope();
+        let edge = contract::edge(scope.generation_id, EdgeFamily::KnowledgeClaim);
+        let entity = edge.source.clone();
+        let mut incoming = edge.clone();
+        incoming.id = Digest::of(b"incoming");
+        incoming.source = Digest::of(b"incoming source");
+        incoming.target = entity.clone();
+        let mut unrelated = edge.clone();
+        unrelated.id = Digest::of(b"unrelated");
+        unrelated.source = Digest::of(b"other source");
+        unrelated.target = Digest::of(b"other target");
+        let mut catalog = edge.clone();
+        catalog.id = Digest::of(b"catalog");
+        catalog.family = EdgeFamily::CatalogDependency;
+        catalog.relation = "depends_on".into();
+        let edges = [edge.clone(), incoming.clone(), unrelated, catalog];
+        let fact = contract::fact(&scope);
+        let mut other_fact = fact.clone();
+        other_fact.claim.id = Digest::of(b"other fact");
+        other_fact.subject = Digest::of(b"other subject");
+        let shared = shared_reader(&fixture, &edges, &[fact.clone(), other_fact]);
+        let kernel_path = fixture.path.join("kernel");
+        fs::create_dir(&kernel_path).unwrap();
+        let kernel = Database::open_in(&kernel_path).unwrap();
+        kernel
+            .grant(
+                "reader",
+                &"workspace/default".parse::<Scope>().unwrap(),
+                Right::Read,
+                "test",
+            )
+            .unwrap();
+        let scopes = kernel.visible("reader").unwrap();
+        let handle = ProjectionHandle {
+            reader: Box::new(ProjectionReader::from_verified(
+                scope.clone(),
+                Box::new(shared),
+            )),
+            settings: super::super::public_fixture::settings(),
+        };
+        let debug = format!("{handle:?}");
+        assert!(debug.starts_with("ProjectionHandle"));
+        assert!(!debug.contains(&fixture.path.display().to_string()));
+        assert!(!debug.contains("reader:"), "native handles remain opaque");
+        let mut expected = vec![edge, incoming];
+        expected.sort_by(|left, right| left.id.cmp(&right.id));
+        assert_eq!(
+            handle
+                .neighbors(&scopes, &scope, EdgeFamily::KnowledgeClaim, &entity)
+                .unwrap(),
+            expected
+        );
+        assert_eq!(
+            handle
+                .neighbors(
+                    &scopes,
+                    &scope,
+                    EdgeFamily::KnowledgeClaim,
+                    &Digest::of(b"missing")
+                )
+                .unwrap(),
+            vec![]
+        );
+        assert_eq!(
+            handle.entity_facts(&scopes, &scope, &fact.subject).unwrap(),
+            [fact]
+        );
+        assert_eq!(
+            handle
+                .entity_facts(&scopes, &scope, &Digest::of(b"missing"))
+                .unwrap(),
+            vec![]
+        );
+        let denied = kernel.visible("denied").unwrap();
+        assert_eq!(
+            handle.entity_facts(&denied, &scope, &entity),
+            Err(ProjectionError::Unauthorized)
+        );
+    }
+
+    fn shared_reader(fixture: &Fixture, edges: &[ProjectionEdge], facts: &[EntityFact]) -> Shared {
+        let scope = scope();
+        {
+            let database = fixture.writer();
+            let connection = Connection::new(&database).unwrap();
+            #[cfg(not(windows))]
+            schema::create(&connection, &scope).unwrap();
+            #[cfg(windows)]
+            schema::tests::install_reader_fixture(&connection, &scope);
+            #[cfg(windows)]
+            populate_reader_fixture(&connection, &scope, edges, facts);
+            #[cfg(not(windows))]
+            {
+                Transactions::default()
+                    .write_batch(&connection, &scope, edges, facts)
+                    .unwrap();
+            }
+            connection.query("CHECKPOINT").unwrap();
+        }
+        #[cfg(windows)]
+        super::super::open::tests::private_windows_fixture(&fixture.path);
+        Shared {
+            reader: Some(Arc::new(
+                Reader::open(&fixture.root, "rows.lbdb", config(), &scope).unwrap(),
+            )),
+            key: fixture.path.join("rows.lbdb"),
+            cancellation: Some(ProjectionCancellation::new()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod cache_tests {
+    use super::*;
+    use crate::graph::projection::engine::{public_fixture::Fixture, public_tests::publish};
+
+    /// Remove only this test's unique physical cache key, including during assertion unwinding.
+    struct CacheReset(PathBuf);
+    impl Drop for CacheReset {
+        fn drop(&mut self) {
+            READERS
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .remove(&self.0);
+        }
+    }
+
+    /// Stand in for a changed immutable kernel record, isolating the other equality operand.
+    fn cached_receipt(key: &Path, receipt: ProjectionReceipt) {
+        READERS.lock().unwrap().get_mut(key).unwrap().receipt = receipt;
+    }
+
+    #[test]
+    fn guard_cached_receipt_mismatch_content_but_matching_cache_is_served() {
+        assert_cached_receipt_mismatch(false);
+    }
+
+    #[test]
+    fn guard_cached_receipt_mismatch_counts_but_matching_cache_is_served() {
+        assert_cached_receipt_mismatch(true);
+    }
+
+    fn assert_cached_receipt_mismatch(counts: bool) {
+        let fixture = Fixture::new();
+        publish(&fixture);
+        let factory = fixture.factory();
+        let read = || {
+            factory.reader(
                 &fixture.authority.database,
                 &fixture.authority.scopes,
                 fixture.build.scope.clone(),
             )
+        };
+        let first = read().unwrap();
+        let receipt = fixture
+            .authority
+            .database
+            .projection_ready(&fixture.authority.scopes, fixture.build.scope.generation_id)
             .unwrap()
-    }
-
-    #[test]
-    fn lifecycle_registry_shares_root_spellings_and_separates_other_roots() {
-        let fixture = Fixture::new();
-        publish(&fixture);
-        let name = content::basename(&fixture.build.scope, &fixture.build.claim_set_id).unwrap();
-        let path = &fixture.native.path;
-        let alias = path
-            .parent()
-            .unwrap()
-            .join(".")
-            .join(path.file_name().unwrap());
-        assert_ne!(path.as_os_str(), alias.as_os_str());
-        let first = reader(&fixture, path);
-        let second = reader(&fixture, &alias);
-        assert_eq!(owner_count(path, &name), 3);
-        assert_eq!(owner_count(&alias, &name), 3);
-        #[cfg(unix)]
-        {
-            use crate::graph::projection::engine::open::tests::Scratch;
-            use std::os::unix::fs::symlink;
-
-            let linked_parent = Scratch::new();
-            symlink(path.parent().unwrap(), linked_parent.0.join("parent")).unwrap();
-            let linked = linked_parent
-                .0
-                .join("parent")
-                .join(path.file_name().unwrap());
-            let third = reader(&fixture, &linked);
-            assert_eq!(owner_count(&linked, &name), 4);
-            assert_eq!(owner_count(path, &name), 4);
-            drop(third);
+            .unwrap();
+        let reset = CacheReset(
+            key(
+                &open_root(&fixture.native.path).unwrap(),
+                &receipt.file_name,
+            )
+            .unwrap(),
+        );
+        let matching = read().unwrap();
+        assert_eq!(owner_count(&fixture.native.path, &receipt.file_name), 3);
+        drop(matching);
+        let mut different = receipt;
+        if counts {
+            different.entity_fact_count += 1;
+        } else {
+            different.content_digest = Digest::of(b"different cached content");
         }
-        assert_eq!(owner_count(path, &name), 3);
-
-        let other = Fixture::new();
-        publish(&other);
-        let other_name = content::basename(&other.build.scope, &other.build.claim_set_id).unwrap();
-        let separate = reader(&other, &other.native.path);
-        assert_eq!(owner_count(&other.native.path, &other_name), 2);
-        assert_eq!(owner_count(path, &name), 3);
-        drop(separate);
-        assert_eq!(owner_count(&other.native.path, &other_name), 0);
+        cached_receipt(&reset.0, different);
+        assert_eq!(read().unwrap_err(), ProjectionError::NotReady);
         drop(first);
-        assert_eq!(owner_count(&alias, &name), 2);
-        drop(second);
-        assert_eq!(owner_count(path, &name), 0);
-    }
-
-    #[cfg(any(windows, target_os = "macos"))]
-    #[test]
-    fn lifecycle_registry_shares_case_swapped_owned_leaf() {
-        let fixture = Fixture::new();
-        publish(&fixture);
-        let name = content::basename(&fixture.build.scope, &fixture.build.claim_set_id).unwrap();
-        let path = &fixture.native.path;
-        let leaf = path.file_name().unwrap().to_str().unwrap();
-        let alias = path.with_file_name(leaf.to_uppercase());
-        assert_ne!(path.as_os_str(), alias.as_os_str());
-        let first = reader(&fixture, path);
-        let second = reader(&fixture, &alias);
-        assert_eq!(owner_count(path, &name), 3);
-        assert_eq!(owner_count(&alias, &name), 3);
-        drop(first);
-        drop(second);
-        assert_eq!(owner_count(&alias, &name), 0);
     }
 }

@@ -241,14 +241,11 @@ impl OpenGraph for ProbeOpen {
     fn query_one(&self) -> Result<(), ProbeError> {
         let connection = Connection::new(&self.database)
             .map_err(|error| ProbeError::Corrupt(error.to_string()))?;
-        {
-            let mut result = connection
+        check_query_one(
+            connection
                 .query("RETURN 1")
-                .map_err(|error| ProbeError::Corrupt(error.to_string()))?;
-            if result.next() != Some(vec![Value::Int64(1)]) || result.next().is_some() {
-                return Err(ProbeError::Corrupt("unexpected RETURN 1 result".into()));
-            }
-        }
+                .map_err(|error| ProbeError::Corrupt(error.to_string()))?,
+        )?;
         let verification = rows::read(&connection, &self.file.scope)
             .and_then(|rows| rows.verification())
             .map_err(ProbeError::Corrupt)?;
@@ -263,6 +260,35 @@ impl OpenGraph for ProbeOpen {
             return Err(ProbeError::Stale);
         }
         Ok(())
+    }
+}
+
+/// Admit exactly one native scalar row; reject wrong or additional rows independently.
+fn check_query_one(mut result: impl Iterator<Item = Vec<Value>>) -> Result<(), ProbeError> {
+    if result.next() != Some(vec![Value::Int64(1)]) || result.next().is_some() {
+        return Err(ProbeError::Corrupt("unexpected RETURN 1 result".into()));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod query_tests {
+    use super::*;
+
+    #[test]
+    fn query_one_refuses_wrong_first_row_and_extra_row_independently() {
+        let one = vec![Value::Int64(1)];
+        for rows in [
+            vec![],
+            vec![vec![Value::Int64(2)]],
+            vec![one.clone(), one.clone()],
+        ] {
+            assert_eq!(
+                check_query_one(rows.into_iter()),
+                Err(ProbeError::Corrupt("unexpected RETURN 1 result".into()))
+            );
+        }
+        assert_eq!(check_query_one(vec![one].into_iter()), Ok(()));
     }
 }
 
@@ -346,5 +372,60 @@ impl PublishedFile for ProbeFile {
     fn open_read_only(&self) -> Result<Box<dyn OpenGraph + '_>, ProbeError> {
         self.open_native()
             .map(|open| Box::new(open) as Box<dyn OpenGraph>)
+    }
+}
+
+#[cfg(test)]
+mod readonly_tests {
+    use super::*;
+    use crate::graph::projection::engine::{
+        public_fixture::{Fixture, settings},
+        public_tests::publish,
+    };
+    use maestro_canonicalization::SystemFileLock;
+
+    use maestro_kernel::facts::Error;
+
+    /// Read an authentic receipt without a second authority or native opener.
+    struct Inventory(ProjectionInventory);
+    impl ProjectionReceiptInventory for Inventory {
+        fn inventory(&self, _principal: &str) -> Result<InventoryState, Error> {
+            Ok(InventoryState::Ready(vec![self.0.clone()]))
+        }
+    }
+
+    #[test]
+    fn guard_probe_rejects_native_write_through_real_probe_open() {
+        let fixture = Fixture::new();
+        publish(&fixture);
+        let receipt = fixture
+            .authority
+            .database
+            .projection_ready(&fixture.authority.scopes, fixture.build.scope.generation_id)
+            .unwrap()
+            .unwrap();
+        let inventory = Inventory(ProjectionInventory {
+            collection_id: receipt.collection_id.clone(),
+            generation_id: receipt.generation_id,
+            receipt: Some(receipt),
+        });
+        let ProbeReceipt::Files(files) = Probe::receipt_with(
+            &fixture.native.path,
+            &SystemFileLock,
+            &inventory,
+            Some(settings()),
+        )
+        .unwrap() else {
+            panic!("published files expected");
+        };
+        let open = files[0].open_native().unwrap();
+        assert!(
+            Connection::new(&open.database)
+                .unwrap()
+                .query("CREATE NODE TABLE Forbidden(id STRING, PRIMARY KEY(id))")
+                .is_err(),
+            "health must force a genuinely read-only native handle"
+        );
+        open.query_one().unwrap();
     }
 }

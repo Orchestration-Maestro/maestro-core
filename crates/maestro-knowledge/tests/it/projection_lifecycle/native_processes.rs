@@ -29,6 +29,15 @@ impl Process {
             .env("MAESTRO_LIFECYCLE_ROOT", fixture.path())
             .env("MAESTRO_LIFECYCLE_MODE", mode)
             .env(
+                "MAESTRO_LIFECYCLE_NOW",
+                fixture
+                    .now
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+                    .to_string(),
+            )
+            .env(
                 "MAESTRO_LIFECYCLE_GENERATION",
                 fixture.build.scope.generation_id.to_string(),
             )
@@ -128,7 +137,10 @@ fn lifecycle_process_child_owns_native_handle() {
         claim_set_id: set.clone(),
         lease,
     };
-    let producer = factory.producer(&kernel, &scopes, build, &SystemTime::now);
+    let now = SystemTime::UNIX_EPOCH
+        + Duration::from_secs(env::var("MAESTRO_LIFECYCLE_NOW").unwrap().parse().unwrap());
+    let clock = || now;
+    let producer = factory.producer(&kernel, &scopes, build, &clock);
     let Ok(mut producer) = producer else {
         acknowledge("REFUSED");
         return;
@@ -217,8 +229,9 @@ fn lifecycle_process_death_preserves_staging_then_new_lease_can_publish_and_read
         .filter(|path| path.is_dir())
         .collect();
     assert_eq!(orphans.len(), 1);
+    fixture.now += Duration::from_secs(60);
     let timing = LeaseTiming {
-        now: SystemTime::now() + Duration::from_secs(61),
+        now: fixture.now,
         term: Duration::from_secs(60),
     };
     fixture.build.lease = fixture

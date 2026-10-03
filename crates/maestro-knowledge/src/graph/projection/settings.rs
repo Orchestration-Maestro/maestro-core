@@ -1,9 +1,7 @@
 //! Explicit frozen graph settings; no defaults or independent settings resolver.
 
 use super::port::ProjectionError;
-use maestro_canonicalization::FileLock;
 use maestro_kernel::artifact::Digest;
-use std::{any::type_name_of_val, fmt, path::PathBuf};
 
 /// Runtime selection from `graph.engine`; native types never cross the facade.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,26 +60,5 @@ impl EngineSettings {
     #[must_use]
     pub fn frozen_lock(&self) -> &Digest {
         &self.frozen_lock
-    }
-}
-
-/// Adapter inputs separate from the factory/session types, avoiding an import cycle.
-pub(super) struct ProjectionConfiguration<'a> {
-    /// Configured owned graph root, never an engine filename.
-    pub(super) path: PathBuf,
-    /// Explicit frozen settings supplied by the application.
-    pub(super) settings: EngineSettings,
-    /// Lock primitive supplied by the application.
-    pub(super) locks: &'a dyn FileLock,
-}
-
-impl fmt::Debug for ProjectionConfiguration<'_> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("ProjectionConfiguration")
-            .field("path", &self.path)
-            .field("settings", &self.settings)
-            .field("locks", &type_name_of_val(self.locks))
-            .finish_non_exhaustive()
     }
 }

@@ -1,5 +1,7 @@
 //! Every public open refuses a half-set-up root, without creating a replacement guard.
 use super::{public_fixture::Fixture, public_tests::publish};
+#[cfg(not(windows))]
+use crate::graph::projection::CatalogRelationVocabulary;
 use crate::graph::projection::ProjectionError;
 use maestro_canonicalization::{ControlFile, OwnedRoot};
 use std::fs;
@@ -116,6 +118,12 @@ fn lifecycle_authoritative_expectation_matches_both_native_families_and_rejects_
 #[cfg(not(windows))]
 #[test]
 fn lifecycle_expired_current_lease_cancels_but_takeover_cannot_be_cancelled_by_old_token() {
+    struct Vocabulary;
+    impl CatalogRelationVocabulary for Vocabulary {
+        fn accepts(&self, _relation: &str) -> bool {
+            false
+        }
+    }
     use super::public_fixture::now;
     use maestro_canonicalization::{LockMode, SystemFileLock};
     use maestro_kernel::job::JobState;
@@ -135,7 +143,11 @@ fn lifecycle_expired_current_lease_cancels_but_takeover_cannot_be_cancelled_by_o
             .unwrap();
         producer.write_batch(&fixture.edges, &[]).unwrap();
         time.set(now(60));
-        assert!(producer.write_batch(&fixture.edges, &[]).is_err());
+        let refused = producer.write_batch(&fixture.edges, &[]).unwrap_err();
+        assert_eq!(
+            producer.write_batch_with_catalog_vocabulary(&[], &[], &Vocabulary),
+            Err(refused)
+        );
         let successor = takeover.then(|| {
             fixture
                 .authority
@@ -222,4 +234,29 @@ fn lifecycle_unsafe_control_is_preserved_and_move_aside_repair_opens_valid_neigh
             .unwrap(),
     );
     assert_eq!(fs::read(preserved).unwrap(), payload);
+}
+
+#[test]
+fn guard_cancel_factory_pre_cancelled_open_makes_zero_native_constructions() {
+    use super::open::tests::OPEN_CALLS;
+    use crate::graph::projection::ProjectionCancellation;
+    let fixture = Fixture::new();
+    publish(&fixture);
+    let token = ProjectionCancellation::new();
+    token.cancel();
+    OPEN_CALLS.set(0);
+    let error = fixture
+        .factory()
+        .reader_cancellable(
+            &fixture.authority.database,
+            &fixture.authority.scopes,
+            fixture.build.scope.clone(),
+            token,
+        )
+        .unwrap_err();
+    assert_eq!(
+        error,
+        ProjectionError::Backend("projection read cancelled".into())
+    );
+    assert_eq!(OPEN_CALLS.get(), 0);
 }

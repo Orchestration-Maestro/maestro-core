@@ -316,7 +316,7 @@ fn graph_probe_converts_real_native_receipts_to_shared_health_ports() {
     let receipt = Probe::receipt_with(&fixture.path, &SystemFileLock, &rows, Some(settings()))
         .unwrap()
         .into_receipt();
-    assert_eq!(format!("{receipt:?}"), "Files(1)");
+    assert_eq!(format!("{receipt:?}"), "Receipt::Files(1)");
     let Receipt::Files(files) = receipt else {
         panic!("expected files")
     };

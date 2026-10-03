@@ -12,6 +12,8 @@ mod probe_tests;
 pub(super) mod producer;
 mod reader;
 pub(super) mod registry;
+#[cfg(test)]
+mod registry_tests;
 mod rows;
 mod schema;
 #[cfg(test)]

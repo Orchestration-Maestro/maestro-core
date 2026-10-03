@@ -1018,6 +1018,7 @@ in place.
 │   │   │   │   │   │   ├── public_tests.rs                                  # Production publication, factory, lease fences and immutable handle ownership
 │   │   │   │   │   │   ├── reader.rs                                        # Rooted immutable native reads, bound to one scope and the exact physical receipt file
 │   │   │   │   │   │   ├── registry.rs                                      # One native immutable handle per physical path across all public factories
+│   │   │   │   │   │   ├── registry_tests.rs                                # Registry ownership and physical root normalization through public factories
 │   │   │   │   │   │   ├── rollback_repro.rs                                # Frozen native checkpoint/rollback matrix for LadybugDB PR 1049
 │   │   │   │   │   │   ├── rows.rs                                          # Strict native rows and the inverse of E05's complete binary fact contract
 │   │   │   │   │   │   ├── schema.rs                                        # Native catalog mapping for the logical entity-key and adjacency access paths
@@ -1038,11 +1039,11 @@ in place.
 │   │   │   │   │   │   ├── mod.rs                                           # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── port.rs                                          # Rust source: port
 │   │   │   │   │   │   └── projection_writer.rs                             # Backend-neutral projection writer and reader contract tests
-│   │   │   │   │   ├── absent.rs                                            # Named feature-absent implementation, owned only by featureless mutation runs
 │   │   │   │   │   ├── access.rs                                            # Permanent root-wide access and writer guards; no fallback lock domain
 │   │   │   │   │   ├── build.rs                                             # Backend-neutral authoritative build inputs and successful publication result
 │   │   │   │   │   ├── cancellation.rs                                      # Explicit read cancellation without a timeout, polling interval or detached native handle
 │   │   │   │   │   ├── cleanup.rs                                           # Reader-safe, single-receipt cleanup; native engine code is never opened here
+│   │   │   │   │   ├── configuration.rs                                     # Engine-only adapter inputs with redacted root and opaque lock diagnostics
 │   │   │   │   │   ├── content.rs                                           # Frozen application-ID encodings for projection content and receipt names
 │   │   │   │   │   ├── handle.rs                                            # Backend-neutral immutable handle retaining the backend's native ownership and guard
 │   │   │   │   │   ├── health.rs                                            # Application health ports and typed failures, independent of the optional engine

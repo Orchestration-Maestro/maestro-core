@@ -32,6 +32,7 @@ use std::{
 pub(super) struct Fixture {
     pub(super) kernel: Database,
     pub(super) build: ProjectionBuild,
+    pub(super) now: SystemTime,
     directory: Scratch,
 }
 struct Scratch(PathBuf);
@@ -68,8 +69,9 @@ impl Fixture {
             .unwrap();
         let scopes = kernel.visible("lifecycle").unwrap();
         let claim = source(&kernel);
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let timing = LeaseTiming {
-            now: SystemTime::now(),
+            now,
             term: Duration::from_secs(60),
         };
         let plan = BuildPlan {
@@ -137,6 +139,7 @@ impl Fixture {
         root.ensure_control(ControlFile::Writer).unwrap();
         Self {
             kernel,
+            now,
             build: ProjectionBuild {
                 scope,
                 claim_set_id: set.id,

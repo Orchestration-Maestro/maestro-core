@@ -7,9 +7,10 @@ use super::{
 use crate::graph::projection::{
     access::{Access, open_root},
     build::{ProjectionBuild, PublishedProjection},
+    configuration::ProjectionConfiguration,
     content,
     port::{EntityFact, ProjectionEdge, ProjectionError},
-    settings::{EngineSettings, ProjectionConfiguration},
+    settings::EngineSettings,
     writer::{
         BuildVerification, CatalogRelationVocabulary, ProjectionBackend, ProjectionWriter,
         check_read_scope, receipt_from_verification,
@@ -272,5 +273,122 @@ impl Publication for Install<'_> {
             "publication refused: {error}; writer closed; preserve staging and receiptless finals \
              and report for explicit recovery; do not retry this writer"
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::graph::projection::engine::public_fixture::{Fixture, now};
+    #[cfg(not(windows))]
+    use maestro_canonicalization::SystemFileLock;
+
+    #[test]
+    fn install_refuses_each_independently_mismatched_basename() {
+        let fixture = Fixture::new();
+        let root = open_root(&fixture.native.path).unwrap();
+        let staging = root.reserve_child("private-staging").unwrap();
+        let name = content::basename(&fixture.build.scope, &fixture.build.claim_set_id).unwrap();
+        let receipt = receipt_from_verification(
+            &fixture.build.scope,
+            fixture.build.claim_set_id.clone(),
+            name.clone(),
+            &BuildVerification::expected(&fixture.edges, &[]).unwrap(),
+        )
+        .unwrap();
+        let clock = || now(0);
+        let mut install = Install {
+            root,
+            staging,
+            kernel: &fixture.authority.database,
+            scopes: fixture.authority.scopes.clone(),
+            build: fixture.build.clone(),
+            clock: &clock,
+            receipt: Some(receipt),
+        };
+        for (staged, published) in [("other", name.as_str()), ("other", "other")] {
+            assert_eq!(
+                install.install(staged, published),
+                Err("publication names differ from the reserved receipt basename".into())
+            );
+        }
+        assert!(!fixture.native.path.join(name).exists());
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn session_debug_redacts_native_roots_kernel_clock_and_guards() {
+        let fixture = Fixture::new();
+        let clock = || now(0);
+        let factory = ProjectionConfiguration {
+            path: fixture.native.path.clone(),
+            settings: super::super::public_fixture::settings(),
+            locks: &SystemFileLock,
+        };
+        let session = Session::create(
+            &factory,
+            &fixture.authority.database,
+            &fixture.authority.scopes,
+            fixture.build.clone(),
+            &clock,
+        )
+        .unwrap();
+        let debug = format!("{session:?}");
+        assert!(debug.starts_with("ProjectionSession"));
+        assert!(!debug.contains(&fixture.native.path.display().to_string()));
+        for field in ["backend:", "kernel:", "clock:", "_access:"] {
+            assert!(!debug.contains(field), "opaque field leaked: {field}");
+        }
+    }
+}
+
+#[cfg(all(test, not(windows)))]
+mod lease_tests {
+    use super::*;
+    use crate::graph::projection::engine::{
+        open::tests::OPEN_CALLS,
+        public_fixture::{Fixture, now, settings},
+    };
+    use maestro_canonicalization::SystemFileLock;
+    use std::cell::Cell;
+
+    #[test]
+    fn guard_expired_session_verify_and_publish_preflight_make_zero_native_reopens() {
+        for publish in [false, true] {
+            let fixture = Fixture::new();
+            let time = Cell::new(now(0));
+            let clock = || time.get();
+            let configuration = ProjectionConfiguration {
+                path: fixture.native.path.clone(),
+                settings: settings(),
+                locks: &SystemFileLock,
+            };
+            let mut session = Session::create(
+                &configuration,
+                &fixture.authority.database,
+                &fixture.authority.scopes,
+                fixture.build.clone(),
+                &clock,
+            )
+            .unwrap();
+            session.write_batch(&fixture.edges, &[], None).unwrap();
+            let expected = BuildVerification::expected(&fixture.edges, &[]).unwrap();
+            time.set(now(60));
+            OPEN_CALLS.set(0);
+            let refused = if publish {
+                session.publish(&expected).map(|_| ())
+            } else {
+                session.verify().map(|_| ())
+            };
+            assert!(
+                refused.is_err(),
+                "expired admission must refuse before native verification"
+            );
+            assert_eq!(
+                OPEN_CALLS.get(),
+                0,
+                "expired admission must make zero native reopens"
+            );
+        }
     }
 }

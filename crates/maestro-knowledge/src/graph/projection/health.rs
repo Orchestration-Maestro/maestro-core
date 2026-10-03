@@ -81,8 +81,39 @@ pub trait OpenGraph {
 impl fmt::Debug for Receipt<'_> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NonePublished => formatter.write_str("NonePublished"),
-            Self::Files(files) => formatter.debug_tuple("Files").field(&files.len()).finish(),
+            Self::NonePublished => formatter.write_str("Receipt::NonePublished"),
+            Self::Files(files) => formatter
+                .debug_tuple("Receipt::Files")
+                .field(&files.len())
+                .finish(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A file with a private diagnostic location and an opaque native opener.
+    struct PrivateFile;
+    impl PublishedFile for PrivateFile {
+        fn path(&self) -> &Path {
+            Path::new("private-health-path-marker")
+        }
+        fn open_read_only(&self) -> Result<Box<dyn OpenGraph + '_>, ProbeError> {
+            panic!("Debug must not open a native handle")
+        }
+    }
+
+    #[test]
+    fn receipt_debug_names_type_and_redacts_published_paths_and_handles() {
+        let receipt = Receipt::Files(vec![Box::new(PrivateFile)]);
+        let debug = format!("{receipt:?}");
+        assert_eq!(debug, "Receipt::Files(1)");
+        assert!(!debug.contains("private-health-path-marker"));
+        assert_eq!(
+            format!("{:?}", Receipt::NonePublished),
+            "Receipt::NonePublished"
+        );
     }
 }

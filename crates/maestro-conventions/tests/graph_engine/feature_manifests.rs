@@ -80,13 +80,21 @@ fn required_ci_owns_native_coverage_and_the_exact_engine_source() {
     engine_files.push(Value::String(
         "crates/maestro-knowledge/src/graph/projection/access.rs".into(),
     ));
+    engine_files.extend(["config", "cancellation", "producer"].map(|name| {
+        Value::String(format!(
+            "crates/maestro-knowledge/src/graph/projection/engine/{name}.rs"
+        ))
+    }));
     engine_files.extend(
-        ["config", "cancellation", "producer", "registry"].map(|name| {
+        ["configuration", "lifecycle", "operations", "handle"].map(|name| {
             Value::String(format!(
-                "crates/maestro-knowledge/src/graph/projection/engine/{name}.rs"
+                "crates/maestro-knowledge/src/graph/projection/{name}.rs"
             ))
         }),
     );
+    engine_files.push(Value::String(
+        "crates/maestro-knowledge/src/graph/projection/engine/registry.rs".into(),
+    ));
     engine_files.push(Value::String(
         "crates/maestro-knowledge/src/graph/projection/engine/probe.rs".into(),
     ));

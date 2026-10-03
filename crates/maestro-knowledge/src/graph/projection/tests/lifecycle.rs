@@ -1,9 +1,9 @@
 //! Public lifecycle refusals paired with valid neighboring configurations.
-use crate::graph::{
-    descriptors::tests_source::Authority,
-    projection::{EngineSettings, ProjectionBuild},
-};
+use crate::graph::projection::EngineSettings;
+#[cfg(feature = "engine")]
+use crate::graph::{descriptors::tests_source::Authority, projection::ProjectionBuild};
 use maestro_kernel::artifact::Digest;
+#[cfg(feature = "engine")]
 use std::time::SystemTime;
 
 #[test]
@@ -33,6 +33,7 @@ fn graph_settings_accept_exact_bounds_and_refuse_adjacent_invalid_values() {
     }
 }
 
+#[cfg(feature = "engine")]
 #[test]
 fn lifecycle_public_producer_requires_existing_guards_and_allows_valid_neighbor() {
     use crate::graph::projection::{ProjectionEngine, ProjectionError, ProjectionFactory};
@@ -78,11 +79,7 @@ fn lifecycle_public_producer_requires_existing_guards_and_allows_valid_neighbor(
             &clock,
         )
         .unwrap_err();
-    let remedy = if cfg!(feature = "engine") {
-        "maestro setup --yes"
-    } else {
-        "`engine` feature"
-    };
+    let remedy = "maestro setup --yes";
     assert!(matches!(error, ProjectionError::Backend(message) if message.contains(remedy)));
     let error = factory
         .reader(&authority.database, &authority.scopes, build.scope.clone())
@@ -90,13 +87,13 @@ fn lifecycle_public_producer_requires_existing_guards_and_allows_valid_neighbor(
     assert!(matches!(error, ProjectionError::Backend(message) if message.contains(remedy)));
     root.ensure_control(ControlFile::Access).unwrap();
     root.ensure_control(ControlFile::Writer).unwrap();
-    #[cfg(all(feature = "engine", not(windows)))]
+    #[cfg(not(windows))]
     drop(
         factory
             .producer(&authority.database, &authority.scopes, build, &clock)
             .unwrap(),
     );
-    #[cfg(any(not(feature = "engine"), windows))]
+    #[cfg(windows)]
     assert!(
         factory
             .producer(&authority.database, &authority.scopes, build, &clock)
@@ -106,6 +103,7 @@ fn lifecycle_public_producer_requires_existing_guards_and_allows_valid_neighbor(
     fs::remove_dir_all(path).unwrap();
 }
 
+#[cfg(feature = "engine")]
 fn factory_settings() -> EngineSettings {
     EngineSettings::new(16 * 1024 * 1024, 64 * 1024 * 1024, 1, Digest::of(b"lock")).unwrap()
 }
@@ -122,6 +120,7 @@ fn lifecycle_cancellation_token_is_one_way_and_shared_between_clones() {
     assert!(other.is_cancelled());
 }
 
+#[cfg(feature = "engine")]
 fn authority_build() -> (Authority, ProjectionBuild, SystemTime) {
     use crate::graph::{
         descriptors::tests_source::Authority,
@@ -141,7 +140,7 @@ fn authority_build() -> (Authority, ProjectionBuild, SystemTime) {
         .unwrap()
         .unwrap()
         .claim_set_id;
-    let now = SystemTime::now();
+    let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000);
     let body = json!({"generation": scope.generation_id});
     let kernel_scope = collection_path(&scope.collection_id).parse().unwrap();
     let job = authority

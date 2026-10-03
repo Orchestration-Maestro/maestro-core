@@ -5,20 +5,24 @@ pub mod port;
 #[cfg(feature = "engine")]
 pub mod probe;
 
-#[cfg(not(feature = "engine"))]
-mod absent;
 #[cfg(feature = "engine")]
 mod access;
+#[cfg(feature = "engine")]
 mod adapter;
 mod build;
 mod cancellation;
 pub mod cleanup;
+#[cfg(feature = "engine")]
+mod configuration;
 mod content;
+#[cfg(feature = "engine")]
 mod handle;
 pub use cancellation::ProjectionCancellation;
 #[cfg(feature = "engine")]
 mod engine;
+#[cfg(feature = "engine")]
 mod lifecycle;
+#[cfg(feature = "engine")]
 mod operations;
 #[expect(
     dead_code,
@@ -28,7 +32,9 @@ mod receipts;
 mod schema;
 mod settings;
 pub use build::{ProjectionBuild, PublishedProjection};
+#[cfg(feature = "engine")]
 pub use handle::ProjectionHandle;
+#[cfg(feature = "engine")]
 pub use lifecycle::{ProjectionFactory, ProjectionProducer};
 pub use settings::{EngineSettings, ProjectionEngine};
 pub use writer::{BuildVerification, CatalogRelationVocabulary};

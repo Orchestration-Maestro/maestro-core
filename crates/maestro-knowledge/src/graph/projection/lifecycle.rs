@@ -4,31 +4,23 @@ use super::{
     adapter::{Session, reader_open},
     build::ProjectionBuild,
     cancellation::ProjectionCancellation,
+    configuration::ProjectionConfiguration,
     handle::ProjectionHandle,
     port::{ProjectionError, ProjectionScope},
-    settings::{EngineSettings, ProjectionConfiguration, ProjectionEngine},
+    settings::{EngineSettings, ProjectionEngine},
 };
 use maestro_canonicalization::FileLock;
 use maestro_kernel::{scope::ScopeSet, store::Database};
-use std::{fmt, path::Path, time::SystemTime};
+use std::{path::Path, time::SystemTime};
 
 /// Application-facing backend factory; callers never construct native databases.
 /// Direct engine-file access bypassing the permanent guard protocol is unsupported.
+#[derive(Debug)]
 pub struct ProjectionFactory<'a> {
     /// Explicit immutable root/settings/lock inputs shared by reader and producer adapters.
     configuration: ProjectionConfiguration<'a>,
     /// Runtime backend choice.
     engine: ProjectionEngine,
-}
-
-impl fmt::Debug for ProjectionFactory<'_> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("ProjectionFactory")
-            .field("configuration", &self.configuration)
-            .field("engine", &self.engine)
-            .finish_non_exhaustive()
-    }
 }
 
 impl<'a> ProjectionFactory<'a> {
