@@ -13,8 +13,7 @@ fn document(path: &str) -> Value {
 fn graph_engine_is_optional_and_forwarded_only_by_the_engine_feature() {
     let knowledge = document("crates/maestro-knowledge/Cargo.toml");
     let cli = document("crates/maestro/Cargo.toml");
-    let spike = document("crates/lbug-spike/Cargo.toml");
-    for manifest in [&knowledge, &cli, &spike] {
+    for manifest in [&knowledge, &cli] {
         assert!(manifest["features"].get("default").is_none());
     }
     assert_eq!(

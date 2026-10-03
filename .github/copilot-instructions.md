@@ -49,16 +49,6 @@ in place.
 │   ├── dependabot.yml                                                       # The organization merges only conventional titles: "ci(deps): bump ..."
 │   └── zizmor.yml                                                           # The workflow security audit just check and the commit hook run: zizmor, in its pedantic persona, offline
 ├── crates/                                                                  # The workspace's crates
-│   ├── lbug-spike/                                                          # Lbug spike
-│   │   ├── examples/                                                        # Worked examples
-│   │   │   └── open_query.rs                                                # The smallest program that links LadybugDB: open an in-memory database
-│   │   ├── src/                                                             # The crate's sources
-│   │   │   └── lib.rs                                                       # Throwaway S2 G25 probe of the lbug crate (LadybugDB)
-│   │   ├── tests/                                                           # Integration tests
-│   │   │   └── it/                                                          # It
-│   │   │       ├── main.rs                                                  # G25's evidence on lbug (LadybugDB), one test crate: what the engine
-│   │   │       └── no_openssl.rs                                            # G25 route B: the patched lbug (Orchestration-Maestro/lbug, default
-│   │   └── Cargo.toml                                                       # Crate manifest: Throwaway S2 G25 probe: LadybugDB (lbug) builds, opens, writes, reads and reopens
 │   ├── maestro/                                                             # The maestro binary: the command line (CLI) over the knowledge library and the kernel
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── cli/                                                         # The commands, a module each, and what they share

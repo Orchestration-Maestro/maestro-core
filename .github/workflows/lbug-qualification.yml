@@ -53,10 +53,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo test -p maestro-knowledge --features engine --locked graph::projection -- --nocapture 2>&1 | tee evidence/projection.txt
+          # Keep the legacy spike evidence names for the now-rooted proofs.
+          cargo test -p maestro-knowledge --features engine --locked --lib --timings graph::projection -- --nocapture 2>&1 | tee evidence/projection.txt evidence/spike.txt
           cargo test -p maestro --features engine --locked graph_operations 2>&1 | tee evidence/graph-operations.txt
-          cargo test -p lbug-spike --features engine --locked --timings 2>&1 | tee evidence/spike.txt
-          cargo test -p lbug-spike --features engine --locked --no-run --message-format=json > evidence/spike-build.jsonl
+          cargo test -p maestro-knowledge --features engine --locked --lib --no-run --message-format=json > evidence/spike-build.jsonl
       - name: Inspect native TLS linkage
         shell: bash
         run: |
@@ -69,8 +69,8 @@ jobs:
           import sys
           messages = [json.loads(line) for line in pathlib.Path('evidence/spike-build.jsonl').read_text().splitlines()]
           binaries = [message['executable'] for message in messages
-                      if message.get('executable') and message['target']['name'] == 'it']
-          assert len(binaries) == 1, 'Expected exactly one spike test executable'
+                      if message.get('executable') and message['target']['name'] == 'maestro_knowledge']
+          assert len(binaries) == 1, 'Expected exactly one rooted knowledge test executable'
           binary = pathlib.Path(binaries[0])
           if os.name == 'nt':
               command = ['objdump', '-p', str(binary)]

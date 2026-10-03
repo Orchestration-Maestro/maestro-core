@@ -138,6 +138,33 @@ foreach ($file in Get-ChildItem -LiteralPath $path -File) {
     }
 
     #[test]
+    fn rooted_open_refuses_extension_install() {
+        let (_scratch, root) = populated_fixture();
+        let database = open(&root, "graph.lbdb", config().read_only(true)).unwrap();
+        let connection = Connection::new(&database).unwrap();
+        let error = connection
+            .query("INSTALL json;")
+            .expect_err("rooted construction downloads no extensions")
+            .to_string();
+        assert!(
+            error.contains("Rooted mode refuses extension install."),
+            "{error}"
+        );
+    }
+
+    // Linux maps prove loaded libraries; qualification inspects linkage on all hosts.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn no_openssl_library_is_loaded() {
+        let (_scratch, root) = populated_fixture();
+        let _database = open(&root, "graph.lbdb", config().read_only(true)).unwrap();
+        let maps = fs::read_to_string("/proc/self/maps").expect("process maps");
+        for library in ["libssl", "libcrypto"] {
+            assert!(!maps.contains(library), "{library} is loaded");
+        }
+    }
+
+    #[test]
     fn rooted_open_refuses_non_child_names_without_touching_outside_bytes() {
         let (scratch, root) = populated_fixture();
         drop(open(&root, "graph.lbdb", config().read_only(true)).unwrap());
