@@ -168,11 +168,11 @@ fn bounded_result(
 /// Maps local kernel setup failures without disclosing the configuration or backend.
 fn kernel_open_failure(failure: &Failure) -> KnowledgeError {
     match failure {
-        Failure::Refused(_) => KnowledgeError::Refused {
+        Failure::Refused(_) | Failure::RefusedMessage(_) => KnowledgeError::Refused {
             code: "invalid_configuration",
             message: "local access configuration is invalid",
         },
-        Failure::Failed(_) => KnowledgeError::Failed {
+        Failure::Failed(_) | Failure::FailedMessage(_) => KnowledgeError::Failed {
             code: "kernel_unavailable",
             message: "the local knowledge store is unavailable",
         },

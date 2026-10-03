@@ -1036,12 +1036,12 @@ adoption evidence. The plain flow and preference parser have no new dependency.
 approved dependency/feature/vet registrations only.
 **Requirements:** FR-S3-030, SC-S3-010.
 
-- [ ] **Step 1: Red.** Add five-screen snapshots/key sequences, Tab/arrows,
+- [x] **Step 1: Red.** Add five-screen snapshots/key sequences, Tab/arrows,
   Back, invalid-field focus, resize, Ctrl-C/EOF, cleanup and no-color cases.
   Assert renderer/plain/script plan parity and zero unconfirmed writes. A new
   S1 descriptor appears in init and no-argument config with all four registry
   fields and authorized editing; locked/authority-only neighbours still refuse.
-- [ ] **Step 2: Green.** Plug the approved ratatui renderer into C05g's shared
+- [x] **Step 2: Green.** Plug the approved ratatui renderer into C05g's shared
   registry-generated editor for init and no-argument config, with no per-setting
   screens. Apply D6's palette, hierarchy, focus and accessible fallback; never duplicate
   draft validation or file effects. Restore the terminal on every exit.

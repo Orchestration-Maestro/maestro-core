@@ -1,0 +1,187 @@
+[
+  {
+    "path": "catalog/check.rs",
+    "key": "catalog_missing_ownership",
+    "literal": "checked resource has no area ownership"
+  },
+  {
+    "path": "catalog/check.rs",
+    "key": "catalog_check_passed",
+    "literal": "catalog check passed: {} resources"
+  },
+  {
+    "path": "catalog/codeowners.rs",
+    "key": "catalog_codeowners_regular",
+    "literal": "{CODEOWNERS_PATH}: generated CODEOWNERS must be a regular file"
+  },
+  {
+    "path": "catalog/codeowners.rs",
+    "key": "diagnostic_path",
+    "literal": "{CODEOWNERS_PATH}: {error}"
+  },
+  {
+    "path": "catalog/codeowners.rs",
+    "key": "catalog_codeowners_missing",
+    "literal": "{CODEOWNERS_PATH}: missing file; expected rule {rule}"
+  },
+  {
+    "path": "catalog/codeowners.rs",
+    "key": "catalog_codeowners_passed",
+    "literal": "CODEOWNERS check passed"
+  },
+  {
+    "path": "catalog/compile.rs",
+    "key": "catalog_compiled",
+    "literal": "catalog compile {}"
+  },
+  {
+    "path": "catalog/compile.rs",
+    "key": "catalog_output_filename",
+    "literal": "output needs a UTF-8 filename"
+  },
+  {
+    "path": "catalog/compile.rs",
+    "key": "catalog_staging_changed",
+    "literal": "staging bytes changed; refusing cleanup"
+  },
+  {
+    "path": "catalog/index.rs",
+    "key": "catalog_output_regular",
+    "literal": "{path}: generated output must be a regular file"
+  },
+  {
+    "path": "catalog/index.rs",
+    "key": "diagnostic_path",
+    "literal": "{path}: {error}"
+  },
+  {
+    "path": "catalog/index.rs",
+    "key": "catalog_index_passed",
+    "literal": "catalog index check passed"
+  },
+  {
+    "path": "catalog/owners.rs",
+    "key": "catalog_evidence_filename",
+    "literal": "evidence: supply a regular UTF-8-named JSON file"
+  },
+  {
+    "path": "catalog/owners.rs",
+    "key": "diagnostic_path",
+    "literal": "{}: {error}"
+  },
+  {
+    "path": "catalog/owners.rs",
+    "key": "catalog_evidence_limit",
+    "literal": "{}: evidence exceeds the source-file byte limit"
+  },
+  {
+    "path": "catalog/owners.rs",
+    "key": "diagnostic_path",
+    "literal": "{}: {error}"
+  },
+  {
+    "path": "catalog/owners.rs",
+    "key": "catalog_owners_passed",
+    "literal": "catalog owners passed: trusted evidence matches base ownership and exact head/digests"
+  },
+  {
+    "path": "catalog/project.rs",
+    "key": "catalog_target_untrusted",
+    "literal": "exact target is untrusted; {suggestion}"
+  },
+  {
+    "path": "catalog/project.rs",
+    "key": "catalog_target_approve",
+    "literal": "Approve exact projection target {}? [y/N] "
+  },
+  {
+    "path": "catalog/project.rs",
+    "key": "diagnostic_instruction",
+    "literal": "{error}; {suggestion}"
+  },
+  {
+    "path": "catalog/project.rs",
+    "key": "catalog_target_declined",
+    "literal": "target trust declined; {suggestion}"
+  },
+  {
+    "path": "output.rs",
+    "key": "output_write_failed",
+    "literal": "cannot write to stdout: {error}"
+  },
+  {
+    "path": "run.rs",
+    "key": "run_repair_dispatch",
+    "literal": "repair command bypassed its scoped dispatch path"
+  },
+  {
+    "path": "run.rs",
+    "key": "run_retrieval_dispatch",
+    "literal": "knowledge retrieval bypassed its scoped dispatch path"
+  },
+  {
+    "path": "run.rs",
+    "key": "run_prepare_models_off",
+    "literal": "models.compute is off: prepare calls the model router"
+  },
+  {
+    "path": "run.rs",
+    "key": "run_publish_models_off",
+    "literal": "models.compute is off: publish calls the model router"
+  },
+  {
+    "path": "run.rs",
+    "key": "run_model_dispatch",
+    "literal": "a model command bypassed its dispatch path"
+  },
+  {
+    "path": "run.rs",
+    "key": "run_retrieval_dispatch",
+    "literal": "knowledge retrieval bypassed its scoped dispatch path"
+  },
+  {
+    "path": "session.rs",
+    "key": "session_workspace_directory",
+    "literal": "--workspace {}: the path is not a directory: no project file is read"
+  },
+  {
+    "path": "session.rs",
+    "key": "session_backend_unavailable",
+    "literal": "backend adapter is not compiled into this build"
+  },
+  {
+    "path": "trust.rs",
+    "key": "trust_home_unavailable",
+    "literal": "HOME cannot be resolved"
+  },
+  {
+    "path": "trust.rs",
+    "key": "trust_approve",
+    "literal": "Approve {}? [y/N] "
+  },
+  {
+    "path": "trust.rs",
+    "key": "diagnostic_instruction",
+    "literal": "{failure}; {}"
+  },
+  {
+    "path": "trust.rs",
+    "key": "trust_recorded",
+    "literal": "Recorded workspace answer for {}."
+  },
+  {
+    "path": "trust_path.rs",
+    "key": "trust_suggestion_command",
+    "literal": "run: maestro trust add {quoted} --confirm-path {quoted}"
+  },
+  {
+    "path": "trust_path.rs",
+    "key": "trust_suggestion_data",
+    "literal": "canonical path (data):\\n{:?}\\nQuote this path for your shell. "
+  },
+  {
+    "path": "trust_path.rs",
+    "key": "trust_suggestion_data",
+    "literal": "From inside that folder, run maestro trust add ."
+  }
+]

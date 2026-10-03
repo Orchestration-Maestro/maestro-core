@@ -1,6 +1,7 @@
 //! Why a command stopped short, and the exit code that says so (plan D12):
 //! 2 for an input it refused, 1 for an operation that failed.
 
+use crate::presentation::message::Message;
 use std::{error::Error, fmt, process::ExitCode};
 
 /// Why a command stopped short.
@@ -11,6 +12,10 @@ pub(crate) enum Failure {
     Refused(String),
     /// The operation failed because the kernel or file system did. Exit code 1.
     Failed(String),
+    /// Typed refusal; machine records and Display retain the English template.
+    RefusedMessage(Message),
+    /// Typed failure; only the human boundary selects another interface language.
+    FailedMessage(Message),
 }
 
 impl Failure {
@@ -34,11 +39,21 @@ impl Failure {
         Self::Failed(chain(error))
     }
 
+    /// A typed refusal without changing the existing string-based constructors.
+    pub(crate) const fn refused_message(message: Message) -> Self {
+        Self::RefusedMessage(message)
+    }
+
+    /// A typed failure without changing English machine diagnostics.
+    pub(crate) const fn failed_message(message: Message) -> Self {
+        Self::FailedMessage(message)
+    }
+
     /// The exit code that says why: 2 for a refusal, 1 for a failure.
     pub(crate) fn code(&self) -> ExitCode {
         match self {
-            Self::Refused(_) => ExitCode::from(2),
-            Self::Failed(_) => ExitCode::from(1),
+            Self::Refused(_) | Self::RefusedMessage(_) => ExitCode::from(2),
+            Self::Failed(_) | Self::FailedMessage(_) => ExitCode::from(1),
         }
     }
 }
@@ -47,6 +62,7 @@ impl fmt::Display for Failure {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Refused(reason) | Self::Failed(reason) => formatter.write_str(reason),
+            Self::RefusedMessage(message) | Self::FailedMessage(message) => message.fmt(formatter),
         }
     }
 }

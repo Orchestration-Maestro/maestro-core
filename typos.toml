@@ -3,6 +3,11 @@
 
 [default.extend-words]
 FND = "FND"
+ressources = "ressources"
+limite = "limite"
+projet = "projet"
+ser = "ser"
+comando = "comando"
 Exemple = "Exemple"
 RTO = "RTO"
 WRONLY = "WRONLY"

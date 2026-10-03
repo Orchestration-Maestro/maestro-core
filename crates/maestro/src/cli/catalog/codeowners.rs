@@ -1,7 +1,11 @@
 //! Read-only CODEOWNERS rendering to stdout and exact committed-file comparison.
 
 use super::check::today;
-use crate::{cli::output::Output, failure::Failure};
+use crate::{
+    cli::output::Output,
+    failure::Failure,
+    presentation::{message::Message, messages::MessageKey},
+};
 use maestro_catalog::{
     limits::Limits,
     source::{CODEOWNERS_PATH, Directory, Known, Refusal, build, builtin, frozen_rows},
@@ -42,13 +46,19 @@ pub(in crate::cli) fn run(
     // every ancestor and performs size-bounded, no-follow regular-file reads.
     match fs::symlink_metadata(catalog_dir.join(CODEOWNERS_PATH)) {
         Ok(metadata) if !metadata.is_file() => {
-            return Err(Failure::refused(format!(
-                "{CODEOWNERS_PATH}: generated CODEOWNERS must be a regular file"
+            return Err(Failure::refused_message(Message::new(
+                MessageKey::CatalogCodeownersRegular,
+                &[("path", CODEOWNERS_PATH)],
             )));
         }
         Ok(_) => {}
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-        Err(error) => return Err(Failure::failed(format!("{CODEOWNERS_PATH}: {error}"))),
+        Err(error) => {
+            return Err(Failure::failed_message(Message::new(
+                MessageKey::DiagnosticPath,
+                &[("path", CODEOWNERS_PATH), ("error", &error.to_string())],
+            )));
+        }
     }
     let registry = builtin().map_err(Failure::failed)?;
     let rows = frozen_rows();
@@ -71,14 +81,15 @@ pub(in crate::cli) fn run(
                 .lines()
                 .find(|line| line.starts_with('/'))
                 .unwrap_or("/*");
-            return Err(Failure::refused(format!(
-                "{CODEOWNERS_PATH}: missing file; expected rule {rule}"
+            return Err(Failure::refused_message(Message::new(
+                MessageKey::CatalogCodeownersMissing,
+                &[("path", CODEOWNERS_PATH), ("rule", rule)],
             )));
         }
         catalog
             .verify_generated(generated.as_deref())
             .map_err(failure)?;
-        "CODEOWNERS check passed"
+        &output.wording(MessageKey::CatalogCodeownersPassed, &[])?
     } else {
         // Output::result adds exactly one newline; preserve the renderer's bytes.
         rendered.strip_suffix('\n').unwrap_or(&rendered)

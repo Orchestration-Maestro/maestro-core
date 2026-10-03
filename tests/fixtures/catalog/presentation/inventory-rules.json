@@ -1,0 +1,176 @@
+{
+  "pending": [
+    {
+      "slice": 2,
+      "prefixes": [
+        "init/",
+        "config/"
+      ]
+    },
+    {
+      "slice": 3,
+      "prefixes": [
+        "ask.rs",
+        "collection.rs",
+        "import.rs",
+        "model.rs",
+        "policy.rs",
+        "prepare.rs",
+        "publish/",
+        "publish_report/",
+        "quality.rs",
+        "retrieve.rs",
+        "search/",
+        "status.rs",
+        "wait.rs",
+        "verify.rs"
+      ]
+    },
+    {
+      "slice": 4,
+      "prefixes": [
+        "backup/",
+        "setup/",
+        "health/",
+        "eval/"
+      ]
+    }
+  ],
+  "exceptions": [
+    {
+      "path": "output.rs",
+      "literal": "job {id}",
+      "reason": "Machine-readable job announcement; preserve its byte contract."
+    },
+    {
+      "path": "output.rs",
+      "literal": "step {}",
+      "reason": "Machine-readable canonical JSON step event; preserve its byte contract."
+    },
+    {
+      "path": "trust_path.rs",
+      "literal": " /._-+,@:~=",
+      "reason": "Shell argument character allow-list, not interface prose."
+    },
+    {
+      "path": "args.rs",
+      "literal": "language",
+      "reason": "Setting keys emitted to the strict flag parser."
+    },
+    {
+      "path": "args.rs",
+      "literal": "tone",
+      "reason": "Setting keys emitted to the strict flag parser."
+    },
+    {
+      "path": "catalog/check.rs",
+      "literal": "failed",
+      "reason": "Stable machine status value in the catalog-check document."
+    },
+    {
+      "path": "catalog/check.rs",
+      "literal": "refused",
+      "reason": "Stable machine status value in the catalog-check document."
+    },
+    {
+      "path": "catalog/codeowners.rs",
+      "literal": "passed",
+      "reason": "Stable machine status value in the CODEOWNERS document."
+    },
+    {
+      "path": "catalog/codeowners.rs",
+      "literal": "rendered",
+      "reason": "Stable machine status value in the CODEOWNERS document."
+    },
+    {
+      "path": "catalog/index.rs",
+      "literal": "passed",
+      "reason": "Stable machine status value in the index document."
+    },
+    {
+      "path": "catalog/index.rs",
+      "literal": "rendered",
+      "reason": "Stable machine status value in the index document."
+    },
+    {
+      "path": "output.rs",
+      "literal": "dumb",
+      "reason": "Terminal capability identifiers, not human output."
+    },
+    {
+      "path": "output.rs",
+      "literal": "unknown",
+      "reason": "Terminal capability identifiers, not human output."
+    },
+    {
+      "path": "run.rs",
+      "literal": "updates={updates}",
+      "reason": "Setting assignment, language/command name or stable machine error code."
+    },
+    {
+      "path": "run.rs",
+      "literal": "language",
+      "reason": "Setting assignment, language/command name or stable machine error code."
+    },
+    {
+      "path": "run.rs",
+      "literal": "auto",
+      "reason": "Setting assignment, language/command name or stable machine error code."
+    },
+    {
+      "path": "run.rs",
+      "literal": "prepare",
+      "reason": "Setting assignment, language/command name or stable machine error code."
+    },
+    {
+      "path": "run.rs",
+      "literal": "publish",
+      "reason": "Setting assignment, language/command name or stable machine error code."
+    },
+    {
+      "path": "run.rs",
+      "literal": "models_off",
+      "reason": "Setting assignment, language/command name or stable machine error code."
+    },
+    {
+      "path": "session.rs",
+      "literal": "none",
+      "reason": "Compiled backend identifiers and disabled-backend machine value."
+    },
+    {
+      "path": "session.rs",
+      "literal": "qdrant",
+      "reason": "Compiled backend identifiers and disabled-backend machine value."
+    },
+    {
+      "path": "session.rs",
+      "literal": "knowledge",
+      "reason": "Compiled backend identifiers and disabled-backend machine value."
+    },
+    {
+      "path": "trust_path.rs",
+      "literal": "CON",
+      "reason": "Windows reserved basename or numeric suffix allow-list."
+    },
+    {
+      "path": "trust_path.rs",
+      "literal": "PRN",
+      "reason": "Windows reserved basename or numeric suffix allow-list."
+    },
+    {
+      "path": "trust_path.rs",
+      "literal": "AUX",
+      "reason": "Windows reserved basename or numeric suffix allow-list."
+    },
+    {
+      "path": "trust_path.rs",
+      "literal": "NUL",
+      "reason": "Windows reserved basename or numeric suffix allow-list."
+    },
+    {
+      "path": "trust_path.rs",
+      "literal": "123456789¹²³",
+      "reason": "Windows reserved basename or numeric suffix allow-list."
+    }
+  ]
+}

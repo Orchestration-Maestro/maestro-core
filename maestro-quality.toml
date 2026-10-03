@@ -309,7 +309,13 @@ reason = "the MCP module owns bounded transport and server startup; the CLI disp
 # espace and distincte are French, requiere is Spanish: C05c interface data
 # and its literal presentation expectations, not misspelled English.
 [typos]
+# Correct French and Spanish interface words, not English spelling errors.
 words = [
+  "ressources",
+  "limite",
+  "projet",
+  "ser",
+  "comando",
   "Exemple",
   "RTO",
   "WRONLY",
@@ -415,3 +421,14 @@ rule = "TST-001"
 path = "crates/maestro-test-clock/src/stopped.rs"
 item = "work_is_constructed_on_the_stopped_clock"
 reason = "proves paused Tokio time ignores real time; the assertion is equality on paused time, so it is deterministic whatever the sleep length; 20 ms"
+
+
+[[exception]]
+rule = "DEP-001"
+path = "foldhash@0.1.5"
+reason = "OA9/C05f: hashbrown 0.15 holds this version; remove when that dependency converges on the workspace foldhash version"
+
+[[exception]]
+rule = "DEP-001"
+path = "hashbrown@0.16.1"
+reason = "OA9/C05f: ratatui kasuari 0.4 holds this version; remove when kasuari converges on the workspace hashbrown version"

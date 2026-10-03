@@ -1,0 +1,60 @@
+name: Native terminal qualification
+"on":
+  pull_request:
+    paths:
+      - 'crates/maestro/src/cli/init/**'
+      - 'crates/maestro/src/cli/config/editor.rs'
+      - 'crates/maestro/tests/it/catalog_init_menu.rs'
+      - 'tests/fixtures/terminal/**'
+      - 'Cargo.lock'
+      - '.github/workflows/terminal-qualification.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: terminal-qualification-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    name: PTY and cleanup (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out the exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Native PTY or ConPTY frames, parity and cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Red proof: skipping restore must fail native kernel-mode comparison.
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("crates/maestro/src/cli/init/terminal.rs")
+          source = path.read_text()
+          restore = "drop(terminal::disable_raw_mode());"
+          assert source.count(restore) == 1
+          path.write_text(source.replace(restore, "// C05k red proof: raw restore deliberately skipped"))
+          PY
+          red_log="$RUNNER_TEMP/native-mode-red.log"
+          if cargo test --locked -p maestro catalog_terminal_pty_native_cleanup -- --nocapture > "$red_log" 2>&1; then
+            echo "Native mode restoration guard survived" >&2
+            exit 1
+          fi
+          cat "$red_log"
+          git restore crates/maestro/src/cli/init/terminal.rs
+          grep -E 'terminal modes leaked|native console modes leaked' "$red_log"
+          cargo test --locked -p maestro catalog_terminal -- --nocapture
+          cargo test --locked -p maestro catalog_init_menu -- --nocapture

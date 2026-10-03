@@ -6,10 +6,10 @@ use std::{
 };
 
 /// All three conversational tones must select the same interface template.
-const TONES: [&str; 3] = ["brief", "normal", "detailed"];
+pub(super) const TONES: [&str; 3] = ["brief", "normal", "detailed"];
 
 /// An isolated project, never granted trust by a language preference.
-fn project(home: &Home) -> PathBuf {
+pub(super) fn project(home: &Home) -> PathBuf {
     let root = home.root().join("project");
     fs::create_dir(&root).unwrap();
     root.canonicalize().unwrap()

@@ -1,7 +1,11 @@
 //! Effect-free ownership checks over externally supplied trusted CI evidence.
 
 use super::check::today;
-use crate::{cli::output::Output, failure::Failure};
+use crate::{
+    cli::output::Output,
+    failure::Failure,
+    presentation::{message::Message, messages::MessageKey},
+};
 use maestro_catalog::{
     limits::Limits,
     source::{
@@ -34,18 +38,35 @@ fn evidence(path: &Path) -> Result<OwnerEvidence, Failure> {
     let name = path
         .file_name()
         .and_then(|name| name.to_str())
-        .ok_or_else(|| Failure::refused("evidence: supply a regular UTF-8-named JSON file"))?;
+        .ok_or_else(|| {
+            Failure::refused_message(Message::new(MessageKey::CatalogEvidenceFilename, &[]))
+        })?;
     let bytes = Directory::new(parent)
         .read(name, Limits::PRODUCTION.source_file_bytes)
-        .map_err(|error| Failure::failed(format!("{}: {error}", path.display())))?;
+        .map_err(|error| {
+            Failure::failed_message(Message::new(
+                MessageKey::DiagnosticPath,
+                &[
+                    ("path", &path.display().to_string()),
+                    ("error", &error.to_string()),
+                ],
+            ))
+        })?;
     if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > Limits::PRODUCTION.source_file_bytes {
-        return Err(Failure::refused(format!(
-            "{}: evidence exceeds the source-file byte limit",
-            path.display()
+        return Err(Failure::refused_message(Message::new(
+            MessageKey::CatalogEvidenceLimit,
+            &[("path", &path.display().to_string())],
         )));
     }
-    OwnerEvidence::parse(&bytes)
-        .map_err(|error| Failure::refused(format!("{}: {error}", path.display())))
+    OwnerEvidence::parse(&bytes).map_err(|error| {
+        Failure::refused_message(Message::new(
+            MessageKey::DiagnosticPath,
+            &[
+                ("path", &path.display().to_string()),
+                ("error", &error.to_string()),
+            ],
+        ))
+    })
 }
 
 /// Check base/head bytes once; no credential lookup or file writes occur here.
@@ -100,7 +121,7 @@ pub(in crate::cli) fn run(
             repository,
             head: head_revision,
         },
-        "catalog owners passed: trusted evidence matches base ownership and exact head/digests",
+        &output.wording(MessageKey::CatalogOwnersPassed, &[])?,
     )?;
     Ok(ExitCode::SUCCESS)
 }

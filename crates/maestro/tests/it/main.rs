@@ -16,6 +16,7 @@ mod catalog_index;
 mod catalog_init;
 mod catalog_init_menu;
 mod catalog_init_regressions;
+mod catalog_message_migration;
 mod catalog_owners;
 mod catalog_policy;
 mod catalog_preferences;

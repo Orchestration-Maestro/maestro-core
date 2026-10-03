@@ -1,7 +1,11 @@
 //! `catalog compile`: one inert snapshot, then exclusive verified publication.
 
 use super::check::today;
-use crate::{cli::output::Output, failure::Failure};
+use crate::{
+    cli::output::Output,
+    failure::Failure,
+    presentation::{message::Message, messages::MessageKey},
+};
 use clap::Args;
 use maestro_catalog::{
     bundle::{Bundle, compile},
@@ -11,7 +15,7 @@ use maestro_catalog::{
 use maestro_filesystem::{Directory, PublicationChecks};
 use serde::Serialize;
 use std::{
-    io::{self, Write as _},
+    io::Write as _,
     path::{Path, PathBuf},
     process::{self, ExitCode},
 };
@@ -69,7 +73,7 @@ pub(in crate::cli) fn run(output: Output, args: &Arguments) -> Result<ExitCode, 
             Failure::refused(refusal)
         }
     })?;
-    publish(&args.output, &bundle).map_err(Failure::failed)?;
+    publish(&args.output, &bundle)?;
     output.result(
         &Compiled {
             schema: "maestro-cli/catalog-compile/1",
@@ -77,14 +81,14 @@ pub(in crate::cli) fn run(output: Output, args: &Arguments) -> Result<ExitCode, 
             digest: &bundle.digest,
             bytes: bundle.bytes.len(),
         },
-        &format!("catalog compile {}", bundle.digest),
+        &output.wording(MessageKey::CatalogCompiled, &[("digest", &bundle.digest)])?,
     )?;
     Ok(ExitCode::SUCCESS)
 }
 
 /// Stage a complete sibling and publish with the existing held-handle adapter.
 /// Temporary cleanup is identity checked, including on publication failure.
-fn publish(path: &Path, bundle: &Bundle) -> io::Result<()> {
+fn publish(path: &Path, bundle: &Bundle) -> Result<(), Failure> {
     let parent = path
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
@@ -92,10 +96,12 @@ fn publish(path: &Path, bundle: &Bundle) -> io::Result<()> {
     let name = path
         .file_name()
         .and_then(|name| name.to_str())
-        .ok_or_else(|| io::Error::other("output needs a UTF-8 filename"))?;
-    let directory = Directory::open(parent, Path::new(""), false)?;
+        .ok_or_else(|| {
+            Failure::failed_message(Message::new(MessageKey::CatalogOutputFilename, &[]))
+        })?;
+    let directory = Directory::open(parent, Path::new(""), false).map_err(Failure::failed)?;
     let temporary = format!(".maestro-bundle-{}.tmp", process::id());
-    let mut file = directory.create_new(&temporary)?;
+    let mut file = directory.create_new(&temporary).map_err(Failure::failed)?;
     let staged = file.write_all(&bundle.bytes).and_then(|()| file.sync_all());
     let result = staged.and_then(|()| {
         directory.publish_verified(
@@ -110,12 +116,14 @@ fn publish(path: &Path, bundle: &Bundle) -> io::Result<()> {
         )
     });
     // A partial staging write is cleaned against the actual bytes on its held handle.
-    let length = file.metadata()?.len();
+    let length = file.metadata().map_err(Failure::failed)?.len();
     let expected = bundle
         .bytes
-        .get(..usize::try_from(length).map_err(io::Error::other)?)
-        .ok_or_else(|| io::Error::other("staging bytes changed; refusing cleanup"))?;
+        .get(..usize::try_from(length).map_err(Failure::failed)?)
+        .ok_or_else(|| {
+            Failure::failed_message(Message::new(MessageKey::CatalogStagingChanged, &[]))
+        })?;
     let cleanup = directory.remove_created_bytes(&temporary, &file, expected);
-    cleanup?;
-    result
+    cleanup.map_err(Failure::failed)?;
+    result.map_err(Failure::failed)
 }

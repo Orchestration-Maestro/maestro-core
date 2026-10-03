@@ -133,3 +133,68 @@ fn catalog_init_menu_config_descriptor_and_layer_restrictions_precede_effects() 
     assert!(validate(&registry, "tone", None, LayerName::Project).is_ok());
     assert!(validate(&registry, "language", Some("auto"), LayerName::Project).is_ok());
 }
+
+#[test]
+fn catalog_terminal_config_review_uses_full_review_port_and_plain_bytes() {
+    use crate::{
+        cli::init::flow::{Answer, FlowPort},
+        failure::Failure,
+    };
+    struct ReviewPort<'a> {
+        plain: Plain<'a>,
+        review: String,
+    }
+    impl FlowPort for ReviewPort<'_> {
+        fn show(&mut self, text: &str) -> Result<(), Failure> {
+            self.plain.show(text)
+        }
+        fn ask(&mut self, label: &str) -> Result<Answer, Failure> {
+            self.plain.ask(label)
+        }
+        fn review_screen(&mut self, text: &str) -> Result<(), Failure> {
+            text.clone_into(&mut self.review);
+            self.plain.screen(text)
+        }
+    }
+    let mut draft = Draft::new(
+        Registry::built_in().unwrap(),
+        Layers::default(),
+        LayerName::User,
+        &[
+            "language=zh-Hant-TW".into(),
+            "tone=detailed".into(),
+            "updates=propose".into(),
+        ],
+        false,
+    )
+    .unwrap();
+    let mut output = Vec::new();
+    let mut input = "\nno\n".as_bytes();
+    let mut port = ReviewPort {
+        plain: Plain {
+            input: &mut input,
+            output: &mut output,
+        },
+        review: String::new(),
+    };
+    assert!(!collect(&mut port, &mut draft).unwrap());
+    let expected = "Review user preferences: language=zh-Hant-TW, tone=detailed, updates=propose";
+    assert_eq!(port.review, expected);
+    let mut plain_output = Vec::new();
+    let mut plain_input = "\nno\n".as_bytes();
+    assert!(
+        !collect(
+            &mut Plain {
+                input: &mut plain_input,
+                output: &mut plain_output
+            },
+            &mut draft
+        )
+        .unwrap()
+    );
+    assert_eq!(output, plain_output);
+    assert_eq!(
+        String::from_utf8(output).unwrap().matches(expected).count(),
+        1
+    );
+}

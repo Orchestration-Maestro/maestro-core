@@ -10,7 +10,7 @@ pub(super) const BUILT_INS: &[(&str, &str)] = &[
 ];
 
 /// Typed interface identities, not status codes or command names.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum MessageKey {
     /// Localized plain-flow label or navigation prompt.
     FlowWorkspace,
@@ -48,6 +48,68 @@ pub(crate) enum MessageKey {
     InitPreferencesWritten,
     /// A declined confirmation writes nothing.
     InitPreferencesDeclined,
+    /// CLI-authored catalog missing ownership wording.
+    CatalogMissingOwnership,
+    /// CLI-authored catalog check passed wording.
+    CatalogCheckPassed,
+    /// CLI-authored catalog codeowners regular wording.
+    CatalogCodeownersRegular,
+    /// CLI-authored diagnostic path wording.
+    DiagnosticPath,
+    /// CLI-authored catalog codeowners missing wording.
+    CatalogCodeownersMissing,
+    /// CLI-authored catalog codeowners passed wording.
+    CatalogCodeownersPassed,
+    /// CLI-authored catalog compiled wording.
+    CatalogCompiled,
+    /// CLI-authored catalog output filename wording.
+    CatalogOutputFilename,
+    /// CLI-authored catalog staging changed wording.
+    CatalogStagingChanged,
+    /// CLI-authored catalog output regular wording.
+    CatalogOutputRegular,
+    /// CLI-authored catalog index passed wording.
+    CatalogIndexPassed,
+    /// CLI-authored catalog evidence filename wording.
+    CatalogEvidenceFilename,
+    /// CLI-authored catalog evidence limit wording.
+    CatalogEvidenceLimit,
+    /// CLI-authored catalog owners passed wording.
+    CatalogOwnersPassed,
+    /// CLI-authored catalog target untrusted wording.
+    CatalogTargetUntrusted,
+    /// CLI-authored catalog target approve wording.
+    CatalogTargetApprove,
+    /// CLI-authored diagnostic instruction wording.
+    DiagnosticInstruction,
+    /// CLI-authored catalog target declined wording.
+    CatalogTargetDeclined,
+    /// CLI-authored output write failed wording.
+    OutputWriteFailed,
+    /// CLI-authored run repair dispatch wording.
+    RunRepairDispatch,
+    /// CLI-authored run retrieval dispatch wording.
+    RunRetrievalDispatch,
+    /// CLI-authored run prepare models off wording.
+    RunPrepareModelsOff,
+    /// CLI-authored run publish models off wording.
+    RunPublishModelsOff,
+    /// CLI-authored run model dispatch wording.
+    RunModelDispatch,
+    /// CLI-authored session workspace directory wording.
+    SessionWorkspaceDirectory,
+    /// CLI-authored session backend unavailable wording.
+    SessionBackendUnavailable,
+    /// CLI-authored trust home unavailable wording.
+    TrustHomeUnavailable,
+    /// CLI-authored trust approve wording.
+    TrustApprove,
+    /// CLI-authored trust recorded wording.
+    TrustRecorded,
+    /// CLI-authored trust suggestion command wording.
+    TrustSuggestionCommand,
+    /// CLI-authored trust suggestion data wording.
+    TrustSuggestionData,
 }
 
 /// Required keys; serde refuses missing, duplicate, mistyped and unknown fields.
@@ -90,6 +152,68 @@ pub(super) struct Translation {
     init_preferences_written: String,
     /// Preferences-only cancellation.
     init_preferences_declined: String,
+    /// CLI-authored catalog missing ownership wording.
+    catalog_missing_ownership: String,
+    /// CLI-authored catalog check passed wording.
+    catalog_check_passed: String,
+    /// CLI-authored catalog codeowners regular wording.
+    catalog_codeowners_regular: String,
+    /// CLI-authored diagnostic path wording.
+    diagnostic_path: String,
+    /// CLI-authored catalog codeowners missing wording.
+    catalog_codeowners_missing: String,
+    /// CLI-authored catalog codeowners passed wording.
+    catalog_codeowners_passed: String,
+    /// CLI-authored catalog compiled wording.
+    catalog_compiled: String,
+    /// CLI-authored catalog output filename wording.
+    catalog_output_filename: String,
+    /// CLI-authored catalog staging changed wording.
+    catalog_staging_changed: String,
+    /// CLI-authored catalog output regular wording.
+    catalog_output_regular: String,
+    /// CLI-authored catalog index passed wording.
+    catalog_index_passed: String,
+    /// CLI-authored catalog evidence filename wording.
+    catalog_evidence_filename: String,
+    /// CLI-authored catalog evidence limit wording.
+    catalog_evidence_limit: String,
+    /// CLI-authored catalog owners passed wording.
+    catalog_owners_passed: String,
+    /// CLI-authored catalog target untrusted wording.
+    catalog_target_untrusted: String,
+    /// CLI-authored catalog target approve wording.
+    catalog_target_approve: String,
+    /// CLI-authored diagnostic instruction wording.
+    diagnostic_instruction: String,
+    /// CLI-authored catalog target declined wording.
+    catalog_target_declined: String,
+    /// CLI-authored output write failed wording.
+    output_write_failed: String,
+    /// CLI-authored run repair dispatch wording.
+    run_repair_dispatch: String,
+    /// CLI-authored run retrieval dispatch wording.
+    run_retrieval_dispatch: String,
+    /// CLI-authored run prepare models off wording.
+    run_prepare_models_off: String,
+    /// CLI-authored run publish models off wording.
+    run_publish_models_off: String,
+    /// CLI-authored run model dispatch wording.
+    run_model_dispatch: String,
+    /// CLI-authored session workspace directory wording.
+    session_workspace_directory: String,
+    /// CLI-authored session backend unavailable wording.
+    session_backend_unavailable: String,
+    /// CLI-authored trust home unavailable wording.
+    trust_home_unavailable: String,
+    /// CLI-authored trust approve wording.
+    trust_approve: String,
+    /// CLI-authored trust recorded wording.
+    trust_recorded: String,
+    /// CLI-authored trust suggestion command wording.
+    trust_suggestion_command: String,
+    /// CLI-authored trust suggestion data wording.
+    trust_suggestion_data: String,
 }
 
 impl Translation {
@@ -118,12 +242,55 @@ impl Translation {
             (translation.init_confirm_data.as_str(), &["path"][..]),
             (translation.init_preferences_written.as_str(), &[][..]),
             (translation.init_preferences_declined.as_str(), &[][..]),
-        ] {
+        ]
+        .into_iter()
+        .chain(translation.migrated_templates())
+        {
             if placeholders(template)? != expected.iter().copied().collect() {
                 return Err("interface message placeholder set mismatch".to_owned());
             }
         }
         Ok(translation)
+    }
+
+    /// Templates added by the frozen existing-message migration.
+    fn migrated_templates(&self) -> [(&str, &[&str]); 31] {
+        [
+            (self.catalog_missing_ownership.as_str(), &[]),
+            (self.catalog_check_passed.as_str(), &["count"]),
+            (self.catalog_codeowners_regular.as_str(), &["path"]),
+            (self.diagnostic_path.as_str(), &["path", "error"]),
+            (self.catalog_codeowners_missing.as_str(), &["path", "rule"]),
+            (self.catalog_codeowners_passed.as_str(), &[]),
+            (self.catalog_compiled.as_str(), &["digest"]),
+            (self.catalog_output_filename.as_str(), &[]),
+            (self.catalog_staging_changed.as_str(), &[]),
+            (self.catalog_output_regular.as_str(), &["path"]),
+            (self.catalog_index_passed.as_str(), &[]),
+            (self.catalog_evidence_filename.as_str(), &[]),
+            (self.catalog_evidence_limit.as_str(), &["path"]),
+            (self.catalog_owners_passed.as_str(), &[]),
+            (self.catalog_target_untrusted.as_str(), &["instruction"]),
+            (self.catalog_target_approve.as_str(), &["path"]),
+            (
+                self.diagnostic_instruction.as_str(),
+                &["error", "instruction"],
+            ),
+            (self.catalog_target_declined.as_str(), &["instruction"]),
+            (self.output_write_failed.as_str(), &["error"]),
+            (self.run_repair_dispatch.as_str(), &[]),
+            (self.run_retrieval_dispatch.as_str(), &[]),
+            (self.run_prepare_models_off.as_str(), &[]),
+            (self.run_publish_models_off.as_str(), &[]),
+            (self.run_model_dispatch.as_str(), &[]),
+            (self.session_workspace_directory.as_str(), &["path"]),
+            (self.session_backend_unavailable.as_str(), &[]),
+            (self.trust_home_unavailable.as_str(), &[]),
+            (self.trust_approve.as_str(), &["path"]),
+            (self.trust_recorded.as_str(), &["path"]),
+            (self.trust_suggestion_command.as_str(), &["path"]),
+            (self.trust_suggestion_data.as_str(), &["path"]),
+        ]
     }
 
     /// Select wording before any data is interpolated.
@@ -147,6 +314,37 @@ impl Translation {
             MessageKey::InitConfirmData => &self.init_confirm_data,
             MessageKey::InitPreferencesWritten => &self.init_preferences_written,
             MessageKey::InitPreferencesDeclined => &self.init_preferences_declined,
+            MessageKey::CatalogMissingOwnership => &self.catalog_missing_ownership,
+            MessageKey::CatalogCheckPassed => &self.catalog_check_passed,
+            MessageKey::CatalogCodeownersRegular => &self.catalog_codeowners_regular,
+            MessageKey::DiagnosticPath => &self.diagnostic_path,
+            MessageKey::CatalogCodeownersMissing => &self.catalog_codeowners_missing,
+            MessageKey::CatalogCodeownersPassed => &self.catalog_codeowners_passed,
+            MessageKey::CatalogCompiled => &self.catalog_compiled,
+            MessageKey::CatalogOutputFilename => &self.catalog_output_filename,
+            MessageKey::CatalogStagingChanged => &self.catalog_staging_changed,
+            MessageKey::CatalogOutputRegular => &self.catalog_output_regular,
+            MessageKey::CatalogIndexPassed => &self.catalog_index_passed,
+            MessageKey::CatalogEvidenceFilename => &self.catalog_evidence_filename,
+            MessageKey::CatalogEvidenceLimit => &self.catalog_evidence_limit,
+            MessageKey::CatalogOwnersPassed => &self.catalog_owners_passed,
+            MessageKey::CatalogTargetUntrusted => &self.catalog_target_untrusted,
+            MessageKey::CatalogTargetApprove => &self.catalog_target_approve,
+            MessageKey::DiagnosticInstruction => &self.diagnostic_instruction,
+            MessageKey::CatalogTargetDeclined => &self.catalog_target_declined,
+            MessageKey::OutputWriteFailed => &self.output_write_failed,
+            MessageKey::RunRepairDispatch => &self.run_repair_dispatch,
+            MessageKey::RunRetrievalDispatch => &self.run_retrieval_dispatch,
+            MessageKey::RunPrepareModelsOff => &self.run_prepare_models_off,
+            MessageKey::RunPublishModelsOff => &self.run_publish_models_off,
+            MessageKey::RunModelDispatch => &self.run_model_dispatch,
+            MessageKey::SessionWorkspaceDirectory => &self.session_workspace_directory,
+            MessageKey::SessionBackendUnavailable => &self.session_backend_unavailable,
+            MessageKey::TrustHomeUnavailable => &self.trust_home_unavailable,
+            MessageKey::TrustApprove => &self.trust_approve,
+            MessageKey::TrustRecorded => &self.trust_recorded,
+            MessageKey::TrustSuggestionCommand => &self.trust_suggestion_command,
+            MessageKey::TrustSuggestionData => &self.trust_suggestion_data,
         }
     }
 }
