@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// A glossary kind, described as data only.
-pub(super) fn glossary() -> KindDescriptor {
+pub(crate) fn glossary() -> KindDescriptor {
     KindDescriptor {
         scopes: vec![Scope::Common],
         kind: "glossary".to_owned(),

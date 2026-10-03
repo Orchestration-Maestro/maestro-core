@@ -13,6 +13,8 @@ publish = false
 # Real evaluator and validator, measured in C09; optional features stay off.
 cedar-policy = { version = "=4.13.0", default-features = false }
 jsonschema = { version = "0.58", default-features = false }
+# C09 measured inert archive writer, without xattr or filesystem metadata.
+tar = { version = "=0.4.46", default-features = false }
 windows-sys = { version = "=0.61.2", default-features = false }
 # The command line's grammar, derived: clap_derive 4.6 builds on syn 3, as the
 # workspace does. No colour, no suggestions: fewer crates to vet.

@@ -76,7 +76,7 @@ impl Directory {
 }
 
 /// Retain the same bounded bytes that passed all source and generation checks.
-pub(super) fn checked_snapshot(
+pub(crate) fn checked_snapshot(
     tree: &dyn SourceTree,
     registry: &Registry,
     limits: &Limits,
@@ -311,27 +311,14 @@ fn edges(catalog: &BTreeMap<ResourceId, &Loaded>, registry: &Registry) -> Vec<Ve
         .enumerate()
         .map(|(index, id)| (id, index))
         .collect();
-    let mandatory: Vec<ResourceId> = catalog
-        .keys()
-        .filter(|id| {
-            id.kind == "standard"
-                || (id.kind == "package" && ["common", "core"].contains(&id.name.as_str()))
-        })
-        .cloned()
-        .collect();
     catalog
-        .iter()
-        .map(|(id, loaded)| {
-            let mut targets: Vec<ResourceId> = loaded.resource.metadata.requires.clone();
-            if id.kind == "preset" {
-                targets.extend(mandatory.iter().cloned());
-            }
-            if let Some(rules) = registry
-                .kind(&id.kind)
-                .and_then(|registration| registration.rules)
-            {
-                targets.extend(rules.edges(&loaded.resource));
-            }
+        .values()
+        .map(|loaded| {
+            let targets = Catalog::dependency_edges(
+                &loaded.resource,
+                registry,
+                catalog.values().map(|loaded| &loaded.resource),
+            );
             let mut targets: Vec<usize> = targets
                 .iter()
                 .filter_map(|target| position.get(target).copied())

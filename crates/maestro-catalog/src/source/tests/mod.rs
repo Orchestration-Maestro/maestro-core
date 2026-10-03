@@ -31,7 +31,7 @@ mod placement_boundaries;
 mod placement_guards;
 mod qualified;
 mod references;
-mod registry;
+pub(crate) mod registry;
 mod root_boundaries;
 mod rulings;
 mod scan;

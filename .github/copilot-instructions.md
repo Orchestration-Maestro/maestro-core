@@ -61,6 +61,7 @@ in place.
 │   │   │   │   ├── catalog/                                                 # catalog: the catalog's authoring commands
 │   │   │   │   │   ├── check.rs                                             # catalog check --catalog-dir DIR: the strict source checker over a
 │   │   │   │   │   ├── codeowners.rs                                        # Read-only CODEOWNERS rendering to stdout and exact committed-file comparison
+│   │   │   │   │   ├── compile.rs                                           # catalog compile: one inert snapshot, then exclusive verified publication
 │   │   │   │   │   ├── dispatch.rs                                          # Catalog-only dispatch; foreground session and repair ordering stay at the caller
 │   │   │   │   │   ├── index.rs                                             # Read-only public catalog index/type rendering and exact committed drift checking
 │   │   │   │   │   ├── mod.rs                                               # catalog: the catalog's authoring commands
@@ -303,6 +304,7 @@ in place.
 │   │   │       ├── catalog_client_preferences.rs                            # Four synthetic client fixtures inspect delivery, not host obedience
 │   │   │       ├── catalog_codeowners.rs                                    # Read-only CODEOWNERS rendering and comparison against committed rules
 │   │   │       ├── catalog_copilot.rs                                       # Isolated authoring projections prove delivery/ownership, never host obedience
+│   │   │       ├── catalog_compile.rs                                       # catalog compile: determinism and exclusive publication through the process
 │   │   │       ├── catalog_index.rs                                         # Synthetic public index rendering and exact read-only drift checking
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
 │   │   │       ├── catalog_init_menu.rs                                     # Plain, screen-reader-safe init and the registry-backed config editor
@@ -536,6 +538,16 @@ in place.
 │   │   │   │   ├── inventory.rs                                             # Explicit area-local inventory data behind the existing preset port
 │   │   │   │   ├── mod.rs                                                   # Inspect a project and plan a preset composition without executing its files
 │   │   │   │   └── project.rs                                               # Preview and apply project files through C04's digest-bound writer
+│   │   │   ├── bundle/                                                      # Deterministic inert bundles, independent of the authoring schema
+│   │   │   │   ├── tests/                                                   # Compiler checks, independent of archive-library APIs
+│   │   │   │   │   ├── mod.rs                                               # Compiler checks, independent of archive-library APIs
+│   │   │   │   │   ├── write.rs                                             # Determinism, inertness, exact closures and limit boundaries
+│   │   │   │   │   ├── write_inert.rs                                       # Executable-looking assets stay data; filesystem metadata never enters a bundle
+│   │   │   │   │   ├── write_limits.rs                                      # Isolated payload neighbours: the one total budget also covers stream overhead
+│   │   │   │   │   └── write_paths.rs                                       # Ustar limits are archive-format constraints, not new source defaults
+│   │   │   │   ├── manifest.rs                                              # The separately versioned compiled shape
+│   │   │   │   ├── mod.rs                                                   # Deterministic inert bundles, independent of the authoring schema
+│   │   │   │   └── write.rs                                                 # The only archive-library adapter; compilation never executes source content
 │   │   │   ├── files/                                                       # Shared digest-bound file plans, durable ownership, and crash-safe removal
 │   │   │   │   ├── tests/                                                   # Integration tests
 │   │   │   │   │   ├── crashes.rs                                           # Rust source: crashes

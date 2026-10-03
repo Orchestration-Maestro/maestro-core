@@ -14,6 +14,7 @@ use std::process::ExitCode;
 pub(in crate::cli) fn run(output: Output, command: &CatalogCommand) -> Result<ExitCode, Failure> {
     match command {
         CatalogCommand::Project(request) => project::run(output, request),
+        CatalogCommand::Compile(args) => super::compile::run(output, args),
         CatalogCommand::Owners {
             catalog_dir,
             base_dir,

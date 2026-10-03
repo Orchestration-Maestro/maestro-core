@@ -1368,7 +1368,7 @@ measured tar dependency registration and adoption-time `maestro-quality.toml`/
 `supply-chain/audits.toml` entries from the shared list.
 **Requirements:** FR-S3-008, FR-S3-037, SC-S3-002, SC-S3-013.
 
-- [ ] **Step 1: Red.** Reorder inputs and change mtimes/permissions; require
+- [x] **Step 1: Red.** Reorder inputs and change mtimes/permissions; require
   identical bytes. Change one definition and require a new digest. Include
   executable-looking templates/hooks/scripts that would leave a marker if run.
   With small injected `Limits`, test at/one-past every C11 archive limit:
@@ -1377,13 +1377,13 @@ measured tar dependency registration and adoption-time `maestro-quality.toml`/
   Source-valid oversized closures refuse before publishing any output bundle.
   Compile C03's synthetic kind with its descriptor only; preserve its data and
   references without a compiler branch, and refuse when its descriptor is absent.
-- [ ] **Step 2: Green.** Compile checked sources into sorted tar with fixed
+- [x] **Step 2: Green.** Compile checked sources into sorted tar with fixed
   metadata and `bundle.json`, exact closures, owners/maturity, source commit,
   policy digest, runtime/features/tool contracts and entry points. Consume C03's
   `Limits`, shared with C11, and bound manifest construction/output before
   allocation/publication. Never write a successful bundle the reader will refuse
   for count, sizes or nesting.
-- [ ] **Step 3: Check.** Run
+- [x] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-catalog bundle::tests::write`
   and the `catalog_compile` process suite; compare two produced bundle digests.
 

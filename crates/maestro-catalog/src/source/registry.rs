@@ -12,7 +12,7 @@ use super::{
     parse::is_name,
     placements,
     rules::KindRules,
-    types::Maturity,
+    types::{Maturity, Resource, ResourceId},
 };
 
 /// Retired kind and area-file spellings, paired for the v4 migration.
@@ -72,6 +72,14 @@ pub struct Registry {
 }
 
 impl Registry {
+    /// Descriptor-selected semantic edges for the shared closure traversal.
+    pub(crate) fn edges(&self, resource: &Resource) -> Vec<ResourceId> {
+        self.kind(&resource.id.kind)
+            .and_then(|kind| kind.rules)
+            .map(|rules| rules.edges(resource))
+            .unwrap_or_default()
+    }
+
     /// An empty registry whose descriptors may select `hooks`.
     pub(super) fn with_hooks(hooks: Hooks) -> Self {
         Self {
