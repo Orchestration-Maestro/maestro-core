@@ -10,7 +10,7 @@
 use serde_json::Value;
 
 /// The version of the presentation instructions' text.
-pub const PRESENTATION_VERSION: &str = "presentation/1";
+pub const PRESENTATION_VERSION: &str = "presentation/2";
 
 /// The phrase of every version's system text that an explicit language
 /// replaces.
@@ -23,6 +23,11 @@ const BRIEF: &str = "Keep the answer brief: the fewest full sentences that answe
 /// The instruction of the detailed tone, displayed as "Very detailed".
 const DETAILED: &str = "Give a detailed answer: explain each step, condition and prerequisite \
                         the passages state, each sentence still ending with its marker.";
+
+/// Fixed artifact rules for a changed conversational presentation.
+const ARTIFACTS: &str = "Code (including comments), commits, file names, identifiers, logs and \
+                         documentation stay English and are unaffected by tone. Keep source \
+                         quotations and citation identities unchanged.";
 
 /// How much an answer explains.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -96,6 +101,10 @@ impl Presentation {
         if let Some(instruction) = self.tone.instruction() {
             presented.push(' ');
             presented.push_str(instruction);
+        }
+        if self.language.is_some() || self.tone != Tone::Normal {
+            presented.push(' ');
+            presented.push_str(ARTIFACTS);
         }
         presented
     }

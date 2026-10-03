@@ -5,6 +5,23 @@
 
 mod backup_restore;
 mod backup_restore_targets;
+mod catalog_answer_preferences;
+mod catalog_check;
+mod catalog_client_preferences;
+mod catalog_codeowners;
+mod catalog_copilot;
+mod catalog_host_probe;
+mod catalog_index;
+mod catalog_init;
+mod catalog_init_menu;
+mod catalog_init_regressions;
+mod catalog_owners;
+mod catalog_policy;
+mod catalog_preferences;
+mod catalog_presentation;
+mod catalog_repair_lock;
+mod catalog_session_preferences;
+mod catalog_workspace_trust;
 mod cli_contract;
 mod collection_status;
 mod doctor_checks;
@@ -32,3 +49,5 @@ mod settings_config;
 mod setup_installs;
 mod status_summaries;
 mod support;
+
+mod catalog_trusted_files;

@@ -39,8 +39,10 @@ pub struct CanonicalDocument {
     pub input_metadata: SourceMetadata,
     /// Explicit operational envelope, retained but excluded from source/revision/block identities.
     /// This is not source provenance or an authorization channel.
+    #[serde(serialize_with = "maestro_kernel::json::serialize_canonical")]
     pub operational_metadata: BTreeMap<String, Value>,
     /// Supplied access policy, or null. This is not an authorization engine.
+    #[serde(serialize_with = "maestro_kernel::json::serialize_canonical")]
     pub access_policy: Option<Value>,
     /// Location, length and hash of the unchanged Markdown reference.
     pub original_markdown_reference: MarkdownReference,

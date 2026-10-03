@@ -1,6 +1,7 @@
 //! Stdio JSON-RPC framing with complete-line and complete-response byte bounds.
 
 use crate::knowledge::RESPONSE_LIMIT_BYTES;
+use maestro_kernel::json::canonical;
 use rmcp::{
     ErrorData,
     model::{JsonRpcMessage, RequestId},
@@ -108,11 +109,11 @@ where
 
     /// Queues a protocol-safe invalid-request error without echoing an invalid ID.
     fn invalid_request(&mut self, code: i64, message: &'static str) {
-        let response = json!({
+        let response = canonical(json!({
             "jsonrpc": "2.0",
             "id": null,
             "error": {"code": code, "message": message}
-        });
+        }));
         if let Ok(mut bytes) = serde_json::to_vec(&response) {
             bytes.push(b'\n');
             self.pending_errors

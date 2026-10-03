@@ -1,0 +1,5 @@
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]
+requires = ["skill:common/valid-skill", "instructions:core/valid"]

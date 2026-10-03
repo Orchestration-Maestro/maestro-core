@@ -98,7 +98,7 @@ fn parse_refuses_a_missing_or_other_schema() {
 fn parse_names_each_unknown_key_with_its_table() {
     let schema = "schema = \"maestro-preferences/1\"\n";
     for (body, key) in [
-        ("updates = \"off\"\n", "updates"),
+        ("invented_setting = \"off\"\n", "invented_setting"),
         ("[access]\nread = []\n", "access"),
         ("[search]\nfoo = 1\n", "search.foo"),
         ("[search.rerank]\nfoo = 1\n", "search.rerank.foo"),
@@ -181,6 +181,7 @@ fn parse_refuses_a_locked_setting_in_any_file() {
         default: Cow::Borrowed("false"),
         description: Cow::Borrowed("Locked."),
         class: SettingClass::Locked,
+        standard_only: false,
     }];
     let registry = Registry::new(&descriptors).unwrap();
     assert_eq!(

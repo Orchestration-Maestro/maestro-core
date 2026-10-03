@@ -5,7 +5,7 @@
 
 use crate::{
     builtin::BUILT_IN,
-    descriptor::{SettingClass, SettingDescriptor, SettingKind, Text},
+    descriptor::{SettingDescriptor, SettingKind, Text},
     value::Value,
 };
 use std::{error, fmt};
@@ -144,19 +144,12 @@ fn check_descriptor(descriptor: &SettingDescriptor) -> Result<(), String> {
                 .to_owned(),
         );
     }
-    if matches!(
-        descriptor.class,
-        SettingClass::Bounded | SettingClass::Additive
-    ) {
-        return Err(format!(
-            "the {} class is resolved by S3's restrictive resolution, not yet available",
-            descriptor.class.name()
-        ));
-    }
     let sound = match &descriptor.kind {
         SettingKind::Integer { min, max, .. } => min <= max,
         SettingKind::Number { min, max, .. } => min.is_finite() && max.is_finite() && min <= max,
-        SettingKind::Choice { values, reserved } => {
+        SettingKind::Choice {
+            values, reserved, ..
+        } => {
             let names: Vec<Text> = reserved
                 .iter()
                 .map(|reserved| reserved.value.clone())

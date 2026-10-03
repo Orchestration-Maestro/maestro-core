@@ -69,7 +69,7 @@ struct CheckDocument<'a> {
     next_action: Option<&'a str>,
 }
 
-/// Runs every check, the settings' with the `--set` flags `flags`, then
+/// Runs every check using the startup preference snapshot, then
 /// prints them with what doctor found but must not touch, and exits 1 when
 /// a check failed.
 ///
@@ -77,13 +77,13 @@ struct CheckDocument<'a> {
 ///
 /// [`Failure::Failed`] when the kernel's directories cannot be resolved, or
 /// its database, once it opened, cannot be read.
-pub(in crate::cli) fn run(output: Output, flags: &[String]) -> Result<ExitCode, Failure> {
+pub(in crate::cli) fn run(output: Output, session: &Session) -> Result<ExitCode, Failure> {
     let environment = Environment::current();
     let data = paths::data_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let config_dir = paths::config_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let (config, read) = config_check(&config_dir);
     let (database, opened) = database_check(&data, read.as_ref());
-    let settings = settings_check(&config_dir, Session::for_cli(flags));
+    let settings = settings_check(&config_dir, session);
     let mut checks = vec![config, settings, bindings_check(&config_dir), database];
     checks.push(artifacts_check(&data, opened.as_ref()));
     checks.push(qdrant_check(

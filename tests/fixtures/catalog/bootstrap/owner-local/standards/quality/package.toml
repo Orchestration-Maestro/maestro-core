@@ -1,0 +1,13 @@
+kind = "standard"
+name = "quality"
+version = "1.2.3"
+owners = ["@synthetic/knowledge"]
+description = "Synthetic area"
+status = "active"
+rules = ["quality-001"]
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]
+requires = []

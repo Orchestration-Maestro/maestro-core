@@ -31,6 +31,8 @@ pub(super) enum ResponseLanguage {
     English,
     /// French response text.
     French,
+    /// Spanish response text.
+    Spanish,
 }
 
 impl ResponseLanguage {
@@ -39,6 +41,7 @@ impl ResponseLanguage {
         match self {
             Self::English => "en",
             Self::French => "fr",
+            Self::Spanish => "es",
         }
     }
 }
@@ -286,7 +289,7 @@ pub enum RefusalCode {
 pub struct AnswerRefusal {
     /// Stable public refusal code.
     pub code: RefusalCode,
-    /// Host-owned message in the checked response language.
+    /// Host-owned message in the selected language, with English fallback.
     pub message: String,
 }
 
@@ -310,6 +313,25 @@ pub struct AnswerCitation {
     pub span: [usize; 2],
 }
 
+/// Host-owned response-language validation status. The current answer path
+/// has no qualified language detector, so no tag is reported as checked.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum LanguageCheck {
+    /// Evidence was checked, but response language was not independently verified.
+    #[default]
+    Unchecked,
+}
+
+impl LanguageCheck {
+    /// Its English diagnostic name, never a claim of a detected match.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Unchecked => "unchecked",
+        }
+    }
+}
+
 /// A locally rendered answer or an intentional evidence/model refusal.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -322,7 +344,7 @@ pub struct Answer {
     pub generation: i64,
     /// Original question.
     pub question: String,
-    /// Checked response language code.
+    /// Canonical explicit response tag, else best-effort question-language code.
     pub lang: String,
     /// Validated answer text; empty on full refusal.
     pub answer: String,
@@ -349,6 +371,9 @@ pub struct Answer {
     /// evaluation only: never serialized.
     #[serde(skip)]
     pub delivered: Vec<Anchor>,
+    /// Independent language-validation status; never serialized or used to refuse.
+    #[serde(skip)]
+    pub language_check: LanguageCheck,
     /// The most tokens each chat reply could generate, absent when the ask
     /// never reached the answerer, for evaluation only: never serialized.
     #[serde(skip)]

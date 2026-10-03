@@ -1,0 +1,8 @@
+schema = "maestro-preferences/1"
+language = "es-419"
+tone = "detailed"
+updates = "auto"
+
+[overrides]
+model_profile = "deep"
+routing_candidates = 3

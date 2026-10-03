@@ -1,0 +1,85 @@
+//! `model-card`: a strict catalog declaration of the kernel's v2 identity.
+
+use crate::source::{
+    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
+    rules::KindRules,
+    types::{Known, Maturity, Problems, Resource, Value},
+};
+use maestro_kernel::gateway::{CardIdentity, ModelCard};
+
+/// The model-card kind.
+pub(super) fn descriptor() -> KindDescriptor {
+    KindDescriptor {
+        scopes: vec![Scope::Core, Scope::Team],
+        kind: "model-card".to_owned(),
+        version: 3,
+        directory: "llm/models".to_owned(),
+        layout: Layout::Files {
+            suffix: ".toml".to_owned(),
+            folders: vec!["*".to_owned()],
+        },
+        format: Format::Toml,
+        metadata: MetadataPlace::Table {
+            key: "metadata".to_owned(),
+        },
+        name_field: None,
+        fields: vec![
+            Field::required("version", FieldType::Text),
+            Field::required(
+                "identity",
+                FieldType::Delegated {
+                    validator: "model-card".to_owned(),
+                },
+            ),
+        ],
+        body: false,
+        requires: vec!["*".to_owned()],
+        lifecycle: Maturity::DECLARABLE.to_vec(),
+        closure_root: false,
+        required: None,
+        hook: Some("model-card".to_owned()),
+    }
+}
+
+/// Validates the exact nested identity through the kernel-owned type.
+#[derive(Debug)]
+pub(super) struct ModelCardRules;
+
+impl KindRules for ModelCardRules {
+    fn check_resource(
+        &self,
+        resource: &Resource,
+        _body: Option<&str>,
+        _known: Known<'_>,
+        problems: &mut Problems,
+    ) {
+        if resource
+            .fields
+            .get("version")
+            .and_then(|value| value.text())
+            != Some("2")
+        {
+            problems.push(("version".to_owned(), "must be \"2\"".to_owned()));
+        }
+        let identity = resource
+            .fields
+            .get("identity")
+            .ok_or_else(|| "missing".to_owned())
+            .and_then(Value::decode::<CardIdentity>);
+        match identity {
+            Ok(identity) => {
+                let role = resource.path.rsplit('/').nth(1).unwrap_or_default();
+                if role != identity.role.to_string() {
+                    problems.push((
+                        "identity.role".to_owned(),
+                        "must match the path role".to_owned(),
+                    ));
+                }
+                if let Err(error) = ModelCard::from_identity(&identity) {
+                    problems.push(("identity".to_owned(), error.to_string()));
+                }
+            }
+            Err(error) => problems.push(("identity".to_owned(), error)),
+        }
+    }
+}

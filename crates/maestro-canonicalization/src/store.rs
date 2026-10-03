@@ -1,9 +1,9 @@
 //! Immutable snapshots, accessed through directory handles without following links.
 use crate::document::CanonicalDocument;
 use crate::error::Error;
-use crate::filesystem::Directory;
 use crate::hashing::digest;
 use crate::replay::validate_document;
+use maestro_filesystem::Directory;
 use std::{
     fs::File,
     io::{self, ErrorKind, Write},
@@ -184,16 +184,9 @@ mod tests {
     use super::*;
     use crate::model::CanonicalizeInput;
     use crate::pipeline::canonicalize;
-    #[cfg(windows)]
-    use std::path::Component;
-    use std::{env, fs, sync::Barrier, thread};
     #[cfg(unix)]
-    use std::{
-        os::unix::fs::{PermissionsExt, symlink},
-        process::Command,
-        sync::mpsc,
-        time::Duration,
-    };
+    use std::os::unix::fs::symlink;
+    use std::{env, fs, sync::Barrier, thread};
 
     /// A new empty directory; its name does not draw on `TEMP_SEQUENCE`, which pending names use.
     /// It is the plain temporary path, a link into `/private` on macOS: the root resolves once.
@@ -206,43 +199,6 @@ mod tests {
         ));
         fs::create_dir(&root).unwrap();
         root
-    }
-
-    /// `read_regular` on its own thread: the test fails, rather than hangs, if the open blocks.
-    #[cfg(unix)]
-    fn read_without_blocking(directory: &Directory, name: &'static str) -> io::Result<Vec<u8>> {
-        let directory = directory.try_clone().unwrap();
-        let (sender, receiver) = mpsc::channel();
-        thread::spawn(move || sender.send(directory.read_regular(name)));
-        receiver
-            .recv_timeout(Duration::from_secs(5))
-            .expect("opening the artifact blocked")
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn directory_handles_resist_ancestor_replacement_and_reject_special_files() {
-        let root = scratch();
-        let output = root.join("output");
-        let directory = Directory::open(&root, Path::new("output"), true).unwrap();
-        fs::rename(&output, root.join("moved")).unwrap();
-        fs::create_dir(root.join("outside")).unwrap();
-        fs::write(root.join("outside/original.md"), "unchanged").unwrap();
-        symlink(root.join("outside"), &output).unwrap();
-        write_immutable(&directory, "original.md", b"safe").unwrap();
-        assert_eq!(directory.read_regular("original.md").unwrap(), b"safe");
-        assert_eq!(fs::read(root.join("moved/original.md")).unwrap(), b"safe");
-        assert_eq!(
-            fs::read(root.join("outside/original.md")).unwrap(),
-            b"unchanged"
-        );
-        assert!(Directory::open(&root, Path::new("output"), false).is_err());
-        // POSIX's `mkfifo` utility: Linux and macOS both ship it.
-        let made = Command::new("mkfifo").arg(root.join("moved/fifo")).status();
-        assert!(made.unwrap().success());
-        assert!(read_without_blocking(&directory, "fifo").is_err());
-        assert!(directory.read_regular(".").is_err());
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -259,30 +215,6 @@ mod tests {
         }
         let error = load_document(&copy.join("canonical.json")).unwrap_err();
         assert!(error.to_string().contains("path identity"), "{error}");
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn only_directories_open_and_only_saving_creates_them() {
-        let root = scratch();
-        fs::write(root.join("plain"), "not a directory").unwrap();
-        assert!(Directory::open(&root, Path::new("plain"), false).is_err());
-        assert!(Directory::open(&root, Path::new("absent/deeper"), false).is_err());
-        assert!(!root.join("absent").exists());
-        Directory::open(&root, Path::new("absent/deeper"), true).unwrap();
-        assert!(root.join("absent/deeper").is_dir());
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn artifacts_are_never_read_through_a_link() {
-        let root = scratch();
-        fs::write(root.join("target.md"), "linked").unwrap();
-        symlink(root.join("target.md"), root.join("original.md")).unwrap();
-        let directory = Directory::open(&root, Path::new(""), false).unwrap();
-        assert!(directory.read_regular("original.md").is_err());
-        assert_eq!(directory.read_regular("target.md").unwrap(), b"linked");
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -357,66 +289,6 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
-    #[cfg(windows)]
-    #[test]
-    fn a_verbatim_root_anchors_the_walk_and_parent_traversal_stays_refused() {
-        let root = scratch();
-        // The root resolves to a verbatim path, such as `\\?\C:\...`, which the walk accepts.
-        let resolved = fs::canonicalize(&root).unwrap();
-        assert!(matches!(
-            resolved.components().next(),
-            Some(Component::Prefix(prefix)) if prefix.kind().is_verbatim()
-        ));
-        drop(Directory::open(&root, Path::new("deeper"), true).unwrap());
-        assert!(root.join("deeper").is_dir());
-        let error = Directory::open(&root.join("deeper/../deeper"), Path::new(""), false);
-        assert_eq!(
-            error.unwrap_err().to_string(),
-            "snapshot path contains parent traversal"
-        );
-        for below in ["deeper/../deeper", "C:relative", "C:\\deeper"] {
-            let error = Directory::open(&root, Path::new(below), false).unwrap_err();
-            assert_eq!(
-                error.to_string(),
-                "snapshot path below its root holds more than names"
-            );
-        }
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn a_directory_junction_is_never_followed() {
-        let root = scratch();
-        fs::create_dir(root.join("outside")).unwrap();
-        // A junction, unlike a symbolic link, needs no privilege to create.
-        let created = process::Command::new("cmd")
-            .args(["/C", "mklink", "/J"])
-            .arg(root.join("linked"))
-            .arg(root.join("outside"))
-            .status()
-            .unwrap();
-        assert!(created.success());
-        assert!(Directory::open(&root, Path::new("linked"), false).is_err());
-        assert!(Directory::open(&root, Path::new("linked/deeper"), true).is_err());
-        assert!(!root.join("outside/deeper").exists());
-        // A root the caller reaches through the junction resolves once and is accepted.
-        drop(Directory::open(&root.join("linked"), Path::new(""), false).unwrap());
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn a_directory_that_cannot_be_created_is_reported_as_such() {
-        let root = scratch();
-        fs::create_dir(root.join("locked")).unwrap();
-        fs::set_permissions(root.join("locked"), fs::Permissions::from_mode(0o500)).unwrap();
-        let error = Directory::open(&root, Path::new("locked/new"), true).unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::PermissionDenied);
-        fs::set_permissions(root.join("locked"), fs::Permissions::from_mode(0o700)).unwrap();
-        fs::remove_dir_all(root).unwrap();
-    }
-
     #[test]
     fn of_two_racing_writers_of_different_bytes_one_is_refused() {
         let root = scratch();
@@ -450,5 +322,25 @@ mod tests {
             let right = scope.spawn(|| write(b"right"));
             vec![left.join().unwrap(), right.join().unwrap()]
         })
+    }
+}
+
+#[cfg(test)]
+mod json_order_tests {
+    use super::*;
+    use crate::{CanonicalizeInput, canonicalize};
+
+    #[test]
+    fn snapshot_encoding_keeps_pre_cedar_bytes() {
+        let mut input = CanonicalizeInput::new("Body\n", "doc.md");
+        input.metadata.extraction =
+            Some(serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap());
+        let document = canonicalize(input).unwrap();
+        let bytes = encode(&document).unwrap();
+        assert_eq!(bytes.last(), Some(&b'\n'));
+        assert_eq!(
+            digest(&bytes),
+            "b7e9e0b059e154fc972f691fc9578dfb3b11c70ead09707a4187e020bb09f007"
+        );
     }
 }

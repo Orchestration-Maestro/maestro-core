@@ -7,6 +7,7 @@ use super::{
     record::{COLUMNS, Job, Lease, find, job_row},
     state::JobState,
 };
+use crate::json::canonical;
 use crate::store::Database;
 use rusqlite::{Transaction, params};
 use serde_json::{Value, json};
@@ -93,7 +94,11 @@ fn end(
              WHERE id = ?1
              RETURNING {COLUMNS}"
         ),
-        params![job.id.to_string(), to.as_str(), outcome.to_string()],
+        params![
+            job.id.to_string(),
+            to.as_str(),
+            canonical(outcome.clone()).to_string()
+        ],
         job_row,
     )?;
     let data = match &job.lease {

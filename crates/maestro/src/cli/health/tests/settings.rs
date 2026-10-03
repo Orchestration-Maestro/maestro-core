@@ -3,55 +3,74 @@
 
 use super::{
     super::settings::settings_check,
-    support::{Scratch, detail, failure},
+    support::{Scratch, detail},
 };
-use crate::settings::Session;
+use crate::cli::session;
 use maestro_settings::USER_FILE;
+use std::fs;
 
 #[test]
 fn settings_check_names_the_files_read_and_what_it_found() {
     let scratch = Scratch::new();
-    let session = Session::at(&scratch.config(), None, None, &[]);
-    let check = settings_check(&scratch.config(), session);
+    let session = session::at(&scratch.config(), None, None, &[]).unwrap();
+    let check = settings_check(&scratch.config(), &session);
     let user = scratch.config().join(USER_FILE);
     assert_eq!(check.target, user.display().to_string());
     assert_eq!(
         detail(&check),
-        "user file absent (defaults apply); no project file: no working directory to start from"
+        "user file absent (defaults apply); no project file found"
     );
     scratch.configure(
         USER_FILE,
         "schema = \"maestro-preferences/1\"\ntone = \"brief\"\n",
     );
     let work = scratch.data();
-    let session = Session::at(&scratch.config(), Some(&work), None, &[]);
-    assert_eq!(
-        detail(&settings_check(&scratch.config(), session)),
-        "user file read; no project file: no home directory is known: no project file is read"
+    let session = session::at(&scratch.config(), Some(&work), None, &[]).unwrap();
+    assert!(
+        detail(&settings_check(&scratch.config(), &session))
+            .contains("outside home without workspace trust")
     );
-    let session = Session::at(&scratch.config(), Some(&work), Some(&scratch.data()), &[]);
+    let session = session::at(&scratch.config(), Some(&work), Some(&scratch.data()), &[]).unwrap();
     assert_eq!(
-        detail(&settings_check(&scratch.config(), session)),
+        detail(&settings_check(&scratch.config(), &session)),
         "user file read; no project file found"
     );
 }
 
 #[test]
-fn settings_check_fails_on_a_refused_file_naming_its_key() {
+fn startup_refuses_a_file_naming_its_key_before_doctor() {
     let scratch = Scratch::new();
     scratch.configure(
         USER_FILE,
         "schema = \"maestro-preferences/1\"\nsearch.foo = 1\n",
     );
-    let session = Session::at(&scratch.config(), None, None, &[]);
-    let check = settings_check(&scratch.config(), session);
+    let failure = session::at(&scratch.config(), None, None, &[]).unwrap_err();
     let user = scratch.config().join(USER_FILE);
     assert_eq!(
-        failure(&check),
-        (
-            format!("{}: unknown key \"search.foo\"", user.display()).as_str(),
-            "fix or remove the key it names; `maestro config explain` shows what each setting \
-             accepts"
-        )
+        failure.to_string(),
+        format!("{}: unknown key \"search.foo\"", user.display())
     );
+}
+
+#[test]
+fn doctor_settings_reports_the_original_snapshot_after_preferences_change_or_removal() {
+    let scratch = Scratch::new();
+    scratch.configure(
+        USER_FILE,
+        "schema = 'maestro-preferences/1'\ntone = 'brief'\n",
+    );
+    let session = session::at(&scratch.config(), None, None, &[]).unwrap();
+    for remove in [false, true] {
+        if remove {
+            fs::remove_file(scratch.config().join(USER_FILE)).unwrap();
+        } else {
+            scratch.configure(
+                USER_FILE,
+                "schema = 'maestro-preferences/1'\ntone = 'detailed'\n",
+            );
+        }
+        let check = settings_check(&scratch.config(), &session);
+        assert_eq!(detail(&check), "user file read; no project file found");
+        assert_eq!(session.resolved().text("tone"), Some("brief"));
+    }
 }

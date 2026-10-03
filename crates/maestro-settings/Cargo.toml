@@ -20,3 +20,4 @@ rustix.workspace = true
 
 [dev-dependencies]
 maestro-test-scratch.workspace = true
+maestro-filesystem.workspace = true

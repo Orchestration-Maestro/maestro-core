@@ -96,7 +96,7 @@ pub(super) fn run(
                         stopped = Some(chain(&error));
                         return ControlFlow::Break(());
                     }
-                    drop(output.text(&format!("step {data}")));
+                    drop(output.step(&data));
                     ControlFlow::Continue(())
                 },
             );

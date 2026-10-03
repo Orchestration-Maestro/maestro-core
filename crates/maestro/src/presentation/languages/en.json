@@ -1,0 +1,20 @@
+{
+  "interface_fallback": "Interface is English; conversation language remains {language}.",
+  "init_untrusted": "workspace is untrusted; {instruction}",
+  "init_trust_command": "run: maestro trust add {path} --confirm-path {path}",
+  "init_trust_data": "canonical path (data):\n{path}\nQuote this path for your shell. From inside that folder, run maestro trust add .",
+  "init_confirm": "preferences-only write requires separate confirmation: {failure}; {instruction}",
+  "init_approve_prompt": "Approve {path}? [y/N] ",
+  "init_confirm_command": "repeat init with --preferences-only --confirm-path {path}",
+  "init_confirm_data": "quote the canonical path for your shell; path (data):\n{path}",
+  "init_preferences_written": "Wrote preferences only; no workspace trust granted.",
+  "init_preferences_declined": "preferences-only write declined; no files written",
+  "flow_workspace": "1/5 Workspace, trust and preset",
+  "flow_language": "2/5 Language",
+  "flow_tone": "3/5 Tone",
+  "flow_settings": "4/5 All settings (workspace only)",
+  "flow_review": "5/5 Review",
+  "flow_editor_prompt": "Setting KEY=VALUE [Enter reviews; back/cancel]: ",
+  "flow_apply_prompt": "Apply reviewed changes? [yes/N; back/cancel/preview]: ",
+  "flow_preview_prompt": "Preview only (--apply is required to write). [Enter exits; back/cancel/preview]: "
+}

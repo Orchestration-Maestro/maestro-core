@@ -3,6 +3,7 @@
 use super::response::{
     CollectionsOutput, bounded_collections_result, response_fits, response_size,
 };
+use crate::knowledge::output::structured;
 use crate::{
     knowledge::RESPONSE_LIMIT_BYTES,
     knowledge::operations::{CollectionItem, CollectionsData},
@@ -180,4 +181,47 @@ fn bounded_result(content: &str) -> CallToolResult {
         json!({"truncated": true, "limit_bytes": RESPONSE_LIMIT_BYTES, "omitted": ["inventory"]}),
     );
     CallToolResult::structured(json!({"payload": content})).with_meta(Some(metadata))
+}
+
+#[test]
+fn mcp_structured_text_keeps_pre_cedar_bytes() {
+    let data = serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap();
+    let result = structured(data);
+    let text = serde_json::to_value(result).unwrap();
+    assert_eq!(text["content"][0]["text"], r#"{"a":0,"z":{"a":1,"z":2}}"#);
+}
+
+#[test]
+fn error_and_collection_metadata_keep_pre_cedar_bytes() {
+    let error = super::response::tool_error("synthetic", "synthetic", true, vec!["excerpt"]);
+    let value = serde_json::to_value(error).unwrap();
+    assert_eq!(
+        value["_meta"]["maestro/truncation"].to_string(),
+        r#"{"limit_bytes":65536,"omitted":["excerpt"],"truncated":true}"#
+    );
+    let result = bounded_collections_result(
+        CollectionsOutput {
+            data: CollectionsData {
+                schema: "synthetic",
+                collections: vec![],
+            },
+            truncated: true,
+            omitted: vec!["collections"],
+        },
+        &RequestId::Number(1),
+        Some(&ProtocolVersion::V_2025_11_25),
+    )
+    .unwrap();
+    let value = serde_json::to_value(result).unwrap();
+    assert_eq!(
+        value["content"][0]["text"],
+        r#"{"collections":[],"schema":"synthetic"}"#
+    );
+    assert_eq!(
+        value["_meta"]["maestro/truncation"].to_string(),
+        concat!(
+            "{\"limit_bytes\":65536,\"omitted\":[\"collections\"],\"truncated\":true,",
+            "\"warning\":\"Some collection entries were omitted to fit the response limit.\"}",
+        )
+    );
 }

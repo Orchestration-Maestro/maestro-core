@@ -221,13 +221,27 @@ recorded commit never excuses a missing or corrupted local tree.
 
 #### 2.2.7 Source policy, robots and URL identity
 
-The executable source policy is strict JSON (ADR-0014). The review-only
-proposal (`maestro-ingestion-policy-proposal/1`, `draft_not_executable`) is
-refused by the runtime parser. Exclusion registries (unwanted URLs, knowledge
-base exclusions, promotion decisions) are sanitized operator exports, frozen and
-hashed with the policy; a missing, corrupt or unreviewed required registry
-blocks the affected source before any network access. Historical exceptions are
-explicit promotion decisions, never renewed automatically.
+The executable source policy is strict JSON (ADR-0014). **Owner amendment,
+2026-09-30 20:45:** the knowledge-source kind in manifests owns the URL rules:
+`maestro-source-policy/1`, denial/promotion decisions and expiry, and
+`maestro-url-identity-migration/1` records beside `source.toml`. Collections
+hold strict `collection.json` plus exact source-rule references, not a second
+allowlist. Core types/parsers contain no real per-site rules; their generated
+JSON Schemas and valid/invalid fixtures are published in manifest `schemas/`.
+
+Reviewed rule admission combines the signed digest-pinned catalog release and
+the owner/maintainer approvals recorded by protected ownership rules. S6's
+separately tasked catalog adapter supplies that evidence through the existing
+`PolicySource`/`ResourceSource` ports; shape or a self-declared `reviewed` label
+is not approval. Private URL inventories stay in admitted private manifest
+packages, never public content. This does not grant local acquisition or
+processing rights or widen C42's restricted collection mount.
+
+The review-only proposal (`maestro-ingestion-policy-proposal/1`,
+`draft_not_executable`) is refused by the runtime parser. A missing, corrupt,
+expired, revoked or unreviewed required rule/registry blocks the affected source
+before any network access. Historical exceptions are explicit reviewed
+promotion decisions, never renewed automatically.
 
 **Decision order**, each step able to stop the request:
 

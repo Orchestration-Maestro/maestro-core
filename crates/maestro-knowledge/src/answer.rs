@@ -10,13 +10,13 @@ mod prompt;
 pub(crate) mod tests;
 /// Public request, response and error contracts for answering.
 mod types;
-/// Check citations, language and supported literals in a buffered reply.
+/// Check citations and supported literals in a buffered reply.
 mod validate;
 
 pub use generate::{ask, ask_configured};
 pub use presentation::{PRESENTATION_VERSION, Presentation, Tone};
 pub use types::{
     Answer, AnswerCitation, AnswerContext, AnswerModel, AnswerPrompt, AnswerRefusal, AskBudget,
-    AskError, AskRequest, CHAT_DEADLINE, DATA_SLOT, DEFAULT_MODEL, PromptText, PromptVersion,
-    RefusalCode, RegisteredAnswerer, Rejection,
+    AskError, AskRequest, CHAT_DEADLINE, DATA_SLOT, DEFAULT_MODEL, LanguageCheck, PromptText,
+    PromptVersion, RefusalCode, RegisteredAnswerer, Rejection,
 };

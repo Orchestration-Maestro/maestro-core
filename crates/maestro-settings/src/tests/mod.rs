@@ -1,6 +1,7 @@
 //! The settings crate's tests, one module per source module, and the proof
 //! that a new setting is one descriptor.
 
+mod builtin_helpers;
 mod discovery;
 mod edit;
 mod file;
@@ -11,3 +12,5 @@ mod resolve;
 mod store;
 mod synthetic;
 mod value;
+
+mod preferences;

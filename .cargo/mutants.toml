@@ -4,6 +4,10 @@
 # back as missed and its exclusion is reviewed again (tasks.md, T019).
 test_tool = "nextest"
 exclude_re = [
+  # The default returns Vec::new(), exactly the same empty vector as vec![].
+  '^crates/maestro-catalog/src/bootstrap/compose\.rs:55:9: replace PresetPort::absent_inputs -> Vec<\(PathBuf, String\)> with vec!\[\]$',
+  # Selection or the terminal boundary stops before the extra refresh is read.
+  '^crates/maestro-catalog/src/settings/discovery\.rs:169:34: replace && with \|\| in discover$',
   # `<=` only adds the empty range, which holds no content: the same findings.
   '^crates/maestro-canonicalization/src/validate/structure\.rs:155:19: replace < with <= in check_uncovered$',
   '^crates/maestro-canonicalization/src/validate/structure\.rs:165:14: replace < with <= in check_gap$',

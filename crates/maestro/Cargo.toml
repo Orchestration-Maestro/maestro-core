@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 clap.workspace = true
+maestro-catalog.workspace = true
 maestro-kernel.workspace = true
 maestro-knowledge.workspace = true
 maestro-settings.workspace = true
@@ -32,6 +33,7 @@ tokio = { workspace = true, features = [
 ulid.workspace = true
 
 [dev-dependencies]
+toml.workspace = true
 maestro-test-scratch.workspace = true
 qdrant-client.workspace = true
 tonic.workspace = true

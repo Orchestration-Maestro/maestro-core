@@ -100,7 +100,20 @@ and refusal metrics as any candidate, and are never chosen for the label.
    llama.cpp build and server flags, backend, offload, memory, concurrency and
    cache settings, measured hardware limits, suite results and date. Two
    quantizations or two templates of one model are two cards; an alias or a
-   `/v1/models` answer never proves which weights run.
+   `/v1/models` answer never proves which weights run. Under ADR-0011, the winner
+   arrives as an **owner-approved manifest change** in owner-relative
+   `llm/models/<role>/` (seed: `core/llm/models/<role>/`), carrying the exact
+   kernel v2 identity, a role matching the path and approved public evidence
+   references. The
+   manifest declares; the kernel retains immutable cards, evaluations and
+   selections. Explicit catalog registration requires all evidence already local;
+   each machine qualifies its own backend/runtime/hardware-bound card. A returned
+   answer carries its registry card ID, resolving to an immutable card; the kernel
+   stores no answers. Installation/update never implicitly registers or selects
+   a model. S1's current latest-registration lookup can change a later same-entry
+   ask, and re-registering an earlier card does not restore it; the named post-M1
+   explicit-selection fix owns that gap. Agent-session profiles stay separate
+   ([S3 D12](../../specs/003-catalog/plan.md#d12-kind-extensibility-and-model-cards)).
 6. Re-run when a candidate appears, a build changes or quarterly.
 
 **Provider qualification** precedes any agent role: a full tool round trip
