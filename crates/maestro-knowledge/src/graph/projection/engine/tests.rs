@@ -2,7 +2,10 @@
 
 #[cfg(windows)]
 use super::schema::tests::install_reader_fixture;
-use super::{open::open, rows};
+use super::{
+    open::{open, tests::Scratch},
+    rows,
+};
 #[cfg(not(windows))]
 use super::{schema, transaction::Transactions};
 use crate::graph::projection::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope, content};
@@ -12,10 +15,9 @@ use maestro_kernel::{
     evidence::Span,
     facts::{Object, ReviewState, Support, Validity},
 };
-use maestro_test_scratch::scratch_directory;
+use std::path::PathBuf;
 #[cfg(not(windows))]
 use std::slice;
-use std::{fs, path::PathBuf};
 
 /// A private owned native test root.
 pub(super) struct Fixture {
@@ -23,19 +25,19 @@ pub(super) struct Fixture {
     pub(super) path: PathBuf,
     /// Root capability held throughout the test.
     pub(super) root: RootDirectory,
+    /// Fields drop in declaration order: release the root before deleting its directory.
+    _scratch: Scratch,
 }
 impl Fixture {
     pub(super) fn new() -> Self {
-        let path = scratch_directory().unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt as _;
-            fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
-        }
-        #[cfg(windows)]
-        super::open::tests::private_windows_fixture(&path);
+        let scratch = Scratch::new();
+        let path = scratch.0.clone();
         let root = RootDirectory::open(&path).unwrap();
-        Self { path, root }
+        Self {
+            path,
+            root,
+            _scratch: scratch,
+        }
     }
     pub(super) fn writer(&self) -> Database {
         #[cfg(windows)]
@@ -54,11 +56,15 @@ impl Fixture {
         open(&self.root, "rows.lbdb", config().read_only(true)).unwrap()
     }
 }
-impl Drop for Fixture {
-    fn drop(&mut self) {
-        fs::remove_dir_all(&self.path).unwrap();
-    }
+#[test]
+fn fixture_cleanup_releases_root_before_removing_directory() {
+    let fixture = Fixture::new();
+    let path = fixture.path.clone();
+    // No Database or Connection exists: the fixture's root alone must be released.
+    drop(fixture);
+    assert!(!path.exists());
 }
+
 pub(super) fn config() -> SystemConfig {
     super::open::tests::config()
 }

@@ -21,10 +21,12 @@ pub(super) mod tests {
     use std::{fs, path::PathBuf};
 
     /// An owned, private scratch root, removed only after native handles drop.
-    struct Scratch(PathBuf);
+    pub(in crate::graph::projection::engine) struct Scratch(
+        pub(in crate::graph::projection::engine) PathBuf,
+    );
 
     impl Scratch {
-        fn new() -> Self {
+        pub(in crate::graph::projection::engine) fn new() -> Self {
             let directory = scratch_directory().unwrap();
             #[cfg(unix)]
             {
