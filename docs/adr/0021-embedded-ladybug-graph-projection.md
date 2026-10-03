@@ -144,9 +144,11 @@ requests, LadybugDB/ladybug#777 and #796, closed unmerged. The owner chose on
 The patch lives in the organization's repository
 [`Orchestration-Maestro/lbug`](https://github.com/Orchestration-Maestro/lbug):
 the crates.io 0.20.4 crate imported unmodified, then the patch commits.
-The workspace keeps `lbug = "=0.20.4"` with default features off, and
-`[patch.crates-io]` replaces it with the fork at commit `e0a1240`
-(`Cargo.lock` pins the full hash). Its DEP-001 exception in
+The workspace depends on the fork directly, as a git dependency at commit
+`e0a1240` with `version = "=0.20.4"` and default features off (`Cargo.lock`
+pins the full hash). It was a `[patch.crates-io]` until 2026-10-03:
+cargo-semver-checks builds each crate in a placeholder project that ignores
+`[patch]`, so its API check built crates.io lbug instead of the fork. Its DEP-001 exception in
 `maestro-quality.toml` allows that one git source, and `supply-chain`
 records its vet exemption. The current pin includes E01/E02 rooted
 filesystem operations, E03 external native-cache reuse, E03b source-only
