@@ -4,6 +4,10 @@ use super::super::{
     plain::Plain,
 };
 use maestro_settings::{LayerName, Layers, Registry, SettingClass, SettingKind};
+use std::{
+    io::{self, BufRead, ErrorKind, Read},
+    slice::from_ref,
+};
 
 fn registry() -> Registry {
     let base = Registry::built_in().unwrap();
@@ -129,4 +133,77 @@ fn catalog_init_flow_plain_eof_control_c_escape_and_default_no() {
         assert_eq!(plain.ask("Label: ").unwrap(), answer);
         assert_eq!(output, b"Label: ");
     }
+}
+
+#[test]
+fn catalog_init_regression_initial_choices_use_the_edit_validator() {
+    for (key, value) in [
+        ("updates", "auto"),
+        ("language", "auto"),
+        ("synthetic_standard", "4"),
+    ] {
+        let choice = format!("{key}={value}");
+        let initial = Draft::new(
+            registry(),
+            Layers::default(),
+            LayerName::Project,
+            from_ref(&choice),
+            true,
+        );
+        let mut prompted =
+            Draft::new(registry(), Layers::default(), LayerName::Project, &[], true).unwrap();
+        let refusal = prompted.edit(&choice).unwrap_err().to_string();
+        assert_eq!(
+            initial
+                .err()
+                .expect("initial assignment refused")
+                .to_string(),
+            refusal
+        );
+    }
+    for value in ["off", "propose"] {
+        Draft::new(
+            registry(),
+            Layers::default(),
+            LayerName::Project,
+            &[format!("updates={value}")],
+            true,
+        )
+        .unwrap();
+    }
+    Draft::new(
+        registry(),
+        Layers::default(),
+        LayerName::User,
+        &["updates=auto".into()],
+        false,
+    )
+    .unwrap();
+}
+
+#[test]
+fn catalog_init_regression_interrupted_plain_io_cancels() {
+    struct Interrupted;
+    impl Read for Interrupted {
+        fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+            Err(ErrorKind::Interrupted.into())
+        }
+    }
+    impl BufRead for Interrupted {
+        fn fill_buf(&mut self) -> io::Result<&[u8]> {
+            Err(ErrorKind::Interrupted.into())
+        }
+        fn consume(&mut self, _: usize) {}
+        fn read_line(&mut self, _: &mut String) -> io::Result<usize> {
+            Err(ErrorKind::Interrupted.into())
+        }
+    }
+    let mut input = Interrupted;
+    let mut output = Vec::new();
+    let mut plain = Plain {
+        input: &mut input,
+        output: &mut output,
+    };
+    assert_eq!(plain.ask("Label: ").unwrap(), Answer::Cancel);
+    assert_eq!(output, b"Label: ");
 }

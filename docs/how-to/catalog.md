@@ -40,9 +40,10 @@ maestro init --catalog-dir "$CATALOG" --preset base --yes \
 
 Without `--apply`, this previews only. Flags and plain choices share one
 validator, planner and owned-file writer. Duplicate setting keys and invalid
-values refuse. Updates persist as `off` when off, otherwise `propose`; init
-cannot enable the user-only Auto ceiling. Omitted language resolves through
-workspace/user defaults, finally `en`; tone finally defaults to `normal`.
+values refuse. Explicit init updates accept only `off` or `propose`; Auto
+remains user-only. Omitted language resolves through workspace/user defaults,
+finally `en` when creating preferences; untouched existing config bytes are
+preserved. Tone finally defaults to `normal`.
 
 In a fresh home, explicitly approve the exact canonical workspace first:
 
@@ -60,11 +61,22 @@ accepts choices, not trust or file collisions. Non-interactive apply without
 menu or escape sequence. Successful apply reports `.maestro/config.toml` and
 `maestro config explain` for inspecting effective values.
 
+Preferences-only apply does not need a catalog or preset. `--yes` and `--json`
+never prompt: this narrow write requires an exact `--confirm-path`. A declined
+plain flow prints a complete retry carrying the reviewed assignments:
+
+```sh
+maestro init --apply --preferences-only --confirm-path "$ROOT" \
+  --language fr --tone brief --updates off
+```
+
 ## Edit every setting
 
 Run `maestro config` for the same registry-generated editor, defaulting to user
 preferences. Run `maestro config --project` to use S1's existing project-file
-selection, or `maestro config --user` for explicit user selection.
+selection, or `maestro config --user` for explicit user selection. These editor
+flags cannot precede a subcommand; use `maestro config set KEY VALUE --project`
+or `maestro config unset KEY --project`.
 
 Each entry shows its current effective value, accepted values/range, one-line
 description, source layer and editing restriction. Enter `KEY=VALUE`, press

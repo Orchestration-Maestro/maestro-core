@@ -52,18 +52,17 @@ impl Draft {
         choices: &[String],
         init: bool,
     ) -> Result<Self, Failure> {
-        parse_flags(&registry, choices).map_err(Failure::refused)?;
         let mut draft = Self {
             registry,
             layers,
             flags: Vec::new(),
             layer,
-            choices: choices.to_vec(),
+            choices: Vec::new(),
             init,
             output: Output::new(false),
         };
-        if init && draft.resolved()?.text("language") == Some("auto") {
-            draft.edit("language=en")?;
+        for choice in choices {
+            draft.edit(choice)?;
         }
         Ok(draft)
     }
@@ -106,6 +105,11 @@ impl Draft {
             &self.registry,
             &maestro_settings::resolve(&self.registry, &layers, &self.flags),
         ))
+    }
+
+    /// Interface selection follows this exact admitted, edited snapshot.
+    pub(in crate::cli) fn language_output(&self, output: Output) -> Result<Output, Failure> {
+        output.with_language(self.resolved()?.text("language").unwrap_or("auto"))
     }
 
     /// Every descriptor, never a screen-specific list, with provenance and restrictions.
@@ -193,7 +197,15 @@ pub(in crate::cli) fn editor(
     loop {
         match port.ask(&draft.output.wording(MessageKey::FlowEditorPrompt, &[])?)? {
             Answer::Text(text) if !text.is_empty() => match draft.edit(&text) {
-                Ok(()) => draft.show(port)?,
+                Ok(()) => {
+                    if text
+                        .split_once('=')
+                        .is_some_and(|(key, _)| key.trim() == "language")
+                    {
+                        draft.output = draft.language_output(draft.output)?;
+                    }
+                    draft.show(port)?;
+                }
                 Err(error) => port.show(&format!("Error: {error}"))?,
             },
             answer => return Ok(answer),

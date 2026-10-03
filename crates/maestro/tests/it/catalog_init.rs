@@ -304,7 +304,7 @@ fn catalog_init_and_check_refuse_unlisted_inventory_payloads() {
 }
 
 /// Existing apply scenarios explicitly provision user trust before effects.
-fn approve(home: &Home, root: &Path) {
+pub(super) fn approve(home: &Home, root: &Path) {
     let root = root.canonicalize().unwrap();
     let path = root.to_str().unwrap();
     let result = home.run(&["trust", "add", path, "--confirm-path", path]);
@@ -312,7 +312,7 @@ fn approve(home: &Home, root: &Path) {
 }
 
 /// Clone only the synthetic checked source tree for editable CLI cases.
-fn copy_tree(from: &Path, to: &Path) {
+pub(super) fn copy_tree(from: &Path, to: &Path) {
     fs::create_dir_all(to).unwrap();
     for entry in fs::read_dir(from).unwrap() {
         let entry = entry.unwrap();

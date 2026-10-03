@@ -8,7 +8,7 @@ fn quote_path(path: &str, windows: bool) -> Option<String> {
     }
     if !path.chars().all(|character| {
         character.is_alphanumeric()
-            || " /._-+,@:~".contains(character)
+            || " /._-+,@:~=".contains(character)
             || (windows && character == '\\')
     }) {
         return None;
@@ -74,9 +74,14 @@ pub(super) fn visible_path(path: &Path) -> String {
     raw
 }
 
+/// Shell-safe literal argument, or none outside the supported-shell allow-list.
+pub(super) fn quoted_argument(argument: &str) -> Option<String> {
+    quote_path(argument, cfg!(windows))
+}
+
 /// Shell-safe canonical argument, or none for any spelling outside the allow-list.
 pub(super) fn quoted_canonical(path: &Path) -> Option<String> {
-    quote_path(&visible_path(path), cfg!(windows))
+    quoted_argument(&visible_path(path))
 }
 
 /// Safe user-facing suggestion; an unrenderable path is shown only as escaped data.

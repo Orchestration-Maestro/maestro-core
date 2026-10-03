@@ -3,14 +3,14 @@ use super::support::{Home, Running};
 use maestro_kernel::scope::LOCAL;
 use std::{fs, io::Write as _, path::PathBuf, process::Stdio};
 
-fn catalog() -> PathBuf {
+pub(super) fn catalog() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/fixtures/catalog/bootstrap/owner-local")
         .canonicalize()
         .unwrap()
 }
 
-fn plain(home: &Home, args: &[&str], input: &str) -> super::support::Ended {
+pub(super) fn plain(home: &Home, args: &[&str], input: &str) -> super::support::Ended {
     let mut command = home.command(args);
     command
         .current_dir(home.root().join("project"))

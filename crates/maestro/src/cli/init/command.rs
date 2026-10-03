@@ -1,4 +1,5 @@
 //! `maestro init`: show the complete authoring plan and apply only on request.
+use super::flow::Draft;
 use crate::{
     cli::{catalog, output::Output, session, trust, trust_path},
     failure::Failure,
@@ -11,16 +12,18 @@ use maestro_catalog::{
     policy::workspace::{
         Access, CheckedTrust, JournalTrust, WorkspaceTrust as _, write_preferences,
     },
-    settings::{PreferencesDraft, WorkspacePreferences, draft_preferences, resolve},
+    settings::{PreferencesDraft, WorkspacePreferences, draft_preferences},
     source::{Known, builtin, frozen_rows},
 };
 use maestro_kernel::workspace::WorkspaceAuthority;
+use maestro_settings::LayerName;
 use serde::Serialize;
 use std::{
     env,
     io::{self, BufRead, IsTerminal as _, Write},
     path::{Path, PathBuf},
     process::ExitCode,
+    str::from_utf8,
 };
 
 /// Machine-readable preview, or preview plus the requested owned-file apply.
@@ -49,15 +52,6 @@ struct InitDocument<'a> {
     preferences: Option<&'a PreferencesDraft>,
 }
 
-/// Confirmed explicit draft choices over the already validated session port.
-#[derive(Clone, Copy)]
-pub(in crate::cli) struct PreferenceChoices<'a> {
-    /// Storage-independent, immutable preference snapshot.
-    pub(in crate::cli) source: &'a dyn WorkspacePreferences,
-    /// Only explicitly supplied command-line choices.
-    pub(in crate::cli) choices: &'a [String],
-}
-
 /// Explicit effect choices; neither preview nor generic output flags authorize trust.
 #[derive(Clone, Copy)]
 pub(in crate::cli) struct ApplyChoices<'a> {
@@ -65,6 +59,8 @@ pub(in crate::cli) struct ApplyChoices<'a> {
     pub(in crate::cli) apply: bool,
     /// Decline trust and separately approve only preferences.
     pub(in crate::cli) preferences_only: bool,
+    /// Never prompt when scripted choices were explicitly requested.
+    pub(in crate::cli) non_interactive: bool,
     /// Exact canonical path for the separate preferences-only approval.
     pub(in crate::cli) confirm_path: Option<&'a Path>,
 }
@@ -131,11 +127,7 @@ pub(in crate::cli::init) fn prepare(
 impl Prepared {
     /// The existing versioned document, identical in plain and scripted paths.
     pub(in crate::cli::init) fn show(&self, output: Output, applied: bool) -> Result<(), Failure> {
-        let already_applied = self.preview.plan.is_applied()
-            && self
-                .preferences
-                .as_ref()
-                .is_none_or(|draft| draft.files.is_applied());
+        let already_applied = self.already_applied();
         let document = InitDocument {
             schema: "maestro-cli/init/1",
             mode: "authoring convenience; not a verified install",
@@ -156,6 +148,20 @@ impl Prepared {
         }
     }
 
+    /// Both independent plans must be unchanged before reporting a no-op.
+    fn already_applied(&self) -> bool {
+        self.preview.plan.is_applied()
+            && self
+                .preferences
+                .as_ref()
+                .is_none_or(|draft| draft.files.is_applied())
+    }
+
+    /// Human review uses the pinned config bytes, not the machine hex encoding.
+    pub(in crate::cli::init) fn review_values(&self) -> Result<String, Failure> {
+        review_values(&self.root, self.preferences.as_ref())
+    }
+
     /// Recheck real authority after confirmation; never replan the reviewed bytes.
     pub(in crate::cli::init) fn apply(&self, output: Output) -> Result<(), Failure> {
         require_trust(output, &self.root)?;
@@ -171,7 +177,7 @@ impl Prepared {
         if let Some(preferences) = &self.preferences {
             files::apply(&self.root, &preferences.files, &checked).map_err(Failure::refused)?;
         }
-        output.text(if self.preview.plan.is_applied() {
+        output.text(if self.already_applied() {
             "Already applied; no files written."
         } else {
             "Applied authoring plan."
@@ -186,7 +192,7 @@ impl Prepared {
 /// Script dispatch retains C47a's independent preference snapshot.
 pub(in crate::cli::init) fn scripted(
     output: Output,
-    catalog_dir: &Path,
+    catalog_dir: Option<&Path>,
     presets: &[String],
     effects: ApplyChoices<'_>,
     choices: &[String],
@@ -197,15 +203,18 @@ pub(in crate::cli::init) fn scripted(
         let root = env::current_dir()
             .and_then(|root| root.canonicalize())
             .map_err(|error| Failure::failed_by(&error))?;
-        return preferences_only(
-            output,
-            &root,
-            &effects,
-            PreferenceChoices {
-                source: &source,
-                choices,
-            },
-        );
+        let draft = prepare_preferences(&root, &source, choices)?;
+        return apply_preferences(output, &root, &effects, (&draft, choices));
+    }
+    let catalog_dir = catalog_dir.ok_or_else(|| {
+        Failure::refused(
+            "scripted init requires --catalog-dir and --preset; use --plain for labelled prompts",
+        )
+    })?;
+    if presets.is_empty() {
+        return Err(Failure::refused(
+            "scripted init requires an explicit --preset",
+        ));
     }
     let prepared = prepare(catalog_dir, presets, &source, choices)?;
     if !output.is_json() || !effects.apply {
@@ -230,13 +239,7 @@ pub(in crate::cli::init) fn preference_output(
     let layers = source
         .layers(&registry, &Limits::PRODUCTION)
         .map_err(Failure::refused)?;
-    let flags = maestro_settings::parse_flags(&registry, choices)
-        .map_err(|error| Failure::refused_by(&error))?;
-    let resolved = resolve(
-        &registry,
-        &maestro_settings::resolve(&registry, &layers, &flags),
-    );
-    output.with_language(resolved.text("language").unwrap_or("auto"))
+    Draft::new(registry, layers, LayerName::Project, choices, true)?.language_output(output)
 }
 
 /// Existing config without explicit choices is checked but never adopted or rewritten.
@@ -289,40 +292,6 @@ pub(in crate::cli::init) fn require_trust(output: Output, root: &Path) -> Result
     Ok(())
 }
 
-/// Separate decline path never loads a preset or applies a template/projection plan.
-pub(in crate::cli::init) fn preferences_only(
-    output: Output,
-    root: &Path,
-    effects: &ApplyChoices<'_>,
-    preferences: PreferenceChoices<'_>,
-) -> Result<ExitCode, Failure> {
-    let stdin = io::stdin();
-    let stderr = io::stderr();
-    preferences_only_with_io(
-        output,
-        root,
-        effects,
-        preferences,
-        (
-            stdin.is_terminal() && stderr.is_terminal(),
-            &mut stdin.lock(),
-            &mut stderr.lock(),
-        ),
-    )
-}
-
-/// Preferences-only execution shares rendered prompt hand-off with injected IO.
-pub(in crate::cli::init) fn preferences_only_with_io(
-    output: Output,
-    root: &Path,
-    effects: &ApplyChoices<'_>,
-    preferences: PreferenceChoices<'_>,
-    (terminal, input, error): (bool, &mut dyn BufRead, &mut dyn Write),
-) -> Result<ExitCode, Failure> {
-    let draft = prepare_preferences(root, preferences.source, preferences.choices)?;
-    apply_preferences_with_io(output, root, effects, &draft, (terminal, input, error))
-}
-
 /// Narrow decline review uses the existing draft planner and no catalog inventory.
 pub(in crate::cli::init) fn prepare_preferences(
     root: &Path,
@@ -347,7 +316,7 @@ pub(in crate::cli::init) fn apply_preferences(
     output: Output,
     root: &Path,
     effects: &ApplyChoices<'_>,
-    draft: &PreferencesDraft,
+    reviewed: (&PreferencesDraft, &[String]),
 ) -> Result<ExitCode, Failure> {
     let stdin = io::stdin();
     let stderr = io::stderr();
@@ -355,7 +324,7 @@ pub(in crate::cli::init) fn apply_preferences(
         output,
         root,
         effects,
-        draft,
+        reviewed,
         (
             stdin.is_terminal() && stderr.is_terminal(),
             &mut stdin.lock(),
@@ -365,11 +334,11 @@ pub(in crate::cli::init) fn apply_preferences(
 }
 
 /// Existing trusted confirmation and journal writer, shared by both decline paths.
-fn apply_preferences_with_io(
+pub(in crate::cli::init) fn apply_preferences_with_io(
     output: Output,
     root: &Path,
     effects: &ApplyChoices<'_>,
-    draft: &PreferencesDraft,
+    (draft, choices): (&PreferencesDraft, &[String]),
     (terminal, input, error): (bool, &mut dyn BufRead, &mut dyn Write),
 ) -> Result<ExitCode, Failure> {
     trust::boundaries()?
@@ -383,17 +352,12 @@ fn apply_preferences_with_io(
         root,
         effects.confirm_path,
         &prompt,
-        terminal,
+        terminal && !effects.non_interactive && !output.is_json(),
         (input, error),
     ) {
         Ok(confirmation) => confirmation,
         Err(failure) => {
-            let instruction = if let Some(path) = trust_path::quoted_canonical(root) {
-                output.wording(MessageKey::InitConfirmCommand, &[("path", &path)])?
-            } else {
-                let path = format!("{:?}", trust_path::visible_path(root));
-                output.wording(MessageKey::InitConfirmData, &[("path", &path)])?
-            };
+            let instruction = preference_retry(output, root, choices)?;
             return Err(Failure::refused(output.wording(
                 MessageKey::InitConfirm,
                 &[
@@ -444,5 +408,47 @@ impl WorkspacePreferences for InitPreferences<'_> {
         limits: &Limits,
     ) -> Result<maestro_settings::Layers, String> {
         self.source.layers(registry, limits)
+    }
+}
+
+/// Show the exact pinned preferences as text without altering the machine document.
+pub(in crate::cli::init) fn review_values(
+    root: &Path,
+    preferences: Option<&PreferencesDraft>,
+) -> Result<String, Failure> {
+    let values = match preferences {
+        Some(draft) => from_utf8(&draft.file.bytes).map_err(|error| Failure::failed_by(&error))?,
+        None => "Existing config preserved unchanged.\n",
+    };
+    Ok(format!(
+        "Root: {}\nConfig values (.maestro/config.toml):\n{values}",
+        root.display()
+    ))
+}
+
+/// A declined interactive flow can retry the reviewed choices without any catalog flags.
+fn preference_retry(output: Output, root: &Path, choices: &[String]) -> Result<String, Failure> {
+    let quoted: Option<Vec<_>> = choices
+        .iter()
+        .map(|choice| trust_path::quoted_argument(choice))
+        .collect();
+    if let (Some(path), Some(choices)) = (trust_path::quoted_canonical(root), quoted) {
+        let mut command = format!("maestro init --apply --preferences-only --confirm-path {path}");
+        for choice in choices {
+            command.push_str(" --set ");
+            command.push_str(&choice);
+        }
+        Ok(format!(
+            "{}: `{command}`",
+            output.wording(MessageKey::InitConfirmCommand, &[("path", &path)])?
+        ))
+    } else {
+        let path = format!("{:?}", trust_path::visible_path(root));
+        Ok(format!(
+            "{}\nRetry: maestro init --apply --preferences-only --confirm-path PATH; \
+            pass each reviewed assignment with --set, quoting it for your shell \
+            (data): {choices:?}",
+            output.wording(MessageKey::InitConfirmData, &[("path", &path)])?
+        ))
     }
 }

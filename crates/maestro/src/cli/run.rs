@@ -60,6 +60,17 @@ fn run(arguments: &Arguments) -> ExitCode {
 /// `setup`, `backup` and `restore` open no kernel for writing, and `status`
 /// and `doctor` never create or migrate it.
 fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> {
+    if let Noun::Config {
+        target,
+        command: Some(_),
+    } = &arguments.noun
+        && (target.project || target.user)
+    {
+        return Err(Failure::refused(
+            "editor layer flags cannot precede a config subcommand; put --user or --project \
+             after `maestro config set KEY VALUE` or `maestro config unset KEY`",
+        ));
+    }
     if let Noun::Trust(command) = &arguments.noun {
         return trust::run(output, command);
     }
@@ -180,6 +191,7 @@ fn independent_command(
                 effects: init::ApplyChoices {
                     apply: *apply,
                     preferences_only: *preferences_only,
+                    non_interactive: *yes,
                     confirm_path: confirm_path.as_deref(),
                 },
             },

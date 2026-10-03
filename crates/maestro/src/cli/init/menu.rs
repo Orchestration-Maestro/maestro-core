@@ -50,23 +50,18 @@ pub(in crate::cli) fn run(
         || (!request.plain && !terminal)
         || request.effects.preferences_only
     {
-        let catalog = request.catalog.ok_or_else(|| {
-            Failure::refused(
-                "scripted init requires \
-            --catalog-dir and --preset; use --plain for labelled prompts",
-            )
-        })?;
-        if request.presets.is_empty() {
-            return Err(Failure::refused(
-                "scripted init requires an explicit --preset",
-            ));
-        }
         if request.effects.apply && !request.yes && !request.effects.preferences_only {
             return Err(Failure::refused(
                 "non-interactive apply requires --yes; it never grants trust",
             ));
         }
-        return command::scripted(output, catalog, request.presets, request.effects, choices);
+        return command::scripted(
+            output,
+            request.catalog,
+            request.presets,
+            request.effects,
+            choices,
+        );
     }
     let source = session::init_preferences()?;
     let root = env::current_dir()
@@ -84,8 +79,13 @@ pub(in crate::cli) fn run(
     };
     // Release renderer IO locks before the existing administration adapter takes them.
     let prepared = match reviewed.plan {
-        ReviewedPlan::Preferences(draft) => {
-            return command::apply_preferences(reviewed.output, &root, &request.effects, &draft);
+        ReviewedPlan::Preferences(draft, choices) => {
+            return command::apply_preferences(
+                reviewed.output,
+                &root,
+                &request.effects,
+                (&draft, &choices),
+            );
         }
         ReviewedPlan::Authoring(prepared) => prepared,
     };
@@ -115,7 +115,7 @@ enum ReviewedPlan {
     /// Full C05 owned-file plan.
     Authoring(Box<command::Prepared>),
     /// Only the separately confirmed root-local preferences record.
-    Preferences(PreferencesDraft),
+    Preferences(PreferencesDraft, Vec<String>),
 }
 
 /// Five sequential stages; Back retains all draft choices, errors retain the stage.
@@ -143,22 +143,13 @@ fn interactive(
             )?,
             1 => {
                 port.show(&output.wording(MessageKey::FlowLanguage, &[])?)?;
-                let answer = flow::preference(
+                flow::preference(
                     port,
                     draft_mut(&mut draft)?,
                     "language",
                     "English en; French fr; Spanish es; or another supported BCP 47 tag. \
                         Artifacts/logs stay English.",
-                )?;
-                if let Answer::Text(_) = &answer {
-                    output = command::preference_output(
-                        output,
-                        source,
-                        &draft_mut(&mut draft)?.choices,
-                    )?;
-                }
-                draft_mut(&mut draft)?.output = output;
-                answer
+                )?
             }
             2 => {
                 port.show(&output.wording(MessageKey::FlowTone, &[])?)?;
@@ -185,7 +176,7 @@ fn interactive(
                     (selected, &presets),
                     (source, root),
                     choices,
-                    output,
+                    (output, port),
                 ) {
                     Ok(plan) => plan,
                     Err(error) => {
@@ -207,7 +198,14 @@ fn interactive(
             Answer::Cancel => return Ok(None),
             Answer::Back if stage == 0 => return Ok(None),
             Answer::Back => stage -= 1,
-            Answer::Text(_) => stage += 1,
+            Answer::Text(text) => {
+                let draft = draft_mut(&mut draft)?;
+                if stage == 0 || (stage == 1 && !text.is_empty()) {
+                    draft.output = draft.language_output(output)?;
+                }
+                output = draft.output;
+                stage += 1;
+            }
         }
     }
 }
@@ -218,20 +216,22 @@ fn review_plan(
     (catalog, presets): (&Path, &[String]),
     (source, root): (&dyn WorkspacePreferences, &Path),
     choices: &[String],
-    output: Output,
+    (output, port): (Output, &mut dyn FlowPort),
 ) -> Result<ReviewedPlan, Failure> {
     if trusted {
         let prepared = command::prepare(catalog, presets, source, choices)?;
+        port.show(&prepared.review_values()?)?;
         prepared.show(output, false)?;
         Ok(ReviewedPlan::Authoring(Box::new(prepared)))
     } else {
         let draft = command::prepare_preferences(root, source, choices)?;
+        port.show(&command::review_values(root, Some(&draft))?)?;
         output
             .text("Trust declined: preferences-only review; no template or projection writes.")?;
         output.text(
             &serde_json::to_string_pretty(&draft).map_err(|error| Failure::failed_by(&error))?,
         )?;
-        Ok(ReviewedPlan::Preferences(draft))
+        Ok(ReviewedPlan::Preferences(draft, choices.to_vec()))
     }
 }
 

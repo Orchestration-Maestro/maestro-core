@@ -300,6 +300,7 @@ in place.
 │   │   │       ├── catalog_codeowners.rs                                    # Read-only CODEOWNERS rendering and comparison against committed rules
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
 │   │   │       ├── catalog_init_menu.rs                                     # Plain, screen-reader-safe init and the registry-backed config editor
+│   │   │       ├── catalog_init_regressions.rs                              # C05g review regressions: targeting, parity, retry and the reviewed values
 │   │   │       ├── catalog_owners.rs                                        # Trusted evidence is a separate input; the command performs no lookup or write
 │   │   │       ├── catalog_policy.rs                                        # Real Cedar through the effect-free policy CLI
 │   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
