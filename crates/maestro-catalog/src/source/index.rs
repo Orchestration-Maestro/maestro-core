@@ -8,7 +8,7 @@ use super::{
 use crate::{files::digest, limits::Limits};
 use maestro_kernel::json::canonical;
 use serde::Serialize;
-use std::{collections::BTreeMap, io};
+use std::collections::BTreeMap;
 
 /// The two generated navigation views, always UTF-8 with LF line endings.
 #[derive(Debug)]
@@ -150,25 +150,12 @@ pub fn generate(
         by_type.push_str("\n\n");
         by_type.extend(entries);
     }
+    // checked_snapshot already refuses every cached I/O failure; only absent
+    // paths can fail these reads, without reopening any original file.
     Ok(CatalogIndex {
         index,
         by_type,
-        committed_index: retained(&snapshot, INDEX_PATH, limits)?,
-        committed_by_type: retained(&snapshot, BY_TYPE_PATH, limits)?,
+        committed_index: snapshot.read(INDEX_PATH, limits.source_file_bytes).ok(),
+        committed_by_type: snapshot.read(BY_TYPE_PATH, limits.source_file_bytes).ok(),
     })
-}
-
-/// Optional bytes from the bounded snapshot, with the standard I/O exit split.
-fn retained(
-    snapshot: &dyn SourceTree,
-    path: &str,
-    limits: &Limits,
-) -> Result<Option<Vec<u8>>, Refusal> {
-    match snapshot.read(path, limits.source_file_bytes) {
-        Ok(bytes) => Ok(Some(bytes)),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(Refusal {
-            diagnostics: vec![Diagnostic::unreadable(path, error.to_string())],
-        }),
-    }
 }

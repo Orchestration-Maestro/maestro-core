@@ -100,3 +100,83 @@ pub(in crate::cli) fn run(
     )?;
     Ok(ExitCode::SUCCESS)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{BY_TYPE_PATH, Failure, INDEX_PATH, Output, View, run};
+    use maestro_test_scratch::scratch_directory;
+    #[cfg(unix)]
+    use std::io::ErrorKind;
+    use std::{fs, path::PathBuf};
+
+    /// Minimal public source, sufficient to distinguish preflight from checking.
+    fn catalog() -> PathBuf {
+        let root = scratch_directory().unwrap();
+        fs::create_dir(root.join("core")).unwrap();
+        for (path, text) in [
+            (
+                "package.toml",
+                include_str!("../../../../../tests/fixtures/catalog/source/package.toml"),
+            ),
+            (
+                "core/package.toml",
+                include_str!("../../../../../tests/fixtures/catalog/source/core-package.toml"),
+            ),
+        ] {
+            fs::write(root.join(path), text).unwrap();
+        }
+        root
+    }
+
+    #[test]
+    fn catalog_index_directories_refuse_at_preflight() {
+        let root = catalog();
+        // Missing outputs are valid for rendering; regular files are valid too.
+        run(Output::new(false), &root, View::Index, false).unwrap();
+        let package = root.join("core/package.toml");
+        let valid = fs::read(&package).unwrap();
+        for path in [INDEX_PATH, BY_TYPE_PATH] {
+            fs::create_dir_all(root.join(path).parent().unwrap()).unwrap();
+            fs::write(root.join(path), "stale\n").unwrap();
+            run(Output::new(false), &root, View::Index, false).unwrap();
+            fs::remove_file(root.join(path)).unwrap();
+            fs::create_dir(root.join(path)).unwrap();
+            // Preflight must refuse the output before parsing malformed sources;
+            // a valid source alone would reach the same refusal in the snapshot.
+            fs::write(&package, "unknown = true\n").unwrap();
+            for check in [false, true] {
+                let error = run(Output::new(false), &root, View::Index, check).unwrap_err();
+                assert!(matches!(error, Failure::Refused(_)));
+                assert_eq!(
+                    error.to_string(),
+                    format!("{path}: generated output must be a regular file")
+                );
+            }
+            fs::remove_dir(root.join(path)).unwrap();
+            fs::write(&package, &valid).unwrap();
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    // Unix reports NotADirectory here; Windows may report NotFound instead.
+    // The directory test above keeps missing/regular-file neighbours portable.
+    #[cfg(unix)]
+    #[test]
+    fn catalog_index_non_not_found_io_fails_at_preflight() {
+        let root = catalog();
+        run(Output::new(false), &root, View::Index, false).unwrap();
+        // A regular ancestor distinguishes a missing output from an I/O failure.
+        for (path, ancestor) in [(INDEX_PATH, "marketplace"), (BY_TYPE_PATH, "docs")] {
+            fs::write(root.join(ancestor), "not a directory\n").unwrap();
+            let io_error = fs::symlink_metadata(root.join(path)).unwrap_err();
+            assert_ne!(io_error.kind(), ErrorKind::NotFound);
+            for check in [false, true] {
+                let error = run(Output::new(false), &root, View::Index, check).unwrap_err();
+                assert!(matches!(error, Failure::Failed(_)), "{error:?}");
+                assert_eq!(error.to_string(), format!("{path}: {io_error}"));
+            }
+            fs::remove_file(root.join(ancestor)).unwrap();
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+}

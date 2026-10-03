@@ -134,6 +134,90 @@ fn stale_extra_index_row_refuses() {
 }
 
 #[test]
+fn catalog_index_verify_committed_refuses_drift() {
+    let source = MemoryTree::valid();
+    let expected = render(&source);
+    let committed = source
+        .with(INDEX_PATH, &expected.index)
+        .with(BY_TYPE_PATH, &expected.by_type);
+    render(&committed).verify_committed().unwrap();
+    let document: Value = serde_json::from_str(&expected.index).unwrap();
+    for mutation in ["stale", "extra", "private"] {
+        let mut changed = document.clone();
+        match mutation {
+            "stale" => changed["resources"][0]["version"] = "9.8.7".into(),
+            "extra" => changed["resources"]
+                .as_array_mut()
+                .unwrap()
+                .push(document["resources"][0].clone()),
+            _ => changed["resources"]
+                .as_array_mut()
+                .unwrap()
+                .push(serde_json::json!({"id": "package:confidential"})),
+        }
+        let checked = render(&committed.clone().with(INDEX_PATH, &changed.to_string()));
+        let refusal = checked.verify_committed().expect_err(mutation);
+        assert_eq!(refusal.diagnostics.len(), 1, "{mutation}");
+        let message = refusal.diagnostics[0].to_string();
+        assert!(message.contains(INDEX_PATH), "{mutation}: {message}");
+        assert!(
+            message.contains("stale, extra or private rows"),
+            "{mutation}: {message}"
+        );
+        assert!(message.contains("--view index"), "{mutation}: {message}");
+        assert!(!message.contains("confidential"), "{mutation}: {message}");
+    }
+    for path in [INDEX_PATH, BY_TYPE_PATH] {
+        let refusal = render(&committed.clone().without(path))
+            .verify_committed()
+            .unwrap_err();
+        assert_eq!(refusal.diagnostics.len(), 1);
+        let message = refusal.diagnostics[0].to_string();
+        assert!(
+            message.contains(path) && message.contains("missing"),
+            "{message}"
+        );
+    }
+    let refusal = render(&committed.with(BY_TYPE_PATH, "stale\n"))
+        .verify_committed()
+        .unwrap_err();
+    assert_eq!(refusal.diagnostics.len(), 1);
+    let message = refusal.diagnostics[0].to_string();
+    assert!(message.contains(BY_TYPE_PATH) && message.contains("--view by-type"));
+}
+
+#[test]
+fn catalog_index_unreadable_committed_views_fail_before_retention() {
+    let source = MemoryTree::valid();
+    let expected = render(&source);
+    let committed = source
+        .with(INDEX_PATH, &expected.index)
+        .with(BY_TYPE_PATH, &expected.by_type);
+    render(&committed).verify_committed().unwrap();
+    let rows = frozen_rows();
+    let settings = maestro_settings::Registry::built_in().unwrap();
+    for path in [INDEX_PATH, BY_TYPE_PATH] {
+        let refusal = generate(
+            &committed.clone().with_unreadable(path),
+            &builtin().unwrap(),
+            &Limits::PRODUCTION,
+            Known {
+                rows: &rows,
+                settings: &settings,
+                today: 0,
+            },
+        )
+        .unwrap_err();
+        assert!(refusal.unreadable());
+        let message = refusal.to_string();
+        assert!(
+            message.contains(path) && message.contains("cannot read"),
+            "{message}"
+        );
+    }
+}
+
+#[test]
 fn public_index_excludes_private() {
     let public = MemoryTree::valid();
     let private = MemoryTree::owned().with(
