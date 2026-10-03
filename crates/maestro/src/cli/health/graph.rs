@@ -30,7 +30,7 @@ const NAME: &str = "graph";
 /// with the files `published` publishes.
 pub(super) fn check_with(
     environment: &Environment,
-    session: Result<Session, Failure>,
+    session: Result<&Session, Failure>,
     engine_built: bool,
     published: &dyn PublishedGraph,
 ) -> Check {
@@ -46,7 +46,7 @@ pub(super) fn check_with(
         }
     };
     let target = directory.display().to_string();
-    let engine = match session.and_then(|session| GraphEngine::from_session(&session)) {
+    let engine = match session.and_then(GraphEngine::from_session) {
         Ok(engine) => engine,
         Err(error) => {
             return Check::failed(

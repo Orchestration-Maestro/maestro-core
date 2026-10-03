@@ -26,3 +26,4 @@ order; a superseded record stays and names its successor.
 | [0019](0019-reverse-engineering-is-analysis-behind-a-clean-room.md) | Reverse engineering produces knowledge only, behind a clean-room boundary |
 | [0020](0020-rust-libraries-with-named-dependency-exceptions.md) | Rust libraries join the stack; the duplicates they force are named exceptions |
 | [0021](0021-embedded-ladybug-graph-projection.md) | Embedded-first S2: LadybugDB reads from the pilot onward; [manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff) preserves the registry and frozen lock; qualification/consumer wiring pending, G24 finalizes |
+| [0022](0022-manifest-layout-v4-and-language-neutral-extensions.md) | Manifest v4: mandatory standards, shared languages, delegated area ownership and any-language out-of-process extensions |

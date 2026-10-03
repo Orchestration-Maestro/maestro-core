@@ -1,5 +1,5 @@
 //! Synthetic kernel authority for feature-independent cleanup tests.
-use maestro_canonicalization::{ControlFile, OwnedRoot};
+use maestro_filesystem::{ControlFile, OwnedRoot};
 use maestro_kernel::{
     artifact::Digest,
     document::Collection,

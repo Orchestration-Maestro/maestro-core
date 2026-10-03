@@ -7,7 +7,7 @@ use crate::graph::{
         ProjectionFactory, ProjectionScope,
     },
 };
-use maestro_canonicalization::{ControlFile, OwnedRoot, SystemFileLock};
+use maestro_filesystem::{ControlFile, OwnedRoot, SystemFileLock};
 use maestro_kernel::{artifact::Digest, facts::Object, job::NewJob, scope::collection_path};
 use serde_json::json;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

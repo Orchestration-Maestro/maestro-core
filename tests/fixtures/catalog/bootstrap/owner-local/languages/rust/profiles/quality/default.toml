@@ -1,0 +1,45 @@
+name = "default"
+subject = "rust"
+baseline = "quality-profile:quality/baseline"
+gates = [
+  "format",
+  "lint",
+  "types",
+  "security",
+  "secrets",
+  "mutation",
+  "property",
+  "coverage",
+]
+applicability = ["all"]
+failure_conditions = ["missing-report", "gate-failed"]
+evidence = ["json-report"]
+[managers.environment]
+default = "uv"
+alternatives = ["poetry"]
+[bindings.format]
+state = "unresolved"
+[bindings.lint]
+state = "unresolved"
+[bindings.types]
+state = "unresolved"
+[bindings.security]
+state = "unresolved"
+[bindings.secrets]
+state = "unresolved"
+[bindings.mutation]
+state = "unresolved"
+[bindings.property]
+state = "unresolved"
+[bindings.coverage]
+state = "unresolved"
+[thresholds.floors]
+coverage = 90.0
+[thresholds.ceilings]
+warnings = 2
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]
+requires = ["quality-profile:quality/baseline"]

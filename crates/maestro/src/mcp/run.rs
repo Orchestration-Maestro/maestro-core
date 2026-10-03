@@ -16,6 +16,7 @@ pub(crate) fn run(
     model_port: RouterClient,
     qdrant: Qdrant,
     settings: KnowledgeSettings,
+    preference_context: String,
 ) -> Result<(), Failure> {
     let runtime = Builder::new_current_thread()
         .enable_all()
@@ -24,7 +25,8 @@ pub(crate) fn run(
     runtime.block_on(async {
         let transport = BoundedStdio::new(io::stdin(), io::stdout());
         let models = warms_models(settings.compute);
-        let server = KnowledgeServer::new(model_port, qdrant, settings);
+        let server =
+            KnowledgeServer::new(model_port, qdrant, settings).with_preferences(preference_context);
         let warmup = server.warmup();
         let service = Box::pin(server.serve(transport))
             .await

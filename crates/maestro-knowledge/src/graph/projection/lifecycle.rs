@@ -9,7 +9,7 @@ use super::{
     port::{ProjectionError, ProjectionScope},
     settings::{EngineSettings, ProjectionEngine},
 };
-use maestro_canonicalization::FileLock;
+use maestro_filesystem::FileLock;
 use maestro_kernel::{scope::ScopeSet, store::Database};
 use std::{path::Path, time::SystemTime};
 

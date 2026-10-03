@@ -3,7 +3,7 @@ use super::{
     graph_build::{exited, pilot, text},
     support::Home,
 };
-use maestro_canonicalization::{ControlFile, OwnedRoot};
+use maestro_filesystem::{ControlFile, OwnedRoot};
 use maestro_kernel::{
     artifact::Digest,
     facts::ProjectionReceipt,

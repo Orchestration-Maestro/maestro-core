@@ -7,11 +7,12 @@ use super::{
         Arguments, CollectionCommand, ConfigCommand, EvalCommand, GraphCommand, GraphEvalCommand,
         JobCommand, KnowledgeCommand, Noun, PublishArguments, Target,
     },
-    ask, backup, collection,
+    ask, backup, catalog, collection,
     config::{self, Change, Places},
-    eval, graph, health, import, model,
+    eval, graph, health, import, init, model,
     output::{Output, diagnose},
-    prepare, publish, quality, retrieve, search, setup, status, verify, wait,
+    policy, prepare, publish, quality, retrieve, search, session, setup, status, trust, verify,
+    wait,
 };
 use crate::{
     failure::Failure,
@@ -59,8 +60,48 @@ fn run(arguments: &Arguments) -> ExitCode {
 /// `setup`, `backup` and `restore` open no kernel for writing, and `status`
 /// and `doctor` never create or migrate it.
 fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> {
+    if let Noun::Config {
+        target,
+        command: Some(_),
+    } = &arguments.noun
+        && (target.project || target.user)
+    {
+        return Err(Failure::refused(
+            "editor layer flags cannot precede a config subcommand; put --user or --project \
+             after `maestro config set KEY VALUE` or `maestro config unset KEY`",
+        ));
+    }
+    if let Noun::Trust(command) = &arguments.noun {
+        return trust::run(output, command);
+    }
+    let mut flags = arguments.settings();
+    if let Noun::Init {
+        updates: Some(updates),
+        ..
+    } = &arguments.noun
+    {
+        flags.push(format!("updates={updates}"));
+    }
     let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
-    parse_flags(&registry, &arguments.set).map_err(|error| Failure::refused_by(&error))?;
+    parse_flags(&registry, &flags).map_err(|error| Failure::refused_by(&error))?;
+    if let Some(result) = independent_command(&arguments.noun, output, &flags) {
+        return result;
+    }
+    let session = match &arguments.noun {
+        Noun::Mcp { workspace } => session::for_mcp(workspace.as_deref(), &flags)?,
+        Noun::Doctor => session::for_health(&flags)?,
+        _ => session::for_cli(&flags)?,
+    };
+    let output = if matches!(&arguments.noun, Noun::Mcp { .. }) {
+        output
+    } else {
+        output.with_language(
+            session
+                .catalog_resolved()
+                .text("language")
+                .unwrap_or("auto"),
+        )?
+    };
     match &arguments.noun {
         Noun::Model(command) => model::run(&Kernel::open()?, output, command),
         Noun::Knowledge(KnowledgeCommand::Collections) => {
@@ -81,36 +122,107 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Knowledge(
             command @ (KnowledgeCommand::Search { .. } | KnowledgeCommand::Ask { .. }),
         ) => {
-            let settings = Session::for_cli(&arguments.set)?.knowledge()?;
+            let settings = session.knowledge()?;
             retrieval(output, command, &settings)
         }
         Noun::Knowledge(
             command @ (KnowledgeCommand::Prepare { .. } | KnowledgeCommand::Publish { .. }),
         ) => {
-            let settings = Session::for_cli(&arguments.set)?.knowledge()?;
+            let settings = session.knowledge()?;
             modelled(output, command, &settings, Kernel::open)
         }
         Noun::Knowledge(command) => knowledge(&Kernel::open()?, output, command),
-        Noun::Mcp { workspace } => {
-            let settings = Session::for_mcp(workspace.as_deref(), &arguments.set)?.knowledge()?;
+        Noun::Mcp { .. } => {
+            let settings = session.knowledge()?;
             let (model_port, qdrant) = search::ports()?;
-            run_mcp(model_port, qdrant, settings)?;
+            run_mcp(model_port, qdrant, settings, session.mcp_context()?)?;
             Ok(ExitCode::SUCCESS)
         }
-        Noun::Config(command) => config_command(output, command, &arguments.set),
-        Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
-        Noun::Eval(EvalCommand::Graph(GraphEvalCommand::Draft { manifest })) => {
+        Noun::Config {
+            command: Some(command),
+            ..
+        } => config_command(output, command, &session),
+        Noun::Config {
+            command: None,
+            target,
+        } => config::editor(output, &session, layer(target)),
+        Noun::Eval(command) => evaluation(output, command),
+        Noun::Catalog(command) => catalog::dispatch::run(output, command),
+        Noun::Policy(command) => policy::run(output, command),
+        Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
+        Noun::Doctor => health::doctor::run(output, &session),
+        Noun::Init { .. }
+        | Noun::Setup { .. }
+        | Noun::Status
+        | Noun::Backup { .. }
+        | Noun::Restore { .. }
+        | Noun::Trust(_) => Err(Failure::failed(
+            "repair command bypassed its scoped dispatch path",
+        )),
+    }
+}
+
+/// Dispatch the two slices' evaluation commands without changing their order.
+fn evaluation(output: Output, command: &EvalCommand) -> Result<ExitCode, Failure> {
+    match command {
+        EvalCommand::Ladder { manifest } => eval::run(output, manifest),
+        EvalCommand::Graph(GraphEvalCommand::Draft { manifest }) => {
             eval::draft_graph(output, manifest)
         }
-        Noun::Eval(EvalCommand::Graph(GraphEvalCommand::Check { manifest })) => {
+        EvalCommand::Graph(GraphEvalCommand::Check { manifest }) => {
             eval::check_graph(output, manifest)
         }
-        Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
-        Noun::Setup { yes } => setup::run(output, *yes, &arguments.set),
-        Noun::Status => health::status::run(output, &arguments.set),
-        Noun::Doctor => health::doctor::run(output, &arguments.set),
-        Noun::Backup { to } => backup::run_backup(output, to),
-        Noun::Restore { from } => backup::run_restore(output, from),
+    }
+}
+
+/// Repair commands never admit a runtime lock; health reads preferences only.
+fn independent_command(
+    noun: &Noun,
+    output: Output,
+    flags: &[String],
+) -> Option<Result<ExitCode, Failure>> {
+    match noun {
+        Noun::Setup { yes } => Some(setup::run(
+            output,
+            *yes,
+            session::for_health(flags)
+                .as_ref()
+                .map_err(|error| Failure::refused(error.to_string())),
+        )),
+        Noun::Status => Some(health::status::run(
+            output,
+            session::for_health(flags)
+                .as_ref()
+                .map_err(|error| Failure::refused(error.to_string())),
+        )),
+        Noun::Backup { to } => Some(backup::run_backup(output, to)),
+        Noun::Restore { from } => Some(backup::run_restore(output, from)),
+        Noun::Init {
+            catalog_dir,
+            presets,
+            plain,
+            yes,
+            apply,
+            preferences_only,
+            confirm_path,
+            ..
+        } => Some(init::run(
+            output,
+            init::Request {
+                catalog: catalog_dir.as_deref(),
+                presets,
+                plain: *plain,
+                yes: *yes,
+                effects: init::ApplyChoices {
+                    apply: *apply,
+                    preferences_only: *preferences_only,
+                    non_interactive: *yes,
+                    confirm_path: confirm_path.as_deref(),
+                },
+            },
+            flags,
+        )),
+        _ => None,
     }
 }
 
@@ -293,14 +405,12 @@ fn knowledge(
 fn config_command(
     output: Output,
     command: &ConfigCommand,
-    flags: &[String],
+    session: &Session,
 ) -> Result<ExitCode, Failure> {
     match command {
-        ConfigCommand::Get { key } => config::get(output, &Session::for_cli(flags)?, key),
-        ConfigCommand::List => config::list(output, &Session::for_cli(flags)?),
-        ConfigCommand::Explain { key } => {
-            config::explain(output, &Session::for_cli(flags)?, key.as_deref())
-        }
+        ConfigCommand::Get { key } => config::get(output, session, key),
+        ConfigCommand::List => config::list(output, session),
+        ConfigCommand::Explain { key } => config::explain(output, session, key.as_deref()),
         ConfigCommand::Set { key, value, target } => {
             let change = Change {
                 key,

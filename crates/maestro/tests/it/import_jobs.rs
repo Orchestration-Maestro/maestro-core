@@ -335,9 +335,11 @@ fn a_rerun_takes_over_a_lease_that_expires_while_it_follows() {
     running.line_with("maestro.job.taken.v1");
     let ended = running.finish();
     assert_eq!(ended.code, Some(0), "{ended:?}");
-    let outcome = imported_one_document();
     assert!(
-        ended.stdout.ends_with(&format!("succeeded {outcome}\n")),
+        ended.stdout.ends_with(concat!(
+            "succeeded {\"collection\":\"synthetic\",\"held\":0,\"imported\":1,",
+            "\"refusals\":[],\"refused\":0,\"unchanged\":0}\n",
+        )),
         "{ended:?}"
     );
     assert_eq!(
@@ -349,5 +351,23 @@ fn a_rerun_takes_over_a_lease_that_expires_while_it_follows() {
             "maestro.job.progressed.v1",
             "maestro.job.succeeded.v1",
         ]
+    );
+}
+
+#[test]
+fn foreground_step_keeps_pre_cedar_display_bytes() {
+    let home = Home::new();
+    home.add_synthetic();
+    bind_synthetic_corpus(&home, &["en/glossary.md"]);
+    let output = home.run(&["knowledge", "import", "--collection", "synthetic"]);
+    assert_eq!(output.code, Some(0), "{output:?}");
+    let step = output
+        .stdout
+        .lines()
+        .find(|line| line.starts_with("step "))
+        .unwrap();
+    assert_eq!(
+        step,
+        r#"step {"held":0,"imported":1,"refused":0,"unchanged":0}"#
     );
 }

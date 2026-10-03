@@ -5,7 +5,7 @@ use super::{
     registry::owner_count,
 };
 use crate::graph::projection::{ProjectionEngine, ProjectionFactory, ProjectionHandle, content};
-use maestro_canonicalization::SystemFileLock;
+use maestro_filesystem::SystemFileLock;
 use std::path::Path;
 
 /// Open a supported factory spelling of the same fixture's owned root.

@@ -1,0 +1,14 @@
+name = "knowledge-client"
+description = "Synthetic knowledge client preset."
+
+[settings]
+language = "en"
+tone = "normal"
+routing_candidates = 3
+
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["owner.catalog"]
+workflows = ["ctm-question"]
+requires = ["agent:core/valid"]

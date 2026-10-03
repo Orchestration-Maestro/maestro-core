@@ -9,7 +9,7 @@ use crate::graph::projection::{
     writer::receipt_from_verification,
 };
 use lbug::{Connection, Database, RootDirectory, SystemConfig, Value};
-use maestro_canonicalization::{ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot};
+use maestro_filesystem::{ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot};
 use maestro_kernel::{
     facts::{InventoryState, ProjectionInventory, ProjectionReceipt},
     scope::{Config, LOCAL},
@@ -382,7 +382,7 @@ mod readonly_tests {
         public_fixture::{Fixture, settings},
         public_tests::publish,
     };
-    use maestro_canonicalization::SystemFileLock;
+    use maestro_filesystem::SystemFileLock;
 
     use maestro_kernel::facts::Error;
 

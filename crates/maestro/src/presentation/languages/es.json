@@ -1,0 +1,20 @@
+{
+  "interface_fallback": "La interfaz está en inglés; el idioma de conversación sigue siendo {language}.",
+  "init_untrusted": "el espacio de trabajo no es de confianza; {instruction}",
+  "init_trust_command": "ejecute: maestro trust add {path} --confirm-path {path}",
+  "init_trust_data": "ruta canónica (dato):\n{path}\nEntrecomille esta ruta para su shell. Desde esa carpeta, ejecute maestro trust add .",
+  "init_confirm": "escribir solo las preferencias requiere una confirmación independiente: {failure}; {instruction}",
+  "init_approve_prompt": "¿Aprobar {path}? [y/N] ",
+  "init_confirm_command": "repita init con --preferences-only --confirm-path {path}",
+  "init_confirm_data": "entrecomille la ruta canónica para su shell; ruta (dato):\n{path}",
+  "init_preferences_written": "Solo se escribieron las preferencias; no se otorgó confianza al espacio de trabajo.",
+  "init_preferences_declined": "se rechazó escribir solo las preferencias; no se escribió ningún archivo",
+  "flow_workspace": "1/5 Espacio de trabajo, confianza y preset",
+  "flow_language": "2/5 Idioma",
+  "flow_tone": "3/5 Tono",
+  "flow_settings": "4/5 Todos los ajustes (solo espacio de trabajo)",
+  "flow_review": "5/5 Revisión",
+  "flow_editor_prompt": "Ajuste KEY=VALUE [Intro revisa; back/cancel]: ",
+  "flow_apply_prompt": "¿Aplicar los cambios revisados? [yes/N; back/cancel/preview]: ",
+  "flow_preview_prompt": "Solo vista previa (--apply necesario para escribir). [Intro sale; back/cancel/preview]: "
+}

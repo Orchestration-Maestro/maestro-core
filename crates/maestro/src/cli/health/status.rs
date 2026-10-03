@@ -73,14 +73,16 @@ struct PublishedDocument {
     points: Option<u64>,
 }
 
-/// Prints which services are ready, the graph's with the `--set` flags
-/// `flags`, and the collections the local principal reads.
+/// Prints services and collections; a preferences error affects only the graph line.
 ///
 /// # Errors
 ///
 /// [`Failure::Failed`] when the kernel's directories cannot be resolved, or
 /// its database, once it opened, cannot be read.
-pub(in crate::cli) fn run(output: Output, flags: &[String]) -> Result<ExitCode, Failure> {
+pub(in crate::cli) fn run(
+    output: Output,
+    session: Result<&Session, Failure>,
+) -> Result<ExitCode, Failure> {
     let environment = Environment::current();
     let data = paths::data_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let config_dir = paths::config_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
@@ -96,7 +98,7 @@ pub(in crate::cli) fn run(output: Output, flags: &[String]) -> Result<ExitCode, 
     };
     let services = [
         kernel,
-        graph::check(&environment, Session::for_cli(flags), read.as_ref()),
+        graph::check(&environment, session, read.as_ref()),
         qdrant_check(&qdrant_url(env::var_os(QDRANT_VARIABLE).as_deref()), || {
             setup::readiness(&environment, &setup::Tools::on_path())
         }),

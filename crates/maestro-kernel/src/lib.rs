@@ -19,6 +19,7 @@ pub mod gateway;
 pub mod generation;
 pub mod job;
 pub mod journal;
+pub mod json;
 /// Scoped model identities, immutable evaluations, and explicit selections.
 ///
 /// An evaluation with no generation is valid for failed preflight. Its report
@@ -40,3 +41,4 @@ pub mod telemetry;
 
 pub mod unit_graph;
 mod vocabulary;
+pub mod workspace;

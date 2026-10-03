@@ -1,7 +1,7 @@
 //! Permanent root-wide access and writer guards; no fallback lock domain.
 
 use super::port::ProjectionError;
-use maestro_canonicalization::{ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot};
+use maestro_filesystem::{ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot};
 use std::{io, path::Path};
 
 /// Both setup-created controls are opened once and retained for the native lifetime.

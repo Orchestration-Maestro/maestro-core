@@ -6,17 +6,21 @@ use super::subset::{
     BOUNDS, DEPTH, allowed_values, below, constants, json_type, located, members, names, number,
     resolved, types, unread,
 };
+use crate::json::canonical;
 use serde_json::{Map, Value, json};
 
 /// Why `instance` does not follow `schema`, whose `$ref`s point into `root`,
 /// one line each, naming the value at fault by its path: none when it
 /// follows it.
 pub(super) fn violations(instance: &Value, schema: &Value, root: &Value) -> Vec<String> {
+    let root = canonical(root.clone());
+    let schema = canonical(schema.clone());
+    let instance = canonical(instance.clone());
     let mut validation = Validation {
-        root,
+        root: &root,
         found: Vec::new(),
     };
-    validation.check(instance, schema, "", 0);
+    validation.check(&instance, &schema, "", 0);
     validation.found
 }
 

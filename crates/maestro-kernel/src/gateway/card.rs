@@ -64,6 +64,21 @@ impl ModelCard {
         Ok(card)
     }
 
+    /// Builds the canonical v2 model card without writing an artifact.
+    ///
+    /// # Errors
+    ///
+    /// [`CardError::Invalid`] when identity fields conflict or contain invalid data.
+    pub fn from_identity(identity: &CardIdentity) -> Result<Self, CardError> {
+        identity.validate()?;
+        let json = serde_json::to_vec(&CardV2Json {
+            schema: CARD_SCHEMA_V2.to_owned(),
+            identity: identity.clone(),
+        })
+        .map_err(invalid)?;
+        Self::from_json(&json)
+    }
+
     /// Records the full immutable model/runtime identity as v2.
     ///
     /// # Errors
@@ -71,14 +86,8 @@ impl ModelCard {
     /// [`CardError::Invalid`] when identity fields conflict or contain invalid data, and
     /// [`CardError::Store`] when the artifact cannot be stored.
     pub fn record_v2(store: &Store, identity: &CardIdentity) -> Result<Self, CardError> {
-        identity.validate()?;
-        let json = serde_json::to_vec(&CardV2Json {
-            schema: CARD_SCHEMA_V2.to_owned(),
-            identity: identity.clone(),
-        })
-        .map_err(invalid)?;
-        let card = Self::from_json(&json)?;
-        store.put(&json).map_err(CardError::Store)?;
+        let card = Self::from_identity(identity)?;
+        store.put(&card.card_json()?).map_err(CardError::Store)?;
         Ok(card)
     }
 

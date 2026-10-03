@@ -37,7 +37,7 @@ fn graph_settings_accept_exact_bounds_and_refuse_adjacent_invalid_values() {
 #[test]
 fn lifecycle_public_producer_requires_existing_guards_and_allows_valid_neighbor() {
     use crate::graph::projection::{ProjectionEngine, ProjectionError, ProjectionFactory};
-    use maestro_canonicalization::{ControlFile, OwnedRoot, SystemFileLock};
+    use maestro_filesystem::{ControlFile, OwnedRoot, SystemFileLock};
     use maestro_test_scratch::scratch_directory;
     use std::fs;
     let (authority, build, now) = authority_build();

@@ -2,7 +2,7 @@
 
 use super::{check::Check, graph::check_with};
 use crate::{cli::setup::graph::DIRECTORY, failure::Failure, settings::Session};
-use maestro_canonicalization::SystemFileLock;
+use maestro_filesystem::SystemFileLock;
 use maestro_kernel::{
     paths::{self, Environment},
     scope::Config,
@@ -44,7 +44,7 @@ impl PublishedGraph for Published<'_> {
 /// Production graph check; the lazy adapter is never called while disabled.
 pub(super) fn check(
     environment: &Environment,
-    session: Result<Session, Failure>,
+    session: Result<&Session, Failure>,
     config: Option<&Config>,
 ) -> Check {
     check_with(

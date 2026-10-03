@@ -61,8 +61,17 @@ in place.
 │   │   │   │   │   ├── restore.rs                                           # Rust source: restore
 │   │   │   │   │   ├── test_support.rs                                      # Rust source: test support
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
+│   │   │   │   ├── catalog/                                                 # catalog: the catalog's authoring commands
+│   │   │   │   │   ├── check.rs                                             # catalog check --catalog-dir DIR: the strict source checker over a
+│   │   │   │   │   ├── codeowners.rs                                        # Read-only CODEOWNERS rendering to stdout and exact committed-file comparison
+│   │   │   │   │   ├── dispatch.rs                                          # Catalog-only dispatch; foreground session and repair ordering stay at the caller
+│   │   │   │   │   ├── index.rs                                             # Read-only public catalog index/type rendering and exact committed drift checking
+│   │   │   │   │   ├── mod.rs                                               # catalog: the catalog's authoring commands
+│   │   │   │   │   └── owners.rs                                            # Effect-free ownership checks over externally supplied trusted CI evidence
 │   │   │   │   ├── config/                                                  # maestro config: the settings, read, explained, changed and their
 │   │   │   │   │   ├── change.rs                                            # config set and config unset: one setting written in one preferences
+│   │   │   │   │   ├── editor.rs                                            # No-argument config: shared registry-generated editor over S1 operations
+│   │   │   │   │   ├── editor_tests.rs                                      # The shared editor's injected descriptor is persisted by S1's journaled API
 │   │   │   │   │   ├── history.rs                                           # config history: the journaled changes of the local principal's
 │   │   │   │   │   ├── mod.rs                                               # maestro config: the settings, read, explained, changed and their
 │   │   │   │   │   ├── show.rs                                              # config get, config list and config explain: a session's effective
@@ -133,6 +142,7 @@ in place.
 │   │   │   │   │   │   ├── findings.rs                                      # Foreign entries of the data directory listed and left untouched; grants that reach no known scope
 │   │   │   │   │   │   ├── graph.rs                                         # The embedded graph's check: off with no probe at all, a selected engine
 │   │   │   │   │   │   ├── graph_failures.rs                                # Every typed refusal has an actionable, path-safe public diagnosis
+│   │   │   │   │   │   ├── graph_settings.rs                                # Graph health preferences never relax runtime adapter admission
 │   │   │   │   │   │   ├── kernel.rs                                        # config.toml and bindings.toml refused with a fix; the database never created, damage and lost artifacts found
 │   │   │   │   │   │   ├── mod.rs                                           # The health unit tests' door: declarations only
 │   │   │   │   │   │   ├── services.rs                                      # Qdrant at the pinned version, the router's catalog, each role's card; next actions from what setup would do
@@ -150,6 +160,16 @@ in place.
 │   │   │   │   │   ├── services.rs                                          # Qdrant answering as the pinned version, the router listing its catalog, each role's model card
 │   │   │   │   │   ├── settings.rs                                          # The settings check: which preferences files a session reads, the user's
 │   │   │   │   │   └── status.rs                                            # maestro status: the kernel, Qdrant and the router ready or not, and each readable collection; exits 0
+│   │   │   │   ├── init/                                                    # Init's shared flow and plain adapter; the catalog planner remains independent
+│   │   │   │   │   ├── tests/                                               # Integration tests
+│   │   │   │   │   │   ├── approval.rs                                      # Rust source: approval
+│   │   │   │   │   │   ├── flow.rs                                          # Registry injection and renderer-independent draft/navigation regression tests
+│   │   │   │   │   │   └── mod.rs                                           # Rust source: mod
+│   │   │   │   │   ├── command.rs                                           # maestro init: show the complete authoring plan and apply only on request
+│   │   │   │   │   ├── flow.rs                                              # Shared draft and renderer port; S1 owns descriptors, validation and edits
+│   │   │   │   │   ├── menu.rs                                              # Init orchestration over the shared draft, plain port and unchanged planner
+│   │   │   │   │   ├── mod.rs                                               # Init's shared flow and plain adapter; the catalog planner remains independent
+│   │   │   │   │   └── plain.rs                                             # Sequential labelled prompts; no raw mode, repaint, color or terminal state
 │   │   │   │   ├── publish/                                                 # Explicit replacement of a lost projection and frozen resume identity
 │   │   │   │   │   ├── mod.rs                                               # Explicit replacement of a lost projection and frozen resume identity
 │   │   │   │   │   ├── recovery.rs                                          # Frozen identity and restart selection for explicit projection recovery
@@ -203,11 +223,15 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
 │   │   │   │   ├── model.rs                                                 # Registering and listing scoped model cards
 │   │   │   │   ├── output.rs                                                # How a command prints: text, or one JSON document under --json; diagnostics on stderr
+│   │   │   │   ├── policy.rs                                                # Effect-free authoring policy checks and synthetic neighbour tests
 │   │   │   │   ├── prepare.rs                                               # knowledge prepare: T023's chunking as a leased job
 │   │   │   │   ├── quality.rs                                               # knowledge quality: the gate as a leased job; its inputs the ledger beside the declaration and the revisions
 │   │   │   │   ├── retrieve.rs                                              # CLI adapters for the shared, permission-scoped read operations
 │   │   │   │   ├── run.rs                                                   # Parses the arguments, opens the kernel, runs the command, returns its exit code
+│   │   │   │   ├── session.rs                                               # CLI composition root for the process's immutable preferences snapshot
 │   │   │   │   ├── status.rs                                                # knowledge status: documents, revisions by status and disposition, generations
+│   │   │   │   ├── trust.rs                                                 # Explicit user-local trust administration, independent of preference discovery
+│   │   │   │   ├── trust_path.rs                                            # Shell-safe trust suggestions and lossless conventional Windows path spelling
 │   │   │   │   ├── verify.rs                                                # knowledge verify: checks a published generation as a leased job
 │   │   │   │   └── wait.rs                                                  # job wait: a job's stream followed to its end, the command exiting with its outcome; the follower
 │   │   │   ├── knowledge/                                                   # Scoped knowledge operations shared by the CLI and stdio MCP server
@@ -259,8 +283,18 @@ in place.
 │   │   │   │   ├── ask_tool.rs                                              # MCP input and schema for knowledge_ask
 │   │   │   │   ├── mod.rs                                                   # Bounded local stdio MCP transport and tools
 │   │   │   │   ├── outcome.rs                                               # How a tool call ended, for its span: by the public code of the error it
+│   │   │   │   ├── preferences.rs                                           # MCP delivery of the session's immutable initialization instructions
 │   │   │   │   ├── run.rs                                                   # Runs the stdio MCP server without sending diagnostics to stdout
 │   │   │   │   └── transport.rs                                             # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
+│   │   │   ├── presentation/                                                # Presentation
+│   │   │   │   ├── languages/                                               # Languages
+│   │   │   │   │   ├── en.json                                              # JSON data: en
+│   │   │   │   │   ├── es.json                                              # JSON data: es
+│   │   │   │   │   ├── fr.json                                              # JSON data: fr
+│   │   │   │   │   └── rendered.golden.json                                 # JSON data: rendered.golden
+│   │   │   │   ├── messages.rs                                              # Deterministic interface templates; preferences never affect machine artifacts
+│   │   │   │   ├── mod.rs                                                   # Rust source: mod
+│   │   │   │   └── tests.rs                                                 # Strict embedded data and non-recursive interpolation contracts
 │   │   │   ├── settings/                                                    # The session's settings, resolved once for the CLI and the MCP server, and
 │   │   │   │   ├── graph.rs                                                 # The configured local graph engine
 │   │   │   │   ├── knowledge.rs                                             # The knowledge operations' settings, read from a session's resolved
@@ -272,6 +306,15 @@ in place.
 │   │   │   └── main.rs                                                      # The binary root: the commands, their output, exit codes and JSON schemas documented
 │   │   ├── tests/                                                           # Integration tests
 │   │   │   └── it/                                                          # The contract tests: the built binary run in a scratch home
+│   │   │       ├── catalog_host_probe/                                      # The catalog host format probe (S3 C01): runs the pinned, already
+│   │   │       │   ├── code_digests.rs                                      # The digest of the code a pinned host runs, not of its launcher: a native
+│   │   │       │   ├── copilot_formats.rs                                   # GitHub Copilot CLI 1.0.88 on both authoring shapes of ADR-0005: an agent
+│   │   │       │   ├── host_pins.rs                                         # The pinned hosts of owner approval OA2: a host that is missing or reports
+│   │   │       │   ├── host_sandbox.rs                                      # The sandbox a probe runs a host in: a cleared environment holding only
+│   │   │       │   ├── mcp_hosts.rs                                         # Claude Code 2.1.283 and codex-cli 0.150.1 receive MCP registration
+│   │   │       │   ├── mod.rs                                               # The catalog host format probe (S3 C01): runs the pinned, already
+│   │   │       │   ├── pi_projection.rs                                     # Pi 0.87.1 with its installed agent and MCP providers, pi-subagents 0.64.0
+│   │   │       │   └── provider.rs                                          # A scripted OpenAI-compatible model endpoint on the loopback interface
 │   │   │       ├── knowledge_get/                                           # CLI and MCP contracts for exact knowledge retrieval
 │   │   │       │   ├── ask_republish.rs                                     # ask keeps the collection's selected reranker after a republish, as
 │   │   │       │   ├── cli_cases.rs                                         # Exact knowledge get CLI behavior
@@ -298,6 +341,22 @@ in place.
 │   │   │       │   └── wipe_safety.rs                                       # Ownership checks for the destructive kernel and Qdrant portions
 │   │   │       ├── backup_restore.rs                                        # Backup and restore: online copies keep the database, artifacts and leased
 │   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
+│   │   │       ├── catalog_answer_preferences.rs                            # Real CLI/MCP/evaluation asks inspect trusted prompts through a controlled router
+│   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
+│   │   │       ├── catalog_client_preferences.rs                            # Four synthetic client fixtures inspect delivery, not host obedience
+│   │   │       ├── catalog_codeowners.rs                                    # Read-only CODEOWNERS rendering and comparison against committed rules
+│   │   │       ├── catalog_index.rs                                         # Synthetic public index rendering and exact read-only drift checking
+│   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
+│   │   │       ├── catalog_init_menu.rs                                     # Plain, screen-reader-safe init and the registry-backed config editor
+│   │   │       ├── catalog_init_regressions.rs                              # C05g review regressions: targeting, parity, retry and the reviewed values
+│   │   │       ├── catalog_owners.rs                                        # Trusted evidence is a separate input; the command performs no lookup or write
+│   │   │       ├── catalog_policy.rs                                        # Real Cedar through the effect-free policy CLI
+│   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
+│   │   │       ├── catalog_presentation.rs                                  # C05c keeps localized interface prose separate from English machine contracts
+│   │   │       ├── catalog_repair_lock.rs                                   # Session-independent repair commands never read an unadmitted project lock
+│   │   │       ├── catalog_session_preferences.rs                           # Every process pins the same safe preference snapshot before effects
+│   │   │       ├── catalog_trusted_files.rs                                 # Apply persists preferences only at the displayed, approved root
+│   │   │       ├── catalog_workspace_trust.rs                               # Explicit user trust changes never consult or rewrite preference files
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
 │   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
@@ -386,16 +445,6 @@ in place.
 │   │   │   │   ├── identity.rs                                              # Prepared-input groups: identical prepared inputs share one identity
 │   │   │   │   ├── mod.rs                                                   # Phase B chunk batches: assembly, prepared-input identities and replay validation
 │   │   │   │   └── validation.rs                                            # Replay checks: coverage and every prepared part must rebuild from the mapped source
-│   │   │   ├── filesystem/                                                  # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
-│   │   │   │   ├── lock_tests.rs                                            # Mode conversions release the old lock before acquiring the new one on every OS
-│   │   │   │   ├── mod.rs                                                   # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
-│   │   │   │   ├── owned.rs                                                 # Owned filesystem roots and permanent control files, independent of any engine
-│   │   │   │   ├── owned_metadata_tests.rs                                  # Read-only receipt metadata checks preserve unrelated bytes
-│   │   │   │   ├── owned_tests.rs                                           # Permanent control files use the same held filesystem boundary on both platforms
-│   │   │   │   ├── removal_tests.rs                                         # Receipt-only removal keeps the permanent lock domain and unrelated bytes
-│   │   │   │   ├── root.rs                                                  # The root a caller names, resolved once, and the names the store appends below it
-│   │   │   │   ├── unix.rs                                                  # Unix: every name resolves against an open directory through rustix's openat family, which
-│   │   │   │   └── windows.rs                                               # Windows: names resolve by path, but every directory on the way is held open without
 │   │   │   ├── tokenizer/                                                   # Token counting: the TokenCounter seam, and the qualified local executable that fills it
 │   │   │   │   ├── tests/                                                   # Tests of the native tokenizer: profile identity, artifacts, process limits and output
 │   │   │   │   │   ├── invocation.rs                                        # Tests of the counter's invocation: its environment, its arguments and each platform's loader
@@ -500,6 +549,7 @@ in place.
 │   │   │       ├── chunk_native.rs                                          # Explicit local acceptance: never treat an ignored native test as a pass
 │   │   │       ├── dialect_properties.rs                                    # Generated Markdown dialects keep their spans, meaning and round trips, deterministically
 │   │   │       ├── document_contract.rs                                     # The canonical document's contract: structure, spans and provenance as the source gives them
+│   │   │       ├── json_bytes.rs                                            # Opaque JSON has sorted keys; typed records retain declared field order
 │   │   │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
 │   │   │       ├── phase_a_acceptance.rs                                    # Phase A acceptance: every source byte is accounted for and no content is silently hidden
 │   │   │       └── validation_boundary.rs                                   # Regression checks for review findings at the source and JSON trust boundaries
@@ -511,10 +561,225 @@ in place.
 │   │   ├── TOKENIZER.md                                                     # Local GGUF tokenizer
 │   │   ├── VERIFICATION.md                                                  # Initial verification — 2026-09-21 (historical)
 │   │   └── tokenizer-contract.json                                          # JSON data: tokenizer contract
+│   ├── maestro-catalog/                                                     # Maestro catalog
+│   │   ├── data/                                                            # Data
+│   │   │   └── known-rows.txt                                               # Text: known rows
+│   │   ├── resources/                                                       # Resources
+│   │   │   └── secret-paths.json                                            # JSON data: secret paths
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── bootstrap/                                                   # Inspect a project and plan a preset composition without executing its files
+│   │   │   │   ├── tests/                                                   # Bootstrap contract tests, grouped by adapter
+│   │   │   │   │   ├── discovery.rs                                         # Inventory claims remain exact and owner-local in the checked source tree
+│   │   │   │   │   ├── inventory.rs                                         # Owner-local data inventories through the shared bootstrap composition
+│   │   │   │   │   ├── inventory_reuse.rs                                   # Resolve-wide source capture and apply revalidation regressions
+│   │   │   │   │   ├── lock_limits.rs                                       # Serialized authoring locks stay within their replay read bound
+│   │   │   │   │   ├── locks.rs                                             # Complete source locks, stale-input refusals and owned user-byte preservation
+│   │   │   │   │   ├── mod.rs                                               # Bootstrap contract tests, grouped by adapter
+│   │   │   │   │   ├── nonresource.rs                                       # Runtime inputs share the captured closure and C04 replay refusal
+│   │   │   │   │   ├── project.rs                                           # Rust source: project
+│   │   │   │   │   ├── selection.rs                                         # C36: composition admits only the source-checked mandatory closure
+│   │   │   │   │   ├── session_lock.rs                                      # Trusted session defaults reuse genuine C04 ownership, never lock self-authority
+│   │   │   │   │   ├── session_ownership.rs                                 # Lock-only C04 ownership admission and non-authority output drift
+│   │   │   │   │   ├── snapshot.rs                                          # Preview bytes and decoded declarations come from one checked source snapshot
+│   │   │   │   │   └── support.rs                                           # Synthetic checked trust shared by bootstrap contract tests
+│   │   │   │   ├── compose.rs                                               # Resolve explicit preset names through a replaceable source port
+│   │   │   │   ├── inspect.rs                                               # Read a project inventory as inert data; no script or build tool is launched
+│   │   │   │   ├── inventory.rs                                             # Explicit area-local inventory data behind the existing preset port
+│   │   │   │   ├── mod.rs                                                   # Inspect a project and plan a preset composition without executing its files
+│   │   │   │   └── project.rs                                               # Preview and apply project files through C04's digest-bound writer
+│   │   │   ├── files/                                                       # Shared digest-bound file plans, durable ownership, and crash-safe removal
+│   │   │   │   ├── tests/                                                   # Integration tests
+│   │   │   │   │   ├── crashes.rs                                           # Rust source: crashes
+│   │   │   │   │   ├── mod.rs                                               # Rust source: mod
+│   │   │   │   │   ├── ownership.rs                                         # Committed metadata bounds are independent of injected output byte ceilings
+│   │   │   │   │   ├── races.rs                                             # Rust source: races
+│   │   │   │   │   ├── removal.rs                                           # Rust source: removal
+│   │   │   │   │   ├── support.rs                                           # Rust source: support
+│   │   │   │   │   ├── workspace_trust.rs                                   # Owned effects must not turn a preview or ownership record into path authority
+│   │   │   │   │   ├── workspace_trust_effects.rs                           # Scheduling proofs for the shared owned-effect port and native rollback identities
+│   │   │   │   │   └── workspace_trust_publication.rs                       # Publication checkpoints and held-source/target substitution proofs
+│   │   │   │   ├── apply.rs                                                 # Apply exclusive file plans, commit ownership last, and recover proven states
+│   │   │   │   ├── effects.rs                                               # Owned-file adapters use only the shared policy's held-handle effects
+│   │   │   │   ├── mod.rs                                                   # Shared digest-bound file plans, durable ownership, and crash-safe removal
+│   │   │   │   ├── names.rs                                                 # Portable state-file names; plan identities inside records keep their original bytes
+│   │   │   │   ├── plan.rs                                                  # Preview immutable file bytes, validate relative names, and bind content digests
+│   │   │   │   ├── recovery.rs                                              # Read and validate write-ahead journals through the shared held-handle filesystem
+│   │   │   │   └── remove.rs                                                # Remove only committed, digest-matching owned file names
+│   │   │   ├── hosts/                                                       # Replaceable delivery ports for client session preferences
+│   │   │   │   ├── mod.rs                                                   # Replaceable delivery ports for client session preferences
+│   │   │   │   └── preferences.rs                                           # Delivery boundary independent of client names and preference storage
+│   │   │   ├── limits/                                                      # The one immutable set of numeric limits every catalog input path shares
+│   │   │   │   ├── mod.rs                                                   # The one immutable set of numeric limits every catalog input path shares
+│   │   │   │   ├── tests.rs                                                 # Plan D2's production constants, asserted once here; every boundary test
+│   │   │   │   └── values.rs                                                # The limit values, one immutable [Limits]
+│   │   │   ├── model_cards/                                                 # Model-card declarations and their thin adapter to the kernel registry
+│   │   │   │   ├── declaration.rs                                           # A model-card declaration uses catalog metadata plus the kernel's full v2 identity
+│   │   │   │   ├── mod.rs                                                   # Model-card declarations and their thin adapter to the kernel registry
+│   │   │   │   ├── register.rs                                              # Explicit scoped registration of an already checked declaration
+│   │   │   │   └── tests.rs                                                 # Rust source: tests
+│   │   │   ├── policy/                                                      # Effect-free Cedar checking and separately supplied trusted host facts
+│   │   │   │   ├── tests/                                                   # Integration tests
+│   │   │   │   │   ├── check.rs                                             # Allow/deny/error neighbours reach Cedar, never an effect executor
+│   │   │   │   │   └── mod.rs                                               # Rust source: mod
+│   │   │   │   ├── workspace/                                               # User-approved workspace records with a non-replaceable root refusal floor
+│   │   │   │   │   ├── tests/                                               # Workspace trust approval and mandatory refusal contracts
+│   │   │   │   │   │   ├── approval.rs                                      # Default-no IO, adapter floor, and private digest receipts
+│   │   │   │   │   │   ├── mod.rs                                           # Workspace trust approval and mandatory refusal contracts
+│   │   │   │   │   │   ├── path_effects.rs                                  # Effect-time secret rebinding and checked-parent creation leases
+│   │   │   │   │   │   ├── path_refusals.rs                                 # Failure and alias cases sharing the real filesystem path fixtures
+│   │   │   │   │   │   ├── path_secrets.rs                                  # Secret-data, platform-binding and strict-schema path contracts
+│   │   │   │   │   │   └── paths.rs                                         # Real held-parent path decisions and immutable deny data
+│   │   │   │   │   ├── approval.rs                                          # Exact-path or default-no terminal approval; preferences-only writes stay separate
+│   │   │   │   │   ├── deny.rs                                              # Immutable checked deny data; only the composition root supplies platform bindings
+│   │   │   │   │   ├── mod.rs                                               # User-approved workspace records with a non-replaceable root refusal floor
+│   │   │   │   │   ├── paths.rs                                             # Decisions retain a no-follow parent capability; no file effect uses a reopened path
+│   │   │   │   │   └── port.rs                                              # Replaceable journal authority adapter inside mandatory root refusals
+│   │   │   │   ├── check.rs                                                 # Cedar schema validation and authorization, fail-closed on every diagnostic
+│   │   │   │   ├── mod.rs                                                   # Effect-free Cedar checking and separately supplied trusted host facts
+│   │   │   │   └── schema.rs                                                # Normalized data, separate host facts, and bounded authoring test inputs
+│   │   │   ├── settings/                                                    # Typed restrictive resolution over the canonical S1 settings descriptors
+│   │   │   │   ├── tests/                                                   # Settings contracts over shared S1 descriptors and preference adapters
+│   │   │   │   │   ├── default_secrets.rs                                   # Common defaults have no secret setting; refusals never quote literal values
+│   │   │   │   │   ├── defaults.rs                                          # Manifest producers and the frozen four-layer registry contract
+│   │   │   │   │   ├── discovery.rs                                         # Real planted files on every host, with no mocked owner/write metadata
+│   │   │   │   │   ├── discovery_windows.rs                                 # Real Windows ACL, unreadability and reparse-point probes, run on the CI host
+│   │   │   │   │   ├── instructions.rs                                      # Rust source: instructions
+│   │   │   │   │   ├── mod.rs                                               # Settings contracts over shared S1 descriptors and preference adapters
+│   │   │   │   │   ├── preferences.rs                                       # Strict init drafts use the same S1 file/parser API as all preference consumers
+│   │   │   │   │   ├── resolution.rs                                        # Rust source: resolution
+│   │   │   │   │   └── standards.rs                                         # Standard values override every C17 preference layer without duplicating resolution
+│   │   │   │   ├── defaults.rs                                              # One redacting S1 default producer, shared by source checking and sessions
+│   │   │   │   ├── discovery.rs                                             # Safe session snapshots over S1's bounded parser and discovery walk
+│   │   │   │   ├── instructions.rs                                          # English model instructions over already resolved session preferences
+│   │   │   │   ├── mod.rs                                                   # Typed restrictive resolution over the canonical S1 settings descriptors
+│   │   │   │   ├── preferences.rs                                           # Side-effect-free init preferences over S1's registry, parser and file adapter
+│   │   │   │   ├── resolve.rs                                               # Typed restrictive resolution over four preference layers; storage and parsing stay in S1
+│   │   │   │   ├── resolve_round2.rs                                        # Rust source: resolve round2
+│   │   │   │   ├── session.rs                                               # Frozen project defaults admitted through checked trust and C04 committed ownership
+│   │   │   │   ├── standards.rs                                             # Standard values constrain the existing C17 resolver, never ordinary precedence
+│   │   │   │   └── types.rs                                                 # Resolution values and provenance shared by the single C17 resolver
+│   │   │   ├── source/                                                      # The strict checker of a catalog's authoring sources: a registry of
+│   │   │   │   ├── kinds/                                                   # The built-in kinds: each a descriptor and, where a rule is truly
+│   │   │   │   │   ├── agent.rs                                             # agent: a Copilot custom agent profile and its <name>.maestro.toml
+│   │   │   │   │   ├── backend.rs                                           # One declarative backend kind with strict role tables checked by its hook
+│   │   │   │   │   ├── bootstrap_inventory.rs                               # Strict owner-local inventories and their exact inert payload claims
+│   │   │   │   │   ├── builtin.rs                                           # The registry of the built-in kinds and the fixed table of hooks their
+│   │   │   │   │   ├── contract.rs                                          # Native JSON Schema contracts with an exact owner-local metadata pair
+│   │   │   │   │   ├── instructions.rs                                      # instructions: a Copilot .instructions.md file and its
+│   │   │   │   │   ├── language.rs                                          # Root languages extend the shared area contract, without a package alias
+│   │   │   │   │   ├── mod.rs                                               # The built-in kinds: each a descriptor and, where a rule is truly
+│   │   │   │   │   ├── model_card.rs                                        # model-card: a strict catalog declaration of the kernel's v2 identity
+│   │   │   │   │   ├── package.rs                                           # Area closure roots; ownership and layer semantics are checked by later tasks
+│   │   │   │   │   ├── preset.rs                                            # preset: a project preset, the root of a declared closure, and the
+│   │   │   │   │   ├── quality_profile.rs                                   # Inert quality declarations, separate from session preferences and model profiles
+│   │   │   │   │   ├── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
+│   │   │   │   │   ├── standard.rs                                          # Mandatory standard area roots and their normative rule inventories
+│   │   │   │   │   ├── standard_check.rs                                    # Inert standard-local machine checks: identities, registered adapters and inputs
+│   │   │   │   │   └── standard_exception.rs                                # Central records live only in root or standard-owned exception placements
+│   │   │   │   ├── tests/                                                   # The source checker's tests: the valid synthetic catalog and each of its
+│   │   │   │   │   ├── accepted.rs                                          # The valid catalog passes, and its typed resources hold exactly what the
+│   │   │   │   │   ├── area_ownership.rs                                    # Ownership admission for data-only Area registrations without a package hook
+│   │   │   │   │   ├── area_packages.rs                                     # C31 scoped builtin placement and kernel-role neighbours
+│   │   │   │   │   ├── area_regressions.rs                                  # Regression neighbours for area-scoped descriptors and shared package rules
+│   │   │   │   │   ├── area_support.rs                                      # Data-only v4 fixtures; builtin migration belongs to C31/C32
+│   │   │   │   │   ├── backend_extension_regressions.rs                     # Selection retains checked defaults and rejects role-specific unsafe neighbours
+│   │   │   │   │   ├── backend_extensions.rs                                # Add-or-narrow declarations use the real bounded checker, never a store
+│   │   │   │   │   ├── backends.rs                                          # Strict core backend declarations and build-aware activation refusals
+│   │   │   │   │   ├── bounds.rs                                            # D2's source limits at small injected values: each exact boundary passes
+│   │   │   │   │   ├── codeowners.rs                                        # C35 rendering, exact drift comparison and protected last-match neighbours
+│   │   │   │   │   ├── coverage.rs                                          # Refusals each guard owns alone: tool names and lists, agent sections
+│   │   │   │   │   ├── directory.rs                                         # The filesystem adapter: a bounded read, links never followed, and a
+│   │   │   │   │   ├── extension.rs                                         # The owner's scaling requirement: a new kind is one descriptor plus
+│   │   │   │   │   ├── git_boundary.rs                                      # Git administration is outside the filesystem source view, not a dotfile filter
+│   │   │   │   │   ├── hostile.rs                                           # Hostile sources inside D2's limits: YAML aliases that expand past their
+│   │   │   │   │   ├── index.rs                                             # Public pinned source navigation and exact generated-byte drift neighbours
+│   │   │   │   │   ├── language.rs                                          # Root language contracts use shared areas and honest inert quality declarations
+│   │   │   │   │   ├── layer_placements.rs                                  # Registered placements retain their dependency layer outside canonical folders
+│   │   │   │   │   ├── layout.rs                                            # The catalog's layout: agent and sidecar pairing, duplicate IDs, entries
+│   │   │   │   │   ├── mod.rs                                               # The source checker's tests: the valid synthetic catalog and each of its
+│   │   │   │   │   ├── model_card.rs                                        # Rust source: model card
+│   │   │   │   │   ├── owners.rs                                            # Trusted synthetic lookups and reviews: no API or credential in these checks
+│   │   │   │   │   ├── owners_boundaries.rs                                 # Strict evidence shapes, immutable snapshots and change-ownership boundaries
+│   │   │   │   │   ├── owners_rules.rs                                      # Source-rule admission and central standard exceptions bind real base reviewers
+│   │   │   │   │   ├── ownership.rs                                         # Area principals, derived ownership and last-match delegation refusals
+│   │   │   │   │   ├── placement_boundaries.rs                              # Permanent discovery-only neighbours from the C30 review
+│   │   │   │   │   ├── placement_guards.rs                                  # Isolated registration and filename classification guards
+│   │   │   │   │   ├── qualified.rs                                         # C32 qualified identities and the single source schema cutover
+│   │   │   │   │   ├── quality_profile.rs                                   # Quality-profile declarations, narrowing refusals and honest unresolved bindings
+│   │   │   │   │   ├── references.rs                                        # References across resources: dangling names and tools, dependency
+│   │   │   │   │   ├── registry.rs                                          # The kind registry: registrations stay distinct, each descriptor is
+│   │   │   │   │   ├── restrictive_standards.rs                             # Restrictive standards and scoped, centrally declared exceptions
+│   │   │   │   │   ├── root_boundaries.rs                                   # Root occupancy and public filesystem spelling neighbours
+│   │   │   │   │   ├── rulings.rs                                           # The C03 round-two rulings: skill metadata reads only maestro
+│   │   │   │   │   ├── scan.rs                                              # Aggregate snapshot trust-boundary neighbours, independent of content guards
+│   │   │   │   │   ├── schema.rs                                            # Each file's strict schema: duplicate and unknown keys, wrong types
+│   │   │   │   │   ├── secrets.rs                                           # Descriptor-driven secret fields share one strict reference shape, never a resolver
+│   │   │   │   │   ├── selection.rs                                         # C34 selection admission, distinct from partial source checking
+│   │   │   │   │   ├── standards.rs                                         # C81a mandatory standards and inert registered machine checks
+│   │   │   │   │   ├── support.rs                                           # An in-memory [SourceTree] adapter holding the valid synthetic catalog
+│   │   │   │   │   ├── versions.rs                                          # C53a exact area pins and bounded runtime compatibility neighbours
+│   │   │   │   │   └── yaml.rs                                              # YAML read node by node at injected limits: the exact node budget and
+│   │   │   │   ├── workflow/                                                # Internal graph checks, not source admission, routing or execution
+│   │   │   │   │   ├── tests/                                               # Topology compilation's synthetic checked inputs and refusal neighbours
+│   │   │   │   │   │   ├── condition_branches.rs                            # Previously unexecuted condition branches, each with an exact typed neighbour
+│   │   │   │   │   │   ├── condition_progress.rs                            # Lexer boundaries and parser depth accounting use advancing valid neighbours
+│   │   │   │   │   │   ├── contract_branches.rs                             # Native representation and registry refusals before schema compilation
+│   │   │   │   │   │   ├── contracts.rs                                     # Contract conditions: typed neighbours and hostile text never execute
+│   │   │   │   │   │   ├── fragment_positions.rs                            # Fragment targets are schemas only at positions defined by the admitted draft
+│   │   │   │   │   │   ├── fragments.rs                                     # Checkpoint review regressions for fragment admission and tuple predicates
+│   │   │   │   │   │   ├── mod.rs                                           # Topology compilation's synthetic checked inputs and refusal neighbours
+│   │   │   │   │   │   ├── references.rs                                    # Exact reference closure, lifecycle evidence and typed identity vectors
+│   │   │   │   │   │   ├── support.rs                                       # Synthetic checked topology inputs and explicit review admission, tests only
+│   │   │   │   │   │   └── topology.rs                                      # Each topology guard has a passing neighbour and an assertion-based refusal
+│   │   │   │   │   ├── conditions.rs                                        # Effect-free type checking for the architecture 03 condition language
+│   │   │   │   │   ├── contracts.rs                                         # Real JSON Schema validation over the loader's single parsed snapshot
+│   │   │   │   │   ├── mod.rs                                               # Internal graph checks, not source admission, routing or execution
+│   │   │   │   │   ├── topology.rs                                          # Static rules 1, 2, 3, 6 and 9
+│   │   │   │   │   └── types.rs                                             # Normalized topology inputs
+│   │   │   │   ├── area_walk.rs                                             # Scoped discovery over the bounded snapshot
+│   │   │   │   ├── backend_extensions.rs                                    # Owner-local, inert backend additions and descriptor-checked ceiling minima
+│   │   │   │   ├── backends.rs                                              # Registered backend contracts, independent of the adapters linked by a caller
+│   │   │   │   ├── bootstrap_inventory.rs                                   # Shared strict schema owned by the registered bootstrap inventory kind
+│   │   │   │   ├── check.rs                                                 # The checker: discovery, each resource read by its kind, then the checks
+│   │   │   │   ├── closure.rs                                               # The shared exact-ID forward traversal for topology and selection admission
+│   │   │   │   ├── defaults.rs                                              # Manifest producers replace declared defaults in the sole S1 lowest slot
+│   │   │   │   ├── descriptor.rs                                            # A kind described as data: where its files live, how they are written
+│   │   │   │   ├── discovered.rs                                            # Discovery records shared by the legacy and scoped descriptor walkers
+│   │   │   │   ├── graph.rs                                                 # The dependency graph across resources, its nodes numbered in ID order
+│   │   │   │   ├── index.rs                                                 # Deterministic public-source navigation; no release or installation authority
+│   │   │   │   ├── json.rs                                                  # The single strict JSON decoder shared by source admission and bootstrap
+│   │   │   │   ├── load.rs                                                  # One discovered resource read from its files, as its kind's descriptor
+│   │   │   │   ├── metadata.rs                                              # The Maestro metadata every resource declares, read the same way wherever
+│   │   │   │   ├── mod.rs                                                   # The strict checker of a catalog's authoring sources: a registry of
+│   │   │   │   ├── naming.rs                                                # Functional naming from shared adapter metadata, with only exact host and
+│   │   │   │   ├── owners.rs                                                # Trusted identity and review evidence injected by base-code CI, never catalog metadata
+│   │   │   │   ├── ownership.rs                                             # Offline area principals and ordered review delegation, not approval evidence
+│   │   │   │   ├── parse.rs                                                 # Bounded, strict parsing into checked values
+│   │   │   │   ├── placements.rs                                            # Descriptor placement patterns, shared by registration and discovery
+│   │   │   │   ├── references.rs                                            # Typed reference admission and dependency-direction classification
+│   │   │   │   ├── registry.rs                                              # The kinds a checker knows: each a validated [KindDescriptor] and, when
+│   │   │   │   ├── rules.rs                                                 # A kind's rules beyond its descriptor: a hook, which a descriptor selects
+│   │   │   │   ├── scan.rs                                                  # One bounded snapshot of every folder/file/link in the source tree
+│   │   │   │   ├── secrets.rs                                               # Typed secret bindings for registered settings, backend and extension fields
+│   │   │   │   ├── selection.rs                                             # Checked selection admission, separate from partial source validation
+│   │   │   │   ├── standards.rs                                             # Standard settings use the S1 descriptors and the single C17 resolver
+│   │   │   │   ├── tree.rs                                                  # The port through which the checker reads a catalog's files, and its
+│   │   │   │   ├── types.rs                                                 # The catalog's authoring schema, maestro-source/1, as typed data
+│   │   │   │   ├── versions.rs                                              # Phase 1 area versions: exact dependency pins and bounded runtime requirements
+│   │   │   │   ├── walk.rs                                                  # Discovery: the catalog's top level, then each registered kind's
+│   │   │   │   └── yaml.rs                                                  # YAML frontmatter read node by node, never as a whole generic tree first
+│   │   │   ├── adapters.rs                                                  # Shared reviewed adapter naming metadata
+│   │   │   ├── file_input.rs                                                # Plain owned-file inputs contain data, never a filesystem capability
+│   │   │   └── lib.rs                                                       # The Maestro catalog: its shared security limits and the strict checker of
+│   │   └── Cargo.toml                                                       # Crate manifest: The Maestro catalog: strict, bounded checks of its authoring sources
 │   ├── maestro-conventions/                                                 # Maestro conventions
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   └── lib.rs                                                       # Helpers for the repository's policy tests: the files the repository holds
 │   │   ├── tests/                                                           # Integration tests
+│   │   │   ├── catalog_traceability/                                        # C00 inventory checks and independent review regressions
+│   │   │   │   ├── field_regressions.rs                                     # Review regressions for source completeness and independent field guards
+│   │   │   │   ├── inventory_checks.rs                                      # C00's exact S3 inventory: design dispositions, never delivery evidence
+│   │   │   │   └── mod.rs                                                   # C00 inventory checks and independent review regressions
 │   │   │   ├── graph_engine/                                                # Default/native graph ownership policies
 │   │   │   │   ├── feature_manifests.rs                                     # E07a's default/native feature and required-CI ownership contracts
 │   │   │   │   └── mod.rs                                                   # Default/native graph ownership policies
@@ -522,8 +787,34 @@ in place.
 │   │   │   │   ├── keys.rs                                                  # The 08 row keys the owner approved for S1 on 2026-09-28 (MR-07)
 │   │   │   │   ├── mod.rs                                                   # MR-07: the owner-approved S1 row keys and their delivery map
 │   │   │   │   └── row_key_checks.rs                                        # The spec and 08 §20.4 carry exactly the approved keys, each an 08 row
-│   │   │   └── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
+│   │   │   ├── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
+│   │   │   └── unsafe_policy.rs                                             # The held-handle boundary scanner and its regression cases
 │   │   └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
+│   ├── maestro-filesystem/                                                  # Maestro filesystem
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── bounded_tests.rs                                             # Rust source: bounded tests
+│   │   │   ├── canonical_identity_tests.rs                                  # Held-object canonical spelling, including a transient link swap on Unix
+│   │   │   ├── canonical_windows_identity_tests.rs                          # Windows full-volume/full-file identities from real held files
+│   │   │   ├── created_identity_tests.rs                                    # Created-object identity is shared by publication, writes and verified rollback
+│   │   │   ├── lib.rs                                                       # Filesystem access that never follows a link below the root its caller names, which resolves
+│   │   │   ├── listing.rs                                                   # Shared bounded listing records; platform adapters classify without following links
+│   │   │   ├── listing_tests.rs                                             # Bounded directory listing on held handles
+│   │   │   ├── lock_tests.rs                                                # Mode conversions release the old lock before acquiring the new one on every OS
+│   │   │   ├── owned.rs                                                     # Owned filesystem roots and permanent control files, independent of any engine
+│   │   │   ├── owned_metadata_tests.rs                                      # Read-only receipt and staging metadata checks preserve unrelated bytes
+│   │   │   ├── owned_tests.rs                                               # Permanent control files use the same held filesystem boundary on both platforms
+│   │   │   ├── publication.rs                                               # Complete-record publication keeps its temporary source open through identity-checked rollback
+│   │   │   ├── read.rs                                                      # Platform-independent byte limit for reads through an already-held file handle
+│   │   │   ├── removal_tests.rs                                             # Receipt-only removal keeps the permanent lock domain and unrelated bytes
+│   │   │   ├── root.rs                                                      # The root a caller names, resolved once, and the names the store appends below it
+│   │   │   ├── tests.rs                                                     # Rust source: tests
+│   │   │   ├── unix.rs                                                      # Unix filesystem access: every name resolves against an open directory, never a path
+│   │   │   ├── unix_creation.rs                                             # Unix created objects retain identity through hardening, publication and rollback
+│   │   │   ├── unix_owned.rs                                                # Owned Unix controls and receipts anchored to the shared held directory
+│   │   │   ├── windows.rs                                                   # Windows filesystem access: held directories and open flags that never follow a link
+│   │   │   ├── windows_owned.rs                                             # Owned Windows controls and receipts retain the shared no-follow ancestry
+│   │   │   └── windows_security.rs                                          # The sole unsafe boundary: security information belongs to an already-held handle
+│   │   └── Cargo.toml                                                       # Crate manifest
 │   ├── maestro-kernel/                                                      # Maestro kernel
 │   │   ├── migrations/                                                      # The kernel database's migrations, embedded and applied in number order
 │   │   │   ├── 0001_artifacts.sql                                           # The artifacts table: each artifact's size, media type, pins and creation time
@@ -860,8 +1151,13 @@ in place.
 │   │   │   │   ├── serialization.rs                                         # Canonical JSON serialization: typed field order, exact bytes, no extra keys
 │   │   │   │   ├── types.rs                                                 # Kernel-owned delivery graph wire values, independent of canonicalization
 │   │   │   │   └── validation.rs                                            # Validate the immutable graph before it crosses the persistence boundary
+│   │   │   ├── workspace/                                                   # Private user-local workspace answers replayed from the existing journal
+│   │   │   │   ├── mod.rs                                                   # Private user-local workspace answers replayed from the existing journal
+│   │   │   │   ├── records.rs                                               # Private user-local workspace answers replayed from the existing journal
+│   │   │   │   └── tests.rs                                                 # Golden payload bytes and journal-only authority/revocation contracts
 │   │   │   ├── binding.rs                                                   # Named bindings: the local paths that the logical names of committed files
 │   │   │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
+│   │   │   ├── json.rs                                                      # Explicit sorted-object JSON for stable identities and presentation
 │   │   │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
 │   │   │   ├── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
 │   │   │   └── vocabulary.rs                                                # The closed graph vocabulary, shared by claims and schema migration
@@ -1512,18 +1808,21 @@ in place.
 │   │   │   │   ├── windows.rs                                               # Windows: names resolve by path, but the directory of the file is held
 │   │   │   │   └── windows_logic.rs                                         # Platform-neutral Windows decisions, tested on every host
 │   │   │   ├── tests/                                                       # The settings crate's tests, one module per source module, and the proof
+│   │   │   │   ├── builtin_helpers.rs                                       # Runtime checks for descriptors otherwise constructed only in const initializers
 │   │   │   │   ├── discovery.rs                                             # Project-file discovery: the nearest .maestro/config.toml upward from the
 │   │   │   │   ├── edit.rs                                                  # config set and config unset on a file's text: only the value's bytes
 │   │   │   │   ├── file.rs                                                  # One edit of a preferences file: serialized by its lock, refused when
 │   │   │   │   ├── language.rs                                              # The BCP 47 subset of language: canonical case, and each refused form
 │   │   │   │   ├── layer.rs                                                 # A preferences file parsed strictly: its schema marker required, every key
 │   │   │   │   ├── mod.rs                                                   # The settings crate's tests, one module per source module, and the proof
+│   │   │   │   ├── preferences.rs                                           # Additive bounded preferences and legacy compatibility through the shared parser
 │   │   │   │   ├── registry.rs                                              # The registry: every descriptor checked once, the built-in ones included
 │   │   │   │   ├── resolve.rs                                               # Resolution: per key, an explicit --set, then the project file, then the
 │   │   │   │   ├── store.rs                                                 # The file adapter: bounded reads naming the file
 │   │   │   │   ├── synthetic.rs                                             # Adding a setting is one descriptor: a synthetic one, appended to the
 │   │   │   │   └── value.rs                                                 # Values: each kind read from the command line's text and from a file's
 │   │   │   ├── builtin.rs                                                   # The settings Maestro ships, one descriptor each
+│   │   │   ├── builtin_helpers.rs                                           # Const descriptor construction shared by the built-in declarations
 │   │   │   ├── descriptor.rs                                                # A setting's descriptor: everything Maestro knows about one setting, as
 │   │   │   ├── discovery.rs                                                 # Where a session finds its project file (plan D6): the nearest
 │   │   │   ├── language.rs                                                  # The language tags language accepts: the bounded BCP 47 subset S3 ruled
@@ -1570,6 +1869,7 @@ in place.
 │   │   ├── 0019-reverse-engineering-is-analysis-behind-a-clean-room.md      # Reverse engineering produces knowledge only, behind a clean-room boundary
 │   │   ├── 0020-rust-libraries-with-named-dependency-exceptions.md          # Rust libraries join the stack; the duplicates they force are named exceptions
 │   │   ├── 0021-embedded-ladybug-graph-projection.md                        # Embedded LadybugDB for the graph projection
+│   │   ├── 0022-manifest-layout-v4-and-language-neutral-extensions.md       # Manifest v4 separates global, framework and team content
 │   │   └── README.md                                                        # Hard-to-reverse decisions, each with the trade-off that produced it
 │   ├── architecture/                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
 │   │   ├── 01-knowledge-pipeline.md                                         # 01 Knowledge pipeline
@@ -1585,6 +1885,7 @@ in place.
 │   ├── contracts/                                                           # Contracts
 │   │   └── unit-graph-v1.md                                                 # Unit graph wire contract v1
 │   ├── how-to/                                                              # How to
+│   │   ├── catalog.md                                                       # Initialize a workspace
 │   │   ├── knowledge-graph.md                                               # Prepare and check the local knowledge graph
 │   │   └── knowledge-mcp.md                                                 # Connect a client to Maestro's knowledge MCP server
 │   └── standards/                                                           # Standards
@@ -1615,17 +1916,132 @@ in place.
 │   │   ├── research.md                                                      # Research: Knowledge kernel and hybrid RAG
 │   │   ├── spec.md                                                          # Feature Specification: Knowledge kernel and hybrid RAG
 │   │   └── tasks.md                                                         # Knowledge Kernel and Hybrid RAG Implementation Tasks
-│   └── 002-knowledge-graph/                                                 # 002 knowledge graph
-│       ├── plan.md                                                          # Implementation Plan: Knowledge graph
-│       ├── research.md                                                      # Research: qualifying lbug (G25)
-│       ├── spec.md                                                          # Feature Specification: Knowledge graph
-│       └── tasks.md                                                         # Knowledge Graph Implementation Tasks
+│   ├── 002-knowledge-graph/                                                 # 002 knowledge graph
+│   │   ├── plan.md                                                          # Implementation Plan: Knowledge graph
+│   │   ├── research.md                                                      # Research: qualifying lbug (G25)
+│   │   ├── spec.md                                                          # Feature Specification: Knowledge graph
+│   │   └── tasks.md                                                         # Knowledge Graph Implementation Tasks
+│   └── 003-catalog/                                                         # 003 catalog
+│       ├── research/                                                        # Research
+│       │   ├── dependencies.md                                              # C09 dependency measurements
+│       │   ├── hosts.md                                                     # Catalog host format probe (C01)
+│       │   ├── interface.md                                                 # Init terminal dependency measurements (C05f)
+│       │   ├── owner-first-migration.md                                     # Public v4 checker and bootstrap migration evidence
+│       │   ├── session-preferences.md                                       # Session preferences delivery: C05e handoff
+│       │   └── trust.md                                                     # C09 public attestation probe and trust measurements
+│       ├── plan.md                                                          # Implementation Plan: Catalog
+│       ├── quality-profile-fields.md                                        # Quality-profile fields (C65)
+│       ├── spec.md                                                          # Feature Specification: Catalog
+│       ├── tasks.md                                                         # Catalog Implementation Tasks
+│       └── traceability.json                                                # JSON data: traceability
 ├── supply-chain/                                                            # cargo-vet audits, configuration and imports
 │   ├── audits.toml                                                          # cargo-vet audits file
 │   ├── config.toml                                                          # cargo-vet config file
 │   └── imports.lock                                                         # The audits cargo-vet imports, locked
 ├── tests/                                                                   # Test data shared by the workspace's crates
 │   └── fixtures/                                                            # Test fixtures
+│       ├── catalog/                                                         # Catalog
+│       │   ├── backends/                                                    # Backends
+│       │   │   ├── graphdb-extension.toml                                   # TOML settings: graphdb extension
+│       │   │   ├── graphdb.toml                                             # TOML settings: graphdb
+│       │   │   ├── inactive-invalid.toml                                    # TOML settings: inactive invalid
+│       │   │   ├── mcp.toml                                                 # TOML settings: mcp
+│       │   │   └── vectordb.toml                                            # TOML settings: vectordb
+│       │   ├── bootstrap/                                                   # Bootstrap
+│       │   │   └── owner-local/                                             # Owner local
+│       │   │       ├── bootstrap/                                           # Bootstrap
+│       │   │       │   ├── base/                                            # Base
+│       │   │       │   │   └── files/                                       # Files
+│       │   │       │   │       └── instructions.md                          # Sample document: instructions
+│       │   │       │   └── base.toml                                        # TOML settings: base
+│       │   │       ├── core/                                                # Core
+│       │   │       │   ├── agents/                                          # Agents
+│       │   │       │   │   ├── maestro.agent.md                             # Synthetic agent that answers from the public synthetic glossary
+│       │   │       │   │   └── maestro.maestro.toml                         # TOML settings: maestro.maestro
+│       │   │       │   └── package.toml                                     # TOML settings: package
+│       │   │       ├── languages/                                           # Languages
+│       │   │       │   └── rust/                                            # Rust
+│       │   │       │       ├── bootstrap/                                   # Bootstrap
+│       │   │       │       │   ├── starter/                                 # Starter
+│       │   │       │       │   │   └── files/                               # Files
+│       │   │       │       │   │       └── recipes.json                     # JSON data: recipes
+│       │   │       │       │   └── starter.toml                             # TOML settings: starter
+│       │   │       │       ├── instructions/                                # Instructions
+│       │   │       │       │   ├── rules.instructions.md                    # Sample document: rules.instructions
+│       │   │       │       │   └── rules.maestro.toml                       # TOML settings: rules.maestro
+│       │   │       │       ├── profiles/                                    # Profiles
+│       │   │       │       │   └── quality/                                 # Quality
+│       │   │       │       │       └── default.toml                         # TOML settings: default
+│       │   │       │       └── package.toml                                 # TOML settings: package
+│       │   │       ├── presets/                                             # Presets
+│       │   │       │   ├── base.toml                                        # TOML settings: base
+│       │   │       │   └── rust.toml                                        # TOML settings: rust
+│       │   │       ├── standards/                                           # Standards
+│       │   │       │   ├── quality/                                         # Quality
+│       │   │       │   │   ├── profiles/                                    # Profiles
+│       │   │       │   │   │   └── quality/                                 # Quality
+│       │   │       │   │   │       └── baseline.toml                        # TOML settings: baseline
+│       │   │       │   │   └── package.toml                                 # TOML settings: package
+│       │   │       │   └── security/                                        # Security
+│       │   │       │       └── package.toml                                 # TOML settings: package
+│       │   │       └── package.toml                                         # TOML settings: package
+│       │   ├── codeowners/                                                  # Codeowners
+│       │   │   └── CODEOWNERS                                               # Who reviews each path
+│       │   ├── graphs/                                                      # Graphs
+│       │   │   ├── topology-invalid.md                                      # Sample document: Synthetic missing-reviewer refusal
+│       │   │   └── topology-valid.md                                        # Sample document: Synthetic topology neighbour
+│       │   ├── hosts/                                                       # Hosts
+│       │   │   ├── metadata.agent.md                                        # Synthetic agent for the catalog host format probe
+│       │   │   ├── pi.md                                                    # Synthetic agent for the catalog host format probe
+│       │   │   ├── sidecar.agent.md                                         # Synthetic agent for the catalog host format probe
+│       │   │   └── sidecar.maestro.toml                                     # TOML settings: sidecar.maestro
+│       │   ├── languages/                                                   # Languages
+│       │   │   ├── baseline.toml                                            # TOML settings: baseline
+│       │   │   ├── manager-choices.toml                                     # TOML settings: manager choices
+│       │   │   ├── package.toml                                             # TOML settings: package
+│       │   │   ├── rules.instructions.md                                    # Sample document: rules.instructions
+│       │   │   ├── rules.maestro.toml                                       # TOML settings: rules.maestro
+│       │   │   └── starter.toml                                             # TOML settings: starter
+│       │   ├── model-cards/                                                 # Model cards
+│       │   │   ├── invalid.toml                                             # TOML settings: invalid
+│       │   │   └── valid.toml                                               # TOML settings: valid
+│       │   ├── policy/                                                      # Policy
+│       │   │   ├── cases.json                                               # JSON data: cases
+│       │   │   ├── rules.cedar                                              # File: rules
+│       │   │   └── schema.json                                              # JSON data: schema
+│       │   ├── quality/                                                     # Quality
+│       │   │   ├── baseline.toml                                            # TOML settings: baseline
+│       │   │   ├── bound.toml                                               # TOML settings: bound
+│       │   │   ├── changed-type.toml                                        # TOML settings: changed type
+│       │   │   ├── dangling-baseline.toml                                   # TOML settings: dangling baseline
+│       │   │   ├── false-binding.toml                                       # TOML settings: false binding
+│       │   │   ├── missing-binding.toml                                     # TOML settings: missing binding
+│       │   │   ├── nonfinite.toml                                           # TOML settings: nonfinite
+│       │   │   ├── removed-ceiling.toml                                     # TOML settings: removed ceiling
+│       │   │   ├── removed-floor.toml                                       # TOML settings: removed floor
+│       │   │   ├── removed-gate.toml                                        # TOML settings: removed gate
+│       │   │   ├── session-field.toml                                       # TOML settings: session field
+│       │   │   ├── technology.toml                                          # TOML settings: technology
+│       │   │   ├── undeclared-baseline.toml                                 # TOML settings: undeclared baseline
+│       │   │   ├── weakened-ceiling.toml                                    # TOML settings: weakened ceiling
+│       │   │   └── weakened-floor.toml                                      # TOML settings: weakened floor
+│       │   ├── settings/                                                    # Settings
+│       │   │   ├── user-preferences.toml                                    # TOML settings: user preferences
+│       │   │   └── workspace.toml                                           # TOML settings: workspace
+│       │   ├── source/                                                      # Source
+│       │   │   ├── valid-skill/                                             # Valid skill
+│       │   │   │   └── SKILL.md                                             # Synthetic skill that cites evidence from the public synthetic glossary
+│       │   │   ├── core-package.toml                                        # TOML settings: core package
+│       │   │   ├── invalid.agent.md                                         # Synthetic agent that carries metadata Copilot ignores
+│       │   │   ├── package.toml                                             # TOML settings: package
+│       │   │   ├── preset.toml                                              # TOML settings: preset
+│       │   │   ├── valid.agent.md                                           # Synthetic agent that answers from the public synthetic glossary
+│       │   │   ├── valid.instructions.maestro.toml                          # TOML settings: valid.instructions.maestro
+│       │   │   ├── valid.instructions.md                                    # Sample document: valid.instructions
+│       │   │   └── valid.maestro.toml                                       # TOML settings: valid.maestro
+│       │   └── trust/                                                       # Trust
+│       │       ├── valid.json                                               # JSON data: valid
+│       │       └── wrong-signer.json                                        # JSON data: wrong signer
 │       └── synthetic/                                                       # The public synthetic collection and its suite, which stand in for the private corpus in public CI (ADR-0009)
 │           ├── corpus/                                                      # The collection's one source: its maestro-corpus/1 manifest beside the Markdown documents it names
 │           │   ├── en/                                                      # The documents written in English

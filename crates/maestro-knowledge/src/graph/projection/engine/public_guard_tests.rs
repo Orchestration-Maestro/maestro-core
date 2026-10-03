@@ -3,7 +3,7 @@ use super::{public_fixture::Fixture, public_tests::publish};
 #[cfg(not(windows))]
 use crate::graph::projection::CatalogRelationVocabulary;
 use crate::graph::projection::ProjectionError;
-use maestro_canonicalization::{ControlFile, OwnedRoot};
+use maestro_filesystem::{ControlFile, OwnedRoot};
 use std::fs;
 
 #[test]
@@ -125,7 +125,7 @@ fn lifecycle_expired_current_lease_cancels_but_takeover_cannot_be_cancelled_by_o
         }
     }
     use super::public_fixture::now;
-    use maestro_canonicalization::{LockMode, SystemFileLock};
+    use maestro_filesystem::{LockMode, SystemFileLock};
     use maestro_kernel::job::JobState;
     use std::{cell::Cell, time::Duration};
     for takeover in [false, true] {

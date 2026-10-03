@@ -78,8 +78,8 @@ pub(in crate::cli) enum Readiness {
     Steps(Vec<Step>),
 }
 
-/// Previews the graph's directory for the `graph.engine` the `--set` flags
-/// `flags` resolve, then the install, or takes their steps when `yes` is
+/// Previews the graph's directory for the session's `graph.engine`, then
+/// the install, or takes their steps when `yes` is
 /// given, and prints both and what they lacked. The graph's part runs on
 /// every platform; when the service's part is refused or fails, the graph's
 /// is printed alone first.
@@ -91,11 +91,11 @@ pub(in crate::cli) enum Readiness {
 pub(in crate::cli) fn run(
     output: Output,
     yes: bool,
-    flags: &[String],
+    session: Result<&Session, Failure>,
 ) -> Result<ExitCode, Failure> {
     let environment = Environment::current();
-    let graph = Session::for_cli(flags)
-        .and_then(|session| GraphEngine::from_session(&session))
+    let graph = session
+        .and_then(GraphEngine::from_session)
         .and_then(|engine| graph_setup(&environment, engine, yes));
     let (graph, graph_refusal) = match graph {
         Ok(graph) => (graph, None),

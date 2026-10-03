@@ -19,7 +19,6 @@ mod content;
 mod dedup;
 mod document;
 mod error;
-mod filesystem;
 mod hashing;
 mod metadata;
 mod model;
@@ -39,10 +38,6 @@ pub use content::*;
 pub use dedup::*;
 pub use document::{CanonicalDocument, MarkdownReference, Section, SourceAccounting, SourceRole};
 pub use error::Error;
-pub use filesystem::{
-    ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot, ReceiptFile, SystemFileLock,
-    is_receipt_basename,
-};
 pub use model::*;
 pub use pipeline::{PARSER_VERSION, SCHEMA_VERSION, canonicalize};
 pub use prepared_inputs::{

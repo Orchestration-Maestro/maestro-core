@@ -1,5 +1,5 @@
 //! Reader-safe, single-receipt cleanup; native engine code is never opened here.
-use maestro_canonicalization::{
+use maestro_filesystem::{
     ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot, ReceiptFile, SystemFileLock,
 };
 use maestro_kernel::{

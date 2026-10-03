@@ -1,8 +1,7 @@
 //! A synthetic authoritative literal claim built entirely through public kernel APIs.
 #![cfg(test)]
-use maestro_canonicalization::{
-    CanonicalizeInput, ControlFile, OwnedRoot, SystemFileLock, canonicalize,
-};
+use maestro_canonicalization::{CanonicalizeInput, canonicalize};
+use maestro_filesystem::{ControlFile, OwnedRoot, SystemFileLock};
 use maestro_kernel::{
     artifact::Digest,
     chunk_set::{Chunk, NewChunkSet},

@@ -13,6 +13,7 @@ use super::{
     },
 };
 use crate::artifact::Digest;
+use crate::json::canonical;
 use reqwest::{Client, RequestBuilder, Url, redirect::Policy};
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::{Map, Value, json};
@@ -149,7 +150,10 @@ impl RouterClient {
         body: &Value,
     ) -> Result<T, Error> {
         self.check(card, room).await?;
-        let request = self.http.post(self.endpoint(card, path)).json(body);
+        let request = self
+            .http
+            .post(self.endpoint(card, path))
+            .json(&canonical(body.clone()));
         send(request, room, limit).await
     }
 }

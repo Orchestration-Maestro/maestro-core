@@ -4,7 +4,7 @@ use super::{
     graph_cleanup_support::{document, guards, retired},
     support::Home,
 };
-use maestro_canonicalization::{ControlFile, OwnedRoot};
+use maestro_filesystem::{ControlFile, OwnedRoot};
 #[cfg(unix)]
 use maestro_kernel::{
     facts::ClaimSetRecord,
@@ -263,7 +263,7 @@ fn graph_cleanup_requires_generation_and_accepts_only_setup_confirmation_grammar
 
 #[test]
 fn graph_cleanup_busy_and_missing_guards_have_exact_refusals_with_valid_neighbour() {
-    use maestro_canonicalization::{LockMode, SystemFileLock};
+    use maestro_filesystem::{LockMode, SystemFileLock};
     let home = Home::new();
     let (generation, name) = retired(&home);
     let graph = home.data().join("graph");

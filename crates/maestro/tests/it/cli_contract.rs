@@ -185,11 +185,23 @@ fn an_operation_that_fails_exits_one_with_its_diagnostic_on_stderr_only() {
 
 #[test]
 fn a_long_command_prints_its_job_id_before_anything_else() {
+    job_first(&[]);
+}
+
+#[test]
+fn a_long_command_prints_its_job_id_before_anything_else_with_fallback() {
+    job_first(&["--language", "ja", "--tone", "normal"]);
+}
+
+/// The same streaming and JSON contract with and without an interface fallback.
+fn job_first(flags: &[&str]) {
     let home = Home::new();
     home.add_synthetic();
     bind_synthetic_corpus(&home, &["en/glossary.md"]);
-    let mut running = home.start(&["knowledge", "import", "--collection", "synthetic"]);
+    let mut running =
+        home.start(&[flags, &["knowledge", "import", "--collection", "synthetic"]].concat());
     let first = running.line();
+    assert!(first.starts_with("job "), "first stdout line: {first:?}");
     let id = first.strip_prefix("job ").unwrap();
     let id: Ulid = id.parse().unwrap();
     let ended = running.finish();

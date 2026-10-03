@@ -2,7 +2,7 @@
 //! stays refused; Unix tests prove the permanent access domain independent of lbug locks.
 use super::super::cleanup::{Cleanup, CleanupError, CleanupOutcome};
 use super::cleanup_support::{Fixture, timing};
-use maestro_canonicalization::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
+use maestro_filesystem::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
 use maestro_kernel::{job::JobState, store::Database};
 use serde_json::json;
 use std::{

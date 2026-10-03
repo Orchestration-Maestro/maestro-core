@@ -5,7 +5,7 @@ use super::{
     tests::Fixture,
 };
 use crate::graph::projection::health::ProbeError;
-use maestro_canonicalization::{ControlFile, FileLock, LockMode, OwnedRoot, SystemFileLock};
+use maestro_filesystem::{ControlFile, FileLock, LockMode, OwnedRoot, SystemFileLock};
 use maestro_kernel::{scope::Config, store::Database};
 use std::path::Path;
 use std::{

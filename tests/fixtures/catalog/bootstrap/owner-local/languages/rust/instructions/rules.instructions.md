@@ -1,0 +1,5 @@
+---
+applyTo: "**"
+---
+
+Synthetic language rules.

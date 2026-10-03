@@ -6,7 +6,7 @@
 use crate::failure::Failure;
 #[cfg(not(feature = "engine"))]
 use crate::settings::GraphEngine;
-use maestro_canonicalization::{ControlFile, OwnedRoot};
+use maestro_filesystem::{ControlFile, OwnedRoot};
 #[cfg(not(feature = "engine"))]
 use maestro_kernel::paths::Environment;
 use serde::Serialize;

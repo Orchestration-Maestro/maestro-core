@@ -25,7 +25,7 @@ impl PublishedGraph for Published {
 /// Production graph check; the lazy adapter is never called while disabled.
 pub(super) fn check(
     environment: &Environment,
-    session: Result<Session, Failure>,
+    session: Result<&Session, Failure>,
     _config: Option<&Config>,
 ) -> Check {
     check_with(

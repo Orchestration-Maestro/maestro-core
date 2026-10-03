@@ -171,6 +171,30 @@ pub(super) fn answerer_identity() -> CardIdentity {
 }
 
 #[test]
+fn a_pure_v2_card_uses_the_same_canonical_digest_as_recording() {
+    let (_, store) = scratch_store();
+    let identity = card_identity();
+    let recorded = ModelCard::record_v2(&store, &identity).unwrap();
+    let declared = ModelCard::from_identity(&identity).unwrap();
+
+    assert_eq!(declared.digest(), recorded.digest());
+    assert_eq!(declared.digest(), &Digest::of(CANONICAL_V2_CARD.as_bytes()));
+    assert_eq!(declared.identity(), Some(&identity));
+}
+
+#[test]
+fn a_pure_answerer_card_preserves_sampling_and_output_identity() {
+    let identity = answerer_identity();
+    let card = ModelCard::from_identity(&identity).unwrap();
+
+    assert_eq!(
+        card.digest(),
+        &Digest::of(super::v2_golden::CANONICAL_ANSWERER_CARD.as_bytes())
+    );
+    assert_eq!(card.identity(), Some(&identity));
+}
+
+#[test]
 fn v2_identity_round_trips_deterministically_and_keeps_legacy_common_fields() {
     let (path, store) = scratch_store();
     let identity = card_identity();

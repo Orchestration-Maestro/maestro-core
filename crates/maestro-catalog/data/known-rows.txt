@@ -1,0 +1,85 @@
+chat.M006 CLI
+chat.M006 approvals
+chat.M006 broker
+chat.M006 change workflow
+chat.M006 compiler
+chat.M006 destructive
+chat.M006 explain
+chat.M006 layers
+chat.M006 layout, M023 layout
+chat.M006 lockfile
+chat.M006 native
+chat.M006 project file
+chat.M006 release
+chat.M006 roles, M023 step 12
+chat.M006 transparency
+chat.M006, M023 step 8
+chat.M019 bootstrap, M023 step 13
+chat.M019 descriptor
+chat.M019 machine contracts
+chat.M019 maturity, M023 step 4
+chat.M019 overlays
+chat.M019 ownership
+chat.M019 roles
+chat.M023 step 13
+chat.M023 step 7
+chat.M027 TUF
+chat.M027 contract crate
+chat.M027 detached
+chat.M027 invariants
+chat.M027 pipelines
+chat.M027 validation split
+chat.M027 versions
+chat.M031 API
+chat.M031 cards
+chat.M031 delivery
+chat.M031 hybrid
+chat.M031 offline
+chat.M031 optimal
+chat.M031 principle
+chat.M031 publication
+chat.M031 security
+chat.M031 separation
+chat.M031 service
+chat.M031 workflow first
+chat.M036 classes, M039 policy
+chat.M036 defaults
+chat.M036 models
+chat.M036 objects
+chat.M039 superpowers
+chat.M048 real controls
+chat.M057 CI
+chat.M059 model profile
+chat.M059 provenance
+core storage
+core verification
+delivery.C01 transparent platform, minimal plumbing
+delivery.C02 detached two-repository releases
+delivery.C04 readiness, owners, dependencies without invalid frontmatter
+delivery.C06 closure, merge, explanation, one override class
+delivery.C08 explicit instructions and skills with provenance
+delivery.C12 preview/apply bootstrap
+delivery.C13 native projection
+delivery.C14–C16 catalog MCP, shared Qdrant, separate knowledge ACLs
+delivery.C17 signed releases, freshness, revocation, transparency
+delivery.R01–R11 corrections
+delivery.R08
+delivery.U02
+delivery.U05
+delivery.U09
+delivery.U13
+delivery.U17
+delivery.§1.5
+delivery.§2.2
+owner.catalog
+owner.m001.cli
+owner.m001.guardrails
+owner.m001.laptop
+owner.m001.load
+owner.m001.manifest
+owner.m001.team
+owner.m024
+owner.m028
+owner.m032
+product.GD1–GD5
+product.GD2, GD4, GD5

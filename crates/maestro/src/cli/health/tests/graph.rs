@@ -11,7 +11,8 @@ use super::{
     },
     support::{Scratch, failure},
 };
-use crate::{failure::Failure, settings::Session};
+use crate::{cli::session, failure::Failure, settings::Session};
+use maestro_catalog::settings::NoWorkspaceTrust;
 use maestro_kernel::paths::Environment;
 use maestro_knowledge::graph::projection::health::{
     OpenGraph, ProbeError, PublishedFile, PublishedGraph, Receipt,
@@ -187,14 +188,22 @@ impl Home {
     /// The session with `flags`.
     fn session(&self, flags: &[&str]) -> Result<Session, Failure> {
         let flags: Vec<String> = flags.iter().map(|&flag| flag.to_owned()).collect();
-        Session::at(&self.scratch.config(), None, None, &flags)
+        session::health_at(
+            &self.scratch.config(),
+            None,
+            None,
+            &flags,
+            &NoWorkspaceTrust,
+        )
     }
 
     /// The check with `graph.engine = lbug`, in a build with the engine.
     fn check(&self, published: &dyn PublishedGraph) -> Check {
         check_with(
             &self.environment,
-            self.session(&["graph.engine=ladybug"]),
+            self.session(&["graph.engine=ladybug"])
+                .as_ref()
+                .map_err(|error| Failure::refused(error.to_string())),
             true,
             published,
         )
@@ -225,7 +234,14 @@ fn an_off_graph_reads_no_receipt_and_creates_nothing() {
     let home = Home::new();
     let receipt = FakeReceipt::publishing(Vec::new());
     for engine_built in [false, true] {
-        let check = check_with(&home.environment, home.session(&[]), engine_built, &receipt);
+        let check = check_with(
+            &home.environment,
+            home.session(&[])
+                .as_ref()
+                .map_err(|error| Failure::refused(error.to_string())),
+            engine_built,
+            &receipt,
+        );
         assert_eq!(
             not_checked(&check),
             "the graph is off (graph.engine = none)"
@@ -242,7 +258,9 @@ fn ladybug_in_a_build_without_the_engine_fails_before_any_probe() {
     let receipt = FakeReceipt::publishing(Vec::new());
     let check = check_with(
         &home.environment,
-        home.session(&["graph.engine=ladybug"]),
+        home.session(&["graph.engine=ladybug"])
+            .as_ref()
+            .map_err(|error| Failure::refused(error.to_string())),
         false,
         &receipt,
     );
@@ -256,7 +274,14 @@ fn ladybug_in_a_build_without_the_engine_fails_before_any_probe() {
 fn unresolved_directories_and_settings_fail_with_their_next_action() {
     let home = Home::new();
     let receipt = FakeReceipt::publishing(Vec::new());
-    let unresolved = check_with(&Environment::default(), home.session(&[]), true, &receipt);
+    let unresolved = check_with(
+        &Environment::default(),
+        home.session(&[])
+            .as_ref()
+            .map_err(|error| Failure::refused(error.to_string())),
+        true,
+        &receipt,
+    );
     assert_eq!(unresolved.target, "data directory");
     assert!(failure(&unresolved).1.contains("XDG_DATA_HOME"));
     let refused = check_with(

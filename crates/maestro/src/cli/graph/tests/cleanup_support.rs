@@ -1,6 +1,6 @@
 //! Synthetic cleanup authority under the same private CLI apply boundary.
 use super::runner_tests::support::{Fixture, fixture};
-use maestro_canonicalization::{ControlFile, OwnedRoot};
+use maestro_filesystem::{ControlFile, OwnedRoot};
 use maestro_kernel::{
     artifact::Digest,
     facts::ProjectionReceipt,

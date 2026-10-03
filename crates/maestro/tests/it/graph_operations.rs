@@ -98,6 +98,19 @@ fn ladybug_in_a_build_without_the_engine_is_named_and_nothing_is_created() {
     );
 }
 
+#[cfg(not(feature = "engine"))]
+#[test]
+fn runtime_admission_still_refuses_the_uncompiled_graph_backend() {
+    let home = Home::bare();
+    let runtime = home.run(&["--set", "graph.engine=ladybug", "knowledge", "collections"]);
+    assert_eq!(runtime.code, Some(2), "{runtime:?}");
+    assert_eq!(
+        runtime.stderr.trim(),
+        "backend adapter is not compiled into this build"
+    );
+    assert!(!home.data().join("graph").exists());
+}
+
 #[cfg(unix)]
 #[test]
 fn setup_refuses_a_settings_file_error_and_still_reports_qdrant() {
@@ -249,7 +262,7 @@ fn assert_permanent_guards(directory: &Path) {
 #[cfg(all(unix, feature = "engine"))]
 #[test]
 fn graph_health_status_and_doctor_report_permanent_guard_contention() {
-    use maestro_canonicalization::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
+    use maestro_filesystem::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
     let home = Home::bare();
     let directory = home.data().join("graph");
     let root = OwnedRoot::open(&directory, true).unwrap();

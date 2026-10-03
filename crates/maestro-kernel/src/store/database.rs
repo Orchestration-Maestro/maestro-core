@@ -81,6 +81,22 @@ impl Database {
         Self::open_with(&data.join(FILE), &data.join("artifacts"), &older)
     }
 
+    /// Open an existing database read-only; never create, migrate or write authority.
+    /// SQLite may create only this database's WAL sidecars.
+    pub(crate) fn open_read_only(data: &Path) -> Result<Self, Error> {
+        let database = data.join(FILE);
+        let path = path::absolute(&database).map_err(|source| io_error(&database, source))?;
+        let reader = configured(Connection::open_with_flags(
+            &path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?)?;
+        Ok(Self {
+            writer: Mutex::new(reader),
+            path,
+            artifacts: Store::new(data.join("artifacts")),
+        })
+    }
+
     /// [`Database::open`] with `migrations` in place of the binary's own.
     pub(super) fn open_with(
         database: &Path,
@@ -173,7 +189,8 @@ impl Database {
     }
 
     /// A connection of its own that only reads, and sees the last commit,
-    /// never a write in progress.
+    /// never a write in progress. It preserves authority and database bytes, but
+    /// SQLite may create this database's `-wal` and `-shm` sidecars.
     ///
     /// # Errors
     ///

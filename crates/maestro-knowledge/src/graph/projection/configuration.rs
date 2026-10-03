@@ -1,7 +1,7 @@
 //! Engine-only adapter inputs with redacted root and opaque lock diagnostics.
 
 use super::settings::EngineSettings;
-use maestro_canonicalization::FileLock;
+use maestro_filesystem::FileLock;
 use std::{any::type_name_of_val, fmt, path::PathBuf};
 
 /// Adapter inputs separate from the factory/session types, avoiding an import cycle.
@@ -28,7 +28,7 @@ impl fmt::Debug for ProjectionConfiguration<'_> {
 mod tests {
     use super::*;
     use crate::graph::projection::{ProjectionEngine, ProjectionFactory};
-    use maestro_canonicalization::SystemFileLock;
+    use maestro_filesystem::SystemFileLock;
     use maestro_kernel::artifact::Digest;
 
     #[test]

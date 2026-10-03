@@ -114,6 +114,7 @@ struct CliEnvelope {
     schema: &'static str,
     /// The same versioned data MCP returns on success.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(serialize_with = "maestro_kernel::json::serialize_canonical")]
     data: Option<Value>,
     /// A bounded refusal when an indivisible get result does not fit.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -349,5 +350,22 @@ mod tests {
         assert!(!excerpt_text_exceeds_limit(&at));
         assert!(excerpt_text_exceeds_limit(&above));
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod json_order_tests {
+    use super::*;
+
+    #[test]
+    fn retrieve_envelope_keeps_schema_first_and_sorted_opaque_data() {
+        let data = serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap();
+        assert_eq!(
+            serde_json::to_string(&success("synthetic", data)).unwrap(),
+            concat!(
+                "{\"schema\":\"synthetic\",\"data\":{\"a\":0,\"z\":{\"a\":1,\"z\":2}},",
+                "\"truncated\":false,\"limit_bytes\":65536}",
+            )
+        );
     }
 }

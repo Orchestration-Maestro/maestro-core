@@ -19,7 +19,7 @@ use maestro_kernel::{
 };
 use maestro_knowledge::{
     answer::{
-        Answer, AnswerCitation, AnswerModel, AnswerRefusal, AskError, RefusalCode,
+        Answer, AnswerCitation, AnswerModel, AnswerRefusal, AskError, LanguageCheck, RefusalCode,
         RegisteredAnswerer, Rejection,
     },
     eval::{AskOutcome, SectionRef},
@@ -141,6 +141,7 @@ fn bundle_documents_rank_by_their_passages_best_chunk_not_by_reading_order() {
 /// An answer citing the section `section` of `source_ref`, or refusing.
 fn answer(citations: &[(&str, &str)], refusal: Option<RefusalCode>) -> Answer {
     Answer {
+        language_check: LanguageCheck::Unchecked,
         schema: "maestro-answer/1".to_owned(),
         collection: "collection".to_owned(),
         generation: 1,

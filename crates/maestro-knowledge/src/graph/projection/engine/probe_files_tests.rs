@@ -13,7 +13,7 @@ use crate::graph::projection::{
     writer::{ProjectionBackendReader as _, receipt_from_verification},
 };
 use lbug::Connection;
-use maestro_canonicalization::{ControlFile, LockMode, SystemFileLock};
+use maestro_filesystem::{ControlFile, LockMode, SystemFileLock};
 use maestro_kernel::{
     artifact::Digest,
     facts::{Error, InventoryState, ProjectionInventory, ProjectionReceipt},

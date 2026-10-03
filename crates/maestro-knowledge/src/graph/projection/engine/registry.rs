@@ -14,7 +14,7 @@ use crate::graph::projection::{
     writer::{BuildVerification, ProjectionBackendReader, ProjectionReader, check_read_scope},
 };
 use lbug::RootDirectory;
-use maestro_canonicalization::OwnedRoot;
+use maestro_filesystem::OwnedRoot;
 use maestro_kernel::{
     artifact::Digest, facts::ProjectionReceipt, scope::ScopeSet, store::Database,
 };

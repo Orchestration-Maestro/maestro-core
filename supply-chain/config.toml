@@ -26,6 +26,16 @@ url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/
 audit-as-crates-io = true
 notes = "S2 D8: lbug 0.20.4 fork 02d90e7 (E01–E03b, E01e strict rooted WAL replay), reviewed fork PRs #1–#9 and #17 and #18 (hash-index rollback fix)"
 
+[[exemptions.ahash]]
+version = "0.8.12"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.aho-corasick]]
+version = "1.1.5"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.android_system_properties]]
 version = "0.1.6"
 criteria = "safe-to-deploy"
@@ -39,9 +49,24 @@ criteria = "safe-to-deploy"
 version = "1.0.104"
 criteria = "safe-to-deploy"
 
+[[exemptions.ar_archive_writer]]
+version = "0.5.3"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.arrayvec]]
+version = "0.5.2"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.arrayvec]]
 version = "0.7.8"
 criteria = "safe-to-deploy"
+
+[[exemptions.ascii-canvas]]
+version = "4.0.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.async-trait]]
 version = "0.1.92"
@@ -64,13 +89,53 @@ criteria = "safe-to-deploy"
 version = "0.23.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.bit-set]]
+version = "0.8.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.bit-vec]]
+version = "0.8.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.bitflags]]
+version = "1.3.2"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.bitflags]]
 version = "2.13.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.block-buffer]]
+version = "0.10.4"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.block-buffer]]
 version = "0.12.1"
 criteria = "safe-to-deploy"
+
+[[exemptions.borrow-or-share]]
+version = "0.2.4"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.borsh]]
+version = "1.8.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.bs58]]
+version = "0.5.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.bytecount]]
+version = "0.6.9"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 
 [[exemptions.bytes]]
 version = "1.12.1"
@@ -80,9 +145,29 @@ criteria = "safe-to-deploy"
 version = "1.5.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.cedar-policy]]
+version = "4.13.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.cedar-policy-core]]
+version = "4.13.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.cedar-policy-formatter]]
+version = "4.13.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.cfg-if]]
 version = "1.0.5"
 criteria = "safe-to-deploy"
+
+[[exemptions.cfg_aliases]]
+version = "0.2.2"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.chacha20]]
 version = "0.10.2"
@@ -126,12 +211,22 @@ version = "0.10.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.cpufeatures]]
+version = "0.2.17"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.cpufeatures]]
 version = "0.3.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.crc32fast]]
 version = "1.5.2"
 criteria = "safe-to-deploy"
+
+[[exemptions.crypto-common]]
+version = "0.1.7"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.crypto-common]]
 version = "0.2.2"
@@ -157,17 +252,53 @@ criteria = "safe-to-deploy"
 version = "0.20.11"
 criteria = "safe-to-deploy"
 
+[[exemptions.darling]]
+version = "0.24.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.darling_core]]
 version = "0.20.11"
 criteria = "safe-to-deploy"
+
+[[exemptions.darling_core]]
+version = "0.24.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.darling_macro]]
 version = "0.20.11"
 criteria = "safe-to-deploy"
 
+[[exemptions.darling_macro]]
+version = "0.24.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.data-encoding]]
+version = "2.11.1"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.defmt]]
+version = "1.1.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.defmt-macros]]
+version = "1.1.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.defmt-parser]]
+version = "1.0.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.deranged]]
 version = "0.5.8"
 criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.derive_builder]]
 version = "0.20.2"
@@ -182,6 +313,11 @@ version = "0.20.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.digest]]
+version = "0.10.7"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.digest]]
 version = "0.11.3"
 criteria = "safe-to-deploy"
 
@@ -189,9 +325,39 @@ criteria = "safe-to-deploy"
 version = "1.0.20"
 criteria = "safe-to-deploy"
 
+[[exemptions.educe]]
+version = "0.7.6"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.either]]
 version = "1.18.0"
 criteria = "safe-to-deploy"
+
+[[exemptions.email_address]]
+version = "0.2.9"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.ena]]
+version = "0.14.4"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.enum-ordinalize]]
+version = "4.4.2"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.enum-ordinalize-derive]]
+version = "4.4.2"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.fancy-regex]]
+version = "0.19.2"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 
 [[exemptions.fastrand]]
 version = "2.5.0"
@@ -202,13 +368,29 @@ notes = "build-dependency of lbug 802abe2 (E03 native cache); owner library deci
 version = "0.1.14"
 criteria = "safe-to-deploy"
 
+[[exemptions.fixedbitset]]
+version = "0.5.7"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.flate2]]
 version = "1.1.10"
 criteria = "safe-to-deploy"
 
+[[exemptions.fluent-uri]]
+version = "0.4.1"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
 [[exemptions.foldhash]]
 version = "0.2.0"
 criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.fraction]]
+version = "0.17.0"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 
 [[exemptions.futures]]
 version = "0.3.34"
@@ -246,9 +428,19 @@ criteria = "safe-to-deploy"
 version = "0.3.34"
 criteria = "safe-to-deploy"
 
+[[exemptions.generic-array]]
+version = "0.14.7"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.getrandom]]
 version = "0.2.17"
 criteria = "safe-to-deploy"
+
+[[exemptions.getrandom]]
+version = "0.3.4"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 
 [[exemptions.getrandom]]
 version = "0.4.3"
@@ -259,12 +451,22 @@ version = "0.4.19"
 criteria = "safe-to-deploy"
 
 [[exemptions.hashbrown]]
+version = "0.12.3"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.hashbrown]]
 version = "0.14.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.hashbrown]]
 version = "0.17.1"
 criteria = "safe-to-deploy"
+
+[[exemptions.hex]]
+version = "0.4.3"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.http]]
 version = "1.5.0"
@@ -320,6 +522,11 @@ version = "1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.indexmap]]
+version = "1.9.3"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.indexmap]]
 version = "2.14.2"
 criteria = "safe-to-deploy"
 
@@ -331,13 +538,73 @@ criteria = "safe-to-deploy"
 version = "0.14.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.itertools]]
+version = "0.15.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.itoa]]
 version = "1.0.18"
 criteria = "safe-to-deploy"
 
+[[exemptions.jiff]]
+version = "0.2.37"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.jiff-core]]
+version = "0.1.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.jiff-static]]
+version = "0.2.37"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.jiff-tzdb]]
+version = "0.1.8"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.jiff-tzdb-platform]]
+version = "0.1.3"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.js-sys]]
 version = "0.3.106"
 criteria = "safe-to-deploy"
+
+[[exemptions.jsonschema]]
+version = "0.58.5"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.jsonschema-regex]]
+version = "0.58.5"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.jsonschema-value]]
+version = "0.58.5"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.keccak]]
+version = "0.1.6"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.lalrpop]]
+version = "0.22.2"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.lalrpop-util]]
+version = "0.22.2"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.lbug]]
 version = "0.20.4@git:02d90e71db83518c9bf31fdacd7280071e1dc021"
@@ -356,6 +623,16 @@ criteria = "safe-to-deploy"
 version = "1.0.12"
 criteria = "safe-to-deploy"
 
+[[exemptions.linked-hash-map]]
+version = "0.5.6"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.linked_hash_set]]
+version = "0.1.6"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.linux-raw-sys]]
 version = "0.12.1"
 criteria = "safe-to-deploy"
@@ -368,6 +645,21 @@ criteria = "safe-to-deploy"
 version = "0.4.34"
 criteria = "safe-to-deploy"
 
+[[exemptions.logos]]
+version = "0.16.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.logos-codegen]]
+version = "0.16.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.logos-derive]]
+version = "0.16.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.matchit]]
 version = "0.8.4"
 criteria = "safe-to-deploy"
@@ -375,6 +667,21 @@ criteria = "safe-to-deploy"
 [[exemptions.memchr]]
 version = "2.8.3"
 criteria = "safe-to-deploy"
+
+[[exemptions.micromap]]
+version = "0.3.0"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.miette]]
+version = "7.6.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.miette-derive]]
+version = "7.6.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.mime]]
 version = "0.3.17"
@@ -388,9 +695,60 @@ criteria = "safe-to-deploy"
 version = "1.2.3"
 criteria = "safe-to-deploy"
 
+[[exemptions.new_debug_unreachable]]
+version = "1.0.6"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.nonempty]]
+version = "0.12.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.num]]
+version = "0.4.3"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.num-bigint]]
+version = "0.4.8"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.num-cmp]]
+version = "0.1.0"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.num-complex]]
+version = "0.4.6"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
 [[exemptions.num-conv]]
 version = "0.2.2"
 criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.num-integer]]
+version = "0.1.47"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.num-iter]]
+version = "0.1.46"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.num-rational]]
+version = "0.4.2"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.object]]
+version = "0.39.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.once_cell]]
 version = "1.12.0"
@@ -399,6 +757,11 @@ criteria = "safe-to-deploy"
 [[exemptions.openssl-probe]]
 version = "0.2.1"
 criteria = "safe-to-deploy"
+
+[[exemptions.outref]]
+version = "0.5.2"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 
 [[exemptions.parking_lot]]
 version = "0.12.5"
@@ -412,6 +775,21 @@ criteria = "safe-to-deploy"
 version = "0.2.3"
 criteria = "safe-to-deploy"
 notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
+
+[[exemptions.petgraph]]
+version = "0.7.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.phf_shared]]
+version = "0.11.3"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.pico-args]]
+version = "0.5.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.pin-project]]
 version = "1.1.13"
@@ -429,9 +807,30 @@ criteria = "safe-to-deploy"
 version = "0.3.34"
 criteria = "safe-to-deploy"
 
+[[exemptions.portable-atomic]]
+version = "1.15.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.portable-atomic-util]]
+version = "0.2.8"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.powerfmt]]
 version = "0.2.0"
 criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.precomputed-hash]]
+version = "0.1.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.pretty]]
+version = "0.12.5"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.proc-macro2]]
 version = "1.0.107"
@@ -449,6 +848,11 @@ criteria = "safe-to-deploy"
 version = "0.14.4"
 criteria = "safe-to-deploy"
 
+[[exemptions.psm]]
+version = "0.1.32"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.pulldown-cmark]]
 version = "0.13.4"
 criteria = "safe-to-deploy"
@@ -456,6 +860,11 @@ criteria = "safe-to-deploy"
 [[exemptions.qdrant-client]]
 version = "1.19.0"
 criteria = "safe-to-deploy"
+
+[[exemptions.r-efi]]
+version = "5.3.0"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 
 [[exemptions.r-efi]]
 version = "6.0.0"
@@ -481,6 +890,26 @@ criteria = "safe-to-deploy"
 version = "1.0.27"
 criteria = "safe-to-deploy"
 
+[[exemptions.referencing]]
+version = "0.58.5"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.regex]]
+version = "1.13.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.regex-automata]]
+version = "0.4.18"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.regex-syntax]]
+version = "0.8.11"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.reqwest]]
 version = "0.13.5"
 criteria = "safe-to-deploy"
@@ -501,6 +930,11 @@ criteria = "safe-to-deploy"
 [[exemptions.rust_decimal]]
 version = "1.43.0"
 criteria = "safe-to-deploy"
+
+[[exemptions.rustc-literal-escaper]]
+version = "0.0.8"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.rustix]]
 version = "1.1.5"
@@ -530,9 +964,19 @@ criteria = "safe-to-deploy"
 version = "1.0.23"
 criteria = "safe-to-deploy"
 
+[[exemptions.same-file]]
+version = "1.0.6"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.schannel]]
 version = "0.1.29"
 criteria = "safe-to-deploy"
+
+[[exemptions.schemars]]
+version = "0.9.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.schemars]]
 version = "1.2.2"
@@ -578,6 +1022,16 @@ criteria = "safe-to-deploy"
 version = "1.0.151"
 criteria = "safe-to-deploy"
 
+[[exemptions.serde_with]]
+version = "3.24.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.serde_with_macros]]
+version = "3.24.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.serde_yaml_ng]]
 version = "0.10.0"
 criteria = "safe-to-deploy"
@@ -590,9 +1044,19 @@ criteria = "safe-to-deploy"
 version = "0.11.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.sha3]]
+version = "0.10.9"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.simd-adler32]]
 version = "0.3.10"
 criteria = "safe-to-deploy"
+
+[[exemptions.siphasher]]
+version = "1.0.4"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.slab]]
 version = "0.4.12"
@@ -602,9 +1066,34 @@ criteria = "safe-to-deploy"
 version = "1.16.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.smol_str]]
+version = "0.3.6"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.socket2]]
 version = "0.6.5"
 criteria = "safe-to-deploy"
+
+[[exemptions.stacker]]
+version = "0.1.25"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.string_cache]]
+version = "0.8.9"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.strum]]
+version = "0.28.0"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.strum_macros]]
+version = "0.28.0"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 
 [[exemptions.syn]]
 version = "2.0.119"
@@ -623,6 +1112,11 @@ version = "3.27.0"
 criteria = "safe-to-deploy"
 notes = "build-dependency of lbug 802abe2 (E03 native cache); owner library decision 2026-10-02"
 
+[[exemptions.term]]
+version = "1.2.1"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.termcolor]]
 version = "1.4.1"
 criteria = "safe-to-deploy"
@@ -638,10 +1132,17 @@ criteria = "safe-to-deploy"
 [[exemptions.time]]
 version = "0.3.55"
 criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.time-core]]
 version = "0.1.9"
 criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.time-macros]]
+version = "0.2.32"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.tinyvec]]
 version = "1.13.3"
@@ -715,6 +1216,11 @@ criteria = "safe-to-deploy"
 version = "0.1.36"
 criteria = "safe-to-deploy"
 
+[[exemptions.typed-arena]]
+version = "2.0.2"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.typenum]]
 version = "1.20.1"
 criteria = "safe-to-deploy"
@@ -727,6 +1233,11 @@ criteria = "safe-to-deploy"
 version = "2.9.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.unicode-general-category]]
+version = "1.1.0"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
 [[exemptions.unicode-ident]]
 version = "1.0.26"
 criteria = "safe-to-deploy"
@@ -735,9 +1246,30 @@ criteria = "safe-to-deploy"
 version = "1.0.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.unicode-script]]
+version = "0.5.8"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.unicode-security]]
+version = "0.1.2"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.unicode-width]]
+version = "0.1.14"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.unicode-width]]
 version = "0.2.2"
 criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.unicode-xid]]
+version = "0.2.6"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
 
 [[exemptions.unsafe-libyaml]]
 version = "0.2.11"
@@ -755,9 +1287,34 @@ criteria = "safe-to-deploy"
 version = "1.26.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.uuid-simd]]
+version = "0.8.0"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.version_check]]
+version = "0.9.5"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
+[[exemptions.vsimd]]
+version = "0.8.0"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.walkdir]]
+version = "2.5.0"
+criteria = "safe-to-deploy"
+notes = "C19: owner-approved Cedar 4.13.0 minimum-feature dependency closure (ADR-0020); not an audit"
+
 [[exemptions.wasi]]
 version = "0.11.0+wasi-snapshot-preview1"
 criteria = "safe-to-deploy"
+
+[[exemptions.wasip2]]
+version = "1.0.4+wasi-0.2.12"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 
 [[exemptions.wasm-bindgen]]
 version = "0.2.129"
@@ -867,6 +1424,21 @@ criteria = "safe-to-deploy"
 [[exemptions.winnow]]
 version = "1.0.4"
 criteria = "safe-to-deploy"
+
+[[exemptions.wit-bindgen]]
+version = "0.57.1"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.zerocopy]]
+version = "0.8.59"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
+
+[[exemptions.zerocopy-derive]]
+version = "0.8.59"
+criteria = "safe-to-deploy"
+notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 
 [[exemptions.zeroize]]
 version = "1.9.0"

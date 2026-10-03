@@ -91,3 +91,29 @@ fn a_job_the_local_principal_cannot_read_is_unknown() {
     assert_eq!(ended.stdout, "");
     assert!(ended.stderr.contains(&lease.job.to_string()), "{ended:?}");
 }
+
+#[test]
+fn job_progress_and_outcome_keep_pre_cedar_text_bytes() {
+    let home = Home::new();
+    let database = home.database();
+    let mut lease = running_job(&database);
+    let mut waiting = home.start(&["job", "wait", &lease.job.to_string()]);
+    waiting.line_with("maestro.job.taken.v1");
+    let data = serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap();
+    database
+        .progress(&mut lease, SystemTime::now(), TERM, &data)
+        .unwrap();
+    assert_eq!(
+        waiting.line_with("maestro.job.progressed.v1"),
+        r#"3 maestro.job.progressed.v1 {"a":0,"z":{"a":1,"z":2}}"#
+    );
+    database
+        .complete_job(&lease, JobState::Succeeded, &data)
+        .unwrap();
+    let ended = waiting.finish();
+    assert_eq!(ended.code, Some(0));
+    assert_eq!(
+        ended.stdout.lines().last().unwrap(),
+        r#"succeeded {"a":0,"z":{"a":1,"z":2}}"#
+    );
+}

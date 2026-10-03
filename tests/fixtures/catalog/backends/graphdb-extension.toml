@@ -1,0 +1,5 @@
+projections = ["alpha/overview"]
+
+[graphdb]
+max_num_threads = 1
+max_db_size = 16777216

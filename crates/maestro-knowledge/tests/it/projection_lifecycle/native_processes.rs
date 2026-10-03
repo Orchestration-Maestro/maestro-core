@@ -1,7 +1,7 @@
 //! Pipes acknowledge guard ownership; no sleeps or PID-file liveness guesses.
 #![cfg(test)]
 use super::fixture::{Fixture, factory};
-use maestro_canonicalization::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
+use maestro_filesystem::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
 use maestro_kernel::{artifact::Digest, job::LeaseTiming, store::Database};
 use maestro_knowledge::graph::projection::{
     BuildVerification, EntityFact, ProjectionBuild, ProjectionScope, TypedEdgeProjection,

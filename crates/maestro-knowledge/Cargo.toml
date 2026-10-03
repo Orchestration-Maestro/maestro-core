@@ -15,6 +15,7 @@ workspace = true
 engine = ["dep:lbug"]
 
 [dependencies]
+maestro-filesystem.workspace = true
 lbug = { workspace = true, optional = true }
 maestro-canonicalization.workspace = true
 maestro-kernel.workspace = true

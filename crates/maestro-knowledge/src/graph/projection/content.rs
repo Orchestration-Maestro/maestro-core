@@ -5,7 +5,7 @@
 )]
 
 use super::port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope};
-use maestro_canonicalization::is_receipt_basename;
+use maestro_filesystem::is_receipt_basename;
 use maestro_kernel::{
     artifact::Digest,
     facts::{Object, ReviewState, Validity},

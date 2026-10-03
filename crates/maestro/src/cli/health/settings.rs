@@ -3,25 +3,13 @@
 //! key. The kernel's `config.toml` has a check of its own.
 
 use super::check::Check;
-use crate::{failure::Failure, settings::Session};
+use crate::settings::Session;
 use maestro_settings::USER_FILE;
 use std::path::Path;
 
 /// The check of the session `session`, whose user file is in `config_dir`.
-pub(super) fn settings_check(config_dir: &Path, session: Result<Session, Failure>) -> Check {
+pub(super) fn settings_check(config_dir: &Path, session: &Session) -> Check {
     let target = config_dir.join(USER_FILE).display().to_string();
-    let session = match session {
-        Ok(session) => session,
-        Err(failure) => {
-            return Check::failed(
-                "settings",
-                &target,
-                failure.to_string(),
-                "fix or remove the key it names; `maestro config explain` shows what each \
-                 setting accepts",
-            );
-        }
-    };
     let user = if session.layers.user.is_some() {
         "user file read"
     } else {

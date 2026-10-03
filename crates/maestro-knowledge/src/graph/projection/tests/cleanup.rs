@@ -3,7 +3,7 @@
 use super::super::cleanup::CleanupOutcome;
 use super::super::cleanup::{Cleanup, CleanupError};
 use super::cleanup_support::{Fixture, timing};
-use maestro_canonicalization::{ControlFile, FileLock, LockMode, OwnedRoot, SystemFileLock};
+use maestro_filesystem::{ControlFile, FileLock, LockMode, OwnedRoot, SystemFileLock};
 use maestro_kernel::{job::JobState, scope::Right};
 use serde_json::json;
 use std::{fs, io};

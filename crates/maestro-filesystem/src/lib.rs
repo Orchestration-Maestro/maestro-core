@@ -1,0 +1,54 @@
+//! Filesystem access that never follows a link below the root its caller names, which resolves
+//! once, one interface over two platforms.
+//! rustix's directory-relative calls serve Unix and the standard library's Win32 open flags serve
+//! Windows, so neither the store nor the tokenizer branches on the platform (ADR-0018).
+#[cfg(test)]
+mod bounded_tests;
+#[cfg(test)]
+mod canonical_identity_tests;
+#[cfg(all(test, windows))]
+mod canonical_windows_identity_tests;
+#[cfg(test)]
+mod created_identity_tests;
+mod listing;
+#[cfg(test)]
+mod listing_tests;
+mod publication;
+mod read;
+mod root;
+#[cfg(test)]
+mod tests;
+#[cfg(unix)]
+mod unix;
+#[cfg(unix)]
+mod unix_creation;
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+mod windows_security;
+#[cfg(unix)]
+pub use unix::{Directory, open_nofollow};
+#[cfg(windows)]
+pub use windows::{Directory, open_nofollow};
+
+pub use listing::{Entry, EntryKind};
+
+pub use publication::PublicationChecks;
+
+#[cfg(test)]
+mod lock_tests;
+mod owned;
+#[cfg(test)]
+mod owned_metadata_tests;
+#[cfg(test)]
+mod owned_tests;
+#[cfg(test)]
+mod removal_tests;
+#[cfg(unix)]
+mod unix_owned;
+#[cfg(windows)]
+mod windows_owned;
+pub use owned::{
+    ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot, ReceiptFile, SystemFileLock,
+    is_receipt_basename,
+};

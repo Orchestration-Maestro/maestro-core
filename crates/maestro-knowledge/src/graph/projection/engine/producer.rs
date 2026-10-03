@@ -17,7 +17,7 @@ use crate::graph::projection::{
     },
 };
 use lbug::RootDirectory;
-use maestro_canonicalization::OwnedRoot;
+use maestro_filesystem::OwnedRoot;
 use maestro_kernel::{facts::ProjectionReceipt, job::JobState, scope::ScopeSet, store::Database};
 use serde_json::json;
 use std::{
@@ -281,7 +281,7 @@ mod tests {
     use super::*;
     use crate::graph::projection::engine::public_fixture::{Fixture, now};
     #[cfg(not(windows))]
-    use maestro_canonicalization::SystemFileLock;
+    use maestro_filesystem::SystemFileLock;
 
     #[test]
     fn install_refuses_each_independently_mismatched_basename() {
@@ -349,7 +349,7 @@ mod lease_tests {
         open::tests::OPEN_CALLS,
         public_fixture::{Fixture, now, settings},
     };
-    use maestro_canonicalization::SystemFileLock;
+    use maestro_filesystem::SystemFileLock;
     use std::cell::Cell;
 
     #[test]

@@ -5,7 +5,7 @@ use crate::graph::projection::{
     ProjectionFactory, ProjectionHandle, TypedEdgeProjection, content,
 };
 use lbug::Connection;
-use maestro_canonicalization::{ControlFile, FileLock, LockMode, OwnedRoot, SystemFileLock};
+use maestro_filesystem::{ControlFile, FileLock, LockMode, OwnedRoot, SystemFileLock};
 use maestro_kernel::artifact::Digest;
 #[cfg(not(windows))]
 use maestro_kernel::job::JobState;

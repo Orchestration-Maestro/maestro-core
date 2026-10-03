@@ -315,6 +315,27 @@ fn malformed_frontmatter_and_html_are_not_silently_repaired() {
 }
 
 #[test]
+fn c19_review_revision_identity_ignores_json_object_order() {
+    let mut left = CanonicalizeInput::new("Body\n", "doc.md");
+    left.metadata.extraction =
+        Some(serde_json::from_str(r#"{"converter":"synthetic","version":"1"}"#).unwrap());
+    let mut right = left.clone();
+    right.metadata.extraction =
+        Some(serde_json::from_str(r#"{"version":"1","converter":"synthetic"}"#).unwrap());
+    let left = canonicalize(left).unwrap();
+    let right = canonicalize(right).unwrap();
+    eprintln!(
+        "C19_REVIEW revisions: {} {}",
+        left.revision_id, right.revision_id
+    );
+    assert_eq!(left.revision_id, right.revision_id);
+    assert_eq!(
+        left.revision_id,
+        "rev-7594850634365f752cd379e2cb79bce7f519f124bbd748a8f163260449bd5a66"
+    );
+}
+
+#[test]
 fn policy_conflicts_are_failures_not_permission_guesses() {
     let mut input = CanonicalizeInput::new("---\naccess_policy: private\n---\nBody", "doc.md");
     input.metadata.access_policy = Some(json!("public"));
