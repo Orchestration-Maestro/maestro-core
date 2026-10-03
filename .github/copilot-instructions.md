@@ -919,6 +919,7 @@ in place.
 │   │   │   │   │   ├── builds.rs                                            # Graph builds: batches recorded in order under the job's lease, each with
 │   │   │   │   │   ├── claims.rs                                            # Admitting claims: a whole set or nothing, unreviewed, recorded once by
 │   │   │   │   │   ├── mod.rs                                               # Tests of claims: admitting a verified set or nothing, reading it back
+│   │   │   │   │   ├── mutation_contracts.rs                                # Build identities and supersession endpoint contracts
 │   │   │   │   │   ├── projection.rs                                        # Rust source: projection
 │   │   │   │   │   ├── projection_lease.rs                                  # Exact caller-clock project expiry, fencing, scope and renewal checks
 │   │   │   │   │   ├── resolution.rs                                        # Immutable sourced resolution snapshots and current-grant checks
@@ -1369,6 +1370,7 @@ in place.
 │   │   │   │   ├── tests/                                                   # Tests of the first table rule: its closed form, the claims it extracts
 │   │   │   │   │   ├── build.rs                                             # Every frozen build field participates in submission identity
 │   │   │   │   │   ├── mod.rs                                               # Tests of the first table rule: its closed form, the claims it extracts
+│   │   │   │   │   ├── mutation_contracts.rs                                # Observable diagnostics and storage-free extractor defaults
 │   │   │   │   │   ├── record_resolution.rs                                 # Record-time semantic validation must not poison immutable snapshot history
 │   │   │   │   │   ├── resolve.rs                                           # Scoped identities and explicit, half-open validity ordering
 │   │   │   │   │   ├── rules.rs                                             # The closed table rule: what it refuses to read, the DEFAULTS_TO claims

@@ -194,6 +194,25 @@ mod tests {
     }
 
     #[test]
+    fn setup_reports_an_invalid_path_as_an_operation_failure() {
+        let scratch = Scratch::new();
+        for yes in [false, true] {
+            assert!(matches!(
+                prepare(&scratch.0.join("invalid\0directory"), yes),
+                Err(Failure::Failed(_))
+            ));
+        }
+        assert_eq!(fs::read_dir(&scratch.0).unwrap().count(), 0);
+    }
+
+    #[cfg(not(unix))]
+    #[test]
+    fn inherited_directory_permissions_are_private_on_non_unix() {
+        let scratch = Scratch::new();
+        assert!(is_private(&fs::metadata(&scratch.0).unwrap()));
+    }
+
+    #[test]
     fn a_disabled_graph_needs_nothing_and_touches_nothing() {
         let scratch = Scratch::new();
         let setup = disabled();
