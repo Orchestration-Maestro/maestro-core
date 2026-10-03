@@ -99,6 +99,12 @@ pub(in crate::cli::init) struct Screen<B: Backend, F> {
     scroll: u16,
     /// The flow rejected the last answer; keep its text and focus.
     error: String,
+    /// Label of the last submitted field, so only same-field retries retain input.
+    label: String,
+    /// Whether the diagnostic has appeared in a full-sized frame.
+    error_drawn: bool,
+    /// Interface notice retained across stage initialization.
+    notice: String,
 }
 impl<B: Backend, F: FnMut() -> io::Result<Event>> Screen<B, F>
 where
@@ -116,6 +122,9 @@ where
             focus: 0,
             scroll: 0,
             error: String::new(),
+            label: String::new(),
+            error_drawn: false,
+            notice: String::new(),
         }
     }
 
@@ -165,7 +174,7 @@ where
                     .style(secondary)
                     .block(Block::default().borders(Borders::ALL).border_style(accent));
                 frame.render_widget(header, heading);
-                let details = Paragraph::new(format!("{}\n{label}", self.content))
+                let details = Paragraph::new(format!("{}{}\n{label}", self.notice, self.content))
                     .style(body)
                     .wrap(Wrap { trim: false })
                     .scroll((self.scroll, 0))
@@ -204,6 +213,10 @@ where
                 frame.render_widget(actions, navigation_area);
             })
             .map_err(|error| Failure::failed_by(&error))?;
+        let size = self.terminal.get_frame().area();
+        if size.width >= 80 && size.height >= 24 {
+            self.error_drawn = true;
+        }
         Ok(())
     }
 
@@ -276,7 +289,18 @@ where
         heading.clone_into(&mut self.title);
         content.clone_into(&mut self.content);
         self.scroll = 0;
-        self.error.clear();
+        if self.error_drawn {
+            self.error.clear();
+        }
+        Ok(())
+    }
+    fn review_screen(&mut self, text: &str) -> Result<(), Failure> {
+        self.screen(text)?;
+        text.clone_into(&mut self.content);
+        Ok(())
+    }
+    fn notice(&mut self, text: &str) -> Result<(), Failure> {
+        self.notice = format!("{text}\n");
         Ok(())
     }
     fn refresh(&mut self) {
@@ -286,9 +310,12 @@ where
     fn show(&mut self, text: &str) -> Result<(), Failure> {
         if text.starts_with("Error:") {
             text.clone_into(&mut self.error);
+            self.error_drawn = false;
             self.focus = 0;
         } else {
-            self.error.clear();
+            if self.error_drawn {
+                self.error.clear();
+            }
             self.content.push_str(text);
             self.content.push('\n');
         }
@@ -298,9 +325,13 @@ where
         self.show(text)
     }
     fn ask(&mut self, label: &str) -> Result<Answer, Failure> {
-        if self.error.is_empty() {
+        if self.error.is_empty() || self.label != label {
             self.input.clear();
+            if self.error_drawn {
+                self.error.clear();
+            }
         }
+        label.clone_into(&mut self.label);
         self.focus = 0;
         loop {
             self.draw(label)?;
@@ -321,9 +352,16 @@ where
                     "cannot read terminal size; no answer submitted: {error}"
                 ))
             })?;
-            if let Some(answer) = self.answer(&event, (size.width, size.height)) {
-                return Ok(answer);
+            let Some(answer) = self.answer(&event, (size.width, size.height)) else {
+                continue;
+            };
+            if let Answer::Text(_) = &answer {
+                self.error.clear();
             }
+            if self.error_drawn {
+                self.notice.clear();
+            }
+            return Ok(answer);
         }
     }
 }

@@ -71,7 +71,7 @@ pub(in crate::cli::config) fn collect(
         if matches!(flow::editor(port, draft)?, Answer::Cancel | Answer::Back) {
             return Ok(false);
         }
-        port.screen(&format!(
+        port.review_screen(&format!(
             "Review {} preferences: {}",
             draft.layer.name(),
             draft.choices.join(", ")

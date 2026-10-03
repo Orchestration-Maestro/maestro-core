@@ -137,7 +137,8 @@ in place.
 │   │   │   │   │   │   ├── approval.rs                                      # Rust source: approval
 │   │   │   │   │   │   ├── flow.rs                                          # Registry injection and renderer-independent draft/navigation regression tests
 │   │   │   │   │   │   ├── mod.rs                                           # Rust source: mod
-│   │   │   │   │   │   └── terminal.rs                                      # Terminal frames and semantic keys use the same draft as the plain flow
+│   │   │   │   │   │   ├── terminal.rs                                      # Terminal frames and semantic keys use the same draft as the plain flow
+│   │   │   │   │   │   └── terminal_regressions.rs                          # Renderer regressions for corrected fields, transitions and keyboard boundaries
 │   │   │   │   │   ├── command.rs                                           # maestro init: show the complete authoring plan and apply only on request
 │   │   │   │   │   ├── flow.rs                                              # Shared draft and renderer port; S1 owns descriptors, validation and edits
 │   │   │   │   │   ├── mod.rs                                               # Init's shared flow and plain adapter; the catalog planner remains independent

@@ -242,11 +242,26 @@ pub(in crate::cli::init) fn preference_output(
     source: &dyn WorkspacePreferences,
     choices: &[String],
 ) -> Result<Output, Failure> {
+    preference_output_to(output, source, choices, |draft, output| {
+        draft.language_output(output)
+    })
+}
+
+/// The initial interactive language uses the same admitted draft as scripts.
+pub(in crate::cli::init) fn preference_output_to(
+    output: Output,
+    source: &dyn WorkspacePreferences,
+    choices: &[String],
+    select: impl FnOnce(Draft, Output) -> Result<Output, Failure>,
+) -> Result<Output, Failure> {
     let registry = source.registry().map_err(Failure::refused)?;
     let layers = source
         .layers(&registry, &Limits::PRODUCTION)
         .map_err(Failure::refused)?;
-    Draft::new(registry, layers, LayerName::Project, choices, true)?.language_output(output)
+    select(
+        Draft::new(registry, layers, LayerName::Project, choices, true)?,
+        output,
+    )
 }
 
 /// Existing config without explicit choices is checked but never adopted or rewritten.

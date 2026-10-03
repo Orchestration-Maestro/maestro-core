@@ -11,6 +11,7 @@ use maestro_conventions::{
     broken_links, counted_lines, names_a_personal_directory, repository_files, root,
 };
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
 };
@@ -370,4 +371,18 @@ fn unsafe_is_confined_to_windows_handle_security() {
         offenders.is_empty(),
         "unsafe boundary violations: {offenders:?}"
     );
+}
+
+#[test]
+fn quality_dependency_exception_keys_are_unique() {
+    let source = fs::read_to_string(root().join("maestro-quality.toml")).unwrap();
+    let quality: toml::Value = toml::from_str(&source).unwrap();
+    let mut keys = BTreeSet::new();
+    for entry in quality["exception"].as_array().unwrap() {
+        let rule = entry["rule"].as_str().unwrap();
+        if rule == "DEP-001" {
+            let path = entry["path"].as_str().unwrap();
+            assert!(keys.insert((rule, path)), "duplicate {rule}: {path}");
+        }
+    }
 }

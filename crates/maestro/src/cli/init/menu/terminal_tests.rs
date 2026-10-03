@@ -4,13 +4,15 @@ use crate::cli::{
         command::{self, ApplyChoices},
         flow::{Answer, FlowPort},
         plain::Plain,
-        terminal::with_port,
+        terminal::{Screen, with_port},
     },
     output::Output,
 };
 use crate::failure::Failure;
+use crossterm::event::Event;
 use maestro_catalog::settings::FilePreferences;
-use std::{env, fs, path::PathBuf};
+use ratatui::{backend::TestBackend, buffer::Cell as BufferCell};
+use std::{cell::Cell, env, fs, io, path::PathBuf, rc::Rc};
 
 /// Spy on the semantic port, then forward the exact same bytes to the renderer.
 struct Recording<'a> {
@@ -122,4 +124,206 @@ fn catalog_terminal_plan_parity_child() {
             .exists()
     );
     println!("PARITY: renderer/plain/script exact plan bytes; zero unconfirmed writes");
+}
+
+/// Observe preparation diagnostics at the actual retry prompt, not stderr bytes.
+struct TransitionFrames<F> {
+    screen: Screen<TestBackend, F>,
+    fail_review: Rc<Cell<bool>>,
+    frames: Vec<String>,
+}
+impl<F: FnMut() -> io::Result<Event>> FlowPort for TransitionFrames<F> {
+    fn screen(&mut self, title: &str) -> Result<(), Failure> {
+        if title.contains("5/5") {
+            self.fail_review.set(true);
+        }
+        self.screen.screen(title)
+    }
+    fn notice(&mut self, text: &str) -> Result<(), Failure> {
+        self.screen.notice(text)
+    }
+    fn refresh(&mut self) {
+        self.screen.refresh();
+    }
+    fn show(&mut self, text: &str) -> Result<(), Failure> {
+        self.screen.show(text)
+    }
+    fn ask(&mut self, label: &str) -> Result<Answer, Failure> {
+        let answer = self.screen.ask(label)?;
+        self.frames.push(
+            self.screen
+                .terminal
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .map(BufferCell::symbol)
+                .collect(),
+        );
+        Ok(answer)
+    }
+}
+
+#[test]
+fn catalog_terminal_preparation_failures_reach_retry_frames() {
+    use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+    use maestro_catalog::{limits::Limits, settings::WorkspacePreferences};
+    use maestro_settings::{Layers, Registry};
+    use maestro_test_scratch::scratch_directory;
+    use ratatui::{Terminal, backend::TestBackend};
+    use std::{cell::Cell, collections::VecDeque, rc::Rc};
+    struct Source(Rc<Cell<bool>>);
+    impl WorkspacePreferences for Source {
+        fn layers(&self, _: &Registry, _: &Limits) -> Result<Layers, String> {
+            if self.0.replace(false) {
+                Err("injected review preparation failure".into())
+            } else {
+                Ok(Layers::default())
+            }
+        }
+    }
+    for review in [false, true] {
+        let root = scratch_directory().unwrap();
+        let catalog = root.join("missing-catalog");
+        let fail_review = Rc::new(Cell::new(false));
+        let source = Source(Rc::clone(&fail_review));
+        let presets = vec!["base".to_owned()];
+        let request = Request {
+            catalog: Some(&catalog),
+            presets: &presets,
+            plain: false,
+            yes: false,
+            effects: ApplyChoices {
+                apply: false,
+                preferences_only: false,
+                non_interactive: false,
+                confirm_path: None,
+            },
+        };
+        let input = if review { "\n\nn\n\n\n\n" } else { "\n\ny\n" };
+        let mut events: VecDeque<_> = input
+            .chars()
+            .map(|ch| {
+                Event::Key(KeyEvent::new(
+                    if ch == '\n' {
+                        KeyCode::Enter
+                    } else {
+                        KeyCode::Char(ch)
+                    },
+                    KeyModifiers::NONE,
+                ))
+            })
+            .collect();
+        events.push_back(Event::Key(KeyEvent::new(
+            KeyCode::Char('c'),
+            KeyModifiers::CONTROL,
+        )));
+        let screen = Screen::new(
+            Terminal::new(TestBackend::new(80, 24)).unwrap(),
+            false,
+            || Ok(events.pop_front().expect("unexpected prompt")),
+        );
+        let mut port = TransitionFrames {
+            screen,
+            fail_review,
+            frames: Vec::new(),
+        };
+        assert!(
+            interactive(
+                Output::new(false),
+                &request,
+                &[],
+                &mut port,
+                (&source, &root)
+            )
+            .unwrap()
+            .is_none()
+        );
+        let last = port.frames.last().unwrap();
+        assert!(last.contains("Error:"), "{review}: {last}");
+        if review {
+            assert!(
+                last.contains("injected review preparation failure"),
+                "{last}"
+            );
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[test]
+fn catalog_terminal_initial_and_changed_language_notices_are_frames() {
+    use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+    use maestro_test_scratch::scratch_directory;
+    use ratatui::{Terminal, backend::TestBackend};
+    use std::{cell::Cell, collections::VecDeque, rc::Rc};
+    for initial in [false, true] {
+        let root = scratch_directory().unwrap();
+        let source = FilePreferences::new(&root, &root);
+        let presets = vec!["base".into()];
+        let request = Request {
+            catalog: Some(&root),
+            presets: &presets,
+            plain: false,
+            yes: false,
+            effects: ApplyChoices {
+                apply: false,
+                preferences_only: false,
+                non_interactive: false,
+                confirm_path: None,
+            },
+        };
+        let mut events: VecDeque<_> = if initial { "\n\nn\n\n" } else { "\n\nn\nja\n" }
+            .chars()
+            .map(|ch| {
+                Event::Key(KeyEvent::new(
+                    if ch == '\n' {
+                        KeyCode::Enter
+                    } else {
+                        KeyCode::Char(ch)
+                    },
+                    KeyModifiers::NONE,
+                ))
+            })
+            .collect();
+        events.push_back(Event::Key(KeyEvent::new(
+            KeyCode::Char('c'),
+            KeyModifiers::CONTROL,
+        )));
+        let screen = Screen::new(
+            Terminal::new(TestBackend::new(80, 24)).unwrap(),
+            false,
+            || Ok(events.pop_front().expect("unexpected prompt")),
+        );
+        let mut port = TransitionFrames {
+            screen,
+            fail_review: Rc::new(Cell::new(false)),
+            frames: Vec::new(),
+        };
+        let choices = if initial {
+            vec!["language=ja".into()]
+        } else {
+            Vec::new()
+        };
+        assert!(
+            interactive(
+                Output::new(false),
+                &request,
+                &choices,
+                &mut port,
+                (&source, &root)
+            )
+            .unwrap()
+            .is_none()
+        );
+        assert!(
+            port.frames
+                .iter()
+                .any(|frame| frame
+                    .contains("Interface is English; conversation language remains ja.")),
+            "{initial}: {:?}",
+            port.frames
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
 }
