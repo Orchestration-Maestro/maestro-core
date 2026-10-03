@@ -1,5 +1,9 @@
 //! Shared draft and renderer port; S1 owns descriptors, validation and edits.
-use crate::{cli::output::Output, failure::Failure, presentation::messages::MessageKey};
+use crate::{
+    cli::output::{Output, diagnose},
+    failure::Failure,
+    presentation::messages::MessageKey,
+};
 use maestro_catalog::settings::{ResolvedSettings, resolve};
 use maestro_settings::{
     Flag, Layer, LayerName, Layers, Registry, SettingClass, Value, parse_flags,
@@ -22,6 +26,15 @@ pub(in crate::cli) trait FlowPort {
     /// Start a stage; plain rendering retains the existing labelled transcript.
     fn screen(&mut self, title: &str) -> Result<(), Failure> {
         self.show(title)
+    }
+    /// Full review text; plain keeps the historic single screen line.
+    fn review_screen(&mut self, text: &str) -> Result<(), Failure> {
+        self.screen(text)
+    }
+    /// Fallback notices remain stderr diagnostics in the plain transcript.
+    fn notice(&mut self, text: &str) -> Result<(), Failure> {
+        diagnose(text);
+        Ok(())
     }
     /// The existing planner transcript goes to stdout in plain mode, into the frame in TUI.
     fn plan(&mut self, text: &str) -> Result<(), Failure> {
@@ -122,6 +135,18 @@ impl Draft {
         output.with_language(self.resolved()?.text("language").unwrap_or("auto"))
     }
 
+    /// Interactive fallback diagnostics belong to the selected renderer.
+    pub(in crate::cli) fn language_output_on(
+        &self,
+        output: Output,
+        port: &mut dyn FlowPort,
+    ) -> Result<Output, Failure> {
+        output.with_language_to(
+            self.resolved()?.text("language").unwrap_or("auto"),
+            |text| port.notice(text),
+        )
+    }
+
     /// Every descriptor, never a screen-specific list, with provenance and restrictions.
     pub(in crate::cli) fn show(&self, port: &mut dyn FlowPort) -> Result<(), Failure> {
         port.refresh();
@@ -213,7 +238,7 @@ pub(in crate::cli) fn editor(
                         .split_once('=')
                         .is_some_and(|(key, _)| key.trim() == "language")
                     {
-                        draft.output = draft.language_output(draft.output)?;
+                        draft.output = draft.language_output_on(draft.output, port)?;
                     }
                     draft.show(port)?;
                 }

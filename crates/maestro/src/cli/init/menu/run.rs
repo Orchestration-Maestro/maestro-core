@@ -118,7 +118,9 @@ pub(super) fn interactive(
     port: &mut dyn FlowPort,
     (source, root): (&dyn WorkspacePreferences, &Path),
 ) -> Result<Option<Reviewed>, Failure> {
-    let mut output = command::preference_output(output, source, choices)?;
+    let mut output = command::preference_output_to(output, source, choices, |draft, output| {
+        draft.language_output_on(output, port)
+    })?;
     let mut catalog = request.catalog.map(Path::to_path_buf);
     let mut presets = request.presets.to_vec();
     let mut trust_choice = false;
@@ -193,7 +195,7 @@ pub(super) fn interactive(
             Answer::Text(text) => {
                 let draft = draft_mut(&mut draft)?;
                 if stage == 0 || (stage == 1 && !text.is_empty()) {
-                    draft.output = draft.language_output(output)?;
+                    draft.output = draft.language_output_on(output, port)?;
                 }
                 output = draft.output;
                 stage += 1;

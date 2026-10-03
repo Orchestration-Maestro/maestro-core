@@ -56,14 +56,26 @@ impl Output {
     }
 
     /// Bind validated session language once, displaying fallback only for human CLI.
-    pub(super) fn with_language(mut self, language: &str) -> Result<Self, Failure> {
+    pub(super) fn with_language(self, language: &str) -> Result<Self, Failure> {
+        self.with_language_to(language, |text| {
+            diagnose(text);
+            Ok(())
+        })
+    }
+
+    /// Deliver interactive diagnostics through the selected presentation port.
+    pub(super) fn with_language_to(
+        mut self,
+        language: &str,
+        notice: impl FnOnce(&str) -> Result<(), Failure>,
+    ) -> Result<Self, Failure> {
         if self.json {
             return Ok(self);
         }
         let interface = Interface::select(language).map_err(Failure::failed)?;
         self.interface = Some(interface);
         if interface.fallback() {
-            diagnose(&self.wording(MessageKey::InterfaceFallback, &[("language", language)])?);
+            notice(&self.wording(MessageKey::InterfaceFallback, &[("language", language)])?)?;
         }
         Ok(self)
     }
@@ -174,6 +186,37 @@ pub(super) fn diagnose(line: &str) {
 #[cfg(test)]
 mod tests {
     use super::Output;
+    use std::{env, process::Command};
+
+    #[test]
+    fn output_color_checks_terminal_capability() {
+        for (term, expected) in [("xterm", "true"), ("dumb", "false")] {
+            let result = Command::new(env::current_exe().unwrap())
+                .args([
+                    "--ignored",
+                    "--exact",
+                    "cli::output::tests::output_color_child_checks_capability",
+                ])
+                .env("TERM", term)
+                .env("MAESTRO_EXPECT_COLOR", expected)
+                .env_remove("NO_COLOR")
+                .output()
+                .unwrap();
+            assert!(
+                result.status.success(),
+                "{term}: {}",
+                String::from_utf8_lossy(&result.stdout)
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "isolated environment probe run by output_color_checks_terminal_capability"]
+    fn output_color_child_checks_capability() {
+        let expected = env::var("MAESTRO_EXPECT_COLOR").unwrap() == "true";
+        assert_eq!(Output::new(false).color(), expected);
+        assert!(!Output::new(false).without_color(true).color());
+    }
 
     #[test]
     fn output_preserves_its_json_mode() {
