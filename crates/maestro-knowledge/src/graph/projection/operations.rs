@@ -5,6 +5,17 @@ use super::{
 };
 
 impl ProjectionProducer<'_> {
+    /// Load both frozen row families through the single bounded checkpointed loader.
+    /// Repeated calls validate completed content without writing duplicate rows.
+    /// The caller still verifies and publishes using the ordinary lifecycle.
+    ///
+    /// # Errors
+    /// Refuses changed pins, corrupt checkpoints, uncertain content, lost leases,
+    /// invalid records or durability failures; preserves staging for explicit recovery.
+    pub fn load(&mut self, snapshot: &super::ProjectionSnapshot) -> Result<(), ProjectionError> {
+        self.session.load(snapshot)
+    }
+
     /// Write a fully validated knowledge edge/fact batch atomically.
     ///
     /// # Errors

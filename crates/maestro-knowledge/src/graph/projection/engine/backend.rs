@@ -69,6 +69,21 @@ impl<P: Publication> Backend<P> {
         }
     }
 
+    /// Open an existing unpublished file with fresh transaction state, never create a schema.
+    pub(in crate::graph::projection) fn resume(
+        &mut self,
+        scope: &ProjectionScope,
+    ) -> Result<(), String> {
+        schema::writable(cfg!(windows))?;
+        self.database = Some(
+            open(&self.root, &self.staging, self.config.clone())
+                .map_err(|error| error.to_string())?,
+        );
+        self.scope = Some(scope.clone());
+        self.verify_unpublished(scope)?;
+        Ok(())
+    }
+
     /// Bind the prepared receipt to the lifecycle publication callback before closing.
     pub(in crate::graph::projection) fn publication_mut(&mut self) -> &mut P {
         &mut self.publication
