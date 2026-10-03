@@ -190,27 +190,35 @@ pub fn test_cases(root: &Path, limits: &Limits) -> Result<Vec<Case>, String> {
 pub(crate) fn bound_json(text: &str, limits: &Limits) -> Result<(), String> {
     bound(text, limits)?;
     let mut depth: usize = 0;
-    let mut quoted = false;
-    let mut escaped = false;
-    for byte in text.bytes() {
-        if escaped {
-            escaped = false;
-        } else if quoted && byte == b'\\' {
-            escaped = true;
-        } else if byte == b'"' {
-            quoted = !quoted;
-        } else if !quoted {
-            match byte {
-                b'{' | b'[' => {
-                    depth += 1;
-                }
-                b'}' | b']' => depth = depth.saturating_sub(1),
-                _ => {}
-            }
+    for (_, byte) in json_structure(text) {
+        match byte {
+            b'{' | b'[' => depth += 1,
+            b'}' | b']' => depth = depth.saturating_sub(1),
+            _ => {}
         }
         if depth > limits.source_depth {
             return Err(format!("JSON depth exceeds {} levels", limits.source_depth));
         }
     }
     Ok(())
+}
+
+/// Positions outside quoted JSON strings; consumers validate syntax separately.
+pub(crate) fn json_structure(text: &str) -> impl Iterator<Item = (usize, u8)> + '_ {
+    let mut quoted = false;
+    let mut escaped = false;
+    text.bytes().enumerate().filter(move |(_, byte)| {
+        if escaped {
+            escaped = false;
+            false
+        } else if quoted && *byte == b'\\' {
+            escaped = true;
+            false
+        } else if *byte == b'"' {
+            quoted = !quoted;
+            false
+        } else {
+            !quoted
+        }
+    })
 }

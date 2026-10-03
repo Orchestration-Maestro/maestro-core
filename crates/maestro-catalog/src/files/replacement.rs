@@ -267,3 +267,71 @@ fn interrupt(fail: Option<usize>, point: usize) -> io::Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::files::tests::support::with_trust;
+    use maestro_test_scratch::scratch_directory;
+    use std::fs;
+
+    #[test]
+    fn files_replacement_journal_read_boundaries() {
+        let scratch = scratch_directory().unwrap();
+        let limit = Limits::PRODUCTION.archive_entry_bytes;
+        with_trust(&scratch, |trust| {
+            for length in [limit, limit + 1] {
+                let bytes = vec![b' '; usize::try_from(length).unwrap()];
+                fs::write(scratch.join("journal.toml"), &bytes).unwrap();
+                let result = read_bounded(&scratch, "journal.toml", limit, trust);
+                assert_eq!(result.is_ok(), length == limit);
+                assert_eq!(result.ok().flatten(), (length == limit).then_some(bytes));
+            }
+            fs::remove_file(scratch.join("journal.toml")).unwrap();
+            assert_eq!(
+                read_bounded(&scratch, "journal.toml", limit, trust).unwrap(),
+                None
+            );
+        });
+        fs::remove_dir_all(scratch).unwrap();
+    }
+
+    #[test]
+    fn files_replacement_recovered_byte_limits() {
+        let limit = usize::try_from(Limits::PRODUCTION.source_file_bytes).unwrap();
+        for (old, new, accepted) in [
+            (limit, 0, true),
+            (limit + 1, 0, false),
+            (0, limit, true),
+            (0, limit + 1, false),
+        ] {
+            let mut plan = ReplacementPlan {
+                schema: "maestro-replacement/1".into(),
+                path: "shared.json".into(),
+                old: Some(vec![1; old]),
+                new: vec![2; new],
+                id: String::new(),
+            };
+            plan.id = plan.identity().unwrap();
+            assert_eq!(plan.validate().is_ok(), accepted);
+        }
+    }
+
+    #[test]
+    fn files_replacement_schema_and_digest_are_independent() {
+        let mut plan = ReplacementPlan {
+            schema: "maestro-replacement/2".into(),
+            path: "shared.json".into(),
+            old: None,
+            new: b"new".to_vec(),
+            id: String::new(),
+        };
+        plan.id = plan.identity().unwrap();
+        assert!(plan.validate().is_err());
+        plan.schema = "maestro-replacement/1".into();
+        plan.id = plan.identity().unwrap();
+        assert!(plan.validate().is_ok());
+        plan.new.push(b'!');
+        assert!(plan.validate().is_err());
+    }
+}

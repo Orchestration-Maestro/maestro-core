@@ -1,5 +1,5 @@
 //! Windows full-volume/full-file identities from real held files.
-use crate::windows_security::{identity_with_for_test, same_file};
+use crate::windows_security::{file_identity_with, same_file};
 use maestro_test_scratch::scratch_directory;
 use std::{
     fs::{self, File},
@@ -40,9 +40,9 @@ fn injected_identity_api_failure_refuses_without_a_fallback() {
     let root = scratch_directory().unwrap();
     fs::write(root.join("plain"), b"same").unwrap();
     let file = File::open(root.join("plain")).unwrap();
-    assert!(identity_with_for_test(&file, |_, _| Ok(0)).is_err());
+    assert!(file_identity_with(&file, |_, _| Ok(0)).is_err());
     assert!(
-        identity_with_for_test(&file, |_, _| Err(io::Error::other(
+        file_identity_with(&file, |_, _| Err(io::Error::other(
             "injected identity failure"
         )))
         .is_err()

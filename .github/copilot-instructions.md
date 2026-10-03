@@ -559,6 +559,7 @@ in place.
 │   │   │   │   └── transition.rs                                            # Versioned transition data; implementations never create dependency cycles through records
 │   │   │   ├── hosts/                                                       # Replaceable delivery ports for client session preferences
 │   │   │   │   ├── tests/                                                   # Integration tests
+│   │   │   │   │   ├── admission.rs                                         # Host source guards are stimulated without upstream inventory validation
 │   │   │   │   │   ├── copilot.rs                                           # Fixture-backed native projection; never a live host-obedience receipt
 │   │   │   │   │   ├── mod.rs                                               # Rust source: mod
 │   │   │   │   │   └── shared_json.rs                                       # Entry ownership never adopts matching user entries or overwrites edited owned entries
@@ -766,6 +767,7 @@ in place.
 │   │   │   ├── unix.rs                                                      # Unix filesystem access: every name resolves against an open directory, never a path
 │   │   │   ├── unix_creation.rs                                             # Unix created objects retain identity through hardening, publication and rollback
 │   │   │   ├── windows.rs                                                   # Windows filesystem access: held directories and open flags that never follow a link
+│   │   │   ├── windows_flags.rs                                             # Safe Win32 file sharing and no-follow flags shared by held-handle adapters
 │   │   │   └── windows_security.rs                                          # The sole unsafe boundary: security information belongs to an already-held handle
 │   │   └── Cargo.toml                                                       # Crate manifest
 │   ├── maestro-kernel/                                                      # Maestro kernel

@@ -8,7 +8,7 @@ use crate::{
     policy::workspace::{Access, CheckedTrust},
     source::{Value as SourceValue, parse::yaml_table},
 };
-use maestro_filesystem::{Directory, EntryKind};
+use maestro_filesystem::Directory;
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
@@ -339,7 +339,9 @@ impl Copilot {
             diagnosis: "authoring convenience; not a verified install; \
                 live discovery: C08/C28 gate; reload inside a running session: not run; \
                 Maestro must be on PATH; tool/model availability is not observed; \
-                host trust and enterprise policy remain independent",
+                host trust and enterprise policy remain independent; \
+                replacement is not compare-and-swap; \
+                avoid concurrent edits of shared configuration",
             files,
             shared,
             snapshot,
@@ -371,8 +373,8 @@ impl ProjectionPreview<'_> {
         )?;
         self.shared.check_replacement(root, trust)?;
         if self.remove {
-            apply_files(root, &self.shared, trust)?;
             if self.files.is_applied() {
+                apply_files(root, &self.shared, trust)?;
                 files::remove(root, self.files.id(), trust)?;
             }
             return Ok(());
@@ -416,12 +418,6 @@ fn check_names(root: &Path, below: &Path, owned: bool, trust: &CheckedTrust<'_>)
             .ok_or_else(|| io::Error::other("native profile name is not UTF-8"))?;
         if !name.ends_with(".agent.md") {
             continue;
-        }
-        if entry.kind != EntryKind::File {
-            return Err(io::Error::other(format!(
-                "{}: profile is not a regular file",
-                root.join(below).join(name).display()
-            )));
         }
         if owned && name == "maestro.agent.md" {
             continue;

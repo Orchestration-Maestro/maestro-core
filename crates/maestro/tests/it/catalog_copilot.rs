@@ -247,3 +247,102 @@ fn catalog_copilot_missing_sources_unknown_presets_and_ambiguous_host_refuse() {
     assert_ne!(missing.code, Some(0), "{missing:?}");
     assert_eq!(fs::read_dir(root).unwrap().count(), 0);
 }
+
+#[test]
+fn catalog_copilot_reports_replacement_race_limit() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    fs::create_dir(&root).unwrap();
+    let root = root.canonicalize().unwrap();
+    trust(&home, &root);
+    for extra in [&[][..], &["--apply"][..]] {
+        let result = project(&home, &root, extra, ("en", "brief"));
+        assert_eq!(result.code, Some(0), "{result:?}");
+        let document: Value = serde_json::from_str(&result.stdout).unwrap();
+        let diagnosis = document["diagnosis"].as_str().unwrap();
+        assert!(diagnosis.contains("replacement is not compare-and-swap"));
+        assert!(diagnosis.contains("avoid concurrent edits of shared configuration"));
+    }
+}
+
+#[test]
+fn catalog_copilot_failure_states() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    fs::create_dir(&root).unwrap();
+    let root = root.canonicalize().unwrap();
+    trust(&home, &root);
+    // Malformed user data is failed, not stale.
+    fs::write(root.join(".mcp.json"), b"invalid").unwrap();
+    let result = project(&home, &root, &[], ("en", "brief"));
+    assert_eq!(result.code, Some(2), "{result:?}");
+    let document: Value = serde_json::from_str(&result.stdout).unwrap();
+    assert_eq!(document["registered"], false);
+    assert_eq!(document["observed"], false);
+    assert_eq!(document["stale"].as_array().unwrap().len(), 0);
+    assert_eq!(document["failed"].as_array().unwrap().len(), 1);
+    fs::remove_file(root.join(".mcp.json")).unwrap();
+    assert_eq!(
+        project(&home, &root, &["--apply"], ("en", "brief")).code,
+        Some(0)
+    );
+    // Entry ownership drift and owned native-file drift independently classify as stale.
+    let shared = fs::read(root.join(".mcp.json")).unwrap();
+    fs::write(root.join(".mcp.json"), b"{\"mcpServers\":{}}").unwrap();
+    let entry = project(&home, &root, &[], ("en", "brief"));
+    assert_stale(&entry);
+    fs::write(root.join(".mcp.json"), shared).unwrap();
+    fs::write(root.join(".github/agents/maestro.agent.md"), b"changed").unwrap();
+    assert_stale(&project(&home, &root, &[], ("en", "brief")));
+}
+
+fn assert_stale(result: &Ended) {
+    assert_eq!(result.code, Some(2), "{result:?}");
+    let document: Value = serde_json::from_str(&result.stdout).unwrap();
+    assert_eq!(document["registered"], false);
+    assert_eq!(document["observed"], false);
+    assert_eq!(document["stale"].as_array().unwrap().len(), 1);
+    assert_eq!(document["failed"].as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn catalog_copilot_text_trust_refusal_keeps_target_empty() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    fs::create_dir(&root).unwrap();
+    let root = root.canonicalize().unwrap();
+    let source = catalog();
+    let mut command = home.command(&[
+        "catalog",
+        "project",
+        "--host",
+        "copilot",
+        "--target",
+        root.to_str().unwrap(),
+        "--catalog-dir",
+        source.to_str().unwrap(),
+        "--preset",
+        "base",
+        "--apply",
+    ]);
+    command.env("COPILOT_HOME", home.root().join("copilot"));
+    let result = Running::of(command).finish();
+    assert_eq!(result.code, Some(2), "{result:?}");
+    assert!(result.stderr.contains("maestro trust add"), "{result:?}");
+    assert_eq!(fs::read_dir(root).unwrap().count(), 0);
+}
+
+#[test]
+fn catalog_copilot_output_failure_is_not_an_effect_receipt() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    fs::create_dir(&root).unwrap();
+    fs::write(root.join(".mcp.json"), b"invalid").unwrap();
+    let mut command = project_command(&home, &root, &[], ("en", "brief"));
+    let mut child = command.spawn().unwrap();
+    drop(child.stdout.take());
+    let result = child.wait_with_output().unwrap();
+    assert_eq!(result.status.code(), Some(1));
+    assert_eq!(fs::read(root.join(".mcp.json")).unwrap(), b"invalid");
+    assert!(!root.join(".github").exists());
+}

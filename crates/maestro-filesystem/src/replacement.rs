@@ -1,4 +1,6 @@
 //! Verified replacement of one regular leaf through a retained parent.
+#[cfg(windows)]
+use crate::windows_security::same_file;
 use crate::{Directory, root::leaf_name};
 use std::{
     fs::File,
@@ -27,26 +29,49 @@ impl Directory {
         replacement: &[u8],
         before_swap: impl FnOnce() -> io::Result<()>,
     ) -> io::Result<()> {
+        self.replace_verified_with(name, (expected, replacement), before_swap, || self.sync())
+    }
+
+    /// The mandatory post-publication step is real directory sync except in private failure tests.
+    pub(crate) fn replace_verified_with(
+        &self,
+        name: &str,
+        (expected, replacement): (&[u8], &[u8]),
+        before_swap: impl FnOnce() -> io::Result<()>,
+        after_publication: impl FnOnce() -> io::Result<()>,
+    ) -> io::Result<()> {
         leaf_name(name)?;
         let mut original = self.open_regular(name)?;
         compare_bytes(&mut original, expected)?;
         let (temporary, mut staged) = self.replacement_temp()?;
+        let mut contents_written = false;
         let result = (|| {
+            #[cfg(windows)]
+            self.retain_replacement_security(&temporary, &staged, &original)?;
             staged.write_all(replacement)?;
+            contents_written = true;
             staged.set_permissions(original.metadata()?.permissions())?;
             staged.sync_all()?;
             before_swap()?;
-            self.verify_named()?;
             self.verify_created(name, &original)?;
             compare_bytes(&mut original, expected)?;
-            self.verify_created(&temporary, &staged)?;
+            let mut prepared = self.open_regular(&temporary)?;
+            if !same_file(&staged, &prepared)? {
+                return Err(io::Error::other("prepared replacement identity changed"));
+            }
+            self.verify_created(&temporary, &prepared)?;
+            compare_bytes(&mut prepared, replacement)?;
             self.rename_replacement(&temporary, name)?;
-            self.sync()
+            after_publication()
         })();
         if result.is_err() {
             // After rename the temporary is absent; never roll back the published new file.
             match self.open_regular(&temporary) {
-                Ok(_) => self.remove_created_bytes(&temporary, &staged, replacement)?,
+                Ok(_) => self.remove_created_bytes(
+                    &temporary,
+                    &staged,
+                    if contents_written { replacement } else { &[] },
+                )?,
                 Err(error) if error.kind() == io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error),
             }
@@ -66,6 +91,15 @@ impl Directory {
             }
         }
     }
+}
+
+/// Compare both retained Unix handles, not two potentially different named lookups.
+#[cfg(unix)]
+fn same_file(left: &File, right: &File) -> io::Result<bool> {
+    use rustix::fs::fstat;
+    let left = fstat(left)?;
+    let right = fstat(right)?;
+    Ok((left.st_dev, left.st_ino) == (right.st_dev, right.st_ino))
 }
 
 /// Compare through a retained regular handle, bounding the read by the previewed length.

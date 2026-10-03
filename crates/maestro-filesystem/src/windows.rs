@@ -13,11 +13,11 @@ use super::{
     listing::{self, Entry},
     read::{read_limited, read_prefix},
     root::{leaf_name, resolve},
-    windows_security::{
+    windows_flags::{
         FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_ALL,
-        FILE_SHARE_READ_WRITE, OPEN_REPARSE_DIRECTORY_FLAGS, private_metadata,
-        remove_created_directory, same_file,
+        FILE_SHARE_READ_WRITE, OPEN_REPARSE_DIRECTORY_FLAGS,
     },
+    windows_security::{private_metadata, remove_created_directory, same_file},
 };
 use std::{
     ffi::OsStr,
@@ -47,9 +47,31 @@ pub struct Directory {
 }
 
 impl Directory {
-    /// Windows std rename uses MoveFileExW with replace-existing, under held parents.
+    /// Windows std rename uses `MoveFileExW` with replace-existing, under held parents.
     pub(super) fn rename_replacement(&self, from: &str, to: &str) -> io::Result<()> {
         fs::rename(self.path.join(from), self.path.join(to))
+    }
+
+    /// Reopen the empty staged sibling for security writes and verify its created identity.
+    pub(super) fn retain_replacement_security(
+        &self,
+        name: &str,
+        staged: &File,
+        original: &File,
+    ) -> io::Result<()> {
+        use windows_sys::Win32::{
+            Foundation::GENERIC_READ,
+            Storage::FileSystem::{WRITE_DAC, WRITE_OWNER},
+        };
+        let security = OpenOptions::new()
+            .access_mode(GENERIC_READ | WRITE_DAC | WRITE_OWNER)
+            .share_mode(FILE_SHARE_ALL)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(self.path.join(name))?;
+        if !same_file(staged, &security)? {
+            return Err(io::Error::other("staged replacement identity changed"));
+        }
+        super::windows_security::retain_replacement_security(original, &security)
     }
 
     /// Open the directory `below` names under the caller's `root`: the root resolves once, to a

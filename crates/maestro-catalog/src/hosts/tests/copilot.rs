@@ -268,3 +268,175 @@ fn hosts_copilot_declared_name_not_stem_detects_user_and_project_shadows() {
         );
     });
 }
+
+#[test]
+fn hosts_copilot_remove_without_ownership_writes_nothing() {
+    let fixture = Fixture::new();
+    let snapshot = fixture.snapshot();
+    with_trust(&fixture.project, |trust| {
+        Copilot::new(None)
+            .preview(&fixture.project, &snapshot, true, trust)
+            .unwrap()
+            .apply(&fixture.project, trust)
+            .unwrap();
+        assert_eq!(fs::read_dir(&fixture.project).unwrap().count(), 0);
+    });
+}
+
+#[test]
+fn hosts_copilot_shadow_shape_guard_neighbours() {
+    use crate::limits::Limits;
+    let fixture = Fixture::new();
+    let snapshot = fixture.snapshot();
+    let user = fixture.root.join("user-agents");
+    fs::create_dir(&user).unwrap();
+    let adapter = Copilot::new(Some(user.clone()));
+    with_trust(&fixture.project, |trust| {
+        let path = user.join("user.agent.md");
+        let valid = b"---\nname: neighbour\n---\n";
+        fs::write(user.join("ignore.txt"), b"not a profile").unwrap();
+        fs::create_dir(user.join("ignore-dir")).unwrap();
+        assert!(
+            adapter
+                .preview(&fixture.project, &snapshot, false, trust)
+                .is_ok()
+        );
+        for content in [
+            b"---\nname: neighbour\n---\n\xff".as_slice(),
+            b"body only",
+            b"---\nname: neighbour\nextra: [\n---\n",
+            b"---\nname: 123\n---\n",
+        ] {
+            fs::write(&path, content).unwrap();
+            assert!(
+                adapter
+                    .preview(&fixture.project, &snapshot, false, trust)
+                    .is_err()
+            );
+        }
+        let mut boundary = valid.to_vec();
+        boundary.resize(
+            usize::try_from(Limits::PRODUCTION.source_file_bytes).unwrap(),
+            b' ',
+        );
+        fs::write(&path, &boundary).unwrap();
+        assert!(
+            adapter
+                .preview(&fixture.project, &snapshot, false, trust)
+                .is_ok()
+        );
+        boundary.push(b' ');
+        fs::write(&path, boundary).unwrap();
+        assert!(
+            adapter
+                .preview(&fixture.project, &snapshot, false, trust)
+                .is_err()
+        );
+        fs::remove_file(&path).unwrap();
+        fs::create_dir(&path).unwrap();
+        assert!(
+            adapter
+                .preview(&fixture.project, &snapshot, false, trust)
+                .is_err()
+        );
+        fs::remove_dir(&path).unwrap();
+        fs::write(&path, valid).unwrap();
+        adapter
+            .preview(&fixture.project, &snapshot, false, trust)
+            .unwrap()
+            .apply(&fixture.project, trust)
+            .unwrap();
+        let preview = adapter
+            .preview(&fixture.project, &snapshot, false, trust)
+            .unwrap();
+        assert!(preview.registered);
+        fs::write(user.join("maestro.agent.md"), b"---\nname: maestro\n---\n").unwrap();
+        assert!(
+            adapter
+                .preview(&fixture.project, &snapshot, false, trust)
+                .is_err()
+        );
+    });
+}
+
+#[cfg(unix)]
+#[test]
+fn hosts_copilot_shadow_non_utf8_and_bad_directory() {
+    use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+    let fixture = Fixture::new();
+    let snapshot = fixture.snapshot();
+    let user = fixture.root.join("user-agents");
+    fs::create_dir(&user).unwrap();
+    let adapter = Copilot::new(Some(user.clone()));
+    with_trust(&fixture.project, |trust| {
+        let bad = user.join(OsString::from_vec(b"\xff.agent.md".to_vec()));
+        fs::write(&bad, b"---\nname: neighbour\n---\n").unwrap();
+        assert!(
+            adapter
+                .preview(&fixture.project, &snapshot, false, trust)
+                .is_err()
+        );
+        fs::remove_file(bad).unwrap();
+        fs::remove_dir(&user).unwrap();
+        fs::write(&user, b"not a directory").unwrap();
+        assert!(
+            adapter
+                .preview(&fixture.project, &snapshot, false, trust)
+                .is_err()
+        );
+    });
+}
+
+#[test]
+fn hosts_copilot_shared_failure_preserves_ownership() {
+    let fixture = Fixture::new();
+    let snapshot = fixture.snapshot();
+    let adapter = Copilot::new(None);
+    with_trust(&fixture.project, |trust| {
+        let preview = adapter
+            .preview(&fixture.project, &snapshot, false, trust)
+            .unwrap();
+        // C04 state contains a conflicting shared journal; native plan state is independent.
+        fs::create_dir(fixture.project.join(".maestro-files")).unwrap();
+        let path = fixture.project.join(format!(
+            ".maestro-files/replace-{}.toml",
+            preview.shared.id().strip_prefix("sha256:").unwrap()
+        ));
+        fs::write(&path, b"conflict").unwrap();
+        assert!(preview.apply(&fixture.project, trust).is_err());
+        assert!(
+            !fixture
+                .project
+                .join(".github/agents/maestro.agent.md")
+                .exists()
+        );
+        assert!(
+            !fixture
+                .project
+                .join(".maestro/copilot-ownership.json")
+                .exists()
+        );
+        assert_eq!(fs::read(&path).unwrap(), b"conflict");
+        fs::remove_file(&path).unwrap();
+        adapter
+            .preview(&fixture.project, &snapshot, false, trust)
+            .unwrap()
+            .apply(&fixture.project, trust)
+            .unwrap();
+        let owned = adapter
+            .preview(&fixture.project, &snapshot, false, trust)
+            .unwrap();
+        let agent = fs::read(fixture.project.join(".github/agents/maestro.agent.md")).unwrap();
+        let owned_path = fixture.project.join(format!(
+            ".maestro-files/replace-{}.toml",
+            owned.shared.id().strip_prefix("sha256:").unwrap()
+        ));
+        fs::write(&owned_path, b"conflict").unwrap();
+        assert!(owned.apply(&fixture.project, trust).is_err());
+        assert_eq!(
+            fs::read(fixture.project.join(".github/agents/maestro.agent.md")).unwrap(),
+            agent
+        );
+        assert_eq!(fs::read(&owned_path).unwrap(), b"conflict");
+    });
+}
