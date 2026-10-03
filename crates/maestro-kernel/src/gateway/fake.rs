@@ -4,7 +4,10 @@
 
 use super::{
     card::{ModelCard, Role},
-    port::{ChatRequest, Error, Message, ModelPort, Room, Speaker, embedder_dimensions, require},
+    port::{
+        Candidate, ChatRequest, Error, ExtractRequest, Message, ModelPort, Room, Speaker,
+        embedder_dimensions, require,
+    },
 };
 use sha2::{Digest as _, Sha256};
 use std::{
@@ -74,6 +77,14 @@ impl ModelPort for FakeModels {
                 .validate(card)
                 .map(|_| reply(&request.messages).to_owned()),
         )
+    }
+
+    fn extract(
+        &self,
+        card: &ModelCard,
+        _request: &ExtractRequest,
+    ) -> impl Future<Output = Result<Vec<Candidate>, Error>> + Send {
+        future::ready(super::extract::settings(card).map(|_| Vec::new()))
     }
 }
 

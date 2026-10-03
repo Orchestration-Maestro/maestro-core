@@ -8,12 +8,16 @@ use super::{
 };
 use crate::{
     artifact::Digest,
+    json::canonical,
     scope::{Scope, ScopeSet},
     store::Database,
 };
 use rusqlite::{Connection, OptionalExtension as _, Row, params, types::Type};
 use serde_json::{Value, json};
-use std::{error, time::SystemTime};
+use std::{
+    error,
+    time::{Duration, SystemTime},
+};
 use ulid::Ulid;
 
 /// The columns of a job, in the order [`job_row`] reads them.
@@ -22,6 +26,15 @@ pub(super) const COLUMNS: &str = "id, kind, idempotency_key, attempt, scope, res
                                   outcome_json";
 /// Maximum job history returned for one resource.
 const MAX_RESOURCE_JOBS: usize = 1000;
+
+/// Caller-clock instant and duration for an atomic lease renewal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LeaseTiming {
+    /// Instant of the holder's clock.
+    pub now: SystemTime,
+    /// How long the renewed lease lasts from that instant.
+    pub term: Duration,
+}
 
 /// A job to submit: work of a kind on the frozen inputs its caller chose, in
 /// the scope it works on, and the resource it holds, if any.
@@ -213,8 +226,8 @@ impl Database {
 /// The idempotency key of `new`: the digest of the JSON array `[kind, scope,
 /// inputs]`, in which `serde_json` writes the fields of each object in the
 /// order of their names.
-fn idempotency_key(new: &NewJob<'_>) -> Digest {
-    let named = json!([new.kind, new.scope.as_str(), new.inputs]);
+pub(crate) fn idempotency_key(new: &NewJob<'_>) -> Digest {
+    let named = canonical(json!([new.kind, new.scope.as_str(), new.inputs]));
     Digest::of(named.to_string().as_bytes())
 }
 

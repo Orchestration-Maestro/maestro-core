@@ -136,10 +136,23 @@ impl Qdrant {
     ///
     /// [`QdrantError::Client`] when Qdrant refuses an index request.
     pub(crate) async fn index_search_fields(&self, collection: &str) -> Result<(), QdrantError> {
-        for field in ["scope_tags", "identifiers", "identifier_profile", "version"] {
+        self.index_keyword_fields(
+            collection,
+            &["scope_tags", "identifiers", "identifier_profile", "version"],
+        )
+        .await
+    }
+
+    /// Creates keyword indexes for an optional projection's exact payload fields.
+    pub(crate) async fn index_keyword_fields(
+        &self,
+        collection: &str,
+        fields: &[&str],
+    ) -> Result<(), QdrantError> {
+        for field in fields {
             self.client
                 .create_field_index(
-                    CreateFieldIndexCollectionBuilder::new(collection, field, FieldType::Keyword)
+                    CreateFieldIndexCollectionBuilder::new(collection, *field, FieldType::Keyword)
                         .wait(true),
                 )
                 .await
@@ -147,6 +160,18 @@ impl Qdrant {
                 .map_err(QdrantError::Client)?;
         }
         Ok(())
+    }
+
+    /// Deletes an owned disposable collection; adapters derive its name from receipts.
+    pub(crate) async fn delete_owned_collection(
+        &self,
+        collection: &str,
+    ) -> Result<(), QdrantError> {
+        self.client
+            .delete_collection(collection)
+            .await
+            .map(drop)
+            .map_err(QdrantError::Client)
     }
 
     /// The keyword index types Qdrant reports for this collection.

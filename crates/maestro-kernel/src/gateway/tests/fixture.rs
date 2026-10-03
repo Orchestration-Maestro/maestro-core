@@ -59,6 +59,7 @@ pub(super) fn fields(role: Role) -> CardFields {
         Role::Embedder => ("embed", NonZeroUsize::new(3), None),
         Role::Reranker => ("rerank", None, None),
         Role::Answerer => ("answer", None, Some(digest(TEMPLATE_DIGEST))),
+        Role::Extractor => ("extract", None, Some(digest(TEMPLATE_DIGEST))),
     };
     CardFields {
         role,

@@ -293,3 +293,24 @@ fn quarantine(source: &str, revision_id: &str, source_ref: &str) -> Disposition 
         decided_by: "import".to_owned(),
     }
 }
+
+#[cfg(test)]
+mod json_order_tests {
+    use super::*;
+    use maestro_canonicalization::{CanonicalizeInput, canonicalize};
+    use maestro_kernel::artifact::Digest;
+
+    #[test]
+    fn import_encoding_keeps_pre_cedar_bytes() {
+        let mut input = CanonicalizeInput::new("Body\n", "doc.md");
+        input.metadata.extraction =
+            Some(serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap());
+        let document = canonicalize(input).unwrap();
+        let bytes = encoded(&document).unwrap();
+        assert_eq!(bytes.last(), Some(&b'\n'));
+        assert_eq!(
+            Digest::of(&bytes).as_str(),
+            "b7e9e0b059e154fc972f691fc9578dfb3b11c70ead09707a4187e020bb09f007"
+        );
+    }
+}

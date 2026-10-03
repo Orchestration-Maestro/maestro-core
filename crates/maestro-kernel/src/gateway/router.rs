@@ -4,12 +4,16 @@
 use super::{
     body::{
         MAX_CATALOG_BODY_BYTES, MAX_CHAT_BODY_BYTES, MAX_ERROR_BODY_BYTES, MAX_PROPS_BODY_BYTES,
-        embeddings_limit, ranking_limit, read_bounded, tokens_limit,
+        embeddings_limit, ranking_limit, read_bounded, render_limit, tokens_limit,
     },
     card::{ModelCard, Role, RouterEntry},
-    port::{ChatRequest, Error, ModelPort, Room, embedder_dimensions, require},
+    port::{
+        Candidate, ChatRequest, Error, ExtractRequest, ModelPort, Room, embedder_dimensions,
+        require, sampling_fields,
+    },
 };
 use crate::artifact::Digest;
+use crate::json::canonical;
 use reqwest::{Client, RequestBuilder, Url, redirect::Policy};
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::{Map, Value, json};
@@ -146,7 +150,10 @@ impl RouterClient {
         body: &Value,
     ) -> Result<T, Error> {
         self.check(card, room).await?;
-        let request = self.http.post(self.endpoint(card, path)).json(body);
+        let request = self
+            .http
+            .post(self.endpoint(card, path))
+            .json(&canonical(body.clone()));
         send(request, room, limit).await
     }
 }
@@ -179,7 +186,7 @@ impl ModelPort for RouterClient {
                 &json!({"input": inputs}),
             )
             .await?;
-        let vectors = by_index(
+        let vectors = super::body::by_index(
             inputs.len(),
             answer
                 .data
@@ -212,7 +219,7 @@ impl ModelPort for RouterClient {
         let body = json!({"query": query, "documents": documents});
         let limit = ranking_limit(documents.len());
         let answer: Ranking = self.call(card, room, ("v1/rerank", limit), &body).await?;
-        by_index(
+        super::body::by_index(
             documents.len(),
             answer
                 .results
@@ -228,6 +235,25 @@ impl ModelPort for RouterClient {
         let limit = tokens_limit(text.len());
         let answer: Tokens = self.call(card, room, ("tokenize", limit), &body).await?;
         Ok(answer.tokens)
+    }
+
+    async fn render_chat(
+        &self,
+        card: &ModelCard,
+        room: Room,
+        request: &ChatRequest,
+    ) -> Result<String, Error> {
+        let content = request.messages.iter().map(|message| message.content.len());
+        let limit = render_limit(content.sum());
+        let response: super::render::Rendered = self
+            .call(
+                card,
+                room,
+                ("apply-template", limit),
+                &super::render::body(card, request)?,
+            )
+            .await?;
+        response.into_prompt()
     }
 
     async fn chat(
@@ -247,21 +273,7 @@ impl ModelPort for RouterClient {
             ),
         ]);
         if let Some(sampling) = sampling {
-            for (field, value) in [
-                ("temperature", json!(sampling.temperature)),
-                ("top_p", json!(sampling.top_p)),
-                ("top_k", json!(sampling.top_k)),
-                ("min_p", json!(sampling.min_p)),
-                ("typical_p", json!(sampling.typical_p)),
-                ("repeat_penalty", json!(sampling.repeat_penalty)),
-                ("frequency_penalty", json!(sampling.frequency_penalty)),
-                ("presence_penalty", json!(sampling.presence_penalty)),
-            ] {
-                body.insert(field.to_owned(), value);
-            }
-            if let Some(seed) = sampling.seed {
-                body.insert("seed".to_owned(), json!(seed));
-            }
+            sampling_fields(&mut body, sampling);
         }
         let answer: Completion = self
             .call(
@@ -272,6 +284,23 @@ impl ModelPort for RouterClient {
             )
             .await?;
         answer.into_content()
+    }
+
+    async fn extract(
+        &self,
+        card: &ModelCard,
+        request: &ExtractRequest,
+    ) -> Result<Vec<Candidate>, Error> {
+        let body = super::extract::request_body(card, request)?;
+        let answer: Completion = self
+            .call(
+                card,
+                Room::Free,
+                ("v1/chat/completions", MAX_CHAT_BODY_BYTES),
+                &body,
+            )
+            .await?;
+        super::extract::decode_content(&answer.into_content()?)
     }
 }
 
@@ -382,29 +411,6 @@ fn named(code: Value) -> Option<String> {
         Value::String(code) => Some(code),
         _ => None,
     }
-}
-
-/// Places each answer at its index: every input answered exactly once.
-fn by_index<T>(
-    count: usize,
-    answers: impl IntoIterator<Item = (usize, T)>,
-) -> Result<Vec<T>, Error> {
-    let mut placed: Vec<Option<T>> = (0..count).map(|_| None).collect();
-    for (index, answer) in answers {
-        let slot = placed
-            .get_mut(index)
-            .filter(|slot| slot.is_none())
-            .ok_or_else(|| {
-                invalid(format!(
-                    "answer {index} is outside the {count} inputs, or repeated"
-                ))
-            })?;
-        *slot = Some(answer);
-    }
-    placed
-        .into_iter()
-        .collect::<Option<Vec<T>>>()
-        .ok_or_else(|| invalid(format!("fewer answers than the {count} inputs")))
 }
 
 /// An [`Error::InvalidAnswer`] saying how.

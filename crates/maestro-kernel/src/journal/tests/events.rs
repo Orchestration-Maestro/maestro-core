@@ -320,3 +320,18 @@ fn a_stored_event_the_journal_cannot_read_back_is_an_error_never_a_guess() {
         );
     }
 }
+
+#[test]
+fn journal_data_keeps_pre_cedar_persisted_bytes() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let data = serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap();
+    database
+        .record(&imported("synthetic", "synthetic", &data))
+        .unwrap();
+    let text: String = scratch
+        .outside()
+        .query_row("SELECT data FROM events", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(text, r#"{"a":0,"z":{"a":1,"z":2}}"#);
+}

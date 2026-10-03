@@ -200,3 +200,19 @@ fn a_running_job_never_moves_back_to_queued_nor_to_running_again() {
         before
     );
 }
+
+#[test]
+fn job_outcomes_keep_pre_cedar_persisted_bytes() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let (_, lease) = running(&database, "synthetic");
+    let data = serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap();
+    database
+        .complete_job(&lease, JobState::Succeeded, &data)
+        .unwrap();
+    let text: String = scratch
+        .outside()
+        .query_row("SELECT outcome_json FROM jobs", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(text, r#"{"a":0,"z":{"a":1,"z":2}}"#);
+}

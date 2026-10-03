@@ -267,7 +267,7 @@ impl ModelPort for Embedder {
         match card.fields().role {
             Role::Embedder => self.wait_for_embedder().await,
             Role::Reranker => self.wait_for_reranker(false).await,
-            Role::Answerer => {}
+            Role::Answerer | Role::Extractor => {}
         }
         Ok(())
     }

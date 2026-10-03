@@ -168,7 +168,7 @@ impl Publication<'_> {
                 stopped = Some(chain(&error));
                 return ControlFlow::Break(());
             }
-            drop(self.output.text(&format!("step {data}")));
+            drop(self.output.step(&data));
             ControlFlow::Continue(())
         };
         let published = match self.recovery {

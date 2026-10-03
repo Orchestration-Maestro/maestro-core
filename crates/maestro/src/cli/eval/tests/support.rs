@@ -2,7 +2,7 @@
 
 use super::super::rank_settings::{Context, Prior};
 use super::super::{
-    manifest::{AskSettings, Rerank, Routes, Rung, RungConfiguration, Weights},
+    manifest::{AskSettings, GraphSelection, Rerank, Routes, Rung, RungConfiguration, Weights},
     runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
 };
 use crate::failure::Failure;
@@ -66,6 +66,7 @@ pub(super) fn rung(name: &str) -> Rung {
             identifier_limit: SearchConfiguration::DEFAULT_IDENTIFIER_LIMIT,
             fusion_pool: SearchConfiguration::MAX_FUSION_POOL,
             routes: Routes {
+                graph: GraphSelection::None,
                 dense: true,
                 lexical: true,
                 identifier: true,
@@ -142,6 +143,8 @@ pub(super) struct FakeEngine {
     pub(super) right_document_at_7: bool,
     /// Whether the collection has no answerer card.
     pub(super) no_answerer: bool,
+    /// Whether asks fail after a successful search.
+    pub(super) ask_outcome: Option<AskOutcome>,
     /// After this many searches, what a rung runs against cannot be read.
     pub(super) unreadable_after: Option<usize>,
     /// How many of the last questions' expected sections are missing.
@@ -303,6 +306,14 @@ impl Engine for FakeEngine {
 
     fn ask(&self, rung: &Rung, question: &str) -> Asked {
         self.record("ask", rung, question);
+        if let Some(outcome) = &self.ask_outcome {
+            return Asked {
+                outcome: outcome.clone(),
+                delivered: Vec::new(),
+                rejections: Vec::new(),
+                reply_cap: None,
+            };
+        }
         answerable_index(question).map_or_else(
             || Asked {
                 outcome: AskOutcome::Refused(RefusalCode::NotFound),

@@ -195,16 +195,17 @@ fn model_card_migration_applies_after_0008_and_after_0010_search() {
     );
     drop(reader);
 
+    // 0016 rebuilds the tables of 0009, so a binary lacking one lacks both.
     let without_model_cards: Vec<_> = MIGRATIONS
         .iter()
-        .filter(|(name, _)| *name != "0009_model_cards")
+        .filter(|(name, _)| !matches!(*name, "0009_model_cards" | "0016_extractor_role"))
         .copied()
         .collect();
     let scratch = Scratch::new();
     drop(scratch.open_with(&without_model_cards).unwrap());
     assert_eq!(
         pending_migrations(&scratch.0).unwrap(),
-        ["0009_model_cards"]
+        ["0009_model_cards", "0016_extractor_role"]
     );
     drop(scratch.open_with(MIGRATIONS).unwrap());
     let outside = scratch.outside();
@@ -219,6 +220,59 @@ fn model_card_migration_applies_after_0008_and_after_0010_search() {
             .unwrap(),
         0
     );
+}
+
+#[test]
+fn graph_claim_migration_adds_empty_claim_tables_and_keeps_existing_records() {
+    let without_claims: Vec<_> = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(name, _)| *name < "0012_graph_claims")
+        .collect();
+    let scratch = Scratch::new();
+    drop(scratch.open_with(&without_claims).unwrap());
+    scratch
+        .outside()
+        .execute(
+            "INSERT INTO collections (id, title, visibility, profiles_json)
+             VALUES ('graph', 'Graph', 'public', '{}')",
+            [],
+        )
+        .unwrap();
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        [
+            "0012_graph_claims",
+            "0013_graph_claim_vocabulary",
+            "0014_graph_builds",
+            "0015_graph_resolution",
+            "0016_extractor_role",
+            "0017_unit_graphs",
+            "0018_retrieval_representations",
+            "0019_graph_projection"
+        ]
+    );
+
+    drop(scratch.open());
+    let reader = scratch.outside();
+    for table in [
+        "claims",
+        "claim_supports",
+        "claim_sets",
+        "claim_set_members",
+    ] {
+        let count: i64 = reader
+            .query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0, "{table}");
+    }
+    let collections: i64 = reader
+        .query_row("SELECT count(*) FROM collections", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(collections, 1);
+    assert_eq!(names(&reader), sorted(MIGRATIONS));
 }
 
 #[test]
@@ -388,4 +442,69 @@ fn a_database_a_newer_binary_migrated_is_named_and_a_missing_one_never_created()
         matches!(&newer, Error::UnknownMigration(name) if name == "9999_future"),
         "{newer}"
     );
+}
+
+#[test]
+fn graph_build_migration_upgrades_claim_storage_once_without_backfilling() {
+    let scratch = Scratch::new();
+    let preceding: Vec<_> = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(name, _)| *name < "0014_graph_builds")
+        .collect();
+    drop(scratch.open_with(&preceding).unwrap());
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        [
+            "0014_graph_builds",
+            "0015_graph_resolution",
+            "0016_extractor_role",
+            "0017_unit_graphs",
+            "0018_retrieval_representations",
+            "0019_graph_projection"
+        ]
+    );
+    drop(scratch.open());
+    let reader = scratch.outside();
+    let applied = recorded(&reader);
+    for table in [
+        "graph_builds",
+        "graph_build_batches",
+        "graph_build_claims",
+        "graph_build_rejections",
+        "graph_attachments",
+    ] {
+        let count: i64 = reader
+            .query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0, "{table}");
+    }
+    drop(reader);
+    drop(scratch.open());
+    assert_eq!(recorded(&scratch.outside()), applied);
+}
+
+#[test]
+fn graph_resolution_upgrade_is_forward_only_and_idempotent() {
+    let scratch = Scratch::new();
+    let earlier: Vec<_> = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(name, _)| *name != "0015_graph_resolution")
+        .collect();
+    drop(scratch.open_with(&earlier).unwrap());
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        ["0015_graph_resolution"]
+    );
+    drop(scratch.open());
+    let before = recorded(&scratch.outside());
+    drop(scratch.open());
+    assert_eq!(recorded(&scratch.outside()), before);
+    assert!(pending_migrations(&scratch.0).unwrap().is_empty());
+    let legacy = scratch.open_with(&earlier);
+    assert!(matches!(legacy, Err(Error::UnknownMigration(name))
+        if name == "0015_graph_resolution"));
 }

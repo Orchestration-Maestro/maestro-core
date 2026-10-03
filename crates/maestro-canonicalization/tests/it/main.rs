@@ -7,5 +7,6 @@ mod cli_contract;
 mod dedup_contract;
 mod dialect_properties;
 mod document_contract;
+mod json_bytes;
 mod phase_a_acceptance;
 mod validation_boundary;

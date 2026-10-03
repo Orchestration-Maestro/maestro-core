@@ -10,8 +10,14 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Forward native projection activation; ladybug selection requires this build.
+engine = ["maestro-knowledge/engine"]
+
 [dependencies]
+maestro-filesystem.workspace = true
 clap.workspace = true
+maestro-catalog.workspace = true
 maestro-kernel.workspace = true
 maestro-knowledge.workspace = true
 maestro-settings.workspace = true
@@ -32,6 +38,8 @@ tokio = { workspace = true, features = [
 ulid.workspace = true
 
 [dev-dependencies]
+maestro-canonicalization.workspace = true
+toml.workspace = true
 maestro-test-scratch.workspace = true
 qdrant-client.workspace = true
 tonic.workspace = true

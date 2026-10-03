@@ -46,8 +46,8 @@ pub enum Error {
         /// The largest history returned.
         limit: usize,
     },
-    /// The lease is no longer the job's: another holder took it over, or the
-    /// job ended. Its holder writes nothing more to the job, so a stalled
+    /// The lease's holder or number is not the job's current lease, or the
+    /// job ended. The caller writes nothing more to the job, so a stalled
     /// process that wakes up never writes over its successor.
     Lost {
         /// The job's ID.

@@ -48,7 +48,7 @@
 //! never artifacts: a collection leaves them alone.
 
 pub(crate) mod artifacts;
-mod database;
+pub(crate) mod database;
 mod error;
 mod migration;
 #[cfg(test)]

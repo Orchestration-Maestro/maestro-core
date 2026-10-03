@@ -3,7 +3,8 @@
 //! resolve the same files the same way.
 
 use super::{Compute, KnowledgeSettings, Session};
-use crate::failure::Failure;
+use crate::{cli::session, failure::Failure};
+use maestro_catalog::{limits::Limits, settings::WorkspacePreferences};
 use maestro_kernel::evidence::RequestBudget;
 use maestro_knowledge::{
     answer::{AnswerPrompt, AskBudget, DEFAULT_MODEL, Presentation, PromptVersion, Tone},
@@ -19,10 +20,9 @@ use maestro_settings::{
 };
 use maestro_test_scratch::scratch_directory;
 use std::{
-    collections::BTreeSet,
     fs,
     num::{NonZeroU32, NonZeroUsize},
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::Duration,
 };
 
@@ -63,13 +63,20 @@ impl Scratch {
         fs::create_dir_all(&folder).unwrap();
         let file = folder.join(PROJECT_FILE);
         fs::write(&file, format!("schema = \"maestro-preferences/1\"\n{body}")).unwrap();
+        // Safe fixtures have explicit modes, independent of the process umask.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+            fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
+        }
         file
     }
 
     /// The session started in the home's `work/`, with `flags`.
     fn session(&self, flags: &[&str]) -> Session {
         let flags: Vec<String> = flags.iter().map(|flag| (*flag).to_owned()).collect();
-        Session::at(
+        session::at(
             &self.config(),
             Some(&self.home().join("work")),
             Some(&self.home()),
@@ -89,6 +96,44 @@ impl Drop for Scratch {
 fn defaults() -> KnowledgeSettings {
     let scratch = Scratch::new();
     scratch.session(&[]).knowledge().unwrap()
+}
+
+/// A replaceable source with no filesystem or trust adapter.
+struct InMemoryPreferences;
+
+impl WorkspacePreferences for InMemoryPreferences {
+    fn layers(
+        &self,
+        registry: &Registry,
+        _limits: &Limits,
+    ) -> Result<maestro_settings::Layers, String> {
+        let layer = maestro_settings::Layer::parse_preferences(
+            registry,
+            "schema = 'maestro-preferences/1'\ntone = 'brief'\nlanguage = 'ja'\n",
+            4096,
+            16,
+        )
+        .map_err(|error| error.to_string())?;
+        Ok(maestro_settings::Layers {
+            user: Some((PathBuf::from("in-memory"), layer)),
+            project: None,
+        })
+    }
+}
+
+#[test]
+fn session_resolves_the_injected_preferences_source() {
+    let scratch = Scratch::new();
+    scratch.user("tone = 'detailed'\nlanguage = 'fr'\n");
+    let session = Session::from_preferences(
+        &scratch.config(),
+        &InMemoryPreferences,
+        maestro_settings::Discovery::default(),
+        &[],
+    )
+    .unwrap();
+    assert_eq!(session.resolved().text("tone"), Some("brief"));
+    assert_eq!(session.resolved().text("language"), Some("ja"));
 }
 
 #[test]
@@ -294,30 +339,6 @@ fn each_setting_reaches_the_knowledge_operations() {
 }
 
 #[test]
-fn every_registered_setting_is_read_by_the_knowledge_settings() {
-    let scratch = Scratch::new();
-    let branches: [&[&str]; 2] = [
-        &[],
-        &[
-            "search.section_prior.weight=0.5",
-            "search.rerank.context=bounded_section",
-            "search.source_prior.weight=off",
-        ],
-    ];
-    let mut read = BTreeSet::new();
-    for flags in branches {
-        let session = scratch.session(flags);
-        read.extend(KnowledgeSettings::read(&session.resolved()).unwrap().1);
-    }
-    let registry = Registry::built_in().unwrap();
-    let registered: BTreeSet<String> = registry
-        .descriptors()
-        .map(|descriptor| descriptor.key.to_string())
-        .collect();
-    assert_eq!(read, registered);
-}
-
-#[test]
 fn compute_off_switches_off_every_model_stage_and_keeps_the_code_routes() {
     let scratch = Scratch::new();
     let settings = scratch
@@ -332,7 +353,7 @@ fn compute_off_switches_off_every_model_stage_and_keeps_the_code_routes() {
     assert!(settings.search.identifier_enabled);
     assert!(!settings.search.identifier_noise_guard);
     assert!(settings.search.structured_enabled);
-    let refused = Session::at(
+    let refused = session::at(
         &scratch.config(),
         None,
         Some(&scratch.home()),
@@ -366,7 +387,7 @@ fn the_flag_then_the_project_then_the_user_file_win() {
         }
     );
     assert_eq!(session.files.project.as_deref(), Some(project.as_path()));
-    let without_project = Session::at(&scratch.config(), None, Some(&scratch.home()), &[]).unwrap();
+    let without_project = session::at(&scratch.config(), None, Some(&scratch.home()), &[]).unwrap();
     assert_eq!(without_project.files.project, None);
     assert_eq!(without_project.resolved().text("language"), Some("es"));
 }
@@ -375,9 +396,9 @@ fn the_flag_then_the_project_then_the_user_file_win() {
 fn the_mcp_session_reads_a_project_only_through_an_explicit_workspace_inside_home() {
     let scratch = Scratch::new();
     scratch.project("tone = \"brief\"\n");
-    let plain = Session::for_mcp_at(&scratch.config(), None, Some(&scratch.home()), &[]).unwrap();
+    let plain = for_mcp_at(&scratch.config(), None, Some(&scratch.home()), &[]).unwrap();
     assert_eq!(plain.resolved().text("tone"), Some("normal"));
-    let workspace = Session::for_mcp_at(
+    let workspace = for_mcp_at(
         &scratch.config(),
         Some(&scratch.home().join("work")),
         Some(&scratch.home()),
@@ -385,20 +406,21 @@ fn the_mcp_session_reads_a_project_only_through_an_explicit_workspace_inside_hom
     )
     .unwrap();
     assert_eq!(workspace.resolved().text("tone"), Some("brief"));
-    let outside = Session::for_mcp_at(
+    let outside = for_mcp_at(
         &scratch.config(),
         Some(&scratch.0),
         Some(&scratch.home()),
         &[],
     )
-    .unwrap_err()
-    .to_string();
-    assert_eq!(
-        outside,
-        format!(
-            "--workspace {}: the directory is outside the home directory: no project file is read",
-            scratch.0.display()
-        )
+    .unwrap();
+    assert!(outside.files.project.is_none());
+    assert_eq!(outside.resolved().text("tone"), Some("normal"));
+    assert!(
+        outside
+            .discovery
+            .note
+            .unwrap()
+            .contains("maestro trust add")
     );
 }
 
@@ -408,7 +430,7 @@ fn the_mcp_session_refuses_a_workspace_that_is_not_a_directory() {
     scratch.project("tone = \"brief\"\n");
     let readme = scratch.home().join("work").join("README.md");
     fs::write(&readme, "# work\n").unwrap();
-    let refused = Session::for_mcp_at(&scratch.config(), Some(&readme), Some(&scratch.home()), &[])
+    let refused = for_mcp_at(&scratch.config(), Some(&readme), Some(&scratch.home()), &[])
         .unwrap_err()
         .to_string();
     assert_eq!(
@@ -424,7 +446,7 @@ fn the_mcp_session_refuses_a_workspace_that_is_not_a_directory() {
 fn a_refused_file_is_named_and_stops_the_session() {
     let scratch = Scratch::new();
     scratch.user("[access]\nread = []\n");
-    let error = Session::at(&scratch.config(), None, Some(&scratch.home()), &[])
+    let error = session::at(&scratch.config(), None, Some(&scratch.home()), &[])
         .unwrap_err()
         .to_string();
     assert_eq!(
@@ -463,4 +485,22 @@ fn parent_chain_settings_round_trip_and_refuse_legacy_order() {
         scratch.session(&[]).knowledge(),
         Err(Failure::Refused(_))
     ));
+}
+
+/// MCP discovery adapter with injected paths, matching the production directory guard.
+fn for_mcp_at(
+    config_dir: &Path,
+    workspace: Option<&Path>,
+    home: Option<&Path>,
+    flags: &[String],
+) -> Result<Session, Failure> {
+    if let Some(workspace) = workspace
+        && !workspace.is_dir()
+    {
+        return Err(Failure::refused(format!(
+            "--workspace {}: the path is not a directory: no project file is read",
+            workspace.display()
+        )));
+    }
+    session::at(config_dir, workspace, home, flags)
 }

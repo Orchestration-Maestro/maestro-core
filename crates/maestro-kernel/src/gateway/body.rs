@@ -81,6 +81,46 @@ pub(super) const fn ranking_limit(documents: usize) -> usize {
         .saturating_add(ENVELOPE_BYTES)
 }
 
+/// The most bytes JSON escaping writes for one byte of text: `\u001f`.
+const ESCAPED_BYTES: usize = 6;
+
+/// Maximum `/apply-template` body for messages of `content_bytes` bytes:
+/// `content_bytes` × [`ESCAPED_BYTES`] + [`MAX_PROPS_BODY_BYTES`].
+///
+/// The rendered prompt repeats the messages, each byte escaped at most to
+/// [`ESCAPED_BYTES`], inside the framing the chat template adds: role markers
+/// and fixed instructions, which come from the template's own text and fit
+/// the bound on a whole `/props` answer, templates included.
+pub(super) const fn render_limit(content_bytes: usize) -> usize {
+    content_bytes
+        .saturating_mul(ESCAPED_BYTES)
+        .saturating_add(MAX_PROPS_BODY_BYTES)
+}
+
+/// Places each answer at its index: every input is answered exactly once.
+pub(super) fn by_index<T>(
+    count: usize,
+    answers: impl IntoIterator<Item = (usize, T)>,
+) -> Result<Vec<T>, Error> {
+    let invalid = |reason: String| Error::InvalidAnswer { reason };
+    let mut placed: Vec<Option<T>> = (0..count).map(|_| None).collect();
+    for (index, answer) in answers {
+        let slot = placed
+            .get_mut(index)
+            .filter(|slot| slot.is_none())
+            .ok_or_else(|| {
+                invalid(format!(
+                    "answer {index} is outside the {count} inputs, or repeated"
+                ))
+            })?;
+        *slot = Some(answer);
+    }
+    placed
+        .into_iter()
+        .collect::<Option<Vec<T>>>()
+        .ok_or_else(|| invalid(format!("fewer answers than the {count} inputs")))
+}
+
 /// Reads the body of `response`, refusing it once it would exceed `limit`
 /// bytes: at once when it declares a longer length, otherwise at the chunk
 /// that crosses the limit.

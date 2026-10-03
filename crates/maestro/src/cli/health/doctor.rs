@@ -8,6 +8,7 @@
 use super::{
     check::Check,
     findings::{directory_findings, unreached_grants},
+    graph_adapter as graph,
     kernel::{Opened, artifacts_check, bindings_check, config_check, database_check},
     services::{
         QDRANT_VARIABLE, ROUTER_VARIABLE, card_checks, qdrant_check, qdrant_url, router_check,
@@ -69,7 +70,7 @@ struct CheckDocument<'a> {
     next_action: Option<&'a str>,
 }
 
-/// Runs every check, the settings' with the `--set` flags `flags`, then
+/// Runs every check using the startup preference snapshot, then
 /// prints them with what doctor found but must not touch, and exits 1 when
 /// a check failed.
 ///
@@ -77,14 +78,30 @@ struct CheckDocument<'a> {
 ///
 /// [`Failure::Failed`] when the kernel's directories cannot be resolved, or
 /// its database, once it opened, cannot be read.
-pub(in crate::cli) fn run(output: Output, flags: &[String]) -> Result<ExitCode, Failure> {
+pub(in crate::cli) fn run(
+    output: Output,
+    session: Result<&Session, Failure>,
+) -> Result<ExitCode, Failure> {
     let environment = Environment::current();
     let data = paths::data_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let config_dir = paths::config_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let (config, read) = config_check(&config_dir);
     let (database, opened) = database_check(&data, read.as_ref());
-    let settings = settings_check(&config_dir, Session::for_cli(flags));
-    let mut checks = vec![config, settings, bindings_check(&config_dir), database];
+    let settings = settings_check(
+        &config_dir,
+        session
+            .as_ref()
+            .copied()
+            .map_err(|error| Failure::refused(error.to_string())),
+    );
+    let graph = graph::check(&environment, session, read.as_ref());
+    let mut checks = vec![
+        config,
+        settings,
+        bindings_check(&config_dir),
+        database,
+        graph,
+    ];
     checks.push(artifacts_check(&data, opened.as_ref()));
     checks.push(qdrant_check(
         &qdrant_url(env::var_os(QDRANT_VARIABLE).as_deref()),

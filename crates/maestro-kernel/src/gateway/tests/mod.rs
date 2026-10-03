@@ -4,10 +4,15 @@
 mod card;
 mod catalog;
 mod chat;
+mod extract;
+mod extraction_refusals;
+mod extractor_card;
 mod fake;
 mod fixture;
 mod formatting;
 mod port;
+mod prompt_digest;
+mod render;
 mod reply_cap;
 mod router;
 mod safety;

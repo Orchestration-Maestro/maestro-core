@@ -4,10 +4,12 @@ use super::types::TOOL_ERROR_SCHEMA;
 pub(super) use crate::knowledge::output::response_fits;
 #[cfg(test)]
 pub(super) use crate::knowledge::output::response_size;
+use crate::knowledge::output::structured;
 use crate::knowledge::{
     RESPONSE_LIMIT_BYTES,
     operations::{CollectionsData, GetData, KnowledgeError},
 };
+use maestro_kernel::json::canonical;
 use rmcp::{
     ErrorData as McpError,
     model::{CallToolResult, ContentBlock, MetaObject, ProtocolVersion, RequestId},
@@ -71,7 +73,7 @@ pub(super) fn get_result(data: GetData) -> Result<CallToolResult, McpError> {
     }
     let value = serde_json::to_value(data)
         .map_err(|_| McpError::internal_error("response serialization failed", None))?;
-    Ok(CallToolResult::structured(value))
+    Ok(structured(value))
 }
 
 /// Drops trailing collection records until a response fits, never slicing a record.
@@ -83,17 +85,17 @@ pub(super) fn bounded_collections_result(
     loop {
         let value = serde_json::to_value(&output.data)
             .map_err(|_| McpError::internal_error("response serialization failed", None))?;
-        let mut result = CallToolResult::structured(value);
+        let mut result = structured(value);
         if output.truncated {
             let mut metadata = MetaObject::new();
             metadata.0.insert(
                 "maestro/truncation".to_owned(),
-                json!({
+                canonical(json!({
                     "truncated": true,
                     "limit_bytes": RESPONSE_LIMIT_BYTES,
                     "omitted": &output.omitted,
                     "warning": "Some collection entries were omitted to fit the response limit.",
-                }),
+                })),
             );
             result = result.with_meta(Some(metadata));
         }
@@ -150,11 +152,11 @@ pub(super) fn tool_error(
                 let mut metadata = MetaObject::new();
                 metadata.0.insert(
                     "maestro/truncation".to_owned(),
-                    json!({
+                    canonical(json!({
                         "truncated": true,
                         "limit_bytes": RESPONSE_LIMIT_BYTES,
                         "omitted": metadata_omitted,
-                    }),
+                    })),
                 );
                 result = result.with_meta(Some(metadata));
             }

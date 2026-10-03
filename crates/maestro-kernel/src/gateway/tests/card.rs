@@ -241,5 +241,5 @@ fn an_invalid_card_says_why_and_names_the_schema() {
 #[test]
 fn every_role_is_listed_once_as_cards_name_it() {
     let names: Vec<String> = Role::ALL.iter().map(ToString::to_string).collect();
-    assert_eq!(names, ["embedder", "reranker", "answerer"]);
+    assert_eq!(names, ["embedder", "reranker", "answerer", "extractor"]);
 }

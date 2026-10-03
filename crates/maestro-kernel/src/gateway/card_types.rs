@@ -17,11 +17,19 @@ pub enum Role {
     Reranker,
     /// Answers a question from the evidence it is given.
     Answerer,
+    /// Proposes claim candidates from a source window, which are never
+    /// evidence of their own.
+    Extractor,
 }
 
 impl Role {
     /// Every role, in the order cards name them.
-    pub const ALL: [Self; 3] = [Self::Embedder, Self::Reranker, Self::Answerer];
+    pub const ALL: [Self; 4] = [
+        Self::Embedder,
+        Self::Reranker,
+        Self::Answerer,
+        Self::Extractor,
+    ];
 }
 
 impl fmt::Display for Role {
@@ -31,6 +39,7 @@ impl fmt::Display for Role {
             Self::Embedder => "embedder",
             Self::Reranker => "reranker",
             Self::Answerer => "answerer",
+            Self::Extractor => "extractor",
         })
     }
 }

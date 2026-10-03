@@ -8,7 +8,7 @@ use super::{
         Error, Message, ModelPort, Role, Room, RouterClient, Speaker,
         body::{
             MAX_CATALOG_BODY_BYTES, MAX_CHAT_BODY_BYTES, MAX_ERROR_BODY_BYTES,
-            MAX_PROPS_BODY_BYTES, embeddings_limit, ranking_limit, tokens_limit,
+            MAX_PROPS_BODY_BYTES, embeddings_limit, ranking_limit, render_limit, tokens_limit,
         },
     },
     fixture::{BUILD, TEMPLATE, card, chat_request},
@@ -17,6 +17,9 @@ use super::{
 use serde_json::json;
 use std::{iter, time::Duration};
 use tokio::time;
+
+/// The message the chat and render calls send.
+const QUESTION: &str = "Use the evidence.";
 
 /// The text the tokenize call sends.
 const TEXT: &str = "The whale sings.";
@@ -39,16 +42,19 @@ enum Call {
     Tokenize,
     /// `POST /models/answer/v1/chat/completions`.
     Chat,
+    /// `POST /models/answer/apply-template`.
+    Render,
 }
 
 /// Every call.
-const CALLS: [Call; 6] = [
+const CALLS: [Call; 7] = [
     Call::Catalog,
     Call::Props,
     Call::Embed,
     Call::Rerank,
     Call::Tokenize,
     Call::Chat,
+    Call::Render,
 ];
 
 impl Call {
@@ -65,6 +71,10 @@ impl Call {
                 "/models/answer/v1/chat/completions",
                 Some("/models/answer/props"),
             ),
+            Self::Render => (
+                "/models/answer/apply-template",
+                Some("/models/answer/props"),
+            ),
         }
     }
 
@@ -78,6 +88,7 @@ impl Call {
             Self::Rerank => ranking_limit(3),
             Self::Tokenize => tokens_limit(TEXT.len()),
             Self::Chat => MAX_CHAT_BODY_BYTES,
+            Self::Render => render_limit(QUESTION.len()),
         }
     }
 
@@ -114,25 +125,30 @@ impl Call {
                     .tokenize(&card(Role::Embedder), Room::Free, TEXT)
                     .await
                     .map(drop),
-                Self::Chat => {
-                    let question = Message {
-                        speaker: Speaker::User,
-                        content: "Use the evidence.".to_owned(),
-                    };
-                    client
-                        .chat(
-                            &card(Role::Answerer),
-                            Room::Free,
-                            &chat_request(&[question]),
-                        )
-                        .await
-                        .map(drop)
-                }
+                Self::Chat | Self::Render => self.answer(client).await,
             }
         };
         time::timeout(Duration::from_secs(30), call)
             .await
             .expect("the call ends")
+    }
+
+    /// Makes a call of the answerer's, which sends [`QUESTION`], with
+    /// `client`.
+    async fn answer(self, client: &RouterClient) -> Result<(), Error> {
+        let card = card(Role::Answerer);
+        let request = chat_request(&[Message {
+            speaker: Speaker::User,
+            content: QUESTION.to_owned(),
+        }]);
+        if matches!(self, Self::Render) {
+            client
+                .render_chat(&card, Room::Free, &request)
+                .await
+                .map(drop)
+        } else {
+            client.chat(&card, Room::Free, &request).await.map(drop)
+        }
     }
 }
 
@@ -319,4 +335,12 @@ fn each_limit_follows_its_arithmetic() {
     assert_eq!(tokens_limit(usize::MAX), usize::MAX);
     assert_eq!(embeddings_limit(usize::MAX, 2), usize::MAX);
     assert_eq!(ranking_limit(usize::MAX), usize::MAX);
+}
+
+#[test]
+fn the_render_limit_follows_its_arithmetic() {
+    // 17 message bytes × 6 escaped bytes + 1 MiB of template framing.
+    assert_eq!(render_limit(17), 17 * 6 + 1_048_576);
+    assert_eq!(render_limit(0), 1_048_576);
+    assert_eq!(render_limit(usize::MAX), usize::MAX);
 }

@@ -112,6 +112,18 @@ impl<'a> Holder<'a> {
             .map(drop)
     }
 
+    /// Runs a short authority operation with the current fence, serialized with heartbeats.
+    /// Extraction and other external I/O must happen before this call.
+    pub(super) fn fenced<T>(&self, operation: impl FnOnce(&mut Lease, job::LeaseTiming) -> T) -> T {
+        operation(
+            &mut self.lock(),
+            job::LeaseTiming {
+                now: SystemTime::now(),
+                term: self.timing.term,
+            },
+        )
+    }
+
     /// Renews the lease at each of `ticks`, until they end or the lease is
     /// lost; a renewal that fails otherwise is tried again at the next.
     pub(super) fn beat_at(&self, ticks: impl Iterator<Item = ()>) {

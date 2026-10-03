@@ -3,8 +3,17 @@
 //! search configuration and whether `ask` runs, with which settings. It is private: it names the
 //! owner's files. Relative paths resolve from the manifest's directory.
 
-use super::rank_settings::{Context, Prior, SourcePriorSetting};
-use super::{ask_settings::read_ask, rung_prompt::RungPrompt};
+use super::{
+    ask_settings::read_ask,
+    graph_manifest::{GraphManifest, check_prompt_path},
+    graph_output::Code,
+    private_run::CheckedRun,
+    rung_prompt::RungPrompt,
+};
+use super::{
+    manifest_checks::{check_intent, check_pipeline_limits},
+    rank_settings::{Context, Prior, SourcePriorSetting},
+};
 use crate::failure::Failure;
 use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
 use maestro_knowledge::search::{
@@ -47,6 +56,10 @@ pub(super) struct Manifest {
     pub(super) warm_ups: usize,
     /// The directory the reports go to, new or empty.
     pub(super) output: PathBuf,
+    /// Optional private graph-check manifest binding labels, authority and approval.
+    #[serde(default)]
+    #[serde(rename = "graph_manifest")]
+    pub(super) graph: Option<PathBuf>,
     /// The rungs, run in this order.
     pub(super) rungs: Vec<Rung>,
 }
@@ -67,6 +80,19 @@ pub(super) struct Rung {
     /// Search-only evidence budget; absent uses the default search budget.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) search_budget: Option<RequestBudget>,
+}
+
+/// Closed graph rung selection, separate from the unchanged S1 route configuration.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum GraphSelection {
+    /// Unchanged passage routes.
+    #[default]
+    None,
+    /// Ladybug-only diagnostic, pending G13/G27.
+    Ladybug,
+    /// Passage and Ladybug pairing, pending G13/G27.
+    Pairing,
 }
 
 /// A rung's search configuration, as the manifest writes it.
@@ -147,6 +173,9 @@ pub(super) struct RungConfiguration {
     reason = "each route has its own switch, as search's configuration does"
 )]
 pub(super) struct Routes {
+    /// Graph selection; enabled adapters are refused until G13/G27 land.
+    #[serde(default)]
+    pub(super) graph: GraphSelection,
     /// The dense route.
     pub(super) dense: bool,
     /// The lexical route.
@@ -351,6 +380,7 @@ impl Manifest {
     pub(super) fn read(path: &Path) -> Result<Self, Failure> {
         let text = fs::read_to_string(path)
             .map_err(|error| Failure::refused(format!("cannot read the manifest: {error}")))?;
+        let path = fs::canonicalize(path).map_err(|error| Failure::refused_by(&error))?;
         let base = path.parent().unwrap_or_else(|| Path::new(""));
         let manifest = Self::parse(&text, base)?;
         if manifest.output.exists() && !manifest.output.is_dir() {
@@ -379,6 +409,26 @@ impl Manifest {
         let mut manifest: Self = serde_json::from_str(text)
             .map_err(|error| Failure::refused(format!("the manifest is not {SCHEMA}: {error}")))?;
         manifest.check()?;
+        let private = manifest
+            .graph
+            .as_ref()
+            .map(|path| GraphManifest::read(&base.join(path)).map_err(Code::failure))
+            .transpose()?;
+        if let Some(inputs) = &private {
+            if inputs.collection != manifest.collection {
+                return Err(Code::Isolation.failure());
+            }
+            manifest.suite = inputs
+                .run
+                .input(&base.join(&manifest.suite))
+                .map_err(Code::failure)?;
+            manifest.output = inputs
+                .run
+                .directory(&base.join(&manifest.output))
+                .map_err(Code::failure)?;
+            CheckedRun::local_router().map_err(Code::failure)?;
+        }
+        manifest.graph = manifest.graph.map(|path| base.join(path));
         manifest.suite = base.join(&manifest.suite);
         manifest.output = base.join(&manifest.output);
         for rung in &mut manifest.rungs {
@@ -387,6 +437,8 @@ impl Manifest {
                 ..
             }) = &mut rung.ask
             {
+                check_prompt_path(private.as_ref(), &base.join(&file.file))
+                    .map_err(Code::failure)?;
                 file.read(base, &rung.name)?;
             }
         }
@@ -425,35 +477,6 @@ impl Manifest {
     }
 }
 
-/// Validates limits shared by search routes, fusion and reranking.
-fn check_pipeline_limits(configuration: &RungConfiguration) -> Result<(), Failure> {
-    if !(1..=SearchConfiguration::MAX_FUSION_POOL).contains(&configuration.routes_limit) {
-        return Err(Failure::refused(
-            "a rung's routes_limit must be between 1 and 120",
-        ));
-    }
-    if !(1..=SearchConfiguration::MAX_FUSION_POOL).contains(&configuration.identifier_limit) {
-        return Err(Failure::refused(
-            "a rung's identifier_limit must be between 1 and 120",
-        ));
-    }
-    if !(1..=SearchConfiguration::MAX_FUSION_POOL).contains(&configuration.fusion_pool) {
-        return Err(Failure::refused(
-            "a rung's fusion_pool must be between 1 and 120",
-        ));
-    }
-    if configuration
-        .rerank
-        .as_ref()
-        .is_some_and(|rerank| rerank.depth.get() > configuration.fusion_pool)
-    {
-        return Err(Failure::refused(
-            "a rung's rerank depth cannot exceed its fusion pool",
-        ));
-    }
-    Ok(())
-}
-
 /// Refuses a rung whose name cannot name a file or whose configuration search
 /// would refuse.
 fn check_rung(rung: &Rung) -> Result<(), Failure> {
@@ -468,7 +491,16 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             "a rung name is 1 to 64 lower-case letters, digits and dashes",
         ));
     }
+    check_rung_search_settings(rung)?;
+    check_rung_scores_and_cards(rung)
+}
+
+/// Validates budgets and search-only options before execution.
+fn check_rung_search_settings(rung: &Rung) -> Result<(), Failure> {
     let configuration = &rung.configuration;
+    if configuration.routes.graph != GraphSelection::None {
+        return Err(Code::GraphUnavailable.failure());
+    }
     if let Some(budget) = rung.search_budget
         && budget.evidence_bytes > RequestBudget::MAX_EVIDENCE_BUDGET
     {
@@ -482,7 +514,13 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
     if rung.ask.is_some() && rung.search_budget.is_some() {
         return Err(Failure::refused("search_budget requires ask false"));
     }
-    check_intent(configuration)?;
+    check_intent(
+        configuration.intent_expansion,
+        configuration.intent_trigger,
+        configuration.intent_deadline_ms,
+        configuration.intent_rerank_additions,
+        configuration.intent_card.as_deref(),
+    )?;
     configuration
         .evidence()
         .validate()
@@ -495,7 +533,20 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             "search-only evidence settings require ask false",
         ));
     }
-    check_pipeline_limits(configuration)?;
+    check_pipeline_limits(
+        configuration.routes_limit,
+        configuration.identifier_limit,
+        configuration.fusion_pool,
+        configuration
+            .rerank
+            .as_ref()
+            .map(|rerank| rerank.depth.get()),
+    )
+}
+
+/// Validates ranking, reranking and answerer settings.
+fn check_rung_scores_and_cards(rung: &Rung) -> Result<(), Failure> {
+    let configuration = &rung.configuration;
     let routes = configuration.routes;
     if !(routes.dense || routes.lexical || routes.identifier || routes.structured) {
         return Err(Failure::refused(format!(
@@ -555,33 +606,4 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             .map_err(|error| Failure::refused(error.to_string()))?;
     }
     configuration.reranker().map(drop)
-}
-
-/// Checks the opt-in expansion card and bounded model deadline before a run.
-fn check_intent(configuration: &RungConfiguration) -> Result<(), Failure> {
-    if !configuration.intent_trigger.is_valid() {
-        return Err(Failure::refused(
-            "intent confidence threshold must be finite",
-        ));
-    }
-    if !(1..=5000).contains(&configuration.intent_deadline_ms) {
-        return Err(Failure::refused(
-            "intent deadline must be between 1 and 5000 milliseconds",
-        ));
-    }
-    if configuration.intent_rerank_additions > 120 {
-        return Err(Failure::refused(
-            "intent rerank additions must be at most 120",
-        ));
-    }
-    if configuration.intent_expansion == IntentExpansion::Hyde
-        && configuration.intent_card.is_none()
-    {
-        return Err(Failure::refused("hyde requires an explicit intent card"));
-    }
-    if let Some(card) = &configuration.intent_card {
-        Digest::parse(card)
-            .map_err(|_| Failure::refused("intent card must be a SHA-256 digest"))?;
-    }
-    Ok(())
 }

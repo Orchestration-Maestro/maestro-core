@@ -1,11 +1,12 @@
-//! `maestro status`: which services are ready, the kernel, Qdrant and the
-//! model router, and the collections the local principal reads, with their
+//! `maestro status`: which services are ready, the kernel, the local graph,
+//! Qdrant and the model router, and the collections the local principal reads, with their
 //! documents and published generation. It neither creates nor migrates the
 //! kernel, exits 0 whatever is down, and leaves why and what to do to
 //! `maestro doctor`.
 
 use super::{
     check::Check,
+    graph_adapter as graph,
     kernel::{Opened, config_check, database_check},
     services::{
         QDRANT_VARIABLE, ROUTER_VARIABLE, qdrant_check, qdrant_url, router_check, router_url,
@@ -14,6 +15,7 @@ use super::{
 use crate::{
     cli::{output::Output, setup},
     failure::Failure,
+    settings::Session,
 };
 use maestro_kernel::{
     generation::GenerationState,
@@ -30,7 +32,7 @@ const SCHEMA: &str = "maestro-cli/status/1";
 struct StatusDocument<'a> {
     /// [`SCHEMA`].
     schema: &'static str,
-    /// The kernel, Qdrant and the model router, in that order.
+    /// The kernel, embedded graph, Qdrant and model router, in that order.
     services: Vec<ServiceDocument<'a>>,
     /// The collections the local principal reads, in id order.
     collections: Vec<CollectionDocument>,
@@ -71,14 +73,16 @@ struct PublishedDocument {
     points: Option<u64>,
 }
 
-/// Prints which services are ready and the collections the local principal
-/// reads.
+/// Prints services and collections; a preferences error affects only the graph line.
 ///
 /// # Errors
 ///
 /// [`Failure::Failed`] when the kernel's directories cannot be resolved, or
 /// its database, once it opened, cannot be read.
-pub(in crate::cli) fn run(output: Output) -> Result<ExitCode, Failure> {
+pub(in crate::cli) fn run(
+    output: Output,
+    session: Result<&Session, Failure>,
+) -> Result<ExitCode, Failure> {
     let environment = Environment::current();
     let data = paths::data_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let config_dir = paths::config_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
@@ -94,6 +98,7 @@ pub(in crate::cli) fn run(output: Output) -> Result<ExitCode, Failure> {
     };
     let services = [
         kernel,
+        graph::check(&environment, session, read.as_ref()),
         qdrant_check(&qdrant_url(env::var_os(QDRANT_VARIABLE).as_deref()), || {
             setup::readiness(&environment, &setup::Tools::on_path())
         }),

@@ -13,7 +13,10 @@
 //! [`Database::apply_config`](crate::store::Database::apply_config) then
 //! reconciles the local principal's grants with it.
 
-use super::path::{InvalidScope, Scope};
+use super::{
+    path::{InvalidScope, Scope},
+    set::ScopeSet,
+};
 use crate::store;
 use std::{
     collections::BTreeSet,
@@ -38,6 +41,11 @@ pub struct Config {
 }
 
 impl Config {
+    /// Evaluate the current local read policy without reconciling stored grants.
+    pub(crate) fn read_scopes(&self) -> ScopeSet {
+        ScopeSet::new(self.read.clone())
+    }
+
     /// The configuration of [`CONFIG_FILE`] in `config_dir`; one that grants
     /// nothing when the file does not exist.
     ///

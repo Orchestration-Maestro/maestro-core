@@ -7,5 +7,6 @@ mod checks;
 mod connections;
 mod garbage;
 mod graph_migrations;
+mod health;
 mod migrations;
 mod support;

@@ -12,18 +12,22 @@ mod body;
 mod card;
 pub(crate) mod card_types;
 pub mod card_v2;
+mod extract;
 mod fake;
 mod port;
+mod render;
 mod router;
 #[cfg(test)]
 mod tests;
 
 pub use card::{CardError, CardFields, Limits, ModelCard, Role, RouterEntry, SuiteResult};
 pub use card_v2::CardIdentity;
+pub use extract::{extraction_prompt_digest, extraction_system_prompt};
 pub use fake::FakeModels;
 pub use port::{
-    ChatRequest, DEFAULT_CHAT_OUTPUT_TOKENS, Error, MAX_CHAT_OUTPUT_TOKENS, Message, ModelPort,
-    Room, Speaker, reply_cap,
+    Candidate, ChatRequest, DEFAULT_CHAT_OUTPUT_TOKENS, Error, ExtractRequest,
+    MAX_CHAT_OUTPUT_TOKENS, MAX_EXTRACT_OUTPUT_TOKENS, Message, ModelPort, Room, Speaker,
+    reply_cap,
 };
 pub use reqwest::Url;
 pub use router::RouterClient;

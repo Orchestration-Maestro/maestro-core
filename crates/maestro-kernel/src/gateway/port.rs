@@ -5,15 +5,58 @@ use super::{
     card::{CardFields, ModelCard, Role},
     card_v2::{Capability, ControlValue, Sampling, SamplingParameters},
 };
-use crate::artifact::Digest;
+use crate::{
+    artifact::Digest,
+    facts::{EntityName, Object},
+    vocabulary::Predicate,
+};
 use serde::Serialize;
-use serde_json::{Map, Number, Value};
+use serde_json::{Map, Number, Value, json};
 use std::{
     collections::BTreeMap,
     error, fmt,
     future::Future,
     num::{NonZeroU32, NonZeroUsize},
 };
+
+/// One source text submitted for extraction. The gateway fixes authority,
+/// vocabulary, sampling, template controls and output ceiling.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtractRequest {
+    /// The source text, kept private so callers cannot add authority fields.
+    pub(super) input: String,
+}
+
+impl ExtractRequest {
+    /// Makes a request from nonempty source text.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidRequest`] when the input is empty or whitespace.
+    pub fn new(input: &str) -> Result<Self, Error> {
+        if input.trim().is_empty() {
+            return Err(Error::InvalidRequest {
+                reason: "extraction input must not be empty".to_owned(),
+            });
+        }
+        Ok(Self {
+            input: input.to_owned(),
+        })
+    }
+}
+
+/// A typed extraction suggestion with no source authority or approval.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Candidate {
+    /// The typed subject.
+    pub subject: EntityName,
+    /// A claimable predicate from the shared closed vocabulary.
+    pub predicate: Predicate,
+    /// The predicate's typed entity or literal object.
+    pub object: Object,
+    /// Verbatim source text offered only as a quote pointer, never evidence.
+    pub quote: String,
+}
 
 /// The calls a model answers, each bound to the card of the model that
 /// answers it: an embedding needs an embedder's card, a reranking a
@@ -60,6 +103,18 @@ pub trait ModelPort {
         text: &str,
     ) -> impl Future<Output = Result<Vec<u32>, Error>> + Send;
 
+    /// Render the complete chat template, including the assistant generation prefix.
+    /// Adapters without template rendering refuse rather than approximate token counts.
+    fn render_chat(
+        &self,
+        card: &ModelCard,
+        room: Room,
+        request: &ChatRequest,
+    ) -> impl Future<Output = Result<String, Error>> + Send {
+        let _ = (card, room, request);
+        async { Err(Error::Unsupported) }
+    }
+
     /// One buffered reply to an explicitly bounded prompt.
     fn chat(
         &self,
@@ -67,6 +122,17 @@ pub trait ModelPort {
         room: Room,
         request: &ChatRequest,
     ) -> impl Future<Output = Result<String, Error>> + Send;
+
+    /// One bounded, closed-schema extraction from an Extractor card. A
+    /// successful response is a whole set of typed candidates or an error.
+    fn extract(
+        &self,
+        card: &ModelCard,
+        request: &ExtractRequest,
+    ) -> impl Future<Output = Result<Vec<Candidate>, Error>> + Send {
+        let _ = (card, request);
+        async { Err(Error::Unsupported) }
+    }
 }
 
 /// Where a call lets the router load its model when the model is not loaded
@@ -153,7 +219,9 @@ pub enum Error {
         /// refusal.
         message: String,
     },
-    /// The caller's chat request violates the bounded request contract.
+    /// This adapter does not support the requested model-port operation.
+    Unsupported,
+    /// The caller's model request violates its bounded request contract.
     InvalidRequest {
         /// How the request differs.
         reason: String,
@@ -208,9 +276,8 @@ impl fmt::Display for Error {
                 code: None,
                 message,
             } => write!(formatter, "refused with {status}: {message}"),
-            Self::InvalidRequest { reason } => {
-                write!(formatter, "invalid chat request: {reason}")
-            }
+            Self::Unsupported => formatter.write_str("this model-port operation is unsupported"),
+            Self::InvalidRequest { reason } => write!(formatter, "invalid model request: {reason}"),
             Self::Redirected { status } => write!(
                 formatter,
                 "the router answered with redirect {status}, which this gateway never follows"
@@ -274,6 +341,10 @@ pub(super) fn embedder_dimensions(card: &ModelCard) -> Result<NonZeroUsize, Erro
 /// deadline. The router client's 32,768-byte content cap: 2,048 tokens fit it
 /// at 16 bytes per token, four times what text averages.
 pub const MAX_CHAT_OUTPUT_TOKENS: u32 = 2048;
+
+/// The kernel's ceiling on the tokens of one constrained extraction, whatever
+/// the extractor's card declares. Its content bound is 16 bytes per token.
+pub const MAX_EXTRACT_OUTPUT_TOKENS: u32 = 1024;
 
 /// The reply cap of an answerer whose card declares no output limit.
 pub const DEFAULT_CHAT_OUTPUT_TOKENS: u32 = 1024;
@@ -367,14 +438,33 @@ impl ChatRequest {
     pub(super) fn template_values(&self) -> Result<Value, Error> {
         self.chat_template_kwargs
             .iter()
-            .map(|(name, value)| Ok((name.clone(), template_value(value)?)))
+            .map(|(name, value)| Ok((name.clone(), control_value(value)?)))
             .collect::<Result<Map<_, _>, Error>>()
             .map(Value::Object)
     }
 }
 
-/// Converts a validated model-card control to the router's raw template value.
-fn template_value(value: &ControlValue) -> Result<Value, Error> {
+/// Adds every sampling field a card records to a router request `body`.
+pub(super) fn sampling_fields(body: &mut Map<String, Value>, sampling: &SamplingParameters) {
+    for (field, value) in [
+        ("temperature", json!(sampling.temperature)),
+        ("top_p", json!(sampling.top_p)),
+        ("top_k", json!(sampling.top_k)),
+        ("min_p", json!(sampling.min_p)),
+        ("typical_p", json!(sampling.typical_p)),
+        ("repeat_penalty", json!(sampling.repeat_penalty)),
+        ("frequency_penalty", json!(sampling.frequency_penalty)),
+        ("presence_penalty", json!(sampling.presence_penalty)),
+    ] {
+        body.insert(field.to_owned(), value);
+    }
+    if let Some(seed) = sampling.seed {
+        body.insert("seed".to_owned(), json!(seed));
+    }
+}
+
+/// Converts a typed model-card control to the router's raw template value.
+pub(super) fn control_value(value: &ControlValue) -> Result<Value, Error> {
     match value {
         ControlValue::Boolean(value) => Ok(Value::Bool(*value)),
         ControlValue::Integer(value) => Ok(Value::from(*value)),

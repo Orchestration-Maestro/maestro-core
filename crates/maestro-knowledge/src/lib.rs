@@ -27,6 +27,7 @@ pub mod answer;
 pub mod collection;
 pub mod corpus;
 pub mod eval;
+pub mod graph;
 pub mod import;
 pub mod index;
 pub mod lexical;

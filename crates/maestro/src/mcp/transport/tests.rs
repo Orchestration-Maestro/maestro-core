@@ -428,3 +428,24 @@ fn overlong_unterminated_input_is_refused_without_echoing_it() {
         );
     });
 }
+
+#[test]
+fn invalid_request_keeps_pre_cedar_error_bytes() {
+    let runtime = Builder::new_current_thread().enable_all().build().unwrap();
+    run_bounded(&runtime, async {
+        let (server_input, _client_input) = duplex(1024);
+        let (server_output, mut client_output) = duplex(1024);
+        let mut transport = BoundedStdio::new(server_input, server_output);
+        transport.invalid_request(-32600, "Invalid Request");
+        let mut bytes = vec![0; 1024];
+        let count = client_output.read(&mut bytes).await.unwrap();
+        assert_eq!(
+            &bytes[..count],
+            concat!(
+                "{\"error\":{\"code\":-32600,\"message\":\"Invalid Request\"},",
+                "\"id\":null,\"jsonrpc\":\"2.0\"}\n",
+            )
+            .as_bytes()
+        );
+    });
+}

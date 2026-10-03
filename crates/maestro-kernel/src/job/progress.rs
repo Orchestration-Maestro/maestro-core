@@ -12,6 +12,7 @@ use crate::{
     scope::ScopeSet,
     store::Database,
 };
+use rusqlite::Transaction;
 use serde_json::Value;
 use std::time::{Duration, SystemTime};
 use ulid::Ulid;
@@ -35,12 +36,8 @@ impl Database {
         term: Duration,
         data: &Value,
     ) -> Result<Event, Error> {
-        let (renewed, event) = self.write(|transaction| {
-            let job = held(transaction, lease)?;
-            let renewed = renewal(transaction, lease, now, term)?;
-            let event = record_on_stream(transaction, job.id, &job.scope, PROGRESSED, data)?;
-            Ok::<_, Error>((renewed, event))
-        })?;
+        let (renewed, event) =
+            self.write(|transaction| checkpoint(transaction, lease, now, term, data))?;
         *lease = renewed;
         Ok(event)
     }
@@ -65,4 +62,18 @@ impl Database {
         )?;
         Ok(steps.pop())
     }
+}
+
+/// Record progress and renewal within the caller's transaction after checking its fence.
+pub(crate) fn checkpoint(
+    transaction: &Transaction<'_>,
+    lease: &Lease,
+    now: SystemTime,
+    term: Duration,
+    data: &Value,
+) -> Result<(Lease, Event), Error> {
+    let job = held(transaction, lease)?;
+    let renewed = renewal(transaction, lease, now, term)?;
+    let event = record_on_stream(transaction, job.id, &job.scope, PROGRESSED, data)?;
+    Ok((renewed, event))
 }

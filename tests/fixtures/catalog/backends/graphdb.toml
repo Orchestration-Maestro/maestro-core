@@ -1,0 +1,12 @@
+type = "ladybug"
+
+[graphdb]
+buffer_pool_size = 268435456
+max_db_size = 17179869184
+max_num_threads = 2
+
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 models"]
+workflows = ["knowledge"]

@@ -4,9 +4,13 @@
 //! Without `--yes` it previews and changes nothing; a second run with
 //! everything in place changes nothing. It installs on Linux on x86-64, the
 //! reference workstation's platform, and prints the manual steps elsewhere;
-//! where no systemd user manager runs, it is refused before any step.
+//! where no systemd user manager runs, it is refused before any step. Before
+//! it, on every platform, the local graph's directory (FR-S2-022).
 
 mod command;
+pub(super) mod graph;
+#[cfg(feature = "engine")]
+mod graph_engine;
 mod release;
 mod service;
 #[cfg(test)]

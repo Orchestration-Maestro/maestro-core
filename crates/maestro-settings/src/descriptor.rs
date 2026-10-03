@@ -52,6 +52,9 @@ pub enum SettingKind {
         min: i64,
         /// The greatest accepted.
         max: i64,
+        /// Whether positive powers of two are the only accepted integers.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        power_of_two: bool,
         /// Whether `"off"` is accepted too.
         off: bool,
     },
@@ -66,6 +69,9 @@ pub enum SettingKind {
     },
     /// One of `values`.
     Choice {
+        /// Whether the values declare a low-to-high restriction order.
+        #[serde(default)]
+        ordered: bool,
         /// The accepted values.
         values: Texts,
         /// Values named but not available yet, each refused with its reason.
@@ -123,4 +129,7 @@ pub struct SettingDescriptor {
     pub description: Text,
     /// How its layers combine.
     pub class: SettingClass,
+    /// Only central standards may declare this setting in catalog sources.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub standard_only: bool,
 }

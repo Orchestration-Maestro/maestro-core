@@ -2,11 +2,35 @@
 //! changes nothing, an install that refuses a download that is not the
 //! pinned archive before it writes anything, and a machine without a systemd
 //! user manager refused before any step, with exit 2; on any other platform,
-//! the manual steps and exit 2. The install itself, with a small release, is
-//! tested in the crate.
+//! the manual steps and exit 2. The graph's part comes first, alone when the
+//! search service's part is refused or fails. The install itself, with a
+//! small release, is tested in the crate.
 
 use super::support::Home;
+use serde_json::{Value, json};
 use std::path::PathBuf;
+
+/// The graph's part of a run with the graph off, for people.
+const GRAPH_OFF: &str = "Graph: off (graph.engine = none), nothing to do.\n";
+
+/// The graph's part of a document with the graph off.
+fn graph_off() -> Value {
+    json!({"engine": "none", "directory": null, "action": "disabled", "changed": false})
+}
+
+/// Checks that a run with `arguments`, whose search service part was
+/// refused or failed, printed the graph's part alone as `stdout`.
+fn assert_graph_alone(arguments: &[&str], stdout: &str) {
+    if arguments.contains(&"--json") {
+        let document: Value = serde_json::from_str(stdout).unwrap();
+        assert_eq!(
+            document,
+            json!({"schema": "maestro-cli/setup-graph/1", "graph": graph_off()})
+        );
+    } else {
+        assert_eq!(stdout, GRAPH_OFF, "{arguments:?}");
+    }
+}
 
 /// The service's unit in `home`'s configuration home.
 fn unit(home: &Home) -> PathBuf {
@@ -24,7 +48,7 @@ mod linux {
             fakes::{Fakes, SERVED},
             support::{Ended, Home, Running},
         },
-        unit,
+        GRAPH_OFF, assert_graph_alone, graph_off, unit,
     };
     use maestro_kernel::artifact::Digest;
     use serde_json::json;
@@ -53,6 +77,7 @@ mod linux {
         let qdrant = home.data().join("qdrant");
         let preview = run(&home, &fakes, &["setup"]);
         assert_eq!((preview.code, preview.stderr.as_str()), (Some(0), ""));
+        assert!(preview.stdout.starts_with(GRAPH_OFF), "{}", preview.stdout);
         for expected in [
             qdrant.join("bin").join("qdrant").display().to_string(),
             qdrant.join("storage").display().to_string(),
@@ -87,6 +112,7 @@ mod linux {
                 "unit": path(unit(&home)),
                 "http": "127.0.0.1:6333",
                 "grpc": "127.0.0.1:6334",
+                "graph": graph_off(),
                 "steps": ["install", "write_unit", "reload", "enable", "restart"],
                 "changed": false,
             })
@@ -107,7 +133,7 @@ mod linux {
         for arguments in [&["setup"][..], &["setup", "--yes", "--json"]] {
             let refused = run(&home, &fakes, arguments);
             assert_eq!(refused.code, Some(2), "{arguments:?}: {refused:?}");
-            assert_eq!(refused.stdout, "", "{arguments:?}");
+            assert_graph_alone(arguments, &refused.stdout);
             assert!(
                 refused.stderr.contains("[boot]") && refused.stderr.contains("systemd=true"),
                 "{arguments:?}: {refused:?}"
@@ -123,7 +149,7 @@ mod linux {
         let fakes = Fakes::in_home(&home);
         let refused = run(&home, &fakes, &["setup", "--yes", "--json"]);
         assert_eq!(refused.code, Some(1), "{refused:?}");
-        assert_eq!(refused.stdout, "");
+        assert_graph_alone(&["--json"], &refused.stdout);
         assert!(
             refused
                 .stderr
@@ -153,7 +179,7 @@ fn setup_elsewhere_prints_the_manual_steps_and_exits_two() {
     for arguments in [&["setup"][..], &["setup", "--yes", "--json"]] {
         let refused = home.run(arguments);
         assert_eq!(refused.code, Some(2), "{arguments:?}: {refused:?}");
-        assert_eq!(refused.stdout, "", "{arguments:?}");
+        assert_graph_alone(arguments, &refused.stdout);
         assert!(
             refused.stderr.contains("Qdrant 1.19.1") && refused.stderr.contains("maestro doctor"),
             "{arguments:?}: {refused:?}"

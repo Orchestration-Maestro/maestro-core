@@ -1,0 +1,16 @@
+kind = "language"
+name = "rust"
+version = "1.2.3"
+owners = ["@synthetic/knowledge"]
+description = "Synthetic language"
+status = "active"
+technology = "uv"
+quality_profile = "quality-profile:rust/default"
+instructions = ["instructions:rust/rules"]
+starter = ["bootstrap-inventory:rust/starter"]
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]
+requires = []

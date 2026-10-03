@@ -153,3 +153,19 @@ fn a_machine_is_named_by_the_unreserved_characters_of_a_uri_host() {
          '_' and '~' only"
     );
 }
+
+#[test]
+fn envelope_data_keeps_pre_cedar_bytes_and_typed_order() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let mut event = database
+        .record(&imported(STREAM, STREAM, &Value::Null))
+        .unwrap();
+    event.data = serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap();
+    let encoded = serde_json::to_string(&Envelope::new(event, &machine())).unwrap();
+    assert!(encoded.starts_with(r#"{"specversion":"1.0","id":""#));
+    assert_eq!(
+        encoded.split_once("\"data\":").unwrap().1,
+        r#"{"a":0,"z":{"a":1,"z":2}}}"#
+    );
+}

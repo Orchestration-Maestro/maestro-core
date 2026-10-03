@@ -16,6 +16,7 @@ use super::{
 };
 use crate::{
     journal::{Event, NewEvent, event},
+    store::database::HealthDatabase,
     store::{self, Database},
 };
 use rusqlite::{Connection, Transaction, params, types::Type};
@@ -235,6 +236,17 @@ fn remove(transaction: &Transaction<'_>, grant: &Grant<'_>) -> Result<Option<Eve
         return Ok(None);
     }
     journal(transaction, grant, REVOKED).map(Some)
+}
+
+impl HealthDatabase {
+    /// The scopes `principal` may read, queried without writing grants.
+    pub(crate) fn visible(&self, principal: &str) -> Result<ScopeSet, store::Error> {
+        Ok(ScopeSet::new(granted(
+            &self.connection,
+            principal,
+            Right::Read,
+        )?))
+    }
 }
 
 /// The scopes `connection` records `principal` holds `right` on.

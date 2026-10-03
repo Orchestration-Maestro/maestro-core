@@ -14,6 +14,7 @@ const fn flag(key: &'static str) -> SettingDescriptor {
         default: Cow::Borrowed("true"),
         description: Cow::Borrowed("A flag."),
         class: SettingClass::Free,
+        standard_only: false,
     }
 }
 
@@ -94,6 +95,25 @@ fn measured_search_defaults_are_registered() {
 }
 
 #[test]
+fn the_graph_engine_is_off_by_default_and_takes_no_path() {
+    let registry = Registry::built_in().unwrap();
+    assert_eq!(
+        registry.default_of("graph.engine"),
+        Some(&Value::Text("none".to_owned()))
+    );
+    let kind = &registry.get("graph.engine").unwrap().kind;
+    assert_eq!(
+        kind.parse_text("ladybug"),
+        Ok(Value::Text("ladybug".to_owned()))
+    );
+    assert_eq!(
+        kind.parse_text("lbug").unwrap_err().to_string(),
+        "replace graph.engine=lbug with graph.engine=ladybug"
+    );
+    assert!(kind.parse_text("/elsewhere/graph.lbug").is_err());
+}
+
+#[test]
 fn both_rerank_thresholds_accept_negative_values() {
     let registry = Registry::built_in().unwrap();
     for key in ["search.intent.min_top_rerank", "ask.min_rerank_score"] {
@@ -118,12 +138,20 @@ fn descriptors_round_trip_through_serde() {
     let json = serde_json::to_string(BUILT_IN).unwrap();
     let read: Vec<SettingDescriptor> = serde_json::from_str(&json).unwrap();
     assert_eq!(read, BUILT_IN);
+    let mut central = flag("synthetic.central");
+    central.standard_only = true;
+    let encoded = serde_json::to_string(&central).unwrap();
+    assert_eq!(
+        serde_json::from_str::<SettingDescriptor>(&encoded).unwrap(),
+        central
+    );
+    assert!(encoded.contains("\"standard_only\":true"));
     let tone = serde_json::to_value(&BUILT_IN[1]).unwrap();
     assert_eq!(
         tone,
         serde_json::json!({
             "key": "tone",
-            "kind": {"type": "choice", "values": ["brief", "normal", "detailed"]},
+            "kind": {"type": "choice", "ordered": false, "values": ["brief", "normal", "detailed"]},
             "default": "normal",
             "description": BUILT_IN[1].description,
             "class": "free",
@@ -181,6 +209,7 @@ fn new_refuses_kinds_and_defaults_that_cannot_hold_together() {
         min: 5,
         max: 1,
         off: false,
+        power_of_two: false,
     };
     descriptor.default = Cow::Borrowed("3");
     assert_eq!(
@@ -212,6 +241,7 @@ fn new_refuses_kinds_and_defaults_that_cannot_hold_together() {
     }
     let mut descriptor = flag("a");
     descriptor.kind = SettingKind::Choice {
+        ordered: false,
         values: Cow::Borrowed(&[Cow::Borrowed("off"), Cow::Borrowed("gpu")]),
         reserved: Cow::Borrowed(&[ReservedValue {
             value: Cow::Borrowed("gpu"),
@@ -224,6 +254,7 @@ fn new_refuses_kinds_and_defaults_that_cannot_hold_together() {
         "setting \"a\": its values are empty, repeated, or hold a comma"
     );
     descriptor.kind = SettingKind::Choice {
+        ordered: false,
         values: Cow::Borrowed(&[Cow::Borrowed("off"), Cow::Borrowed("gpu")]),
         reserved: Cow::Borrowed(&[ReservedValue {
             value: Cow::Borrowed("cpu"),
@@ -239,35 +270,159 @@ fn new_refuses_kinds_and_defaults_that_cannot_hold_together() {
 }
 
 #[test]
-fn new_refuses_the_classes_s3_resolves_until_its_resolver_lands() {
-    for class in [SettingClass::Bounded, SettingClass::Additive] {
+fn registry_accepts_every_declared_override_class() {
+    for class in [
+        SettingClass::Free,
+        SettingClass::Bounded,
+        SettingClass::Additive,
+        SettingClass::Locked,
+    ] {
         let mut descriptor = flag("a");
         descriptor.class = class;
-        assert_eq!(
-            refusal(&[descriptor]),
-            format!(
-                "setting \"a\": the {} class is resolved by S3's restrictive resolution, \
-                 not yet available",
-                class.name()
-            )
-        );
+        assert!(Registry::new(&[descriptor]).is_ok(), "{}", class.name());
     }
-    let mut locked = flag("a");
-    locked.class = SettingClass::Locked;
-    assert!(Registry::new(&[locked]).is_ok());
 }
-
 #[test]
-fn every_built_in_description_is_one_line_and_every_class_free() {
+fn every_built_in_description_is_one_line_and_classes_match_architecture() {
     for descriptor in BUILT_IN {
         assert!(!descriptor.description.is_empty(), "{}", descriptor.key);
         assert!(!descriptor.description.contains('\n'), "{}", descriptor.key);
-        assert_eq!(descriptor.class, SettingClass::Free, "{}", descriptor.key);
+        let expected = match descriptor.key.as_ref() {
+            "raw_prompt_logging"
+            | "raw_reasoning_logging"
+            | "provider_fallback"
+            | "evidence_validation"
+            | "result_validation"
+            | "discovered_executable_hooks" => SettingClass::Locked,
+            "updates"
+            | "model_profile"
+            | "reasoning_effort"
+            | "ask.output_tokens"
+            | "inference_writers"
+            | "workspace_writers"
+            | "delegation_depth"
+            | "tool_calls"
+            | "workflow.budgets.tokens"
+            | "workflow.budgets.wall_ms"
+            | "workflow.budgets.tool_calls"
+            | "repair_attempts"
+            | "routing_candidates"
+            | "mcp_call_timeout"
+            | "cross_project_memory"
+            | "mcp_apps"
+            | "extensions"
+            | "schedules"
+            | "graphdb.buffer_pool_size"
+            | "graphdb.max_db_size"
+            | "graphdb.max_num_threads" => SettingClass::Bounded,
+            _ => SettingClass::Free,
+        };
+        assert_eq!(descriptor.class, expected, "{}", descriptor.key);
     }
+}
+
+#[test]
+fn catalog_settings_are_appended_without_changing_existing_entries() {
+    let registry = Registry::built_in().unwrap();
+    assert_eq!(BUILT_IN[1].key, "tone");
+    for (key, default) in [
+        ("updates", "propose"),
+        ("model_profile", "balanced"),
+        ("reasoning_effort", "default"),
+        ("inference_writers", "1"),
+        ("workspace_writers", "1"),
+        ("delegation_depth", "2"),
+        ("tool_calls", "40"),
+        ("repair_attempts", "2"),
+        ("routing_candidates", "3"),
+        ("mcp_call_timeout", "30000"),
+        ("cross_project_memory", "false"),
+        ("mcp_apps", "false"),
+        ("extensions", "false"),
+        ("schedules", "false"),
+        ("raw_prompt_logging", "false"),
+        ("raw_reasoning_logging", "false"),
+        ("provider_fallback", "none"),
+        ("evidence_validation", "true"),
+        ("result_validation", "true"),
+        ("discovered_executable_hooks", "false"),
+    ] {
+        assert_eq!(registry.get(key).unwrap().default, default, "{key}");
+    }
+    assert!(registry.get("max_output_tokens").is_none());
+    assert!(registry.get("ask.output_tokens").is_some());
+}
+
+#[test]
+fn workflow_budget_descriptors_keep_ask_limit_separate() {
+    let registry = Registry::built_in().unwrap();
+    for (key, min, max, default) in [
+        ("workflow.budgets.tokens", 0, 2_147_483_647, "2147483647"),
+        ("workflow.budgets.wall_ms", 1, 2_147_483_647, "1800000"),
+        (
+            "workflow.budgets.tool_calls",
+            0,
+            2_147_483_647,
+            "2147483647",
+        ),
+    ] {
+        let descriptor = registry.get(key).unwrap();
+        assert_eq!(descriptor.class, SettingClass::Bounded);
+        assert_eq!(descriptor.default, default);
+        assert_eq!(
+            descriptor.kind,
+            SettingKind::Integer {
+                min,
+                max,
+                off: false,
+                power_of_two: false
+            }
+        );
+        for accepted in [min, max] {
+            assert_eq!(
+                descriptor.kind.parse_text(&accepted.to_string()).unwrap(),
+                Value::Integer(accepted)
+            );
+        }
+        for refused in [
+            (min - 1).to_string(),
+            (max + 1).to_string(),
+            "off".to_owned(),
+            "1.0".to_owned(),
+        ] {
+            assert!(
+                descriptor.kind.parse_text(&refused).is_err(),
+                "{key} accepted {refused}"
+            );
+        }
+    }
+    let ask = registry.get("tool_calls").unwrap();
+    assert_eq!(ask.default, "40");
+    assert!(ask.description.contains("per ask run"));
+    assert_eq!(ask.kind.parse_text("40").unwrap(), Value::Integer(40));
+    assert!(ask.kind.parse_text("41").is_err());
+    assert!(registry.get("workflow.budgets.cost").is_none());
+    assert!(registry.get("workflow.budgets.cost_units").is_none());
 }
 
 #[test]
 fn rerank_header_is_not_a_registered_setting() {
     let registry = Registry::built_in().unwrap();
     assert!(registry.get("search.rerank.header").is_none());
+}
+
+#[test]
+fn integer_power_of_two_preserves_existing_descriptor_output() {
+    let legacy = r#"{"type":"integer","min":1,"max":64,"off":false}"#;
+    let kind: SettingKind = serde_json::from_str(legacy).unwrap();
+    assert_eq!(serde_json::to_string(&kind).unwrap(), legacy);
+    let power = SettingKind::Integer {
+        min: 1,
+        max: 64,
+        off: false,
+        power_of_two: true,
+    };
+    let text = serde_json::to_string(&power).unwrap();
+    assert!(text.contains("\"power_of_two\":true"));
+    assert_eq!(serde_json::from_str::<SettingKind>(&text).unwrap(), power);
 }

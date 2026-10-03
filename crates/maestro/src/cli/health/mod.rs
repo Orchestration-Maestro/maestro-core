@@ -1,12 +1,22 @@
 //! The machine's checks (plan D14, FR-S1-015): the kernel's configuration,
-//! database and artifact tree, the search service setup installs, the model
-//! router and each role's model card. `maestro doctor` reports every check,
-//! each failure with its next action, and `maestro status` summarizes which
-//! services and collections are ready.
+//! database and artifact tree, the local graph (FR-S2-022), the search
+//! service setup installs, the model router and each role's model card.
+//! `maestro doctor` reports every check, each failure with its next action,
+//! and `maestro status` summarizes which services and collections are ready.
 
 mod check;
 pub(super) mod doctor;
 mod findings;
+mod graph;
+#[cfg(not(feature = "engine"))]
+mod graph_absent;
+mod graph_failure;
+#[cfg(feature = "engine")]
+mod graph_native;
+#[cfg(not(feature = "engine"))]
+use graph_absent as graph_adapter;
+#[cfg(feature = "engine")]
+use graph_native as graph_adapter;
 mod kernel;
 mod services;
 mod settings;

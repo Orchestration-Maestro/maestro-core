@@ -528,3 +528,21 @@ async fn a_router_that_hangs_up_is_a_transport_error() {
     assert!(error.to_string().contains("router"), "{error}");
     assert!(error.source().is_some());
 }
+
+#[tokio::test]
+async fn router_tokenizer_request_keeps_pre_cedar_bytes() {
+    let (stub, client) = serve("embed", "tokenize", answer(200, &json!({"tokens": [1]})));
+    client
+        .tokenize(&card(Role::Embedder), Room::Free, "synthetic")
+        .await
+        .unwrap();
+    let requests = stub.requests();
+    let posted = requests
+        .iter()
+        .find(|request| request.method == "POST")
+        .unwrap();
+    assert_eq!(
+        posted.body.to_string(),
+        r#"{"add_special":true,"content":"synthetic","parse_special":true}"#
+    );
+}

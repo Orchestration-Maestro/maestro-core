@@ -3,7 +3,7 @@
 
 use super::{
     error::Error,
-    migration::{MIGRATIONS, migrate, pending},
+    migration::{MIGRATIONS, migrate, pending, preflight},
 };
 use crate::{
     artifact::Store,
@@ -69,6 +69,34 @@ impl Database {
         Self::open(&data.join(FILE), &data.join("artifacts"))
     }
 
+    /// [`Database::open_in`] with the binary's migrations numbered below
+    /// `migration` alone: the database an older binary left.
+    #[cfg(test)]
+    pub(crate) fn open_before(data: &Path, migration: &str) -> Result<Self, Error> {
+        let older: Vec<_> = MIGRATIONS
+            .iter()
+            .copied()
+            .filter(|(name, _)| *name < migration)
+            .collect();
+        Self::open_with(&data.join(FILE), &data.join("artifacts"), &older)
+    }
+
+    /// Open an existing database read-only; never create, migrate or write authority.
+    /// SQLite may create only this database's WAL sidecars.
+    pub(crate) fn open_read_only(data: &Path) -> Result<Self, Error> {
+        let database = data.join(FILE);
+        let path = path::absolute(&database).map_err(|source| io_error(&database, source))?;
+        let reader = configured(Connection::open_with_flags(
+            &path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?)?;
+        Ok(Self {
+            writer: Mutex::new(reader),
+            path,
+            artifacts: Store::new(data.join("artifacts")),
+        })
+    }
+
     /// [`Database::open`] with `migrations` in place of the binary's own.
     pub(super) fn open_with(
         database: &Path,
@@ -76,6 +104,13 @@ impl Database {
         migrations: &[(&str, &str)],
     ) -> Result<Self, Error> {
         let path = path::absolute(database).map_err(|source| io_error(database, source))?;
+        if path.exists() {
+            let reader = configured(Connection::open_with_flags(
+                &path,
+                OpenFlags::SQLITE_OPEN_READ_ONLY,
+            )?)?;
+            preflight(&reader, migrations)?;
+        }
         create_file(&path)?;
         // Without SQLite's create flag: a file the link failed to make is an
         // error, never a new database anyone could read.
@@ -154,7 +189,8 @@ impl Database {
     }
 
     /// A connection of its own that only reads, and sees the last commit,
-    /// never a write in progress.
+    /// never a write in progress. It preserves authority and database bytes, but
+    /// SQLite may create this database's `-wal` and `-shm` sidecars.
     ///
     /// # Errors
     ///
@@ -188,6 +224,51 @@ pub fn pending_migrations(data: &Path) -> Result<Vec<&'static str>, Error> {
         .into_iter()
         .map(|(name, _)| name)
         .collect())
+}
+
+/// A kernel connection opened read-only for health checks.
+#[derive(Debug)]
+pub(crate) struct HealthDatabase {
+    /// The checked, read-only database connection. Health never writes grants or migrations.
+    pub(crate) connection: Connection,
+}
+
+/// Outcome of checking kernel readiness without creating or migrating it.
+#[derive(Debug)]
+pub(crate) enum HealthOpen {
+    /// No kernel database file exists.
+    Missing,
+    /// The file is valid but lacks migrations this binary requires.
+    NeedsMigration(Vec<&'static str>),
+    /// The existing kernel is current and held read-only.
+    Ready(HealthDatabase),
+}
+
+/// Open an existing kernel for health without creating files, migrating, or applying grants.
+/// An existing WAL database may create or retain its `-wal` and `-shm` sidecars.
+///
+/// # Errors
+/// Returns [`Error::UnknownMigration`] for a schema newer than this binary, or a store error
+/// when the existing file cannot be read.
+pub(crate) fn open_health_in(data: &Path) -> Result<HealthOpen, Error> {
+    let path = path::absolute(data.join(FILE)).map_err(|source| io_error(data, source))?;
+    if !path
+        .try_exists()
+        .map_err(|source| io_error(&path, source))?
+    {
+        return Ok(HealthOpen::Missing);
+    }
+    let connection = configured(Connection::open_with_flags(
+        &path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )?)?;
+    let pending = pending(&connection, MIGRATIONS)?;
+    if !pending.is_empty() {
+        return Ok(HealthOpen::NeedsMigration(
+            pending.into_iter().map(|(name, _)| name).collect(),
+        ));
+    }
+    Ok(HealthOpen::Ready(HealthDatabase { connection }))
 }
 
 /// `connection` with the settings every connection of the kernel has: a 5 s

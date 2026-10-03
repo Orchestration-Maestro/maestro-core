@@ -5,6 +5,7 @@ use maestro_canonicalization::{
     CanonicalizeInput, Error, ExtractorBlock, ParserOptions, SourceMetadata, ValidationStatus,
     canonicalize, save_document,
 };
+use maestro_kernel::json::canonical;
 use serde::Deserialize;
 use std::{
     collections::BTreeMap,
@@ -131,7 +132,7 @@ pub(crate) fn run(args: &Args) -> Result<ValidationStatus, Error> {
     });
     println!(
         "{}",
-        serde_json::to_string(&summary).map_err(|error| Error(error.to_string()))?
+        serde_json::to_string(&canonical(summary)).map_err(|error| Error(error.to_string()))?
     );
     Ok(doc.validation_status)
 }
