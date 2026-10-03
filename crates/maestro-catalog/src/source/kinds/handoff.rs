@@ -19,9 +19,9 @@ pub(super) fn descriptor() -> KindDescriptor {
         version: 1,
         directory: "handoffs".to_owned(),
         scopes: vec![Scope::Core, Scope::Team],
-        layout: Layout::Files {
-            suffix: ".handoff.md".to_owned(),
-            folders: vec![String::new()],
+        layout: Layout::Folder {
+            file: "handoff.md".to_owned(),
+            data: vec![],
         },
         format: Format::Markdown,
         metadata: MetadataPlace::Sidecar {

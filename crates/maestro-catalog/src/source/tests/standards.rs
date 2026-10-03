@@ -17,7 +17,7 @@ fn standard(name: &str, rule: &str) -> String {
 }
 
 /// One inert machine check referencing its own standard's rule.
-fn machine_check() -> &'static str {
+pub(super) fn machine_check() -> &'static str {
     "name = \"shape\"\nrules = [\"SEC-001\"]\nvalidator = \"area-package\"\n\
      applicability = [\"all\"]\ninputs = [\"skill:common/valid-skill\"]\n\
      evidence = [\"shape-report\"]\nrefusals = [\"invalid-shape\"]\n\

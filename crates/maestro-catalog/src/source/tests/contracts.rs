@@ -19,7 +19,7 @@ macro_rules! fixture {
 }
 
 /// A common prompt and eval, plus a core handoff using common contracts.
-fn valid() -> MemoryTree {
+pub(super) fn valid() -> MemoryTree {
     let metadata = fixture!("input.maestro.toml").replace(
         "requires = []",
         "requires = [\"contract:common/input\", \"contract:common/output\"]",
@@ -28,15 +28,12 @@ fn valid() -> MemoryTree {
         .with("prompts/synthetic.prompt.md", fixture!("prompt-valid.md"))
         .with("prompts/synthetic.maestro.toml", &metadata)
         .with(
-            "core/handoffs/synthetic.handoff.md",
-            fixture!("handoff-valid.md"),
+            "core/handoffs/synthetic/handoff.md",
+            fixture!("handoffs/synthetic/handoff.md"),
         )
         .with(
-            "core/handoffs/synthetic.maestro.toml",
-            &metadata.replace(
-                "\"contract:common/input\",",
-                "\"agent:core/valid\", \"contract:common/input\",",
-            ),
+            "core/handoffs/synthetic/handoff.maestro.toml",
+            fixture!("handoffs/synthetic/handoff.maestro.toml"),
         )
         .with("contracts/input.schema.json", fixture!("input.schema.json"))
         .with(
@@ -53,6 +50,18 @@ fn valid() -> MemoryTree {
         )
         .with("evals/synthetic.toml", fixture!("eval-valid.toml"))
         .with("evals/eval-cases.json", fixture!("eval-cases.json"))
+        .with("evals/eval-inputs.json", fixture!("eval-inputs.json"))
+        .with("evals/eval-outputs.json", fixture!("eval-outputs.json"))
+        .with(
+            "standards/security/package.toml",
+            &super::area_packages::package_source("package", "security")
+                .replace("kind = \"package\"", "kind = \"standard\"")
+                .replace("[metadata]", "rules = [\"SEC-001\"]\n[metadata]"),
+        )
+        .with(
+            "standards/security/checks/shape.toml",
+            super::standards::machine_check(),
+        )
 }
 
 #[test]
@@ -75,7 +84,14 @@ fn common_contract_reference_accepts() {
         .iter()
         .find(|resource| resource.id.kind == "eval-case")
         .unwrap();
-    assert_eq!(eval.data, ["evals/eval-cases.json"]);
+    assert_eq!(
+        eval.data,
+        [
+            "evals/eval-inputs.json",
+            "evals/eval-cases.json",
+            "evals/eval-outputs.json"
+        ]
+    );
 }
 
 #[test]
@@ -110,17 +126,17 @@ fn handoff_missing_section_refuses() {
         assert_refused(vec![(
             "missing section",
             valid().edit(
-                "core/handoffs/synthetic.handoff.md",
+                "core/handoffs/synthetic/handoff.md",
                 &format!("## {section}"),
                 &format!("### {section}"),
             ),
-            "core/handoffs/synthetic.handoff.md: body: expected the sections",
+            "core/handoffs/synthetic/handoff.md: body: expected the sections",
         )]);
     }
     assert_refused(vec![(
         "empty section",
         valid().edit(
-            "core/handoffs/synthetic.handoff.md",
+            "core/handoffs/synthetic/handoff.md",
             "Return the declared output shape.",
             "",
         ),
@@ -152,7 +168,7 @@ fn external_contract_reference_refuses() {
     check_under(&valid(), &Limits::PRODUCTION).unwrap();
     for path in [
         "prompts/synthetic.prompt.md",
-        "core/handoffs/synthetic.handoff.md",
+        "core/handoffs/synthetic/handoff.md",
         "evals/synthetic.toml",
     ] {
         for reference in [
@@ -185,7 +201,7 @@ fn dangling_contract_refuses() {
     check_under(&valid(), &Limits::PRODUCTION).unwrap();
     for path in [
         "prompts/synthetic.prompt.md",
-        "core/handoffs/synthetic.handoff.md",
+        "core/handoffs/synthetic/handoff.md",
         "evals/synthetic.toml",
     ] {
         for field in ["input", "output"] {
@@ -214,18 +230,18 @@ fn c64_strict_fields_bodies_and_handoff_agents_refuse() {
             "description: missing",
         ),
         (
-            "core/handoffs/synthetic.handoff.md",
+            "core/handoffs/synthetic/handoff.md",
             "sender: agent:core/valid\n",
             "sender: missing",
         ),
         (
-            "core/handoffs/synthetic.handoff.md",
+            "core/handoffs/synthetic/handoff.md",
             "recipient: agent:core/valid\n",
             "recipient: missing",
         ),
         (
             "evals/synthetic.toml",
-            "cases = \"eval-cases.json\"\n",
+            "cases = [\"eval-cases.json\"]\n",
             "cases: missing",
         ),
     ] {
@@ -257,7 +273,7 @@ fn c64_strict_fields_bodies_and_handoff_agents_refuse() {
         (
             "wrong agent kind",
             valid().edit(
-                "core/handoffs/synthetic.handoff.md",
+                "core/handoffs/synthetic/handoff.md",
                 "sender: agent:core/valid",
                 "sender: contract:common/input",
             ),
@@ -266,7 +282,7 @@ fn c64_strict_fields_bodies_and_handoff_agents_refuse() {
         (
             "undeclared recipient",
             valid().edit(
-                "core/handoffs/synthetic.handoff.md",
+                "core/handoffs/synthetic/handoff.md",
                 "recipient: agent:core/valid",
                 "recipient: agent:core/absent",
             ),
@@ -348,7 +364,7 @@ fn c64_descriptors_loaded_from_data_retain_hooks() {
             (
                 "handoff hook",
                 valid().edit(
-                    "core/handoffs/synthetic.handoff.md",
+                    "core/handoffs/synthetic/handoff.md",
                     "## Acceptance",
                     "### Acceptance",
                 ),

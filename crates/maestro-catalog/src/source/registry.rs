@@ -196,9 +196,12 @@ fn shape_problem(descriptor: &KindDescriptor) -> Option<String> {
     } else if descriptor.version == 0 {
         "its version must be 1 or more".to_owned()
     } else if matches!(descriptor.metadata, MetadataPlace::Sidecar { .. })
-        && !matches!(descriptor.layout, Layout::Files { .. })
+        && !matches!(
+            descriptor.layout,
+            Layout::Files { .. } | Layout::Folder { .. }
+        )
     {
-        "a sidecar pairs only with the files layout".to_owned()
+        "a sidecar pairs only with the files or folder layout".to_owned()
     } else if descriptor.body && descriptor.format != Format::Markdown {
         "only a Markdown kind has a body".to_owned()
     } else if descriptor.lifecycle.contains(&Maturity::Qualified) {

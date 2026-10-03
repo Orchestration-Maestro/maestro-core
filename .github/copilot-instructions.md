@@ -652,6 +652,7 @@ in place.
 │   │   │   │   │   ├── bounds.rs                                            # D2's source limits at small injected values: each exact boundary passes
 │   │   │   │   │   ├── codeowners.rs                                        # C35 rendering, exact drift comparison and protected last-match neighbours
 │   │   │   │   │   ├── contracts.rs                                         # Prompt, handoff and eval declarations through the real source checker
+│   │   │   │   │   ├── contracts_eval.rs                                    # C64 folder handoffs and complete inert eval declarations
 │   │   │   │   │   ├── coverage.rs                                          # Refusals each guard owns alone: tool names and lists, agent sections
 │   │   │   │   │   ├── directory.rs                                         # The filesystem adapter: a bounded read, links never followed, and a
 │   │   │   │   │   ├── extension.rs                                         # The owner's scaling requirement: a new kind is one descriptor plus
@@ -1770,9 +1771,14 @@ in place.
 │       │   ├── codeowners/                                                  # Codeowners
 │       │   │   └── CODEOWNERS                                               # Who reviews each path
 │       │   ├── contracts/                                                   # Contracts
+│       │   │   ├── handoffs/                                                # Handoffs
+│       │   │   │   └── synthetic/                                           # Synthetic
+│       │   │   │       ├── handoff.maestro.toml                             # TOML settings: handoff.maestro
+│       │   │   │       └── handoff.md                                       # Synthetic handoff
 │       │   │   ├── eval-cases.json                                          # JSON data: eval cases
+│       │   │   ├── eval-inputs.json                                         # JSON data: eval inputs
+│       │   │   ├── eval-outputs.json                                        # JSON data: eval outputs
 │       │   │   ├── eval-valid.toml                                          # TOML settings: eval valid
-│       │   │   ├── handoff-valid.md                                         # Synthetic handoff
 │       │   │   ├── input.maestro.toml                                       # TOML settings: input.maestro
 │       │   │   ├── input.schema.json                                        # JSON data: input.schema
 │       │   │   ├── output.maestro.toml                                      # TOML settings: output.maestro

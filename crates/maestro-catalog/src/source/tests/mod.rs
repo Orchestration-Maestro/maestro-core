@@ -13,6 +13,7 @@ mod backends;
 mod bounds;
 mod codeowners;
 mod contracts;
+mod contracts_eval;
 mod coverage;
 mod directory;
 mod extension;

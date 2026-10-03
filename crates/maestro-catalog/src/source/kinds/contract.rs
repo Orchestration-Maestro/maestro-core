@@ -53,7 +53,12 @@ pub(super) fn reference(resource: &Resource, key: &str, kind: &str, problems: &m
         ));
         return;
     };
-    if !resource.metadata.requires.contains(&id) {
+    declared(resource, key, &id, problems);
+}
+
+/// Shared declaration membership; the catalog resolver checks the target.
+pub(super) fn declared(resource: &Resource, key: &str, id: &ResourceId, problems: &mut Problems) {
+    if !resource.metadata.requires.contains(id) {
         problems.push((
             key.to_owned(),
             format!("{id} must be declared in metadata.requires"),

@@ -113,7 +113,7 @@ fn registry_refuses_a_descriptor_that_contradicts_itself() {
                     suffix: ".maestro.toml".to_owned(),
                 };
             },
-            "kind glossary: a sidecar pairs only with the files layout",
+            "kind glossary: a sidecar pairs only with the files or folder layout",
         ),
         (
             "body of a TOML kind",
