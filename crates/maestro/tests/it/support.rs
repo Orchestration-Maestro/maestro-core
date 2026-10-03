@@ -23,10 +23,12 @@ use std::{
 };
 
 /// How long a test waits for the binary to print a line or to end before it
-/// kills it and fails: long enough for a slow CI host, and shorter than the
-/// 20 s a mutation test is given at least, so that a binary that hangs fails
-/// its test instead of timing out.
-const DEADLINE: Duration = Duration::from_secs(15);
+/// kills it and fails. It guards against a hang and does not measure speed:
+/// a loaded Windows runner took more than 15 s to end a quality gate job. A
+/// mutation run allows five times its baseline test time, minutes for these
+/// tests, so a binary that hangs still fails its test before the run times
+/// it out.
+const DEADLINE: Duration = Duration::from_secs(60);
 
 /// The kind of the job `knowledge import` runs.
 pub(crate) const IMPORT: &str = "knowledge.import";
