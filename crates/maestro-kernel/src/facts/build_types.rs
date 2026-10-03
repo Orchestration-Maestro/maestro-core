@@ -88,6 +88,14 @@ pub struct ProjectionReceipt {
     pub generation_id: i64,
     /// Kernel-authoritative claim set this file represents.
     pub claim_set_id: Digest,
+    /// Frozen source-backed resolution snapshot.
+    pub resolution_id: Digest,
+    /// Exact supported resolver algorithm.
+    pub resolver_version: String,
+    /// Versioned identity of admitted typed engine settings.
+    pub settings_identity: Digest,
+    /// Complete admitted frozen non-resource lock digest.
+    pub frozen_lock: Digest,
     /// Single owned filename; it is never a caller-supplied path.
     pub file_name: String,
     /// Projection schema checked after close/reopen.

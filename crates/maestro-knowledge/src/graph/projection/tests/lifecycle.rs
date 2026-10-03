@@ -3,6 +3,8 @@ use crate::graph::projection::EngineSettings;
 #[cfg(feature = "engine")]
 use crate::graph::{descriptors::tests_source::Authority, projection::ProjectionBuild};
 use maestro_kernel::artifact::Digest;
+use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::facts::ResolutionInput;
 #[cfg(feature = "engine")]
 use std::time::SystemTime;
 
@@ -159,9 +161,28 @@ fn authority_build() -> (Authority, ProjectionBuild, SystemTime) {
         .database
         .take_job(job.id, "producer", now, Duration::from_secs(60))
         .unwrap();
+    let resolution = authority
+        .database
+        .record_resolution(
+            &authority.scopes,
+            "builder",
+            &ResolutionInput {
+                resolver_version: EXACT_RESOLVER_VERSION.into(),
+                sets: vec![set.clone()],
+                previous: None,
+                decisions: vec![],
+            },
+            &|_| Ok(()),
+        )
+        .unwrap()
+        .id;
     let build = ProjectionBuild {
         scope,
         claim_set_id: set,
+        resolution_id: resolution,
+        resolver_version: EXACT_RESOLVER_VERSION.into(),
+        settings_identity: factory_settings().identity(),
+        frozen_lock: factory_settings().frozen_lock().clone(),
         lease,
     };
     (authority, build, now)
@@ -245,4 +266,34 @@ fn lifecycle_expected_scope_requires_a_valid_collection_and_positive_generation(
             .fact_count,
         1
     );
+}
+
+#[test]
+fn graph_settings_identity_has_versioned_golden_bytes_and_excludes_lock() {
+    let settings =
+        EngineSettings::new(16 * 1024 * 1024, 64 * 1024 * 1024, 1, Digest::of(b"lock")).unwrap();
+    assert_eq!(
+        settings.identity().as_str(),
+        "1a6d9ce2eea2d3ade7e79aa7f34f3119df9bdba04429f182c5aee5ba7540fd14"
+    );
+    let changed_lock = EngineSettings::new(
+        16 * 1024 * 1024,
+        64 * 1024 * 1024,
+        1,
+        Digest::of(b"other lock"),
+    )
+    .unwrap();
+    assert_eq!(settings.identity(), changed_lock.identity());
+    for (pool, size, threads) in [
+        (32 * 1024 * 1024, 64 * 1024 * 1024, 1),
+        (16 * 1024 * 1024, 128 * 1024 * 1024, 1),
+        (16 * 1024 * 1024, 64 * 1024 * 1024, 2),
+    ] {
+        assert_ne!(
+            settings.identity(),
+            EngineSettings::new(pool, size, threads, Digest::of(b"lock"))
+                .unwrap()
+                .identity()
+        );
+    }
 }

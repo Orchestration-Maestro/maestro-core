@@ -1,12 +1,12 @@
 //! Fixed, actionable public diagnostics for typed knowledge health failures.
 
 use super::check::Check;
+use maestro_kernel::facts::{InputMismatchKind, PROJECTION_REBUILD_REPAIR};
 use maestro_knowledge::graph::projection::health::ProbeError;
 use std::path::Path;
 
 /// A projection is disposable, but authority and artifacts must be preserved.
-pub(super) const REBUILD: &str = "keep the files as they are, and rebuild the projection from the \
-    kernel's database and artifacts, offline";
+pub(super) const REBUILD: &str = PROJECTION_REBUILD_REPAIR;
 
 /// Never expose raw native diagnostics (which can contain private paths).
 pub(super) fn failed(path: &Path, error: &ProbeError) -> Check {
@@ -14,7 +14,16 @@ pub(super) fn failed(path: &Path, error: &ProbeError) -> Check {
         ProbeError::NotActivated => (
             "graph.engine = ladybug is configured but not activated",
             "use a maestro with the frozen graphdb settings activation \
-                handoff (G27 E07a), or set graph.engine to none",
+                handoff, or set graph.engine to none",
+        ),
+        ProbeError::InputMismatch(kind) => (
+            match kind {
+                InputMismatchKind::Settings => "published graph input pins mismatch (settings)",
+                InputMismatchKind::Lock => "published graph input pins mismatch (lock)",
+                InputMismatchKind::Resolution => "published graph input pins mismatch (resolution)",
+                InputMismatchKind::Format => "published graph input pins mismatch (format)",
+            },
+            REBUILD,
         ),
         ProbeError::InvalidSettings => (
             "explicit graphdb settings are invalid",
@@ -70,10 +79,7 @@ pub(super) fn failed(path: &Path, error: &ProbeError) -> Check {
             "the graph file opens but does not answer or validate, likely corrupt",
             REBUILD,
         ),
-        ProbeError::InventoryUnreadable => (
-            "the projection receipt cannot be read",
-            "check the kernel's database with `maestro doctor`, then rebuild the projection",
-        ),
+        ProbeError::InventoryUnreadable => ("the projection receipt cannot be read", REBUILD),
     };
     Check::failed("graph", &path.display().to_string(), problem, repair)
 }

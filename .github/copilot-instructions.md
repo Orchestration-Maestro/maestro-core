@@ -838,7 +838,8 @@ in place.
 │   │   │   ├── 0016_extractor_role.sql                                      # File: 0016 extractor role
 │   │   │   ├── 0017_unit_graphs.sql                                         # File: 0017 unit graphs
 │   │   │   ├── 0018_retrieval_representations.sql                           # File: 0018 retrieval representations
-│   │   │   └── 0019_graph_projection.sql                                    # File: 0019 graph projection
+│   │   │   ├── 0019_graph_projection.sql                                    # File: 0019 graph projection
+│   │   │   └── 0030_graph_input_pins.sql                                    # File: 0030 graph input pins
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -918,6 +919,7 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Tests of claims: admitting a verified set or nothing, reading it back
 │   │   │   │   │   ├── projection.rs                                        # Rust source: projection
 │   │   │   │   │   ├── projection_lease.rs                                  # Exact caller-clock project expiry, fencing, scope and renewal checks
+│   │   │   │   │   ├── projection_pins.rs                                   # Durable pin decoding, resolution authority and append-only migration proofs
 │   │   │   │   │   ├── resolution.rs                                        # Immutable sourced resolution snapshots and current-grant checks
 │   │   │   │   │   ├── resolution_guards.rs                                 # Frozen reviews, request coverage and rowid replacement regressions
 │   │   │   │   │   ├── schema.rs                                            # What the schema refuses whoever writes: replacing, changing or deleting
@@ -932,6 +934,8 @@ in place.
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to admit or read claims
 │   │   │   │   ├── mod.rs                                                   # The knowledge graph's authority (specs/002-knowledge-graph, FR-S2-002 and
 │   │   │   │   ├── projection.rs                                            # Kernel-controlled verification receipts for immutable graph projections
+│   │   │   │   ├── projection_binding.rs                                    # Shared immutable projection input vocabulary and safe repair text
+│   │   │   │   ├── projection_inputs.rs                                     # Scoped authoritative preflight for explicitly pinned projection resolutions
 │   │   │   │   ├── quote.rs                                                 # Verifying a claim's support from the authority: the revision is one the
 │   │   │   │   ├── read.rs                                                  # Reading a claim set: whole, or not at all when the caller's scopes do not
 │   │   │   │   ├── resolve.rs                                               # Immutable source-backed identity review snapshots over frozen claim sets
@@ -1310,6 +1314,8 @@ in place.
 │   │   │   │   │   │   ├── codec_tests.rs                                   # Synthetic canonical fact-vector and malformed-byte checks
 │   │   │   │   │   │   ├── config.rs                                        # The single native translation of caller-owned frozen graph settings
 │   │   │   │   │   │   ├── holder_fence_tests.rs                            # Holder credentials refuse before reservation, without changing authoritative state
+│   │   │   │   │   │   ├── input_pins.rs                                    # Native build stamps and comparison with independently persisted readiness pins
+│   │   │   │   │   │   ├── input_pins_tests.rs                              # Cold native opens bind durable stamps, not just live process registry entries
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── open.rs                                          # The native adapter's single rooted construction boundary
 │   │   │   │   │   │   ├── probe.rs                                         # Guarded read-only graph health bridge, bypassing the native handle registry
@@ -1332,6 +1338,7 @@ in place.
 │   │   │   │   │   ├── tests/                                               # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── writer/                                          # Writer
 │   │   │   │   │   │   │   └── extra.rs                                     # Additional validation cases for the generic projection writer
+│   │   │   │   │   │   ├── binding.rs                                       # Admission comparisons independent of native files or a warm handle registry
 │   │   │   │   │   │   ├── cleanup.rs                                       # Cleanup policy: authorization first, immutable receipts retained, no engine required
 │   │   │   │   │   │   ├── cleanup_boundaries.rs                            # Valid neighbours for cleanup state, authority and leaf-boundary refusals
 │   │   │   │   │   │   ├── cleanup_process.rs                               # Independent processes synchronize over pipes, never sleeps
@@ -1339,11 +1346,13 @@ in place.
 │   │   │   │   │   │   ├── content_fields.rs                                # Each full-record field must affect durable projection verification
 │   │   │   │   │   │   ├── contract.rs                                      # Backend-generic projection writer contract; adapters call this unchanged
 │   │   │   │   │   │   ├── contract_reads.rs                                # Ordered application-ID reads and exact scope/family pin contract for every backend
+│   │   │   │   │   │   ├── import.rs                                        # Frozen snapshot membership and endpoint derivation for the single loader
 │   │   │   │   │   │   ├── lifecycle.rs                                     # Public lifecycle refusals paired with valid neighboring configurations
 │   │   │   │   │   │   ├── mod.rs                                           # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── port.rs                                          # Rust source: port
 │   │   │   │   │   │   └── projection_writer.rs                             # Backend-neutral projection writer and reader contract tests
 │   │   │   │   │   ├── access.rs                                            # Permanent root-wide access and writer guards; no fallback lock domain
+│   │   │   │   │   ├── binding.rs                                           # Durable input identity comparison shared by producer, reader and health
 │   │   │   │   │   ├── build.rs                                             # Backend-neutral authoritative build inputs and successful publication result
 │   │   │   │   │   ├── cancellation.rs                                      # Explicit read cancellation without a timeout, polling interval or detached native handle
 │   │   │   │   │   ├── cleanup.rs                                           # Reader-safe, single-receipt cleanup; native engine code is never opened here
@@ -1351,6 +1360,7 @@ in place.
 │   │   │   │   │   ├── content.rs                                           # Frozen application-ID encodings for projection content and receipt names
 │   │   │   │   │   ├── handle.rs                                            # Backend-neutral immutable handle retaining the backend's native ownership and guard
 │   │   │   │   │   ├── health.rs                                            # Application health ports and typed failures, independent of the optional engine
+│   │   │   │   │   ├── import.rs                                            # Frozen authoritative inputs for the one parameterized projection loader
 │   │   │   │   │   ├── lifecycle.rs                                         # Public factory for lease-bound producers and immutable, guarded readers
 │   │   │   │   │   ├── mod.rs                                               # Public typed-edge and literal-fact projection ports and unpublished build writer
 │   │   │   │   │   ├── operations.rs                                        # Backend-neutral public operations on opaque lifecycle handles

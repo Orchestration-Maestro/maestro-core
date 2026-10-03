@@ -1,7 +1,8 @@
 //! Pipes acknowledge guard ownership; no sleeps or PID-file liveness guesses.
 #![cfg(test)]
-use super::fixture::{Fixture, factory};
+use super::fixture::{Fixture, factory, frozen_resolution, settings};
 use maestro_filesystem::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
+use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
 use maestro_kernel::{artifact::Digest, job::LeaseTiming, store::Database};
 use maestro_knowledge::graph::projection::{
     BuildVerification, EntityFact, ProjectionBuild, ProjectionScope, TypedEdgeProjection,
@@ -132,9 +133,14 @@ fn lifecycle_process_child_owns_native_handle() {
         .unwrap()
         .unwrap()
         .claim_set_id;
+    let resolution = frozen_resolution(&kernel, &scopes, &set);
     let build = ProjectionBuild {
         scope: scope.clone(),
         claim_set_id: set.clone(),
+        resolution_id: resolution,
+        resolver_version: EXACT_RESOLVER_VERSION.into(),
+        settings_identity: settings().identity(),
+        frozen_lock: settings().frozen_lock().clone(),
         lease,
     };
     let now = SystemTime::UNIX_EPOCH

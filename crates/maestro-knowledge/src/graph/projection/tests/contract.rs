@@ -1,9 +1,11 @@
 //! Backend-generic projection writer contract; adapters call this unchanged.
 
 use super::contract_reads::assert_read_contract;
+use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
 
 use crate::graph::projection::{
-    EdgeFamily, EntityFact, ProjectionEdge, ProjectionError, ProjectionScope, content,
+    EdgeFamily, EngineSettings, EntityFact, ProjectionEdge, ProjectionError, ProjectionScope,
+    content,
     writer::{
         BuildVerification, CatalogRelationVocabulary, ProjectionBackend, ProjectionReader,
         ProjectionReadiness, ProjectionWriter,
@@ -46,7 +48,7 @@ pub(in crate::graph::projection) fn fixture<'a>(
         edges,
         facts,
         expected: BuildVerification {
-            schema: "maestro-typed-edges/1".to_owned(),
+            schema: "maestro-typed-edges/2".to_owned(),
             family_counts,
             fact_count: facts.len(),
             content_digest: content::digest(edges, facts).unwrap(),
@@ -394,6 +396,10 @@ fn receipt(
         collection_id: scope.collection_id.clone(),
         generation_id: scope.generation_id,
         claim_set_id: claim_set_id.clone(),
+        resolution_id: Digest::of(b"resolution"),
+        resolver_version: EXACT_RESOLVER_VERSION.into(),
+        settings_identity: Digest::parse(&pins()[2]).unwrap(),
+        frozen_lock: Digest::of(b"frozen-lock"),
         file_name: content::basename(scope, claim_set_id).unwrap(),
         schema_version: build.schema.clone(),
         knowledge_edge_count: build
@@ -429,4 +435,23 @@ impl ProjectionReadiness for Ready {
             && self.0.generation_id == scope.generation_id)
             .then(|| self.0.clone()))
     }
+}
+
+/// Explicit synthetic inputs shared by the fake/native backend contract.
+pub(crate) fn pins() -> [String; 4] {
+    [
+        Digest::of(b"resolution").as_str().into(),
+        EXACT_RESOLVER_VERSION.into(),
+        EngineSettings::new(
+            16 * 1024 * 1024,
+            64 * 1024 * 1024,
+            1,
+            Digest::of(b"frozen-lock"),
+        )
+        .unwrap()
+        .identity()
+        .as_str()
+        .into(),
+        Digest::of(b"frozen-lock").as_str().into(),
+    ]
 }

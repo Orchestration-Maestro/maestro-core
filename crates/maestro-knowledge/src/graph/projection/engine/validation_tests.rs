@@ -5,6 +5,8 @@ use super::{
     tests::{Fixture, edge, full_fact, scope},
     transaction::Transactions,
 };
+use crate::graph::projection::ProjectionError;
+use crate::graph::projection::tests::contract;
 use crate::graph::projection::{EntityFact, ProjectionEdge, content};
 use lbug::{Connection, LogicalType, Value};
 use maestro_kernel::{
@@ -18,8 +20,8 @@ fn native_catalog_refuses_schema_scope_and_each_access_path_mismatch() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope()).unwrap();
-    assert_eq!(schema::verify(&connection, &scope()).unwrap().len(), 2);
+    schema::create(&connection, &scope(), &contract::pins()).unwrap();
+    assert_eq!(schema::verify(&connection, &scope()).unwrap().0.len(), 2);
     for queries in [
         vec![
             "MATCH (p:Projection) DELETE p",
@@ -60,10 +62,10 @@ fn native_catalog_refuses_schema_scope_and_each_access_path_mismatch() {
             "accepted {queries:?}"
         );
         connection.query("ROLLBACK").unwrap();
-        assert_eq!(schema::verify(&connection, &scope()).unwrap().len(), 2);
+        assert_eq!(schema::verify(&connection, &scope()).unwrap().0.len(), 2);
     }
-    assert!(schema::create(&connection, &scope()).is_err());
-    assert_eq!(schema::verify(&connection, &scope()).unwrap().len(), 2);
+    assert!(schema::create(&connection, &scope(), &contract::pins()).is_err());
+    assert_eq!(schema::verify(&connection, &scope()).unwrap().0.len(), 2);
 }
 
 #[test]
@@ -71,7 +73,7 @@ fn native_rows_refuse_duplicate_malformed_and_misattached_durable_content() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope()).unwrap();
+    schema::create(&connection, &scope(), &contract::pins()).unwrap();
     let mut tx = Transactions::default();
     tx.write_batch(&connection, &scope(), &[edge()], &[full_fact()])
         .unwrap();
@@ -141,7 +143,7 @@ fn native_batch_shape_refusals_have_valid_neighbours_and_no_partial_rows() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope()).unwrap();
+    schema::create(&connection, &scope(), &contract::pins()).unwrap();
     let mut tx = Transactions::default();
     tx.write_batch(&connection, &scope(), &[edge()], &[full_fact()])
         .unwrap();
@@ -264,7 +266,7 @@ fn native_misattached_fact_refusal_is_independent_of_duplicate_ids() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope()).unwrap();
+    schema::create(&connection, &scope(), &contract::pins()).unwrap();
     let mut fact = full_fact();
     // Both subjects remain referenced by the edge after the sole fact moves.
     fact.subject = edge().source;
@@ -290,7 +292,7 @@ fn native_misattached_fact_refusal_is_independent_of_duplicate_ids() {
     assert_eq!(lists, [vec![Value::Int64(0)], vec![Value::Int64(1)]]);
     assert_eq!(
         rows::read(&connection, &scope()).err().unwrap(),
-        "fact property is attached to the wrong subject"
+        ProjectionError::Backend("fact property is attached to the wrong subject".into())
     );
 }
 
@@ -299,7 +301,7 @@ fn native_rows_refuse_null_fact_list_elements() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope()).unwrap();
+    schema::create(&connection, &scope(), &contract::pins()).unwrap();
     Transactions::default()
         .write_batch(&connection, &scope(), &[edge()], &[full_fact()])
         .unwrap();
@@ -320,7 +322,7 @@ fn native_rows_refuse_null_fact_list_elements() {
         .unwrap();
     assert_eq!(
         rows::read(&connection, &scope()).err().unwrap(),
-        "non-blob fact property"
+        ProjectionError::Backend("non-blob fact property".into())
     );
 }
 
@@ -329,7 +331,7 @@ fn fact_encoder_rejects_reversed_support_spans() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope()).unwrap();
+    schema::create(&connection, &scope(), &contract::pins()).unwrap();
     let mut tx = Transactions::default();
     tx.write_batch(&connection, &scope(), &[edge()], &[full_fact()])
         .unwrap();
