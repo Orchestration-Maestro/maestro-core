@@ -9,7 +9,8 @@ use std::fs;
 
 #[test]
 fn committed_record_byte_boundary_accepts_limit_and_refuses_one_over() {
-    let root = scratch_directory().unwrap();
+    // Trust queries require canonical roots; macOS temporary paths can use /var aliases.
+    let root = scratch_directory().unwrap().canonicalize().unwrap();
     let bytes = b"captured lock".to_vec();
     let relative = ".maestro/authoring.lock.json";
     let plan = preview(&root, [FileInput::new(relative, bytes.clone())]).unwrap();
@@ -46,7 +47,8 @@ fn committed_record_byte_boundary_accepts_limit_and_refuses_one_over() {
             ..Limits::PRODUCTION
         };
         with_trust(&root, |trust| {
-            assert!(FilePlan::committed_file(&root, relative, &bytes, trust, &limits).is_ok());
+            FilePlan::committed_file(&root, relative, &bytes, trust, &limits)
+                .unwrap_or_else(|error| panic!("size={size}, aggregate={aggregate}: {error}"));
             record.push(b' ');
             fs::write(&path, &record).unwrap();
             let error =

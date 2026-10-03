@@ -393,7 +393,9 @@ fn catalog_init_freezes_defaults_for_production_sessions() {
     let refused = home.run_in(&root, &["--json", "config", "get", "graph.engine"]);
     assert_eq!(refused.code, Some(2), "{refused:?}");
     assert!(
-        refused.stderr.contains(".maestro/authoring.lock.json"),
+        refused
+            .stderr
+            .contains(lock.canonicalize().unwrap().to_str().unwrap()),
         "{refused:?}"
     );
     assert!(
@@ -474,7 +476,9 @@ fn catalog_init_reaches_its_plan_with_an_unadmitted_lock() {
             "{result:?}"
         );
         assert!(
-            result.stderr.contains(".maestro/authoring.lock.json"),
+            result
+                .stderr
+                .contains(lock.canonicalize().unwrap().to_str().unwrap()),
             "{result:?}"
         );
         assert!(

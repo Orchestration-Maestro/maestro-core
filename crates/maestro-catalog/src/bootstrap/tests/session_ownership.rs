@@ -61,8 +61,13 @@ fn session_missing_or_malformed_ownership_refuses_with_recovery() {
         } else {
             fs::remove_file(path).unwrap();
         }
+        let lock = fixture
+            .project
+            .join(".maestro/authoring.lock.json")
+            .canonicalize()
+            .unwrap();
         let error = admit(&fixture, &Limits::PRODUCTION).unwrap_err();
-        assert!(error.contains(".maestro/authoring.lock.json"), "{error}");
+        assert!(error.contains(lock.to_str().unwrap()), "{error}");
         assert!(
             error.contains("restore the file from version control"),
             "{error}"
@@ -97,7 +102,12 @@ fn session_ambiguous_ownership_refuses() {
         error.contains("more than one committed ownership candidate"),
         "{error}"
     );
-    assert!(error.contains(".maestro/authoring.lock.json"), "{error}");
+    let lock = fixture
+        .project
+        .join(".maestro/authoring.lock.json")
+        .canonicalize()
+        .unwrap();
+    assert!(error.contains(lock.to_str().unwrap()), "{error}");
     assert!(error.contains("then run maestro init"), "{error}");
 }
 
