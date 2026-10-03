@@ -155,21 +155,10 @@ impl KindRules for AgentRules {
                 continue;
             };
             let id = server(name);
-            let message = match catalog.get(&id) {
-                None => format!("names {name}/{tool}, and {id} does not exist"),
-                Some(listed)
-                    if !listed
-                        .fields
-                        .get("tools")
-                        .and_then(Value::texts)
-                        .unwrap_or_default()
-                        .contains(&tool) =>
-                {
-                    format!("names {name}/{tool}, which {id} does not list")
-                }
-                Some(_) => continue,
-            };
-            problems.push(("tools".to_owned(), message));
+            problems.push((
+                "tools".to_owned(),
+                format!("names {name}/{tool}, and {id} does not exist"),
+            ));
         }
     }
 }

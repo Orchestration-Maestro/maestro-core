@@ -229,3 +229,18 @@ fn inert_asset_source_bytes_are_bounded_without_parsing() {
     );
     assert_eq!(found.diagnostics[0].message, "larger than 2 bytes");
 }
+
+#[test]
+fn exactly_one_thousand_diagnostics_do_not_add_an_empty_summary() {
+    let tree = (0..500).fold(MemoryTree::valid(), |tree, index| {
+        tree.with_link(&format!("link-{index}"))
+    });
+    let refusal = check_under(&tree, &Limits::PRODUCTION).unwrap_err();
+    assert_eq!(refusal.diagnostics.len(), 1_000);
+    assert!(
+        refusal
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.message.contains("more diagnostics not shown"))
+    );
+}

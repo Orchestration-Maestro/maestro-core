@@ -312,3 +312,19 @@ fn codeowners_requires_root_ownership() {
             .contains("root area ownership")
     );
 }
+
+#[test]
+fn codeowners_does_not_treat_content_or_presets_as_an_area() {
+    let catalog = checked(&MemoryTree::valid());
+    let text = catalog.codeowners().unwrap();
+    for descriptor in ["/package.toml ", "/core/package.toml "] {
+        assert_eq!(
+            text.lines()
+                .filter(|line| line.starts_with(descriptor))
+                .count(),
+            1,
+            "{text}"
+        );
+    }
+    assert!(!text.contains("/core/agents/valid.agent.md"));
+}

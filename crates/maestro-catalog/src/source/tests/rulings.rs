@@ -131,3 +131,28 @@ fn agents_keep_native_model_and_fail_closed_on_unbound_mcp_names() {
         ),
     ]);
 }
+
+#[test]
+fn unbound_native_server_and_server_tool_names_both_refuse() {
+    let tree = edited(
+        AGENT,
+        "tools: [\"view\"]",
+        "mcp-servers: [\"synthetic\"]\ntools: [\"synthetic/read\"]",
+    );
+    let refusal = check_under(&tree, &Limits::PRODUCTION).unwrap_err();
+    for (key, message) in [
+        ("mcp-servers", "names mcp:synthetic, which does not exist"),
+        (
+            "tools",
+            "names synthetic/read, and mcp:synthetic does not exist",
+        ),
+    ] {
+        assert!(
+            refusal
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.key == key && diagnostic.message == message),
+            "{refusal}"
+        );
+    }
+}

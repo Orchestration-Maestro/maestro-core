@@ -255,3 +255,20 @@ fn presence(path: &Path) -> String {
         format!("{} (absent: defaults apply)", path.display())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::diagnostic_suffix;
+
+    #[test]
+    fn config_list_suffix_explains_each_ignored_request() {
+        assert_eq!(diagnostic_suffix(&[]), "");
+        assert_eq!(
+            diagnostic_suffix(&[
+                "ignored widening".to_owned(),
+                "restricted by standard".to_owned()
+            ]),
+            "; diagnostic: ignored widening, restricted by standard"
+        );
+    }
+}

@@ -128,6 +128,36 @@ fn every_member_inherits_the_workspace_lints() {
     }
 }
 
+/// Decode the source expression from cargo-mutants' positional replacement label.
+fn replaced_operator(replacement: &str) -> Option<String> {
+    replacement.split_once(" with ").map(|(operator, _)| {
+        operator
+            .strip_prefix("match guard ")
+            .unwrap_or(operator)
+            .replace('\\', "")
+    })
+}
+
+#[test]
+fn match_guard_exclusions_preserve_expression_and_column_checks() {
+    let source = "if error.kind() == io::ErrorKind::NotFound => None,";
+    let matches = |replacement, column| {
+        let operator = replaced_operator(replacement).unwrap();
+        source
+            .get(column..)
+            .is_some_and(|text| text.starts_with(&operator))
+    };
+    let guard = "match guard error.kind() == io::ErrorKind::NotFound with true in build_snapshot";
+    assert!(matches(guard, 3));
+    assert!(!matches(guard, 4));
+    assert!(!matches(
+        "match guard error.kind() != io::ErrorKind::NotFound with true in build_snapshot",
+        3
+    ));
+    assert!(matches("== with != in compare", 16));
+    assert!(!matches("== with != in compare", 17));
+}
+
 #[test]
 fn positional_mutant_exclusions_match_their_source_operator() {
     let root = root();
@@ -153,9 +183,7 @@ fn positional_mutant_exclusions_match_their_source_operator() {
             continue;
         };
         let file = file.replace("\\.", ".");
-        let operator = replacement
-            .split_once(" with ")
-            .map(|(operator, _)| operator.replace('\\', ""));
+        let operator = replaced_operator(replacement);
         let Some(operator) = operator else {
             failures.push(format!("{entry}: missing replaced operator"));
             continue;

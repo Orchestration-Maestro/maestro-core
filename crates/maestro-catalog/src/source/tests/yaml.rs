@@ -30,3 +30,9 @@ fn yaml_parser_errors_keep_their_own_message() {
     let error = read("a: [b\n", 32, 100).unwrap_err();
     assert!(error.starts_with("invalid frontmatter: "), "{error}");
 }
+
+#[test]
+fn yaml_empty_document_refusal_names_the_expected_node() {
+    let error = read("", 32, 100).unwrap_err();
+    assert!(error.contains("a YAML node"), "{error}");
+}
