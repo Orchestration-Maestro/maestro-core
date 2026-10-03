@@ -71,8 +71,13 @@ fn verify_named_refuses_a_replaced_directory() {
 #[test]
 fn directory_sync_propagates_unsupported_handle_errors() {
     // A read-only special handle cannot be fsynced on Linux or Darwin.
+    let expected = File::open("/dev/null")
+        .unwrap()
+        .sync_all()
+        .unwrap_err()
+        .raw_os_error();
     let directory = Directory(File::open("/dev/null").unwrap(), "/dev/null".into());
-    assert_eq!(directory.sync().unwrap_err().raw_os_error(), Some(22));
+    assert_eq!(directory.sync().unwrap_err().raw_os_error(), expected);
 }
 
 #[test]
