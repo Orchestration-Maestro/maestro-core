@@ -17,12 +17,24 @@ pub(super) fn checkpoint(
     batch: &Batch,
     now: SystemTime,
 ) -> Result<(), ReceiptError> {
+    checkpoint_with(db, writer, batch, now, || {})
+}
+
+/// Mandatory interleaving point after the optimistic read, before the write fence.
+pub(super) fn checkpoint_with(
+    db: &Database,
+    writer: &SourceLease,
+    batch: &Batch,
+    now: SystemTime,
+    after_previous: impl Fn(),
+) -> Result<(), ReceiptError> {
     validate(batch)?;
     let scope = held(db, writer, now)?;
     let reader = db.reader()?;
     let cursor = Digest::of(&serde_json::to_vec(&batch.cursor)?);
     let count = previous(db, &reader, writer, batch, &cursor)?;
     let Some(sequence) = count else { return Ok(()) };
+    after_previous();
     let encoded = serde_json::to_vec(batch)?;
     let references: Vec<_> = batch.capture.into_iter().collect();
     privacy::validate(&scope, &encoded, &references)?;

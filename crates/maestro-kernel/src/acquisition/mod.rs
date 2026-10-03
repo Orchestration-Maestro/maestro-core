@@ -46,3 +46,16 @@ pub use link::{MappedRevision, RevisionLink};
 
 mod work_order;
 pub use work_order::{WorkCursor, WorkItem};
+
+#[cfg(test)]
+mod frontier_mutation_tests;
+#[cfg(test)]
+mod partition_mutation_capture;
+#[cfg(test)]
+mod partition_mutation_chain;
+#[cfg(test)]
+mod partition_mutation_pages;
+#[cfg(test)]
+mod partition_mutation_support;
+#[cfg(test)]
+mod partition_mutation_validation;

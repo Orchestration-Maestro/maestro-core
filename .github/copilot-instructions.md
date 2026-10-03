@@ -811,6 +811,7 @@ in place.
 │   │   │   │   ├── envelope.rs                                                          # One immutable capture contract shared by admitted transports and the kernel
 │   │   │   │   ├── error.rs                                                             # Refusals from the frontier port; no refused operation acknowledges work
 │   │   │   │   ├── frontier.rs                                                          # Replaceable frontier contract and the kernel SQLite adapter
+│   │   │   │   ├── frontier_mutation_tests.rs                                           # Frontier delegation, immutable enqueue journaling and observation attribution
 │   │   │   │   ├── headers.rs                                                           # Exact data-defined header selection and content-free unsafe value evidence
 │   │   │   │   ├── lease.rs                                                             # Fencing handles: durable authority time plus a local monotonic deadline
 │   │   │   │   ├── link.rs                                                              # Typed immutable capture/fidelity links, composed with S1's revision transaction
@@ -819,6 +820,11 @@ in place.
 │   │   │   │   ├── partition_captures.rs                                                # Page-level capture binding for partition inspection and acceptance
 │   │   │   │   ├── partition_checkpoint.rs                                              # Constant-evidence checkpoint validation and transactional distinct inventory
 │   │   │   │   ├── partition_history.rs                                                 # Immutable checkpoint summary index and first-in-history traversal provenance
+│   │   │   │   ├── partition_mutation_capture.rs                                        # Exact parent provenance and acknowledged-child change-key binding
+│   │   │   │   ├── partition_mutation_chain.rs                                          # Replay, continuation, inventory and optimistic-read fencing regressions
+│   │   │   │   ├── partition_mutation_pages.rs                                          # Read ports return exact persisted identities and first-depth provenance
+│   │   │   │   ├── partition_mutation_support.rs                                        # Synthetic partition fixtures shared by mutation regression tests
+│   │   │   │   ├── partition_mutation_validation.rs                                     # Independent validation and coverage boundaries, including equality cases
 │   │   │   │   ├── partition_record.rs                                                  # Pending checkpoints are separate from immutable accepted partition snapshots
 │   │   │   │   ├── privacy.rs                                                           # Content-free output types and opaque, transitively scoped artifact handles
 │   │   │   │   ├── receipt.rs                                                           # Unique run attempts, immutable receipt snapshots and bounded stage inventories
