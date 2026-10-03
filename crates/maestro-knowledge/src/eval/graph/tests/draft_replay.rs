@@ -97,6 +97,13 @@ async fn draft_interrupted_reservation_is_retained_and_not_retried() {
     assert_eq!(model.chats.load(Ordering::SeqCst), 1);
     assert_eq!(model.calls.load(Ordering::SeqCst), 4);
     assert_eq!(journal.entries.len(), 2);
+    assert_eq!(
+        resume_draft(&model, &request, &run, &mut journal)
+            .await
+            .unwrap_err(),
+        DraftError::Interrupted
+    );
+    assert_eq!(journal.entries.len(), 2);
 }
 
 #[tokio::test]
@@ -254,4 +261,91 @@ async fn draft_replay_refuses_token_only_exhaustion_with_windows_remaining() {
     );
     assert_eq!(model.calls.load(Ordering::SeqCst), 4);
     assert_eq!(journal.entries.len(), 2);
+}
+
+#[tokio::test]
+async fn draft_journal_terminal_identity_and_transition_fields_are_independent() {
+    let card = card();
+    let window = window();
+    let prompt = Digest::of(b"draft");
+    let request = DraftRequest {
+        card: &card,
+        card_digest: card.digest(),
+        prompt: "draft",
+        prompt_digest: &prompt,
+        window: &window,
+        budget: budget(),
+    };
+    let run = DraftRun {
+        digest: Digest::of(b"run"),
+        max_windows: 1,
+        max_tokens: 3072,
+    };
+    let mut journal = Journal::default();
+    resume_draft(&DraftModel::valid(), &request, &run, &mut journal)
+        .await
+        .unwrap();
+    let saved = journal.entries.clone();
+    for defect in ["transition", "input", "tokens", "id", "family"] {
+        journal.entries = saved.clone();
+        match defect {
+            "transition" => journal.entries[0].outcome = journal.entries[1].outcome.clone(),
+            "input" => journal.entries[0].input = Digest::of(b"changed reservation"),
+            "tokens" => journal.entries[1].tokens += 1,
+            _ => corrupt_candidate(&mut journal.entries[1], defect),
+        }
+        assert_eq!(
+            resume_draft(&DraftModel::valid(), &request, &run, &mut journal)
+                .await
+                .err(),
+            Some(DraftError::Journal),
+            "{defect}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn draft_journal_rejects_each_existing_population_over_budget_before_replay() {
+    let card = card();
+    let window = window();
+    let prompt = Digest::of(b"draft");
+    let request = DraftRequest {
+        card: &card,
+        card_digest: card.digest(),
+        prompt: "draft",
+        prompt_digest: &prompt,
+        window: &window,
+        budget: budget(),
+    };
+    let mut run = DraftRun {
+        digest: Digest::of(b"run"),
+        max_windows: 1,
+        max_tokens: 3072,
+    };
+    let mut journal = Journal::default();
+    resume_draft(&DraftModel::valid(), &request, &run, &mut journal)
+        .await
+        .unwrap();
+    for (windows, tokens) in [(0, 3072), (1, 3071)] {
+        run.max_windows = windows;
+        run.max_tokens = tokens;
+        assert_eq!(
+            resume_draft(&DraftModel::valid(), &request, &run, &mut journal)
+                .await
+                .unwrap_err(),
+            DraftError::Budget
+        );
+    }
+}
+
+/// Change one saved envelope identity without changing its valid label or suite.
+fn corrupt_candidate(receipt: &mut DraftReceipt, field: &str) {
+    let DraftOutcome::Draft(candidate) = &mut receipt.outcome else {
+        panic!("draft")
+    };
+    if field == "id" {
+        candidate.id = "q-2".into();
+    } else {
+        candidate.family = "f-2".into();
+    }
 }
