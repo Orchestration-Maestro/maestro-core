@@ -271,3 +271,29 @@ fn name_problem(
         ));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Native, document};
+    use crate::{limits::Limits, source::Format};
+
+    #[test]
+    fn native_document_preserves_cedar_text_but_json_requires_json_syntax() {
+        let text = "permit(principal, action, resource);\n";
+        let mut problems = Vec::new();
+        let (table, body, native) =
+            document(text, Format::Cedar, &Limits::PRODUCTION, &mut problems);
+        assert!(table.unwrap().is_empty());
+        assert!(body.is_none());
+        assert!(problems.is_empty());
+        assert!(matches!(native, Native::Cedar(source) if source == text));
+        let (_, _, native) = document(text, Format::Json, &Limits::PRODUCTION, &mut problems);
+        assert!(matches!(native, Native::None));
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].1.contains("expected value"));
+        problems.clear();
+        let (_, _, native) = document("{}", Format::Json, &Limits::PRODUCTION, &mut problems);
+        assert!(matches!(native, Native::Json(value) if value == serde_json::json!({})));
+        assert!(problems.is_empty());
+    }
+}

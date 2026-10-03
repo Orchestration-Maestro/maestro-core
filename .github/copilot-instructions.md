@@ -655,6 +655,8 @@ in place.
 │   │   │   │   │   └── yaml.rs                                              # YAML read node by node at injected limits: the exact node budget and
 │   │   │   │   ├── workflow/                                                # Internal graph checks, not source admission, routing or execution
 │   │   │   │   │   ├── tests/                                               # Topology compilation's synthetic checked inputs and refusal neighbours
+│   │   │   │   │   │   ├── condition_branches.rs                            # Previously unexecuted condition branches, each with an exact typed neighbour
+│   │   │   │   │   │   ├── contract_branches.rs                             # Native representation and registry refusals before schema compilation
 │   │   │   │   │   │   ├── contracts.rs                                     # Contract conditions: typed neighbours and hostile text never execute
 │   │   │   │   │   │   ├── fragment_positions.rs                            # Fragment targets are schemas only at positions defined by the admitted draft
 │   │   │   │   │   │   ├── fragments.rs                                     # Checkpoint review regressions for fragment admission and tuple predicates
@@ -1551,6 +1553,7 @@ in place.
 │   │   │   │   ├── windows.rs                                               # Windows: names resolve by path, but the directory of the file is held
 │   │   │   │   └── windows_logic.rs                                         # Platform-neutral Windows decisions, tested on every host
 │   │   │   ├── tests/                                                       # The settings crate's tests, one module per source module, and the proof
+│   │   │   │   ├── builtin_helpers.rs                                       # Runtime checks for descriptors otherwise constructed only in const initializers
 │   │   │   │   ├── discovery.rs                                             # Project-file discovery: the nearest .maestro/config.toml upward from the
 │   │   │   │   ├── edit.rs                                                  # config set and config unset on a file's text: only the value's bytes
 │   │   │   │   ├── file.rs                                                  # One edit of a preferences file: serialized by its lock, refused when

@@ -290,9 +290,8 @@ fn cycles(check: &mut Check<'_>) {
     while let Some(node) = pending.pop() {
         visited += 1;
         for target in targets.get(node).into_iter().flatten() {
-            let Some(count) = indegree.get_mut(target) else {
-                continue;
-            };
+            // Targets are recorded only after finding their indegree entry above.
+            let count = indegree.entry(target).or_default();
             *count -= 1;
             if *count == 0 {
                 pending.push(target);

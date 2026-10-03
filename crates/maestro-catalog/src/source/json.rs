@@ -73,3 +73,104 @@ impl<'de> Visitor<'de> for StrictJsonVisitor {
         Ok(StrictJson(Value::Object(items)))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{StrictJson, parse};
+    use crate::{limits::Limits, policy::schema::bound_json};
+    use serde::de::{
+        Deserialize,
+        value::{BytesDeserializer, Error, F64Deserializer, StringDeserializer},
+    };
+    use serde_json::json;
+
+    #[test]
+    fn strict_json_preserves_scalar_number_and_container_forms() {
+        let text =
+            br#"[true,false,-1,18446744073709551615,1.25,1e2,"plain","escaped\ntext",null,[],{}]"#;
+        assert_eq!(
+            parse(text).unwrap(),
+            json!([
+                true,
+                false,
+                -1,
+                u64::MAX,
+                1.25,
+                100.0,
+                "plain",
+                "escaped\ntext",
+                null,
+                [],
+                {}
+            ])
+        );
+        let owned = StringDeserializer::<Error>::new("owned text".to_owned());
+        assert_eq!(
+            StrictJson::deserialize(owned).unwrap().0,
+            json!("owned text")
+        );
+    }
+
+    #[test]
+    fn strict_json_refuses_duplicates_trailing_data_and_invalid_numbers() {
+        for text in [r#"{"x":1,"x":2}"#, r#"[{"x":1,"x":2}]"#] {
+            assert!(
+                parse(text.as_bytes())
+                    .unwrap_err()
+                    .contains("duplicate object key \"x\"")
+            );
+        }
+        assert!(parse(br#"{"x":1,"y":2} "#).is_ok());
+        assert!(
+            parse(br#"{"x":1} false"#)
+                .unwrap_err()
+                .contains("trailing characters")
+        );
+        for text in ["01", "+1", "1.", "NaN", "Infinity", "1e999"] {
+            assert!(parse(text.as_bytes()).is_err(), "accepted {text}");
+        }
+        for number in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let error = StrictJson::deserialize(F64Deserializer::<Error>::new(number))
+                .err()
+                .unwrap()
+                .to_string();
+            assert_eq!(error, "non-finite JSON number");
+        }
+        let error = StrictJson::deserialize(BytesDeserializer::<Error>::new(b"bytes"))
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(error.contains("expected a JSON value"), "{error}");
+    }
+
+    #[test]
+    fn strict_json_bounds_have_exact_size_and_depth_neighbours() {
+        let limits = Limits {
+            source_file_bytes: 5,
+            source_depth: 2,
+            ..Limits::PRODUCTION
+        };
+        assert_eq!(bound_json("[[0]]", &limits), Ok(()));
+        assert_eq!(parse(b"[[0]]").unwrap(), json!([[0]]));
+        assert!(
+            bound_json("[[0]] ", &limits)
+                .unwrap_err()
+                .contains("larger than 5 bytes")
+        );
+        let limits = Limits {
+            source_file_bytes: 7,
+            ..limits
+        };
+        assert!(
+            bound_json("[[[0]]]", &limits)
+                .unwrap_err()
+                .contains("JSON depth exceeds 2 levels")
+        );
+        let limits = Limits {
+            source_depth: 3,
+            ..limits
+        };
+        assert_eq!(bound_json("[[[0]]]", &limits), Ok(()));
+        assert_eq!(parse(b"[[[0]]]").unwrap(), json!([[[0]]]));
+    }
+}

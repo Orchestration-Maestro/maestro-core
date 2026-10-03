@@ -226,3 +226,17 @@ pub(super) fn validator(schema: &Value, registry: &Registry<'_>) -> Result<Valid
         .build(schema)
         .map_err(|error| error.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::pointer;
+    use serde_json::json;
+
+    #[test]
+    fn contract_pointer_distinguishes_identity_from_equal_unrelated_values() {
+        let root = json!({"a~/b": [null, {"type": "string"}]});
+        let target = &root["a~/b"][1];
+        assert_eq!(pointer(&root, target), Some("/a~0~1b/1".to_owned()));
+        assert_eq!(pointer(&root, &target.clone()), None);
+    }
+}
