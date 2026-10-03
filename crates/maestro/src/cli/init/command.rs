@@ -1,5 +1,5 @@
 //! `maestro init`: show the complete authoring plan and apply only on request.
-use super::flow::Draft;
+use super::{flow::Draft, plain::terminal};
 use crate::{
     cli::{catalog, output::Output, session, trust, trust_path},
     failure::Failure,
@@ -326,7 +326,7 @@ pub(in crate::cli::init) fn apply_preferences(
         effects,
         reviewed,
         (
-            stdin.is_terminal() && stderr.is_terminal(),
+            terminal(stdin.is_terminal(), stderr.is_terminal()),
             &mut stdin.lock(),
             &mut stderr.lock(),
         ),
@@ -450,5 +450,46 @@ fn preference_retry(output: Output, root: &Path, choices: &[String]) -> Result<S
             (data): {choices:?}",
             output.wording(MessageKey::InitConfirmData, &[("path", &path)])?
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{InitPreferences, preference_output};
+    use crate::{cli::output::Output, presentation::messages::MessageKey};
+    use maestro_catalog::settings::FilePreferences;
+    use maestro_settings::Registry;
+    use maestro_test_scratch::scratch_directory;
+    use std::fs;
+
+    #[test]
+    fn catalog_init_command_admitted_defaults_retain_preference_layers() {
+        let root = scratch_directory().unwrap();
+        fs::write(
+            root.join("preferences.toml"),
+            "schema = 'maestro-preferences/1'\nlanguage = 'fr'\n",
+        )
+        .unwrap();
+        let registry = Registry::built_in().unwrap();
+        let source = FilePreferences::new(&root, &root);
+        let admitted = InitPreferences {
+            source: &source,
+            registry: &registry,
+        };
+        let output = preference_output(Output::new(false), &admitted, &[]).unwrap();
+        let actual = output.wording(MessageKey::FlowTone, &[]).unwrap();
+        let expected = Output::new(false)
+            .with_language("fr")
+            .unwrap()
+            .wording(MessageKey::FlowTone, &[])
+            .unwrap();
+        assert_eq!(actual, expected);
+        assert_ne!(
+            actual,
+            Output::new(false)
+                .wording(MessageKey::FlowTone, &[])
+                .unwrap()
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 }

@@ -2,7 +2,7 @@
 use super::{
     command::{self, ApplyChoices},
     flow::{self, Answer, Draft, FlowPort, review},
-    plain::Plain,
+    plain::{Plain, terminal},
 };
 use crate::{
     cli::{output::Output, session, trust},
@@ -44,12 +44,8 @@ pub(in crate::cli) fn run(
 ) -> Result<ExitCode, Failure> {
     let stdin = io::stdin();
     let stderr = io::stderr();
-    let terminal = stdin.is_terminal() && io::stdout().is_terminal();
-    if request.yes
-        || output.is_json()
-        || (!request.plain && !terminal)
-        || request.effects.preferences_only
-    {
+    let terminal = terminal(stdin.is_terminal(), io::stdout().is_terminal());
+    if scripted_mode(output, &request, terminal) {
         if request.effects.apply && !request.yes && !request.effects.preferences_only {
             return Err(Failure::refused(
                 "non-interactive apply requires --yes; it never grants trust",
@@ -356,5 +352,46 @@ fn workspace(
             Answer::Text(_) => port.show("Error: answer yes or no; trust defaults to no.")?,
             answer => return Ok(answer),
         }
+    }
+}
+
+/// Scripted selection is independent of terminal rendering and never grants authority.
+fn scripted_mode(output: Output, request: &Request<'_>, terminal: bool) -> bool {
+    request.yes
+        || output.is_json()
+        || (!request.plain && !terminal)
+        || request.effects.preferences_only
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Request, scripted_mode};
+    use crate::cli::{init::ApplyChoices, output::Output};
+
+    #[test]
+    fn catalog_init_menu_scripted_choices_are_independent_of_terminal_detection() {
+        let mut request = Request {
+            catalog: None,
+            presets: &[],
+            plain: false,
+            yes: false,
+            effects: ApplyChoices {
+                apply: false,
+                preferences_only: false,
+                non_interactive: false,
+                confirm_path: None,
+            },
+        };
+        assert!(!scripted_mode(Output::new(false), &request, true));
+        assert!(scripted_mode(Output::new(false), &request, false));
+        request.plain = true;
+        assert!(!scripted_mode(Output::new(false), &request, false));
+        request.plain = false;
+        request.yes = true;
+        assert!(scripted_mode(Output::new(false), &request, true));
+        request.yes = false;
+        assert!(scripted_mode(Output::new(true), &request, true));
+        request.effects.preferences_only = true;
+        assert!(scripted_mode(Output::new(false), &request, true));
     }
 }

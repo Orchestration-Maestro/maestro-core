@@ -37,3 +37,25 @@ impl FlowPort for Plain<'_> {
         })
     }
 }
+
+/// Piped input or output disables terminal interaction, regardless of the other stream.
+pub(in crate::cli::init) fn terminal(input: bool, output: bool) -> bool {
+    input && output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::terminal;
+
+    #[test]
+    fn catalog_init_plain_terminal_requires_both_streams() {
+        for (input, output, expected) in [
+            (false, false, false),
+            (false, true, false),
+            (true, false, false),
+            (true, true, true),
+        ] {
+            assert_eq!(terminal(input, output), expected);
+        }
+    }
+}

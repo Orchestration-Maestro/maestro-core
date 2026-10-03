@@ -157,7 +157,7 @@ fn catalog_init_menu_plain_walkthrough_retains_back_errors_and_fallback_without_
         "3/5",
         "4/5",
         "5/5",
-        "Error:",
+        "Error: answer yes or no; trust defaults to no.",
         "Interface is English; conversation language remains ja.",
         "user-only",
     ] {
@@ -294,4 +294,79 @@ fn catalog_init_menu_declined_trust_reviews_only_preferences_and_requires_separa
     );
     assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
     assert!(!home.data().join("kernel.sqlite3").exists());
+}
+
+#[test]
+fn catalog_init_menu_back_at_workspace_cancels_before_a_draft_exists() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    fs::create_dir(&root).unwrap();
+    let result = plain(&home, &["init", "--plain"], "back\n");
+    assert_eq!(result.code, Some(0), "{result:?}");
+    assert_eq!(result.stderr.matches("1/5").count(), 1);
+    assert_eq!(fs::read_dir(root).unwrap().count(), 0);
+}
+
+#[test]
+fn catalog_init_menu_language_follows_initial_and_new_stage_choices() {
+    for (initial, answer) in [("fr", ""), ("en", "fr")] {
+        let home = Home::bare();
+        let root = home.root().join("project");
+        fs::create_dir(&root).unwrap();
+        let catalog = catalog();
+        let result = plain(
+            &home,
+            &[
+                "init",
+                "--plain",
+                "--catalog-dir",
+                catalog.to_str().unwrap(),
+                "--preset",
+                "base",
+                "--language",
+                initial,
+            ],
+            &format!("\n\n\n{answer}\ncancel\n"),
+        );
+        assert_eq!(result.code, Some(0), "{result:?}");
+        assert!(result.stderr.contains("3/5"), "{result:?}");
+        assert!(result.stderr.contains("3/5 Ton\n"), "{result:?}");
+        if initial == "fr" {
+            assert!(result.stderr.contains("2/5 Langue\n"), "{result:?}");
+        }
+        assert_eq!(fs::read_dir(root).unwrap().count(), 0);
+    }
+}
+
+#[test]
+fn catalog_init_menu_unchanged_language_does_not_repeat_fallback_at_other_stages() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    fs::create_dir(&root).unwrap();
+    let catalog = catalog();
+    let result = plain(
+        &home,
+        &[
+            "init",
+            "--plain",
+            "--catalog-dir",
+            catalog.to_str().unwrap(),
+            "--preset",
+            "base",
+            "--language",
+            "ja",
+        ],
+        "\n\n\n\ndetailed\ncancel\n",
+    );
+    assert_eq!(result.code, Some(0), "{result:?}");
+    assert_eq!(
+        result
+            .stderr
+            .matches("Interface is English; conversation language remains ja.")
+            .count(),
+        2,
+        "{result:?}"
+    );
+    assert!(result.stderr.contains("4/5"), "{result:?}");
+    assert_eq!(fs::read_dir(root).unwrap().count(), 0);
 }

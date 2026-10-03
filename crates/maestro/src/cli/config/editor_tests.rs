@@ -88,6 +88,7 @@ fn catalog_init_menu_config_injected_descriptor_uses_existing_api_and_journal() 
     assert_eq!(changes.len(), 1);
     assert_eq!(changes[0].change.key, "injected_editor");
     assert_eq!(changes[0].change.new, Some(serde_json::json!(true)));
+    drop(kernel);
     fs::remove_dir_all(root).unwrap();
 }
 
