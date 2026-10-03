@@ -1377,6 +1377,9 @@ in place.
 │   │   │   │   │   │   ├── input_guard_tests.rs                             # Producer preflight forwards all durable pins before reserving native storage
 │   │   │   │   │   │   ├── input_pins.rs                                    # Native build stamps and comparison with independently persisted readiness pins
 │   │   │   │   │   │   ├── input_pins_tests.rs                              # Cold native opens bind durable stamps, not just live process registry entries
+│   │   │   │   │   │   ├── loader.rs                                        # One bounded loader over the existing lease-bound producer and writer
+│   │   │   │   │   │   ├── loader_guard_tests.rs                            # Refusal matrix for the one native checkpointed loader
+│   │   │   │   │   │   ├── loader_tests.rs                                  # Real native loader recovery and immutable-record refusals
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── native_pin_tests.rs                              # Strict native decoding must retain corruption, never classify malformed pins as drift
 │   │   │   │   │   │   ├── open.rs                                          # The native adapter's single rooted construction boundary
@@ -1401,6 +1404,7 @@ in place.
 │   │   │   │   │   │   ├── writer/                                          # Writer
 │   │   │   │   │   │   │   └── extra.rs                                     # Additional validation cases for the generic projection writer
 │   │   │   │   │   │   ├── binding.rs                                       # Admission comparisons independent of native files or a warm handle registry
+│   │   │   │   │   │   ├── checkpoint.rs                                    # Immutable loader record contracts (also run without the native engine)
 │   │   │   │   │   │   ├── cleanup.rs                                       # Cleanup policy: authorization first, immutable receipts retained, no engine required
 │   │   │   │   │   │   ├── cleanup_boundaries.rs                            # Valid neighbours for cleanup state, authority and leaf-boundary refusals
 │   │   │   │   │   │   ├── cleanup_process.rs                               # Independent processes synchronize over pipes, never sleeps
@@ -1417,6 +1421,7 @@ in place.
 │   │   │   │   │   ├── binding.rs                                           # Durable input identity comparison shared by producer, reader and health
 │   │   │   │   │   ├── build.rs                                             # Backend-neutral authoritative build inputs and successful publication result
 │   │   │   │   │   ├── cancellation.rs                                      # Explicit read cancellation without a timeout, polling interval or detached native handle
+│   │   │   │   │   ├── checkpoint.rs                                        # Immutable loader journal, held separately from native sidecars
 │   │   │   │   │   ├── cleanup.rs                                           # Reader-safe, single-receipt cleanup; native engine code is never opened here
 │   │   │   │   │   ├── configuration.rs                                     # Engine-only adapter inputs with redacted root and opaque lock diagnostics
 │   │   │   │   │   ├── content.rs                                           # Frozen application-ID encodings for projection content and receipt names

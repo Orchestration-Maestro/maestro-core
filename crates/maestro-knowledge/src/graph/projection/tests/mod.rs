@@ -1,6 +1,7 @@
 //! Contracts of the public graph projection port and backend-neutral writer.
 
 mod binding;
+mod checkpoint;
 mod content_fields;
 pub(in crate::graph::projection) mod contract;
 pub(in crate::graph::projection) mod contract_reads;

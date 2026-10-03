@@ -6,6 +6,7 @@ use super::{
     config::native,
 };
 use crate::graph::projection::binding;
+use crate::graph::projection::checkpoint::{self, Journal};
 use crate::graph::projection::{
     access::{Access, open_root},
     build::{ProjectionBuild, PublishedProjection},
@@ -23,23 +24,20 @@ use maestro_filesystem::OwnedRoot;
 use maestro_kernel::facts::Error as FactError;
 use maestro_kernel::{facts::ProjectionReceipt, job::JobState, scope::ScopeSet, store::Database};
 use serde_json::json;
-use std::{
-    fmt, process,
-    sync::atomic::{AtomicU64, Ordering},
-    time::SystemTime,
-};
-
-/// Distinguishes reservations by one process; create-new refuses any crash leftovers.
-static NEXT_STAGING: AtomicU64 = AtomicU64::new(0);
+use std::{fmt, io::ErrorKind, path::PathBuf, time::SystemTime};
 
 /// One opaque lifecycle session. Native handles drop before the permanent guards.
 pub(in crate::graph::projection) struct Session<'a> {
     /// Writable native database and its terminal install callback.
     backend: Backend<Install<'a>>,
+    /// Held immutable loader records, absent until the first explicit load.
+    pub(super) journal: Option<Journal>,
+    /// Recovery cannot write or publish before load validates all durable checkpoints.
+    pub(super) loader_validated: bool,
     /// Frozen settings carried unchanged through the session and publication result.
     settings: EngineSettings,
     /// Exact authoritative identities and lease.
-    build: ProjectionBuild,
+    pub(super) build: ProjectionBuild,
     /// Current caller authority used for validation and kernel writes.
     scopes: ScopeSet,
     /// Caller-owned kernel, never opened by the native backend.
@@ -69,8 +67,132 @@ impl<'a> Session<'a> {
         build: ProjectionBuild,
         clock: &'a dyn Fn() -> SystemTime,
     ) -> Result<Self, ProjectionError> {
-        check_read_scope(scopes, &build.scope, &build.scope)?;
+        Self::start(factory, kernel, scopes, (build, false), clock)
+    }
+
+    /// Explicit recovery is fenced against the refreshed kernel lease before any native open.
+    pub(in crate::graph::projection) fn resume(
+        factory: &ProjectionConfiguration<'_>,
+        kernel: &'a Database,
+        scopes: &ScopeSet,
+        mut build: ProjectionBuild,
+        clock: &'a dyn Fn() -> SystemTime,
+    ) -> Result<Self, ProjectionError> {
+        let current = kernel
+            .job(scopes, build.lease.job)
+            .map_err(checkpoint::refusal)?
+            .and_then(|job| job.lease)
+            .ok_or_else(|| checkpoint::refusal("no current lease"))?;
+        if current.holder != build.lease.holder || current.number != build.lease.number {
+            return Err(checkpoint::refusal("stale or foreign lease"));
+        }
+        build.lease = current;
+        Self::start(factory, kernel, scopes, (build, true), clock).map_err(|error| match error {
+            ProjectionError::InputMismatch(_) => error,
+            error => checkpoint::refusal(error),
+        })
+    }
+
+    /// Shared admission and guards; recovery changes only reservation and native initialization.
+    fn start(
+        factory: &ProjectionConfiguration<'_>,
+        kernel: &'a Database,
+        scopes: &ScopeSet,
+        request: (ProjectionBuild, bool),
+        clock: &'a dyn Fn() -> SystemTime,
+    ) -> Result<Self, ProjectionError> {
+        let (build, resume) = request;
+        let (root, access) = Self::admit(factory, kernel, scopes, &build, clock)?;
         let pins = input_pins::build_pins(&build);
+        let reservation = format!(".build-{}", build.lease.job);
+        let staging = if resume {
+            OwnedRoot::open(
+                &root
+                    .resolved_path()
+                    .map_err(checkpoint::refusal)?
+                    .join(&reservation),
+                false,
+            )
+        } else {
+            root.reserve_child(&reservation)
+        }
+        .map_err(checkpoint::refusal)?;
+        let journal = if resume {
+            Some(Journal::open(
+                &staging.resolved_path().map_err(checkpoint::refusal)?,
+                &build,
+                factory.settings.max_db_size,
+            )?)
+        } else {
+            None
+        };
+        let file_name = content::basename(&build.scope, &build.claim_set_id)
+            .map_err(ProjectionError::Backend)?;
+        if resume {
+            staging
+                .check_regular(&file_name)
+                .map_err(checkpoint::refusal)?;
+            match root.check_regular(&file_name) {
+                Ok(()) => return Err(checkpoint::refusal("published or receiptless final exists")),
+                Err(error) if error.kind() == ErrorKind::NotFound => {}
+                Err(error) => return Err(checkpoint::refusal(error)),
+            }
+        }
+        let staged_root = RootDirectory::open(
+            staging
+                .resolved_path()
+                .map_err(|error| ProjectionError::Backend(error.to_string()))?,
+        )
+        .map_err(|error| ProjectionError::Backend(error.to_string()))?;
+        let final_root = RootDirectory::open(
+            root.resolved_path()
+                .map_err(|error| ProjectionError::Backend(error.to_string()))?,
+        )
+        .map_err(|error| ProjectionError::Backend(error.to_string()))?;
+        let install = Install {
+            root,
+            staging,
+            kernel,
+            scopes: scopes.clone(),
+            build: build.clone(),
+            clock,
+            receipt: None,
+        };
+        let mut backend = Backend::new(
+            staged_root,
+            final_root,
+            file_name,
+            (native(&factory.settings), pins),
+            install,
+        );
+        if resume {
+            backend.resume(&build.scope).map_err(checkpoint::refusal)?;
+        } else {
+            drop(ProjectionWriter::create(&mut backend, build.scope.clone())?);
+        }
+        Ok(Self {
+            backend,
+            journal,
+            loader_validated: !resume,
+            settings: factory.settings.clone(),
+            build,
+            scopes: scopes.clone(),
+            kernel,
+            clock,
+            _access: access,
+        })
+    }
+
+    /// Perform all scope/input/job admission before reservation or opening native content.
+    fn admit(
+        factory: &ProjectionConfiguration<'_>,
+        kernel: &Database,
+        scopes: &ScopeSet,
+        build: &ProjectionBuild,
+        clock: &dyn Fn() -> SystemTime,
+    ) -> Result<(OwnedRoot, Access), ProjectionError> {
+        check_read_scope(scopes, &build.scope, &build.scope)?;
+        let pins = input_pins::build_pins(build);
         binding::admitted(&pins, &factory.settings)?;
         kernel
             .validate_projection_inputs(
@@ -103,58 +225,16 @@ impl<'a> Session<'a> {
         }
         // Windows rooted writes refuse before reservation; no new orphan is created.
         super::schema::writable(cfg!(windows)).map_err(ProjectionError::Backend)?;
-        let reservation = format!(
-            ".build-{}-{}-{}-{}",
-            build.lease.job,
-            build.lease.number,
-            process::id(),
-            NEXT_STAGING.fetch_add(1, Ordering::Relaxed)
-        );
-        let staging = root.reserve_child(&reservation).map_err(|error| {
-            ProjectionError::Backend(format!(
-                "staging reservation refused: {error}; preserve existing orphans \
-                 and report for explicit recovery"
-            ))
-        })?;
-        let file_name = content::basename(&build.scope, &build.claim_set_id)
-            .map_err(ProjectionError::Backend)?;
-        let staged_root = RootDirectory::open(
-            staging
-                .resolved_path()
-                .map_err(|error| ProjectionError::Backend(error.to_string()))?,
-        )
-        .map_err(|error| ProjectionError::Backend(error.to_string()))?;
-        let final_root = RootDirectory::open(
-            root.resolved_path()
-                .map_err(|error| ProjectionError::Backend(error.to_string()))?,
-        )
-        .map_err(|error| ProjectionError::Backend(error.to_string()))?;
-        let install = Install {
-            root,
-            staging,
-            kernel,
-            scopes: scopes.clone(),
-            build: build.clone(),
-            clock,
-            receipt: None,
-        };
-        let mut backend = Backend::new(
-            staged_root,
-            final_root,
-            file_name,
-            (native(&factory.settings), pins),
-            install,
-        );
-        drop(ProjectionWriter::create(&mut backend, build.scope.clone())?);
-        Ok(Self {
-            backend,
-            settings: factory.settings.clone(),
-            build,
-            scopes: scopes.clone(),
-            kernel,
-            clock,
-            _access: access,
-        })
+        Ok((root, access))
+    }
+
+    /// Validated held staging location for the journal capability.
+    pub(super) fn staging_path(&mut self) -> Result<PathBuf, ProjectionError> {
+        self.backend
+            .publication_mut()
+            .staging
+            .resolved_path()
+            .map_err(checkpoint::refusal)
     }
 
     /// Exact settings carried by this unpublished session.
@@ -170,6 +250,11 @@ impl<'a> Session<'a> {
         vocabulary: Option<&dyn CatalogRelationVocabulary>,
     ) -> Result<(), ProjectionError> {
         self.validate_lease()?;
+        if !self.loader_validated {
+            return Err(checkpoint::refusal(
+                "call load to validate resumed checkpoints before writing",
+            ));
+        }
         let mut writer = ProjectionWriter::resume(&mut self.backend, self.build.scope.clone());
         if let Some(vocabulary) = vocabulary {
             writer.write_batch_with_catalog_vocabulary(&self.scopes, edges, facts, vocabulary)
@@ -194,6 +279,19 @@ impl<'a> Session<'a> {
         expected: &BuildVerification,
     ) -> Result<PublishedProjection, ProjectionError> {
         self.validate_lease()?;
+        if !self.loader_validated {
+            return Err(checkpoint::refusal(
+                "call load before publishing a resumed build",
+            ));
+        }
+        if let Some(journal) = self.journal.as_ref() {
+            journal.manifest.verify_final(expected)?;
+            if journal.ordinals()? != journal.manifest.count()? {
+                return Err(checkpoint::refusal(
+                    "loader checkpoints incomplete before publication",
+                ));
+            }
+        }
         let file_name = content::basename(&self.build.scope, &self.build.claim_set_id)
             .map_err(ProjectionError::Backend)?;
         let receipt = receipt_from_verification(
@@ -206,6 +304,16 @@ impl<'a> Session<'a> {
         self.backend.publication_mut().receipt = Some(receipt.clone());
         ProjectionWriter::resume(&mut self.backend, self.build.scope.clone())
             .verify_and_publish(expected, &self.build.claim_set_id)?;
+        let staging = self.staging_path()?;
+        if let Some(journal) = self.journal.as_mut() {
+            journal
+                .cleanup(&staging, self.settings.max_db_size)
+                .map_err(|error| {
+                    ProjectionError::Backend(format!(
+                        "projection is published; loader cleanup failed: {error:?}"
+                    ))
+                })?;
+        }
         Ok(PublishedProjection {
             receipt,
             settings: self.settings.clone(),

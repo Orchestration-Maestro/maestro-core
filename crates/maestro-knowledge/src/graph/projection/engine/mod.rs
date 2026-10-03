@@ -8,6 +8,11 @@ mod input_guard_tests;
 mod input_pins;
 #[cfg(test)]
 mod input_pins_tests;
+mod loader;
+#[cfg(test)]
+mod loader_guard_tests;
+#[cfg(test)]
+mod loader_tests;
 #[cfg(all(test, unix))]
 mod native_pin_tests;
 mod open;
