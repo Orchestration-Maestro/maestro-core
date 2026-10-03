@@ -3,11 +3,15 @@ use super::{
     public_fixture::{Fixture, settings},
     public_tests::publish,
 };
+#[cfg(unix)]
+use crate::graph::projection::health::PublishedFile as _;
 use crate::graph::projection::{
     EngineSettings, InputMismatchKind, ProjectionEngine, ProjectionError, ProjectionFactory,
 };
 use crate::graph::projection::{health::ProbeError, receipts::ProjectionReceiptInventory};
 use maestro_filesystem::SystemFileLock;
+#[cfg(unix)]
+use maestro_kernel::facts::ProjectionReceipt;
 use maestro_kernel::{
     artifact::Digest,
     facts::{
@@ -74,7 +78,7 @@ fn cold_open_and_health_refuse_changed_settings_and_complete_lock_before_native_
             .unwrap()
             .unwrap();
         fs::write(
-            fixture.native.path.join(receipt.file_name),
+            fixture.native.path.join(receipt.identity.file_name),
             b"corrupt native bytes: must not open",
         )
         .unwrap();
@@ -134,7 +138,7 @@ fn cold_open_and_health_refuse_changed_settings_and_complete_lock_before_native_
 }
 
 /// Existing replaceable inventory seam, retaining the kernel's exact receipt.
-struct Inventory<'a>(&'a Fixture);
+pub(super) struct Inventory<'a>(pub(super) &'a Fixture);
 impl ProjectionReceiptInventory for Inventory<'_> {
     fn inventory(&self, _: &str) -> Result<InventoryState, FactError> {
         let receipt = self
@@ -152,7 +156,7 @@ impl ProjectionReceiptInventory for Inventory<'_> {
 
 #[cfg(unix)]
 #[test]
-fn native_stamp_changed_snapshot_settings_lock_or_old_version_refuses_with_rebuild() {
+fn native_health_reports_exact_input_mismatch_kind() {
     for (field, value, kind) in [
         (
             "resolution",
@@ -179,65 +183,7 @@ fn native_stamp_changed_snapshot_settings_lock_or_old_version_refuses_with_rebui
             .projection_ready(&fixture.authority.scopes, fixture.build.scope.generation_id)
             .unwrap()
             .unwrap();
-        {
-            let database = super::open::open(
-                &fixture.native.root,
-                &receipt.file_name,
-                super::config::native(&settings()),
-            )
-            .unwrap();
-            let connection = lbug::Connection::new(&database).unwrap();
-            if field == "schema" {
-                connection.query("MATCH (p:Projection) DELETE p").unwrap();
-                let mut statement = connection
-                    .prepare(
-                        "CREATE (:Projection {schema: $value,
-                    collection: $collection, generation: $generation, resolution: $resolution,
-                    resolver: $resolver, settings: $settings, lock: $lock})",
-                    )
-                    .unwrap();
-                connection
-                    .execute(
-                        &mut statement,
-                        vec![
-                            ("value", lbug::Value::String(value.into())),
-                            (
-                                "collection",
-                                lbug::Value::String(receipt.collection_id.clone()),
-                            ),
-                            ("generation", lbug::Value::Int64(receipt.generation_id)),
-                            (
-                                "resolution",
-                                lbug::Value::String(receipt.resolution_id.as_str().into()),
-                            ),
-                            (
-                                "resolver",
-                                lbug::Value::String(receipt.resolver_version.clone()),
-                            ),
-                            (
-                                "settings",
-                                lbug::Value::String(receipt.settings_identity.as_str().into()),
-                            ),
-                            (
-                                "lock",
-                                lbug::Value::String(receipt.frozen_lock.as_str().into()),
-                            ),
-                        ],
-                    )
-                    .unwrap();
-            } else {
-                let mut statement = connection
-                    .prepare(&format!("MATCH (p:Projection) SET p.{field} = $value"))
-                    .unwrap();
-                connection
-                    .execute(
-                        &mut statement,
-                        vec![("value", lbug::Value::String(value.into()))],
-                    )
-                    .unwrap();
-            }
-            connection.query("CHECKPOINT").unwrap();
-        }
+        change_stamp(&fixture, &receipt, field, value);
         let error = fixture
             .factory()
             .reader(
@@ -247,10 +193,89 @@ fn native_stamp_changed_snapshot_settings_lock_or_old_version_refuses_with_rebui
             )
             .expect_err("changed native or admitted pins must refuse");
         assert_eq!(error, ProjectionError::InputMismatch(kind));
+        let super::probe::ProbeReceipt::Files(files) = super::probe::Probe::receipt_with(
+            &fixture.native.path,
+            &SystemFileLock,
+            &Inventory(&fixture),
+            Some(settings()),
+        )
+        .unwrap() else {
+            panic!("published file expected");
+        };
+        assert_eq!(
+            files[0].open_read_only().unwrap().query_one().unwrap_err(),
+            ProbeError::InputMismatch(kind),
+            "{field}: health category"
+        );
         let message = error.to_string();
         assert!(
             message.contains("maestro knowledge graph rebuild"),
             "{field}: {error}"
         );
     }
+}
+
+/// Change one durable stamp using a bound native mutation, then checkpoint and close.
+#[cfg(unix)]
+fn change_stamp(fixture: &Fixture, receipt: &ProjectionReceipt, field: &str, value: &str) {
+    let database = super::open::open(
+        &fixture.native.root,
+        &receipt.identity.file_name,
+        super::config::native(&settings()),
+    )
+    .unwrap();
+    let connection = lbug::Connection::new(&database).unwrap();
+    if field == "schema" {
+        connection.query("MATCH (p:Projection) DELETE p").unwrap();
+        let mut statement = connection
+            .prepare(
+                "CREATE (:Projection {schema: $value,
+            collection: $collection, generation: $generation, resolution: $resolution,
+            resolver: $resolver, settings: $settings, lock: $lock})",
+            )
+            .unwrap();
+        connection
+            .execute(
+                &mut statement,
+                vec![
+                    ("value", lbug::Value::String(value.into())),
+                    (
+                        "collection",
+                        lbug::Value::String(receipt.identity.collection_id.clone()),
+                    ),
+                    (
+                        "generation",
+                        lbug::Value::Int64(receipt.identity.generation_id),
+                    ),
+                    (
+                        "resolution",
+                        lbug::Value::String(receipt.resolution_id.as_str().into()),
+                    ),
+                    (
+                        "resolver",
+                        lbug::Value::String(receipt.resolver_version.clone()),
+                    ),
+                    (
+                        "settings",
+                        lbug::Value::String(receipt.settings_identity.as_str().into()),
+                    ),
+                    (
+                        "lock",
+                        lbug::Value::String(receipt.frozen_lock.as_str().into()),
+                    ),
+                ],
+            )
+            .unwrap();
+    } else {
+        let mut statement = connection
+            .prepare(&format!("MATCH (p:Projection) SET p.{field} = $value"))
+            .unwrap();
+        connection
+            .execute(
+                &mut statement,
+                vec![("value", lbug::Value::String(value.into()))],
+            )
+            .unwrap();
+    }
+    connection.query("CHECKPOINT").unwrap();
 }

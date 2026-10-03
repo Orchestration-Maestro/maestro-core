@@ -69,7 +69,7 @@ pub(in crate::graph::projection) fn open(
         })?
         .ok_or(ProjectionError::NotReady)?;
     binding::admitted(&binding::receipt_pins(&receipt), &factory.settings)?;
-    let key = key(&root, &receipt.file_name)?;
+    let key = key(&root, &receipt.identity.file_name)?;
     let mut registry = READERS
         .lock()
         .map_err(|_| ProjectionError::Backend("native handle registry poisoned".into()))?;
@@ -427,18 +427,21 @@ mod cache_tests {
         let reset = CacheReset(
             key(
                 &open_root(&fixture.native.path).unwrap(),
-                &receipt.file_name,
+                &receipt.identity.file_name,
             )
             .unwrap(),
         );
         let matching = read().unwrap();
-        assert_eq!(owner_count(&fixture.native.path, &receipt.file_name), 3);
+        assert_eq!(
+            owner_count(&fixture.native.path, &receipt.identity.file_name),
+            3
+        );
         drop(matching);
         let mut different = receipt;
         if counts {
-            different.entity_fact_count += 1;
+            different.identity.entity_fact_count += 1;
         } else {
-            different.content_digest = Digest::of(b"different cached content");
+            different.identity.content_digest = Digest::of(b"different cached content");
         }
         cached_receipt(&reset.0, different);
         assert_eq!(read().unwrap_err(), ProjectionError::NotReady);

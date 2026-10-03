@@ -93,7 +93,7 @@ pub(in crate::graph::projection) fn assert_reads<B: ProjectionBackend>(
     receipt: &ProjectionReceipt,
 ) {
     let mut wrong_claim_set = receipt.clone();
-    wrong_claim_set.claim_set_id = Digest::of(b"other set");
+    wrong_claim_set.identity.claim_set_id = Digest::of(b"other set");
     assert_eq!(
         ProjectionReader::open(
             backend,

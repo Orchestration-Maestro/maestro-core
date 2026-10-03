@@ -26,7 +26,7 @@ fn receipt_missing_unknown_or_malformed_pin_refuses_with_rebuild() {
         ("frozen_lock", Some("xyzzy")),
     ] {
         let (scratch, database, scopes, receipt) = attached();
-        let lease = projection_lease(&database, receipt.generation_id);
+        let lease = projection_lease(&database, receipt.identity.generation_id);
         database
             .record_projection_ready(&scopes, &receipt, &lease, timing(5).now)
             .unwrap();
@@ -44,7 +44,7 @@ fn receipt_missing_unknown_or_malformed_pin_refuses_with_rebuild() {
             )
             .unwrap();
         let error = database
-            .projection_ready(&scopes, receipt.generation_id)
+            .projection_ready(&scopes, receipt.identity.generation_id)
             .expect_err("missing, unknown or malformed pin must refuse");
         assert!(
             error
@@ -58,7 +58,7 @@ fn receipt_missing_unknown_or_malformed_pin_refuses_with_rebuild() {
 #[test]
 fn readiness_resolution_must_exist_cover_set_and_match_resolver() {
     let (_scratch, database, scopes, mut receipt) = attached();
-    let lease = projection_lease(&database, receipt.generation_id);
+    let lease = projection_lease(&database, receipt.identity.generation_id);
     let pin = receipt.resolution_id.clone();
     receipt.resolution_id = Digest::of(b"missing resolution");
     assert!(
@@ -79,7 +79,7 @@ fn readiness_resolution_must_exist_cover_set_and_match_resolver() {
     database
         .validate_projection_inputs(
             &scopes,
-            &receipt.claim_set_id,
+            &receipt.identity.claim_set_id,
             &receipt.resolution_id,
             &receipt.resolver_version,
         )
@@ -103,7 +103,7 @@ fn readiness_resolution_must_exist_cover_set_and_match_resolver() {
         .record_claim_set(
             &scopes,
             &ClaimSet {
-                collection_id: receipt.collection_id.clone(),
+                collection_id: receipt.identity.collection_id.clone(),
                 claims: vec![foreign_claim],
             },
         )
@@ -118,13 +118,18 @@ fn readiness_resolution_must_exist_cover_set_and_match_resolver() {
         "snapshot must cover receipt claim set even when resolver matches"
     );
     receipt.resolution_id = original;
-    let other = snapshot(&database, &scopes, &receipt.claim_set_id, "other/1");
+    let other = snapshot(
+        &database,
+        &scopes,
+        &receipt.identity.claim_set_id,
+        "other/1",
+    );
     receipt.resolution_id = other.id;
     assert!(
         database
             .validate_projection_inputs(
                 &scopes,
-                &receipt.claim_set_id,
+                &receipt.identity.claim_set_id,
                 &receipt.resolution_id,
                 "other/1"
             )
@@ -161,11 +166,11 @@ fn legacy_projection_migration_preserves_rows_triggers_and_refuses_silent_upgrad
         knowledge_edge_count, catalog_dependency_edge_count, entity_fact_count, content_digest)
         VALUES (?1, ?2, ?3, ?4, 'maestro-typed-edges/1', 0, 0, 1, ?5)",
             params![
-                receipt.generation_id,
-                receipt.collection_id,
-                receipt.claim_set_id.as_str(),
-                receipt.file_name,
-                receipt.content_digest.as_str()
+                receipt.identity.generation_id,
+                receipt.identity.collection_id,
+                receipt.identity.claim_set_id.as_str(),
+                receipt.identity.file_name,
+                receipt.identity.content_digest.as_str()
             ],
         )
         .unwrap();
@@ -185,13 +190,13 @@ fn legacy_projection_migration_preserves_rows_triggers_and_refuses_silent_upgrad
         (
             "maestro-typed-edges/1".into(),
             None,
-            receipt.content_digest.as_str().into()
+            receipt.identity.content_digest.as_str().into()
         ),
         "legacy bytes must not be backfilled"
     );
     assert!(
         migrated
-            .projection_ready(&scopes, receipt.generation_id)
+            .projection_ready(&scopes, receipt.identity.generation_id)
             .unwrap_err()
             .to_string()
             .contains("maestro knowledge graph rebuild")
@@ -266,7 +271,7 @@ fn snapshot(
 #[test]
 fn old_projection_receipt_refuses_with_rebuild_repair() {
     let (_scratch, database, all, receipt) = attached();
-    let lease = projection_lease(&database, receipt.generation_id);
+    let lease = projection_lease(&database, receipt.identity.generation_id);
     database
         .record_projection_ready(&all, &receipt, &lease, timing(5).now)
         .unwrap();
@@ -283,7 +288,7 @@ fn old_projection_receipt_refuses_with_rebuild_repair() {
     )
     .unwrap();
     let error = database
-        .projection_ready(&all, receipt.generation_id)
+        .projection_ready(&all, receipt.identity.generation_id)
         .expect_err("old receipt must refuse, not silently upgrade");
     assert!(
         matches!(
@@ -311,15 +316,15 @@ fn raw_receipt_insert_must_match_the_generation_attachment() {
           resolution_id, resolver_version, settings_identity, frozen_lock)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 rusqlite::params![
-                    receipt.generation_id,
-                    receipt.collection_id,
-                    receipt.claim_set_id.as_str(),
-                    receipt.file_name,
-                    receipt.schema_version,
+                    receipt.identity.generation_id,
+                    receipt.identity.collection_id,
+                    receipt.identity.claim_set_id.as_str(),
+                    receipt.identity.file_name,
+                    receipt.identity.schema_version,
                     1_i64,
                     0_i64,
                     1_i64,
-                    receipt.content_digest.as_str(),
+                    receipt.identity.content_digest.as_str(),
                     receipt.resolution_id.as_str(),
                     receipt.resolver_version,
                     receipt.settings_identity.as_str(),
@@ -328,4 +333,66 @@ fn raw_receipt_insert_must_match_the_generation_attachment() {
             )
             .is_err()
     );
+}
+
+#[test]
+fn legacy_receipt_corruption_keeps_conflict_category() {
+    for assignment in [
+        "content_digest =
+         'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'",
+        "claim_set_id = 'bad'",
+        "knowledge_edge_count = -1",
+        "catalog_dependency_edge_count = -1",
+        "entity_fact_count = -1",
+        "settings_identity = 'bad'",
+        "resolution_id = 'bad'",
+        "resolver_version = 'unknown/1'",
+        "frozen_lock = 'bad'",
+    ] {
+        let (scratch, database, scopes, receipt) = attached();
+        let lease = projection_lease(&database, receipt.identity.generation_id);
+        database
+            .record_projection_ready(&scopes, &receipt, &lease, timing(5).now)
+            .unwrap();
+        let outside = scratch.outside();
+        outside
+            .execute_batch(
+                "DROP TRIGGER graph_projection_receipts_never_changed;
+            PRAGMA ignore_check_constraints=ON; PRAGMA foreign_keys=OFF;
+            UPDATE graph_projection_receipts SET schema_version = 'maestro-typed-edges/1',
+            resolution_id = NULL, resolver_version = NULL,
+            settings_identity = NULL, frozen_lock = NULL;",
+            )
+            .unwrap();
+        assert!(matches!(
+            database.projection_ready(&scopes, receipt.identity.generation_id),
+            Err(Error::ProjectionInputMismatch(InputMismatchKind::Format))
+        ));
+        let legacy = database
+            .projection_receipt_identity(&scopes, receipt.identity.generation_id)
+            .unwrap()
+            .unwrap();
+        let mut expected = receipt.identity.clone();
+        expected.schema_version = "maestro-typed-edges/1".into();
+        assert_eq!(legacy, expected);
+        outside
+            .execute_batch(&format!(
+                "UPDATE graph_projection_receipts SET {assignment}"
+            ))
+            .unwrap();
+        assert!(
+            matches!(
+                database.projection_ready(&scopes, receipt.identity.generation_id),
+                Err(Error::Conflict(_))
+            ),
+            "{assignment}: corruption must not become format mismatch"
+        );
+        assert!(
+            matches!(
+                database.projection_receipt_identity(&scopes, receipt.identity.generation_id),
+                Err(Error::Conflict(_))
+            ),
+            "{assignment}: cleanup identity must also reject corruption"
+        );
+    }
 }

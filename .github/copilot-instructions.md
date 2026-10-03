@@ -922,6 +922,7 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Tests of claims: admitting a verified set or nothing, reading it back
 │   │   │   │   │   ├── mutation_contracts.rs                                # Build identities and supersession endpoint contracts
 │   │   │   │   │   ├── projection.rs                                        # Rust source: projection
+│   │   │   │   │   ├── projection_guards.rs                                 # SQL and scope boundaries for durable projection input pins
 │   │   │   │   │   ├── projection_lease.rs                                  # Exact caller-clock project expiry, fencing, scope and renewal checks
 │   │   │   │   │   ├── projection_pins.rs                                   # Durable pin decoding, resolution authority and append-only migration proofs
 │   │   │   │   │   ├── resolution.rs                                        # Immutable sourced resolution snapshots and current-grant checks
@@ -1321,9 +1322,11 @@ in place.
 │   │   │   │   │   │   ├── codec_tests.rs                                   # Synthetic canonical fact-vector and malformed-byte checks
 │   │   │   │   │   │   ├── config.rs                                        # The single native translation of caller-owned frozen graph settings
 │   │   │   │   │   │   ├── holder_fence_tests.rs                            # Holder credentials refuse before reservation, without changing authoritative state
+│   │   │   │   │   │   ├── input_guard_tests.rs                             # Producer preflight forwards all durable pins before reserving native storage
 │   │   │   │   │   │   ├── input_pins.rs                                    # Native build stamps and comparison with independently persisted readiness pins
 │   │   │   │   │   │   ├── input_pins_tests.rs                              # Cold native opens bind durable stamps, not just live process registry entries
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
+│   │   │   │   │   │   ├── native_pin_tests.rs                              # Strict native decoding must retain corruption, never classify malformed pins as drift
 │   │   │   │   │   │   ├── open.rs                                          # The native adapter's single rooted construction boundary
 │   │   │   │   │   │   ├── probe.rs                                         # Guarded read-only graph health bridge, bypassing the native handle registry
 │   │   │   │   │   │   ├── probe_files_tests.rs                             # Receipt/file binding, deterministic neighbours, and independent native lifetimes

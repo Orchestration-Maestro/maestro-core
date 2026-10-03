@@ -3,7 +3,9 @@ use crate::graph::projection::EngineSettings;
 #[cfg(feature = "engine")]
 use crate::graph::{descriptors::tests_source::Authority, projection::ProjectionBuild};
 use maestro_kernel::artifact::Digest;
+#[cfg(feature = "engine")]
 use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+#[cfg(feature = "engine")]
 use maestro_kernel::facts::ResolutionInput;
 #[cfg(feature = "engine")]
 use std::time::SystemTime;

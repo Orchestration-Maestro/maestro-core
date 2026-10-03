@@ -79,23 +79,15 @@ impl BuildRecord {
         self.batches.iter().map(|batch| batch.rejected).sum()
     }
 }
-/// Verified disposable projection identity recorded by the kernel.
+/// Strictly decoded immutable file identity, including retained legacy receipts.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProjectionReceipt {
+pub struct ProjectionReceiptIdentity {
     /// Collection whose generation is projected.
     pub collection_id: String,
     /// Exact immutable generation pin.
     pub generation_id: i64,
     /// Kernel-authoritative claim set this file represents.
     pub claim_set_id: Digest,
-    /// Frozen source-backed resolution snapshot.
-    pub resolution_id: Digest,
-    /// Exact supported resolver algorithm.
-    pub resolver_version: String,
-    /// Versioned identity of admitted typed engine settings.
-    pub settings_identity: Digest,
-    /// Complete admitted frozen non-resource lock digest.
-    pub frozen_lock: Digest,
     /// Single owned filename; it is never a caller-supplied path.
     pub file_name: String,
     /// Projection schema checked after close/reopen.
@@ -108,6 +100,21 @@ pub struct ProjectionReceipt {
     pub entity_fact_count: usize,
     /// Digest of verified projection application-ID content.
     pub content_digest: Digest,
+}
+
+/// Verified version-2 disposable projection with durable input pins.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectionReceipt {
+    /// Non-pin receipt fields shared with legacy cleanup authority.
+    pub identity: ProjectionReceiptIdentity,
+    /// Frozen source-backed resolution snapshot.
+    pub resolution_id: Digest,
+    /// Exact supported resolver algorithm.
+    pub resolver_version: String,
+    /// Versioned identity of admitted typed engine settings.
+    pub settings_identity: Digest,
+    /// Complete admitted frozen non-resource lock digest.
+    pub frozen_lock: Digest,
 }
 
 /// Immutable claim set attached to a generation.

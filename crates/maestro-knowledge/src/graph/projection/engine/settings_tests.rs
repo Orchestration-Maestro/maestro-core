@@ -81,7 +81,7 @@ fn lifecycle_active_readers_refuse_changed_settings_or_changed_complete_lock() {
         .projection_ready(&fixture.authority.scopes, fixture.build.scope.generation_id)
         .unwrap()
         .unwrap();
-    let bytes = fs::metadata(fixture.native.path.join(receipt.file_name))
+    let bytes = fs::metadata(fixture.native.path.join(receipt.identity.file_name))
         .unwrap()
         .len();
     println!(

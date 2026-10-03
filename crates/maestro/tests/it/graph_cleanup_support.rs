@@ -5,6 +5,7 @@ use super::{
 };
 use maestro_filesystem::{ControlFile, OwnedRoot};
 use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::facts::ProjectionReceiptIdentity;
 use maestro_kernel::facts::ResolutionInput;
 use maestro_kernel::scope::ScopeSet;
 use maestro_kernel::store::Database;
@@ -117,19 +118,11 @@ fn ready(home: &Home, published: bool, pins: (Digest, Digest)) -> (i64, String) 
         .record_projection_ready(
             &scopes,
             &ProjectionReceipt {
-                collection_id: "synthetic-graph".into(),
-                generation_id: generation,
-                claim_set_id: attachment.claim_set_id,
+                identity: cleanup_identity(generation, attachment.claim_set_id, name.clone()),
                 resolution_id: resolution,
                 resolver_version: EXACT_RESOLVER_VERSION.into(),
                 settings_identity: pins.0,
                 frozen_lock: pins.1,
-                file_name: name.clone(),
-                schema_version: "maestro-typed-edges/2".into(),
-                knowledge_edge_count: 0,
-                catalog_dependency_edge_count: 0,
-                entity_fact_count: 4,
-                content_digest: Digest::of(b"disposable"),
             },
             &lease,
             SystemTime::now(),
@@ -224,4 +217,19 @@ fn frozen_resolution(database: &Database, scopes: &ScopeSet, set: &Digest) -> Di
         )
         .unwrap()
         .id
+}
+
+/// Historical disposable content identity, shared by cleanup and health fixtures.
+fn cleanup_identity(generation: i64, set: Digest, name: String) -> ProjectionReceiptIdentity {
+    ProjectionReceiptIdentity {
+        collection_id: "synthetic-graph".into(),
+        generation_id: generation,
+        claim_set_id: set,
+        file_name: name,
+        schema_version: "maestro-typed-edges/2".into(),
+        knowledge_edge_count: 0,
+        catalog_dependency_edge_count: 0,
+        entity_fact_count: 4,
+        content_digest: Digest::of(b"disposable"),
+    }
 }

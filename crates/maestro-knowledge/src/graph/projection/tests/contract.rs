@@ -2,6 +2,7 @@
 
 use super::contract_reads::assert_read_contract;
 use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::facts::ProjectionReceiptIdentity;
 
 use crate::graph::projection::{
     EdgeFamily, EngineSettings, EntityFact, ProjectionEdge, ProjectionError, ProjectionScope,
@@ -348,7 +349,7 @@ fn verify_and_publish<B: ProjectionBackend>(
     assert!(
         writer
             .backend
-            .publish_unpublished(contract.scope, &receipt.file_name)
+            .publish_unpublished(contract.scope, &receipt.identity.file_name)
             .is_err(),
         "a published build cannot be replaced under its canonical name"
     );
@@ -362,7 +363,7 @@ fn assert_wrong_name<B: ProjectionBackend>(
     claim_set_id: &Digest,
 ) {
     let mut wrong_receipt = receipt.clone();
-    wrong_receipt.file_name = content::basename(
+    wrong_receipt.identity.file_name = content::basename(
         &ProjectionScope {
             generation_id: contract.scope.generation_id + 1,
             ..contract.scope.clone()
@@ -393,27 +394,29 @@ fn receipt(
     claim_set_id: &Digest,
 ) -> ProjectionReceipt {
     ProjectionReceipt {
-        collection_id: scope.collection_id.clone(),
-        generation_id: scope.generation_id,
-        claim_set_id: claim_set_id.clone(),
+        identity: ProjectionReceiptIdentity {
+            collection_id: scope.collection_id.clone(),
+            generation_id: scope.generation_id,
+            claim_set_id: claim_set_id.clone(),
+            file_name: content::basename(scope, claim_set_id).unwrap(),
+            schema_version: build.schema.clone(),
+            knowledge_edge_count: build
+                .family_counts
+                .get(&EdgeFamily::KnowledgeClaim)
+                .copied()
+                .unwrap_or(0),
+            catalog_dependency_edge_count: build
+                .family_counts
+                .get(&EdgeFamily::CatalogDependency)
+                .copied()
+                .unwrap_or(0),
+            entity_fact_count: build.fact_count,
+            content_digest: build.content_digest.clone(),
+        },
         resolution_id: Digest::of(b"resolution"),
         resolver_version: EXACT_RESOLVER_VERSION.into(),
         settings_identity: Digest::parse(&pins()[2]).unwrap(),
         frozen_lock: Digest::of(b"frozen-lock"),
-        file_name: content::basename(scope, claim_set_id).unwrap(),
-        schema_version: build.schema.clone(),
-        knowledge_edge_count: build
-            .family_counts
-            .get(&EdgeFamily::KnowledgeClaim)
-            .copied()
-            .unwrap_or(0),
-        catalog_dependency_edge_count: build
-            .family_counts
-            .get(&EdgeFamily::CatalogDependency)
-            .copied()
-            .unwrap_or(0),
-        entity_fact_count: build.fact_count,
-        content_digest: build.content_digest.clone(),
     }
 }
 
@@ -431,8 +434,8 @@ impl ProjectionReadiness for Ready {
         _scopes: &ScopeSet,
         scope: &ProjectionScope,
     ) -> Result<Option<ProjectionReceipt>, String> {
-        Ok((self.0.collection_id == scope.collection_id
-            && self.0.generation_id == scope.generation_id)
+        Ok((self.0.identity.collection_id == scope.collection_id
+            && self.0.identity.generation_id == scope.generation_id)
             .then(|| self.0.clone()))
     }
 }

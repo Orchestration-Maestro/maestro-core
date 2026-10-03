@@ -45,21 +45,22 @@ impl Reader {
         scope: &ProjectionScope,
         receipt: &ProjectionReceipt,
     ) -> Result<Self, ProjectionError> {
-        if content::basename(scope, &receipt.claim_set_id).map_err(ProjectionError::Backend)?
-            != receipt.file_name
+        if content::basename(scope, &receipt.identity.claim_set_id)
+            .map_err(ProjectionError::Backend)?
+            != receipt.identity.file_name
         {
             return Err(ProjectionError::Backend(
                 "native projection receipt does not name this scope's physical file".into(),
             ));
         }
-        let reader = Self::open(root, &receipt.file_name, config, scope)
+        let reader = Self::open(root, &receipt.identity.file_name, config, scope)
             .map_err(ProjectionError::Backend)?;
         let rows = reader.rows()?;
         input_pins::compare(&rows.pins, &binding::receipt_pins(receipt))?;
         let mapped = receipt_from_verification(
             scope,
-            receipt.claim_set_id.clone(),
-            receipt.file_name.clone(),
+            receipt.identity.claim_set_id.clone(),
+            receipt.identity.file_name.clone(),
             &rows.verification().map_err(ProjectionError::Backend)?,
             &rows.pins,
         )?;

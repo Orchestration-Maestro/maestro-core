@@ -13,6 +13,7 @@ mod upgrade;
 mod vocabulary;
 
 mod projection;
+mod projection_guards;
 mod projection_lease;
 mod projection_pins;
 mod resolution;

@@ -267,7 +267,7 @@ impl Publication for Install<'_> {
             .receipt
             .as_ref()
             .ok_or("publication has no verified receipt")?;
-        if staging != published || published != receipt.file_name {
+        if staging != published || published != receipt.identity.file_name {
             return Err("publication names differ from the reserved receipt basename".into());
         }
         let install = || -> Result<(), String> {

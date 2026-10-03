@@ -11,6 +11,7 @@ use crate::graph::projection::{
     EdgeFamily, ProjectionEdge, ProjectionError, ProjectionScope, TypedEdgeProjection,
 };
 use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::facts::ProjectionReceiptIdentity;
 use maestro_kernel::{
     artifact::Digest,
     facts::ProjectionReceipt,
@@ -102,35 +103,37 @@ impl ProjectionReadiness for Ready {
         _scopes: &ScopeSet,
         scope: &ProjectionScope,
     ) -> Result<Option<ProjectionReceipt>, String> {
-        Ok((self.0.collection_id == scope.collection_id
-            && self.0.generation_id == scope.generation_id)
+        Ok((self.0.identity.collection_id == scope.collection_id
+            && self.0.identity.generation_id == scope.generation_id)
             .then(|| self.0.clone()))
     }
 }
 fn ready(scope: &ProjectionScope, build: &BuildVerification) -> Ready {
     let claim_set_id = Digest::of(b"set");
     Ready(ProjectionReceipt {
-        collection_id: scope.collection_id.clone(),
-        generation_id: scope.generation_id,
-        claim_set_id: claim_set_id.clone(),
+        identity: ProjectionReceiptIdentity {
+            collection_id: scope.collection_id.clone(),
+            generation_id: scope.generation_id,
+            claim_set_id: claim_set_id.clone(),
+            file_name: content::basename(scope, &claim_set_id).unwrap(),
+            schema_version: build.schema.clone(),
+            knowledge_edge_count: build
+                .family_counts
+                .get(&EdgeFamily::KnowledgeClaim)
+                .copied()
+                .unwrap_or(0),
+            catalog_dependency_edge_count: build
+                .family_counts
+                .get(&EdgeFamily::CatalogDependency)
+                .copied()
+                .unwrap_or(0),
+            entity_fact_count: build.fact_count,
+            content_digest: build.content_digest.clone(),
+        },
         resolution_id: Digest::of(b"resolution"),
         resolver_version: EXACT_RESOLVER_VERSION.into(),
         settings_identity: Digest::of(b"settings"),
         frozen_lock: Digest::of(b"frozen-lock"),
-        file_name: content::basename(scope, &claim_set_id).unwrap(),
-        schema_version: build.schema.clone(),
-        knowledge_edge_count: build
-            .family_counts
-            .get(&EdgeFamily::KnowledgeClaim)
-            .copied()
-            .unwrap_or(0),
-        catalog_dependency_edge_count: build
-            .family_counts
-            .get(&EdgeFamily::CatalogDependency)
-            .copied()
-            .unwrap_or(0),
-        entity_fact_count: build.fact_count,
-        content_digest: build.content_digest.clone(),
     })
 }
 impl ProjectionBackend for Fake {
@@ -255,7 +258,7 @@ impl ProjectionBackend for Fake {
     ) -> Result<Self::Reader, String> {
         if !self
             .published
-            .contains(&(scope.clone(), receipt.file_name.clone()))
+            .contains(&(scope.clone(), receipt.identity.file_name.clone()))
         {
             return Err("wrong receipt name".to_owned());
         }

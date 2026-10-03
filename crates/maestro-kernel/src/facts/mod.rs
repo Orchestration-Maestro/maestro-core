@@ -38,7 +38,7 @@ mod write;
 
 pub use build_types::{
     Batch, BatchReceipt, Budget, BuildPlan, BuildRecord, GraphAttachment, ProjectionReceipt,
-    Rejection,
+    ProjectionReceiptIdentity, Rejection,
 };
 pub use error::Error;
 pub use projection::{

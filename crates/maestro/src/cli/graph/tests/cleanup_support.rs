@@ -2,6 +2,7 @@
 use super::runner_tests::support::{Fixture, fixture};
 use maestro_filesystem::{ControlFile, OwnedRoot};
 use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::facts::ProjectionReceiptIdentity;
 use maestro_kernel::facts::ResolutionInput;
 use maestro_kernel::scope::{LOCAL, ScopeSet};
 use maestro_kernel::store::Database;
@@ -86,19 +87,21 @@ pub(in crate::cli::graph) fn cleanup_fixture() -> (Fixture, i64, String) {
         .record_projection_ready(
             &fixture.kernel.scopes,
             &ProjectionReceipt {
-                collection_id: "graph-test".into(),
-                generation_id: generation,
-                claim_set_id: set,
+                identity: ProjectionReceiptIdentity {
+                    collection_id: "graph-test".into(),
+                    generation_id: generation,
+                    claim_set_id: set,
+                    file_name: name.clone(),
+                    schema_version: "maestro-typed-edges/2".into(),
+                    knowledge_edge_count: 0,
+                    catalog_dependency_edge_count: 0,
+                    entity_fact_count: 0,
+                    content_digest: Digest::of(b"disposable"),
+                },
                 resolution_id: resolution,
                 resolver_version: EXACT_RESOLVER_VERSION.into(),
                 settings_identity: Digest::of(b"settings"),
                 frozen_lock: Digest::of(b"frozen-lock"),
-                file_name: name.clone(),
-                schema_version: "maestro-typed-edges/2".into(),
-                knowledge_edge_count: 0,
-                catalog_dependency_edge_count: 0,
-                entity_fact_count: 0,
-                content_digest: Digest::of(b"disposable"),
             },
             &lease,
             SystemTime::now(),

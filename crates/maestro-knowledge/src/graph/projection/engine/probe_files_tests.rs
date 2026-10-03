@@ -80,7 +80,7 @@ fn graph_probe_independent_opens_validate_receipts_and_release_native_handles() 
     let fixture = Fixture::new();
     let root = guards(&fixture);
     let receipt = receipt(&fixture);
-    let before = fs::read(fixture.path.join(&receipt.file_name)).unwrap();
+    let before = fs::read(fixture.path.join(&receipt.identity.file_name)).unwrap();
     let inventory = inventory(Some(receipt.clone()));
     let published = files(&fixture, &inventory);
     assert_eq!(inventory.calls.get(), 1);
@@ -118,7 +118,7 @@ fn graph_probe_independent_opens_validate_receipts_and_release_native_handles() 
         .lock_with(&SystemFileLock, LockMode::Exclusive, false)
         .unwrap();
     assert_eq!(
-        fs::read(fixture.path.join(&receipt.file_name)).unwrap(),
+        fs::read(fixture.path.join(&receipt.identity.file_name)).unwrap(),
         before
     );
 }
@@ -128,27 +128,27 @@ fn graph_probe_missing_stale_and_corrupt_have_valid_neighbour() {
     let fixture = Fixture::new();
     let _root = guards(&fixture);
     let receipt = receipt(&fixture);
-    let neighbour = fs::read(fixture.path.join(&receipt.file_name)).unwrap();
+    let neighbour = fs::read(fixture.path.join(&receipt.identity.file_name)).unwrap();
     let mut rows = inventory(Some(receipt.clone()));
     let mut missing = receipt.clone();
-    missing.generation_id += 1;
-    missing.file_name = content::basename(
+    missing.identity.generation_id += 1;
+    missing.identity.file_name = content::basename(
         &ProjectionScope {
-            collection_id: missing.collection_id.clone(),
-            generation_id: missing.generation_id,
+            collection_id: missing.identity.collection_id.clone(),
+            generation_id: missing.identity.generation_id,
         },
-        &missing.claim_set_id,
+        &missing.identity.claim_set_id,
     )
     .unwrap();
     rows.rows = InventoryState::Ready(vec![
         ProjectionInventory {
-            collection_id: receipt.collection_id.clone(),
-            generation_id: receipt.generation_id,
+            collection_id: receipt.identity.collection_id.clone(),
+            generation_id: receipt.identity.generation_id,
             receipt: Some(receipt.clone()),
         },
         ProjectionInventory {
-            collection_id: missing.collection_id.clone(),
-            generation_id: missing.generation_id,
+            collection_id: missing.identity.collection_id.clone(),
+            generation_id: missing.identity.generation_id,
             receipt: Some(missing.clone()),
         },
     ]);
@@ -169,7 +169,11 @@ fn graph_probe_missing_stale_and_corrupt_have_valid_neighbour() {
         Some(ProbeError::MissingFile)
     );
     drop(neighbour_files);
-    fs::write(fixture.path.join(&missing.file_name), b"not a graph").unwrap();
+    fs::write(
+        fixture.path.join(&missing.identity.file_name),
+        b"not a graph",
+    )
+    .unwrap();
     let published = files(&fixture, &rows);
     assert!(matches!(
         published[1].open_read_only().err(),
@@ -178,7 +182,7 @@ fn graph_probe_missing_stale_and_corrupt_have_valid_neighbour() {
     published[0].open_read_only().unwrap().query_one().unwrap();
     drop(published);
     // A valid graph for a different generation is stale, not a missing file.
-    fs::write(fixture.path.join(&missing.file_name), &neighbour).unwrap();
+    fs::write(fixture.path.join(&missing.identity.file_name), &neighbour).unwrap();
     let published = files(&fixture, &rows);
     assert!(matches!(
         published[1].open_read_only().unwrap().query_one(),
@@ -186,7 +190,7 @@ fn graph_probe_missing_stale_and_corrupt_have_valid_neighbour() {
     ));
     drop(published);
     let mut stale = receipt.clone();
-    stale.content_digest = Digest::of(b"stale");
+    stale.identity.content_digest = Digest::of(b"stale");
     let published = files(&fixture, &inventory(Some(stale)));
     let stale_file: &dyn PublishedFile = &published[0];
     assert_eq!(
@@ -194,7 +198,7 @@ fn graph_probe_missing_stale_and_corrupt_have_valid_neighbour() {
         Err(ProbeError::Stale)
     );
     assert_eq!(
-        fs::read(fixture.path.join(&receipt.file_name)).unwrap(),
+        fs::read(fixture.path.join(&receipt.identity.file_name)).unwrap(),
         neighbour
     );
 }
@@ -221,9 +225,9 @@ fn graph_probe_refuses_receipt_scope_and_filename_mismatches_and_absent_readines
         };
         let stored = entries[0].receipt.as_mut().unwrap();
         match change {
-            0 => stored.file_name = "../outside.lbdb".into(),
-            1 => stored.collection_id = "other".into(),
-            _ => stored.generation_id += 1,
+            0 => stored.identity.file_name = "../outside.lbdb".into(),
+            1 => stored.identity.collection_id = "other".into(),
+            _ => stored.identity.generation_id += 1,
         }
         assert_eq!(
             Probe::receipt_with(&fixture.path, &SystemFileLock, &rows, Some(settings())).err(),
@@ -289,7 +293,7 @@ fn graph_probe_unactivated_with_published_receipts_makes_zero_native_calls() {
     let fixture = Fixture::new();
     let _root = guards(&fixture);
     let stored = receipt(&fixture);
-    let before = fs::read(fixture.path.join(&stored.file_name)).unwrap();
+    let before = fs::read(fixture.path.join(&stored.identity.file_name)).unwrap();
     let rows = inventory(Some(stored.clone()));
     super::open::tests::OPEN_CALLS.set(0);
     assert_eq!(
@@ -299,7 +303,7 @@ fn graph_probe_unactivated_with_published_receipts_makes_zero_native_calls() {
     assert_eq!(rows.calls.get(), 1);
     assert_eq!(super::open::tests::OPEN_CALLS.get(), 0);
     assert_eq!(
-        fs::read(fixture.path.join(&stored.file_name)).unwrap(),
+        fs::read(fixture.path.join(&stored.identity.file_name)).unwrap(),
         before
     );
 }
@@ -321,6 +325,9 @@ fn graph_probe_converts_real_native_receipts_to_shared_health_ports() {
     let Receipt::Files(files) = receipt else {
         panic!("expected files")
     };
-    assert_eq!(files[0].path(), fixture.path.join(expected.file_name));
+    assert_eq!(
+        files[0].path(),
+        fixture.path.join(expected.identity.file_name)
+    );
     files[0].open_read_only().unwrap().query_one().unwrap();
 }

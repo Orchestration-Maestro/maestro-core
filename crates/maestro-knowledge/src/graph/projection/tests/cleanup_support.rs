@@ -1,6 +1,7 @@
 //! Synthetic kernel authority for feature-independent cleanup tests.
 use maestro_filesystem::{ControlFile, OwnedRoot};
 use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::facts::ProjectionReceiptIdentity;
 use maestro_kernel::facts::ResolutionInput;
 use maestro_kernel::{
     artifact::Digest,
@@ -89,19 +90,21 @@ impl Fixture {
             .unwrap()
             .id;
         let receipt = ProjectionReceipt {
-            collection_id: "cleanup".into(),
-            generation_id: generation,
-            claim_set_id: set,
+            identity: ProjectionReceiptIdentity {
+                collection_id: "cleanup".into(),
+                generation_id: generation,
+                claim_set_id: set,
+                file_name,
+                schema_version: "maestro-typed-edges/2".into(),
+                knowledge_edge_count: 0,
+                catalog_dependency_edge_count: 0,
+                entity_fact_count: 0,
+                content_digest: super::super::content::digest(&[], &[]).unwrap(),
+            },
             resolution_id: resolution,
             resolver_version: EXACT_RESOLVER_VERSION.into(),
             settings_identity: Digest::of(b"settings"),
             frozen_lock: Digest::of(b"frozen-lock"),
-            file_name,
-            schema_version: "maestro-typed-edges/2".into(),
-            knowledge_edge_count: 0,
-            catalog_dependency_edge_count: 0,
-            entity_fact_count: 0,
-            content_digest: super::super::content::digest(&[], &[]).unwrap(),
         };
         record_ready(&database, &scopes, &scope, &receipt);
         let graph = path.join("graph");
@@ -113,14 +116,14 @@ impl Fixture {
         super::super::engine::cleanup_tests::install(
             &graph,
             &super::super::ProjectionScope {
-                collection_id: receipt.collection_id.clone(),
+                collection_id: receipt.identity.collection_id.clone(),
                 generation_id: generation,
             },
-            &receipt.file_name,
+            &receipt.identity.file_name,
             super::super::binding::receipt_pins(&receipt),
         );
         #[cfg(not(all(feature = "engine", unix)))]
-        fs::write(graph.join(&receipt.file_name), b"disposable").unwrap();
+        fs::write(graph.join(&receipt.identity.file_name), b"disposable").unwrap();
         fs::write(graph.join("orphan.lbdb"), b"preserve orphan exactly").unwrap();
         let scratch = Scratch(path.clone());
         Self {
@@ -132,19 +135,53 @@ impl Fixture {
         }
     }
 
+    /// Recreate a real pre-pin receipt, then let the current kernel migrate it.
+    #[cfg(unix)]
+    pub(super) fn migrate_legacy(&mut self) {
+        let connection = Connection::open(self.path.join("kernel.sqlite3")).unwrap();
+        connection
+            .execute_batch(
+                "DROP TABLE graph_projection_receipts;
+            DELETE FROM migrations WHERE name = '0030_graph_input_pins';",
+            )
+            .unwrap();
+        connection
+            .execute_batch(include_str!(
+                "../../../../../maestro-kernel/migrations/0019_graph_projection.sql"
+            ))
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO graph_projection_receipts
+            (generation_id, collection_id, claim_set_id, file_name, schema_version,
+             knowledge_edge_count, catalog_dependency_edge_count, entity_fact_count, content_digest)
+            VALUES (?1, ?2, ?3, ?4, 'maestro-typed-edges/1', 0, 0, 0, ?5)",
+                params![
+                    self.receipt.identity.generation_id,
+                    self.receipt.identity.collection_id,
+                    self.receipt.identity.claim_set_id.as_str(),
+                    self.receipt.identity.file_name,
+                    self.receipt.identity.content_digest.as_str()
+                ],
+            )
+            .unwrap();
+        drop(connection);
+        self.database = Database::open_in(&self.path).unwrap();
+    }
+
     pub(super) fn retire(&self) {
         self.database
-            .publish_generation(self.receipt.generation_id)
+            .publish_generation(self.receipt.identity.generation_id)
             .unwrap();
         self.database
-            .retire_generation(self.receipt.generation_id)
+            .retire_generation(self.receipt.identity.generation_id)
             .unwrap();
     }
 
     pub(super) fn lease(&self) -> Lease {
-        let inputs = json!({"generation": self.receipt.generation_id});
+        let inputs = json!({"generation": self.receipt.identity.generation_id});
         let scope = "workspace/default/collection/cleanup".parse().unwrap();
-        let resource = format!("graph-cleanup:{}", self.receipt.generation_id);
+        let resource = format!("graph-cleanup:{}", self.receipt.identity.generation_id);
         let job = self
             .database
             .submit_job(
@@ -186,7 +223,7 @@ fn record_ready(
     scope: &Scope,
     receipt: &ProjectionReceipt,
 ) {
-    let inputs = json!({"generation": receipt.generation_id});
+    let inputs = json!({"generation": receipt.identity.generation_id});
     let job = database
         .submit_job(
             &NewJob {

@@ -13,6 +13,7 @@ use super::{
     },
     schema::{REQUIRED_INDEXES, SCHEMA_VERSION},
 };
+use maestro_kernel::facts::ProjectionReceiptIdentity;
 use maestro_kernel::{
     artifact::Digest,
     facts::{Object, Predicate, ProjectionReceipt},
@@ -331,13 +332,14 @@ impl ProjectionReader {
             .projection_ready(scopes, &scope)
             .map_err(ProjectionError::Backend)?
             .ok_or(ProjectionError::NotReady)?;
-        if receipt.collection_id != scope.collection_id
-            || receipt.generation_id != scope.generation_id
-            || receipt.schema_version != SCHEMA_VERSION
+        if receipt.identity.collection_id != scope.collection_id
+            || receipt.identity.generation_id != scope.generation_id
+            || receipt.identity.schema_version != SCHEMA_VERSION
         {
             return Err(ProjectionError::NotReady);
         }
-        if super::content::basename(&scope, &receipt.claim_set_id) != Ok(receipt.file_name.clone())
+        if super::content::basename(&scope, &receipt.identity.claim_set_id)
+            != Ok(receipt.identity.file_name.clone())
         {
             return Err(ProjectionError::NotReady);
         }
@@ -347,8 +349,8 @@ impl ProjectionReader {
         let verified = reader.verification().map_err(ProjectionError::Backend)?;
         let mapped = receipt_from_verification(
             &scope,
-            receipt.claim_set_id.clone(),
-            receipt.file_name.clone(),
+            receipt.identity.claim_set_id.clone(),
+            receipt.identity.file_name.clone(),
             &verified,
             &super::binding::receipt_pins(&receipt),
         )?;
@@ -381,9 +383,21 @@ pub(crate) fn receipt_from_verification(
         .copied()
         .unwrap_or(0);
     Ok(ProjectionReceipt {
-        collection_id: scope.collection_id.clone(),
-        generation_id: scope.generation_id,
-        claim_set_id,
+        identity: ProjectionReceiptIdentity {
+            collection_id: scope.collection_id.clone(),
+            generation_id: scope.generation_id,
+            claim_set_id,
+            file_name,
+            schema_version: build.schema.clone(),
+            knowledge_edge_count: known,
+            catalog_dependency_edge_count: build
+                .family_counts
+                .get(&EdgeFamily::CatalogDependency)
+                .copied()
+                .unwrap_or(0),
+            entity_fact_count: build.fact_count,
+            content_digest: build.content_digest.clone(),
+        },
         resolution_id: Digest::parse(&pins[0])
             .map_err(|error| ProjectionError::Invalid(error.to_string()))?,
         resolver_version: pins[1].clone(),
@@ -391,16 +405,6 @@ pub(crate) fn receipt_from_verification(
             .map_err(|error| ProjectionError::Invalid(error.to_string()))?,
         frozen_lock: Digest::parse(&pins[3])
             .map_err(|error| ProjectionError::Invalid(error.to_string()))?,
-        file_name,
-        schema_version: build.schema.clone(),
-        knowledge_edge_count: known,
-        catalog_dependency_edge_count: build
-            .family_counts
-            .get(&EdgeFamily::CatalogDependency)
-            .copied()
-            .unwrap_or(0),
-        entity_fact_count: build.fact_count,
-        content_digest: build.content_digest.clone(),
     })
 }
 

@@ -13,7 +13,7 @@ fn prepare(fixture: &Fixture, apply: bool) -> Result<Cleanup, CleanupError> {
         &fixture.database,
         "cleaner",
         &fixture.path.join("graph"),
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         apply,
     )
 }
@@ -41,7 +41,7 @@ fn cleanup_heartbeat_refusal_preserves_file() {
         fixture
             .path
             .join("graph")
-            .join(&fixture.receipt.file_name)
+            .join(&fixture.receipt.identity.file_name)
             .exists()
     );
     #[cfg(unix)]
@@ -75,7 +75,7 @@ fn cleanup_unsafe_root_has_fixed_classification() {
         fixture
             .path
             .join("graph")
-            .join(&fixture.receipt.file_name)
+            .join(&fixture.receipt.identity.file_name)
             .exists()
     );
     fs::remove_file(fixture.path.join("guard-alias")).unwrap();
@@ -91,7 +91,7 @@ fn cleanup_refuses_every_retained_state_with_retired_and_failed_neighbours() {
     );
     fixture
         .database
-        .publish_generation(fixture.receipt.generation_id)
+        .publish_generation(fixture.receipt.identity.generation_id)
         .unwrap();
     assert_eq!(
         prepare(&fixture, true).unwrap_err(),
@@ -99,23 +99,23 @@ fn cleanup_refuses_every_retained_state_with_retired_and_failed_neighbours() {
     );
     fixture
         .database
-        .retire_generation(fixture.receipt.generation_id)
+        .retire_generation(fixture.receipt.identity.generation_id)
         .unwrap();
     let preview = prepare(&fixture, false).unwrap();
-    assert_eq!(preview.receipt(), &fixture.receipt);
+    assert_eq!(preview.receipt(), &fixture.receipt.identity);
     assert!(preview.present());
     drop(preview);
     let failed = Fixture::new();
     failed
         .database
-        .fail_generation(failed.receipt.generation_id)
+        .fail_generation(failed.receipt.identity.generation_id)
         .unwrap();
     assert!(prepare(&failed, false).unwrap().present());
     assert!(
         failed
             .path
             .join("graph")
-            .join(&failed.receipt.file_name)
+            .join(&failed.receipt.identity.file_name)
             .exists()
     );
 }
@@ -130,7 +130,7 @@ fn cleanup_unknown_and_unauthorized_are_identical_and_missing_guard_precedes_loo
         &fixture.database,
         "denied",
         &path,
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         false,
     )
     .unwrap_err();
@@ -189,7 +189,7 @@ fn cleanup_unsupported_lock_fails_closed_before_selection() {
         fixture
             .path
             .join("graph")
-            .join(&fixture.receipt.file_name)
+            .join(&fixture.receipt.identity.file_name)
             .exists()
     );
 }
@@ -229,7 +229,7 @@ fn cleanup_apply_rechecks_authority_and_scoped_lease() {
         fixture
             .path
             .join("graph")
-            .join(&fixture.receipt.file_name)
+            .join(&fixture.receipt.identity.file_name)
             .exists()
     );
 }
@@ -242,11 +242,11 @@ fn cleanup_apply_keeps_authority_unrelated_bytes_and_retries_after_unlink() {
     let graph = fixture.path.join("graph");
     let attachment = fixture
         .database
-        .graph_attachment(&fixture.scopes, fixture.receipt.generation_id)
+        .graph_attachment(&fixture.scopes, fixture.receipt.identity.generation_id)
         .unwrap();
     let generation = fixture
         .database
-        .generation(&fixture.scopes, fixture.receipt.generation_id)
+        .generation(&fixture.scopes, fixture.receipt.identity.generation_id)
         .unwrap();
     let cleanup = prepare(&fixture, true).unwrap();
     let mut lease = fixture.lease();
@@ -269,21 +269,21 @@ fn cleanup_apply_keeps_authority_unrelated_bytes_and_retries_after_unlink() {
     assert_eq!(
         fixture
             .database
-            .projection_ready(&fixture.scopes, fixture.receipt.generation_id)
+            .projection_ready(&fixture.scopes, fixture.receipt.identity.generation_id)
             .unwrap(),
         Some(fixture.receipt.clone())
     );
     assert_eq!(
         fixture
             .database
-            .graph_attachment(&fixture.scopes, fixture.receipt.generation_id)
+            .graph_attachment(&fixture.scopes, fixture.receipt.identity.generation_id)
             .unwrap(),
         attachment
     );
     assert_eq!(
         fixture
             .database
-            .generation(&fixture.scopes, fixture.receipt.generation_id)
+            .generation(&fixture.scopes, fixture.receipt.identity.generation_id)
             .unwrap(),
         generation
     );
@@ -382,4 +382,68 @@ fn cleanup_fixed_reason_codes_and_diagnostics_are_exact() {
     }
     assert_eq!(CleanupOutcome::Removed.reason(), "removed");
     assert_eq!(CleanupOutcome::AlreadyMissing.reason(), "already_missing");
+}
+
+#[cfg(unix)]
+#[test]
+fn cleanup_migrated_legacy_receipt_still_authorizes_removal() {
+    for retired in [true, false] {
+        let mut fixture = Fixture::new();
+        fixture.migrate_legacy();
+        if retired {
+            fixture.retire();
+        } else {
+            fixture
+                .database
+                .fail_generation(fixture.receipt.identity.generation_id)
+                .unwrap();
+        }
+        let preview = prepare(&fixture, false).unwrap();
+        assert!(preview.present());
+        assert_eq!(preview.receipt().schema_version, "maestro-typed-edges/1");
+        assert_eq!(prepare(&fixture, true).unwrap_err(), CleanupError::Busy);
+        drop(preview);
+        let mut lease = fixture.lease();
+        let cleanup = prepare(&fixture, true).unwrap();
+        assert_eq!(
+            cleanup
+                .apply(&fixture.database, "cleaner", &mut lease, timing())
+                .unwrap(),
+            CleanupOutcome::Removed
+        );
+        let identity = cleanup.receipt().clone();
+        drop(cleanup);
+        let retry = prepare(&fixture, true).unwrap();
+        assert!(!retry.present());
+        assert_eq!(retry.receipt(), &identity);
+        assert_eq!(
+            retry
+                .apply(&fixture.database, "cleaner", &mut lease, timing())
+                .unwrap(),
+            CleanupOutcome::AlreadyMissing
+        );
+        assert_eq!(
+            fs::read(fixture.path.join("graph/orphan.lbdb")).unwrap(),
+            b"preserve orphan exactly"
+        );
+        assert!(
+            fixture
+                .database
+                .projection_ready(&fixture.scopes, fixture.receipt.identity.generation_id)
+                .is_err()
+        );
+        let connection = rusqlite::Connection::open(fixture.path.join("kernel.sqlite3")).unwrap();
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT count(*) FROM graph_projection_receipts
+             WHERE resolution_id IS NULL AND resolver_version IS NULL
+             AND settings_identity IS NULL AND frozen_lock IS NULL",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            1
+        );
+    }
 }
