@@ -126,6 +126,7 @@ in place.
 │   │   │   │   │   │   │   ├── mod.rs                                       # Rust source: mod
 │   │   │   │   │   │   │   └── support.rs                                   # Rust source: support
 │   │   │   │   │   │   ├── cleanup_support.rs                               # Synthetic cleanup authority under the same private CLI apply boundary
+│   │   │   │   │   │   ├── extractor_selection.rs                           # Registered extractor selection and policy file-size boundaries
 │   │   │   │   │   │   └── mod.rs                                           # How knowledge graph build classifies the kernel's refusals of a claim
 │   │   │   │   │   ├── attach.rs                                            # Attachment is separate leased work; completed extraction is never repeated
 │   │   │   │   │   ├── build.rs                                             # knowledge graph build: a collection's claims built with one strict
@@ -1294,6 +1295,7 @@ in place.
 │   │   │   │   │   └── types.rs                                             # Canonical disposable descriptor values; concatenated text is never a quote
 │   │   │   │   ├── extract/                                                 # Bounded model extraction over canonical source windows
 │   │   │   │   │   ├── tests/                                               # Synthetic window and quote-pointer checks; no model or vendor data is used
+│   │   │   │   │   │   ├── boundaries.rs                                    # Exact window boundaries, UTF-8 advancement and frozen model inputs
 │   │   │   │   │   │   ├── dedup.rs                                         # Duplicate claim identity and post-review source rejection checks
 │   │   │   │   │   │   └── mod.rs                                           # Synthetic window and quote-pointer checks; no model or vendor data is used
 │   │   │   │   │   ├── mod.rs                                               # Bounded model extraction over canonical source windows

@@ -86,10 +86,8 @@ pub fn windows(source: &Source, policy: &WindowPolicy) -> Result<Vec<Window>, &'
             if result.len() >= policy.max_windows {
                 return Err("window count exceeds policy");
             }
-            let mut end = start.saturating_add(policy.max_window_bytes).min(span.end);
-            while end > start && !markdown.is_char_boundary(end) {
-                end -= 1;
-            }
+            let end = markdown
+                .floor_char_boundary(start.saturating_add(policy.max_window_bytes).min(span.end));
             if end == start {
                 return Err("window policy splits a UTF-8 character");
             }
@@ -104,10 +102,7 @@ pub fn windows(source: &Source, policy: &WindowPolicy) -> Result<Vec<Window>, &'
             if end == span.end {
                 break;
             }
-            let mut next = end.saturating_sub(policy.overlap_bytes);
-            while next > start && !markdown.is_char_boundary(next) {
-                next -= 1;
-            }
+            let next = markdown.floor_char_boundary(end.saturating_sub(policy.overlap_bytes));
             if next <= start {
                 return Err("window overlap prevents progress");
             }
@@ -138,10 +133,7 @@ pub fn locate_quote(window: &Window, quote: &str) -> Result<SourceSpan, &'static
             start: window.span.start + start,
             end: window.span.start + end,
         });
-        from = start + 1;
-        while from < window.text.len() && !window.text.is_char_boundary(from) {
-            from += 1;
-        }
+        from = window.text.ceil_char_boundary(start + 1);
         if from >= window.text.len() {
             break;
         }

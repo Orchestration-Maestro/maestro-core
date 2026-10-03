@@ -112,4 +112,5 @@ fn durable_build_refusals_exit_two_and_lease_failures_exit_one() {
 }
 
 pub(super) mod cleanup_support;
+mod extractor_selection;
 pub(super) mod runner_tests;

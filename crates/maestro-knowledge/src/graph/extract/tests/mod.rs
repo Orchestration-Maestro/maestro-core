@@ -1,5 +1,6 @@
 //! Synthetic window and quote-pointer checks; no model or vendor data is used.
 
+mod boundaries;
 mod dedup;
 
 use super::run::{ModelExtractor, candidate_claim};
