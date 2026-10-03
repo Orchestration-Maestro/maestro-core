@@ -47,7 +47,7 @@ fn templates_hooks_and_scripts_are_inert_and_metadata_is_fixed() {
     let first = run(&Directory::new(&root), &registry, &Limits::PRODUCTION).unwrap();
     for name in ["hook.sh", "script.py", "template.sh"] {
         let path = root.join(format!("bootstrap/inert/files/{name}"));
-        let file = fs::File::open(&path).unwrap();
+        let file = fs::OpenOptions::new().write(true).open(&path).unwrap();
         file.set_modified(SystemTime::UNIX_EPOCH + Duration::from_secs(123))
             .unwrap();
         #[cfg(unix)]

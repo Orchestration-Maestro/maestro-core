@@ -1,10 +1,31 @@
 //! Isolated payload neighbours: the one total budget also covers stream overhead,
 //! so an aggregate-exact payload cannot itself be a successful full tar stream.
 
+use super::write::{entries, minimal, run};
+use crate::source::{SourceTree as _, builtin};
 use crate::{
     bundle::{manifest::Budget, write::charge},
     limits::Limits,
 };
+
+#[test]
+fn manifest_bytes_use_archive_budget_not_source_file_budget() {
+    let tree = minimal();
+    let registry = builtin().unwrap();
+    let original = run(&tree, &registry, &Limits::PRODUCTION).unwrap();
+    let manifest_bytes = entries(&original.bytes)["bundle.json"].len() as u64;
+    let source_bytes = tree.read("package.toml", u64::MAX).unwrap().len() as u64;
+    assert!(manifest_bytes > source_bytes);
+    let limits = Limits {
+        source_file_bytes: source_bytes,
+        archive_entry_bytes: manifest_bytes,
+        ..Limits::PRODUCTION
+    };
+    assert_eq!(
+        run(&tree, &registry, &limits).unwrap().bytes,
+        original.bytes
+    );
+}
 
 #[test]
 fn aggregate_payload_accepts_exact_and_refuses_one_past() {

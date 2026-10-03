@@ -11,6 +11,7 @@ mod backend_extension_regressions;
 mod backend_extensions;
 mod backends;
 mod bounds;
+mod closure;
 mod codeowners;
 mod contracts;
 mod contracts_eval;

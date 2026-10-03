@@ -303,8 +303,8 @@ in place.
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
 │   │   │       ├── catalog_client_preferences.rs                            # Four synthetic client fixtures inspect delivery, not host obedience
 │   │   │       ├── catalog_codeowners.rs                                    # Read-only CODEOWNERS rendering and comparison against committed rules
-│   │   │       ├── catalog_copilot.rs                                       # Isolated authoring projections prove delivery/ownership, never host obedience
 │   │   │       ├── catalog_compile.rs                                       # catalog compile: determinism and exclusive publication through the process
+│   │   │       ├── catalog_copilot.rs                                       # Isolated authoring projections prove delivery/ownership, never host obedience
 │   │   │       ├── catalog_index.rs                                         # Synthetic public index rendering and exact read-only drift checking
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
 │   │   │       ├── catalog_init_menu.rs                                     # Plain, screen-reader-safe init and the registry-backed config editor
@@ -662,6 +662,7 @@ in place.
 │   │   │   │   │   ├── backend_extensions.rs                                # Add-or-narrow declarations use the real bounded checker, never a store
 │   │   │   │   │   ├── backends.rs                                          # Strict core backend declarations and build-aware activation refusals
 │   │   │   │   │   ├── bounds.rs                                            # D2's source limits at small injected values: each exact boundary passes
+│   │   │   │   │   ├── closure.rs                                           # Implicit preset edges require both the package kind and its common/core name
 │   │   │   │   │   ├── codeowners.rs                                        # C35 rendering, exact drift comparison and protected last-match neighbours
 │   │   │   │   │   ├── contracts.rs                                         # Prompt, handoff and eval declarations through the real source checker
 │   │   │   │   │   ├── contracts_eval.rs                                    # C64 folder handoffs and complete inert eval declarations
