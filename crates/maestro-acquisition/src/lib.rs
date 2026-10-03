@@ -10,6 +10,8 @@ pub mod capture;
 pub mod discovery;
 pub mod extraction;
 mod files;
+/// Fail-closed, replaceable parser-process containment.
+pub mod isolation;
 pub mod lifecycle;
 pub mod policy;
 mod ports;

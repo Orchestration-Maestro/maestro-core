@@ -109,6 +109,15 @@ mod n16_physical_order_index;
 mod n16_fix_regressions;
 mod n16_stage_regressions;
 
+// Other platforms cannot qualify Linux kernel containment.
+#[cfg(target_os = "linux")]
+mod n17_qualify_linux_parser_process_containment;
+// Opt-in test code requires the dedicated delegated host, never silently skips.
+#[cfg(all(target_os = "linux", feature = "parser-containment-tests"))]
+mod n17_kernel;
+#[cfg(all(target_os = "linux", feature = "parser-containment-tests"))]
+mod n17_support;
+
 mod n36_complete_full_and_incremental_lifecycle_windows;
 
 mod n36_link_evidence;
