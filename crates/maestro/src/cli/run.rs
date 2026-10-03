@@ -46,7 +46,7 @@ fn usage(error: &clap::Error) -> ExitCode {
 /// Runs the command `arguments` name, and prints why it stopped short if it
 /// did.
 fn run(arguments: &Arguments) -> ExitCode {
-    let output = Output::new(arguments.json);
+    let output = Output::new(arguments.json).without_color(arguments.no_color);
     match dispatch(arguments, output) {
         Ok(code) => code,
         Err(failure) => {
@@ -60,17 +60,6 @@ fn run(arguments: &Arguments) -> ExitCode {
 /// `setup`, `backup` and `restore` open no kernel for writing, and `status`
 /// and `doctor` never create or migrate it.
 fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> {
-    if let Noun::Config {
-        target,
-        command: Some(_),
-    } = &arguments.noun
-        && (target.project || target.user)
-    {
-        return Err(Failure::refused(
-            "editor layer flags cannot precede a config subcommand; put --user or --project \
-             after `maestro config set KEY VALUE` or `maestro config unset KEY`",
-        ));
-    }
     if let Noun::Trust(command) = &arguments.noun {
         return trust::run(output, command);
     }
@@ -144,7 +133,8 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Config {
             command: None,
             target,
-        } => config::editor(output, &session, layer(target)),
+            plain,
+        } => config::editor(output, &session, layer(target), *plain),
         Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
         Noun::Catalog(command) => catalog::dispatch::run(output, command),
         Noun::Policy(command) => policy::run(output, command),

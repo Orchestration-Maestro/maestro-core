@@ -18,7 +18,7 @@ pub(super) struct Arguments {
     pub(super) json: bool,
     /// Disable color; plain output also respects `NO_COLOR` and `TERM=dumb`.
     #[arg(long = "no-color", global = true)]
-    _no_color: bool,
+    pub(super) no_color: bool,
     /// Set a setting for this run only, over the project and user files;
     /// repeatable. `maestro config list` names every setting.
     #[arg(long = "set", global = true, value_name = "KEY=VALUE")]
@@ -121,7 +121,11 @@ pub(super) enum Noun {
     },
     /// Every configurable behaviour: the user file `preferences.toml`, the
     /// project file `.maestro/config.toml`, and `--set`.
+    #[command(args_conflicts_with_subcommands = true)]
     Config {
+        /// Sequential prompts for screen readers; only the no-argument editor.
+        #[arg(long)]
+        plain: bool,
         /// Editor layer, using the existing config set/unset selection.
         #[command(flatten)]
         target: Target,
