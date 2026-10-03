@@ -33,6 +33,101 @@ fn filesystem_lock_conversion_releases_before_acquiring() {
     fs::remove_dir_all(scratch).unwrap();
 }
 
+// Unix flock belongs to the open file description: a fork or duplicate can retain it.
+#[cfg(unix)]
+#[test]
+fn filesystem_dropped_guard_releases_lock_with_a_retained_descriptor() {
+    use std::sync::Mutex;
+    struct RetainDescriptor(Mutex<Option<fs::File>>);
+    impl FileLock for RetainDescriptor {
+        fn acquire(&self, file: &fs::File, mode: LockMode, wait: bool) -> io::Result<()> {
+            SystemFileLock.acquire(file, mode, wait)?;
+            *self.0.lock().unwrap() = Some(file.try_clone()?);
+            Ok(())
+        }
+    }
+    let scratch = scratch_directory().unwrap();
+    let root = OwnedRoot::open(&scratch.join("graph"), true).unwrap();
+    root.ensure_control(ControlFile::Access).unwrap();
+    for mode in [LockMode::Shared, LockMode::Exclusive] {
+        let adapter = RetainDescriptor(Mutex::new(None));
+        let guard = root.open_control(ControlFile::Access).unwrap();
+        guard.lock_with(&adapter, mode, false).unwrap();
+        let fresh = root.open_control(ControlFile::Access).unwrap();
+        assert_eq!(
+            fresh
+                .lock_with(&SystemFileLock, LockMode::Exclusive, false)
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::WouldBlock
+        );
+        drop(guard);
+        // Keep the duplicate alive: close alone must not define the guard's lifetime.
+        assert!(adapter.0.lock().unwrap().is_some());
+        fresh
+            .lock_with(&SystemFileLock, LockMode::Exclusive, false)
+            .unwrap();
+        drop((fresh, adapter));
+    }
+    drop(root);
+    fs::remove_dir_all(scratch).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn filesystem_lock_revalidates_root_after_acquire() {
+    revalidates_after_acquire(false);
+}
+
+#[cfg(unix)]
+#[test]
+fn filesystem_lock_revalidates_control_after_acquire() {
+    revalidates_after_acquire(true);
+}
+
+#[cfg(unix)]
+fn revalidates_after_acquire(alias: bool) {
+    use std::os::unix::fs::PermissionsExt;
+    struct ChangeSafety<'a> {
+        root: &'a Path,
+        alias: bool,
+    }
+    impl FileLock for ChangeSafety<'_> {
+        fn acquire(&self, file: &fs::File, mode: LockMode, wait: bool) -> io::Result<()> {
+            SystemFileLock.acquire(file, mode, wait)?;
+            if self.alias {
+                fs::hard_link(self.root.join(".access.guard"), self.root.join("alias"))
+            } else {
+                fs::set_permissions(self.root, fs::Permissions::from_mode(0o750))
+            }
+        }
+    }
+    {
+        let scratch = scratch_directory().unwrap();
+        let path = scratch.join("graph");
+        let root = OwnedRoot::open(&path, true).unwrap();
+        root.ensure_control(ControlFile::Access).unwrap();
+        let guard = root.open_control(ControlFile::Access).unwrap();
+        assert_eq!(
+            guard
+                .lock_with(
+                    &ChangeSafety { root: &path, alias },
+                    LockMode::Exclusive,
+                    false
+                )
+                .unwrap_err()
+                .to_string(),
+            if alias {
+                "control file must be regular with one link"
+            } else {
+                "owned root must have mode 0700; run setup --yes"
+            }
+        );
+        drop((guard, root));
+        fs::remove_dir_all(scratch).unwrap();
+    }
+}
+
 /// One subprocess per synchronized probe: process completion acknowledges the held mode.
 #[test]
 fn filesystem_lock_process_probe() {

@@ -3,6 +3,26 @@ use super::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
 use maestro_test_scratch::scratch_directory;
 use std::{fs, io};
 
+#[test]
+fn filesystem_removal_rejects_invalid_absent_names() {
+    let scratch = scratch_directory().unwrap();
+    let root = OwnedRoot::open(&scratch.join("graph"), true).unwrap();
+    root.ensure_control(ControlFile::Access).unwrap();
+    let guard = root.open_control(ControlFile::Access).unwrap();
+    guard
+        .lock_with(&SystemFileLock, LockMode::Exclusive, false)
+        .unwrap();
+    for invalid in ["", "../absent", "absent.db", "gA.lbdb"] {
+        assert_eq!(
+            guard.remove_receipt_file(invalid, None).unwrap_err().kind(),
+            io::ErrorKind::InvalidInput
+        );
+    }
+    assert_eq!(fs::read_dir(scratch.join("graph")).unwrap().count(), 1);
+    drop((guard, root));
+    fs::remove_dir_all(scratch).unwrap();
+}
+
 fn name() -> String {
     format!("g{}.lbdb", "a".repeat(64))
 }

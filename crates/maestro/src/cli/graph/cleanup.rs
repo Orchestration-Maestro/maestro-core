@@ -199,6 +199,54 @@ mod replay_tests {
     use super::{CleanupError, CleanupOutcome, JobState, replay_outcome};
 
     #[test]
+    fn graph_cleanup_rechecks_config_after_prepare() {
+        use super::{Cleanup, Output, apply};
+        use crate::cli::graph::tests::cleanup_support::cleanup_fixture;
+        use maestro_kernel::scope::LOCAL;
+        use std::{fs, process::ExitCode};
+        for (config, expected, reason) in [
+            ("[access]\nread = []\n", 2, "target_unavailable"),
+            ("[unknown]\n", 1, "authority_unavailable"),
+        ] {
+            let (fixture, generation, name) = cleanup_fixture();
+            let kernel = &fixture.kernel;
+            let cleanup = Cleanup::prepare(
+                &kernel.database,
+                LOCAL,
+                &fixture.root.join("graph"),
+                generation,
+                true,
+            )
+            .unwrap();
+            // Preparation succeeded under the old config. Invoke the real private apply path
+            // after revocation/failure, without racing a subprocess or adding a public seam.
+            fs::write(fixture.root.join("config.toml"), config).unwrap();
+            assert_eq!(
+                apply(kernel, Output::new(true), &cleanup).unwrap(),
+                ExitCode::from(expected)
+            );
+            assert_eq!(
+                fs::read(fixture.root.join("graph").join(name)).unwrap(),
+                b"disposable"
+            );
+            let connection =
+                rusqlite::Connection::open(fixture.root.join("kernel.sqlite3")).unwrap();
+            let (state, outcome): (String, String) = connection
+                .query_row(
+                    "SELECT state, outcome_json FROM jobs WHERE kind = 'knowledge.graph.cleanup'",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .unwrap();
+            assert_eq!(state, "failed");
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(&outcome).unwrap(),
+                serde_json::json!({"reason": reason})
+            );
+        }
+    }
+
+    #[test]
     fn graph_cleanup_replay_requires_success_and_absence() {
         assert_eq!(
             replay_outcome(JobState::Succeeded, false),

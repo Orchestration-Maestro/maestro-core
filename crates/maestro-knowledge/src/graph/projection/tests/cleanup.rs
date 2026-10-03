@@ -19,6 +19,70 @@ fn prepare(fixture: &Fixture, apply: bool) -> Result<Cleanup, CleanupError> {
 }
 
 #[test]
+fn cleanup_heartbeat_refusal_preserves_file() {
+    use maestro_kernel::job::LeaseTiming;
+    use std::time::{Duration, UNIX_EPOCH};
+    let fixture = Fixture::new();
+    fixture.retire();
+    let cleanup = prepare(&fixture, true).unwrap();
+    let mut lease = fixture.lease();
+    // The exact live job passes validation; only the renewal timestamp is invalid.
+    let invalid = LeaseTiming {
+        now: UNIX_EPOCH - Duration::from_secs(1),
+        ..timing()
+    };
+    assert_eq!(
+        cleanup
+            .apply(&fixture.database, "cleaner", &mut lease, invalid)
+            .unwrap_err(),
+        CleanupError::LeaseInvalid
+    );
+    assert!(
+        fixture
+            .path
+            .join("graph")
+            .join(&fixture.receipt.file_name)
+            .exists()
+    );
+    #[cfg(unix)]
+    assert_eq!(
+        cleanup
+            .apply(&fixture.database, "cleaner", &mut lease, timing())
+            .unwrap(),
+        CleanupOutcome::Removed
+    );
+    #[cfg(windows)]
+    assert_eq!(
+        cleanup
+            .apply(&fixture.database, "cleaner", &mut lease, timing())
+            .unwrap_err(),
+        CleanupError::Unsupported
+    );
+}
+
+#[test]
+fn cleanup_unsafe_root_has_fixed_classification() {
+    let fixture = Fixture::new();
+    fixture.retire();
+    let path = fixture.path.join("graph/.access.guard");
+    fs::hard_link(&path, fixture.path.join("guard-alias")).unwrap();
+    for apply in [false, true] {
+        let error = prepare(&fixture, apply).unwrap_err();
+        assert_eq!(error, CleanupError::UnsafeRoot);
+        assert_eq!(error.reason(), "unsafe_root");
+    }
+    assert!(
+        fixture
+            .path
+            .join("graph")
+            .join(&fixture.receipt.file_name)
+            .exists()
+    );
+    fs::remove_file(fixture.path.join("guard-alias")).unwrap();
+    assert!(prepare(&fixture, false).unwrap().present());
+}
+
+#[test]
 fn cleanup_refuses_every_retained_state_with_retired_and_failed_neighbours() {
     let fixture = Fixture::new();
     assert_eq!(

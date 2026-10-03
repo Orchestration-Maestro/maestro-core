@@ -7,7 +7,7 @@ use rustix::fs::{AtFlags, Mode, OFlags, linkat, mkdirat, open, openat, unlinkat}
 use rustix::io::Errno;
 use std::{
     ffi::OsStr,
-    fs::{File, Permissions},
+    fs::{File, Metadata, Permissions},
     io::{self, Read},
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::{Component, Path},
@@ -83,17 +83,7 @@ impl Directory {
             flags.insert(OFlags::CREATE.union(OFlags::EXCL));
         }
         let file = File::from(openat(&self.0, name, flags, CONTROL_PERMISSIONS)?);
-        let metadata = file.metadata()?;
-        if !metadata.is_file() || metadata.nlink() != 1 {
-            return Err(io::Error::other(
-                "control file must be regular with one link",
-            ));
-        }
-        if metadata.mode() & 0o7777 != 0o600 || metadata.uid() != self.0.metadata()?.uid() {
-            return Err(io::Error::other(
-                "control file must have its root's owner and mode 0600",
-            ));
-        }
+        validate_control_metadata(&file.metadata()?, self.0.metadata()?.uid())?;
         if create {
             file.sync_all()?;
             self.0.sync_all()?;
@@ -148,15 +138,7 @@ impl Directory {
     /// Open only a regular single-link receipt, anchored below this root.
     pub(crate) fn open_receipt_file(&self, name: &str) -> io::Result<File> {
         let file = File::from(openat(&self.0, name, RECEIPT_FLAGS, Mode::empty())?);
-        let metadata = file.metadata()?;
-        if !metadata.is_file()
-            || metadata.nlink() != 1
-            || metadata.uid() != self.0.metadata()?.uid()
-        {
-            return Err(io::Error::other(
-                "receipt file must be regular, single-link and root-owned",
-            ));
-        }
+        validate_receipt_metadata(&file.metadata()?, self.0.metadata()?.uid())?;
         Ok(file)
     }
 
@@ -247,6 +229,31 @@ impl Directory {
     }
 }
 
+/// Validate a control's held metadata against the held root's owner.
+fn validate_control_metadata(metadata: &Metadata, root_owner: u32) -> io::Result<()> {
+    if !metadata.is_file() || metadata.nlink() != 1 {
+        return Err(io::Error::other(
+            "control file must be regular with one link",
+        ));
+    }
+    if metadata.mode() & 0o7777 != 0o600 || metadata.uid() != root_owner {
+        return Err(io::Error::other(
+            "control file must have its root's owner and mode 0600",
+        ));
+    }
+    Ok(())
+}
+
+/// Validate a receipt's held metadata against the held root's owner.
+fn validate_receipt_metadata(metadata: &Metadata, root_owner: u32) -> io::Result<()> {
+    if !metadata.is_file() || metadata.nlink() != 1 || metadata.uid() != root_owner {
+        return Err(io::Error::other(
+            "receipt file must be regular, single-link and root-owned",
+        ));
+    }
+    Ok(())
+}
+
 /// Open one child directory without following a link, creating it first when asked and absent.
 fn open_child(directory: &File, name: &OsStr, create: bool) -> io::Result<OwnedFd> {
     let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
@@ -290,6 +297,68 @@ mod tests {
         thread,
         time::Duration,
     };
+
+    #[test]
+    fn filesystem_owned_leaf_rejects_foreign_owner() {
+        use std::os::unix::fs::MetadataExt;
+        let scratch = scratch_directory().unwrap();
+        let root = Directory::open_resolved(&fs::canonicalize(&scratch).unwrap(), false).unwrap();
+        root.make_private().unwrap();
+        let file = root.open_control("guard", true).unwrap();
+        let metadata = file.metadata().unwrap();
+        let owner = metadata.uid();
+        let foreign = owner ^ 1;
+        super::validate_control_metadata(&metadata, owner).unwrap();
+        super::validate_receipt_metadata(&metadata, owner).unwrap();
+        assert_eq!(
+            super::validate_control_metadata(&metadata, foreign)
+                .unwrap_err()
+                .to_string(),
+            "control file must have its root's owner and mode 0600"
+        );
+        assert_eq!(
+            super::validate_receipt_metadata(&metadata, foreign)
+                .unwrap_err()
+                .to_string(),
+            "receipt file must be regular, single-link and root-owned"
+        );
+        drop((file, root));
+        fs::remove_dir_all(scratch).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn filesystem_removal_refuses_unsyncable_directory() {
+        use rustix::fs::{Mode, OFlags, open};
+        for present in [false, true] {
+            let scratch = fs::canonicalize(scratch_directory().unwrap()).unwrap();
+            let root = Directory(fs::File::from(
+                open(
+                    &scratch,
+                    OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
+                    Mode::empty(),
+                )
+                .unwrap(),
+            ));
+            let name = "receipt";
+            let expected = if present {
+                fs::write(scratch.join(name), b"disposable").unwrap();
+                Some(root.open_receipt_file(name).unwrap())
+            } else {
+                None
+            };
+            assert_eq!(
+                root.remove_receipt_file(name, expected.as_ref())
+                    .unwrap_err()
+                    .raw_os_error(),
+                Some(9)
+            );
+            // Unlink happened on the present path, but neither path may claim durability.
+            assert!(!scratch.join(name).exists());
+            drop((expected, root));
+            fs::remove_dir_all(scratch).unwrap();
+        }
+    }
 
     #[test]
     fn filesystem_unix_resolved_root_refuses_alias_before_canonicalization() {

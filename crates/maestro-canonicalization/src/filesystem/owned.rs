@@ -263,6 +263,14 @@ impl ControlHandle {
     }
 }
 
+impl Drop for ControlHandle {
+    fn drop(&mut self) {
+        // Closing alone leaves flock held by a forked or duplicated descriptor.
+        // Drop cannot report an unlock failure; closing the held file remains the fallback.
+        drop(self.file.unlock());
+    }
+}
+
 /// A held, no-follow regular receipt file, bound to its owned root and name.
 #[derive(Debug)]
 pub struct ReceiptFile {

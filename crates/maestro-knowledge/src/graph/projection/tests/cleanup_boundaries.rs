@@ -49,6 +49,62 @@ fn cleanup_building_and_receiptless_failed_preserve_orphans() {
 }
 
 #[test]
+fn cleanup_lease_refuses_visible_nonexact_scope() {
+    let fixture = Fixture::new();
+    fixture.retire();
+    let cleanup = Cleanup::prepare(
+        &fixture.database,
+        "cleaner",
+        &fixture.path.join("graph"),
+        fixture.receipt.generation_id,
+        true,
+    )
+    .unwrap();
+    let scope = "workspace/default/collection/cleanup/source/synthetic"
+        .parse()
+        .unwrap();
+    let resource = format!("graph-cleanup:{}", fixture.receipt.generation_id);
+    let inputs = json!({"generation": fixture.receipt.generation_id});
+    let job = fixture
+        .database
+        .submit_job(
+            &NewJob {
+                kind: "knowledge.graph.cleanup",
+                inputs: &inputs,
+                scope: &scope,
+                resource: Some(&resource),
+            },
+            SystemTime::now(),
+        )
+        .unwrap();
+    let mut lease = fixture
+        .database
+        .take_job(job.id, "cleaner", SystemTime::now(), timing().term)
+        .unwrap();
+    // This is not hidden-job refusal: the live job is visible beneath the collection grant.
+    let visible = fixture
+        .database
+        .job(&fixture.scopes, job.id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(visible.state, JobState::Running);
+    assert_eq!(visible.scope, scope);
+    assert_eq!(
+        cleanup
+            .apply(&fixture.database, "cleaner", &mut lease, timing())
+            .unwrap_err(),
+        CleanupError::LeaseInvalid
+    );
+    assert!(
+        fixture
+            .path
+            .join("graph")
+            .join(&fixture.receipt.file_name)
+            .exists()
+    );
+}
+
+#[test]
 fn cleanup_lease_requires_exact_kind_scope_resource_inputs_number_and_holder() {
     let fixture = Fixture::new();
     fixture.retire();

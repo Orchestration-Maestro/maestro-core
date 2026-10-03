@@ -1,7 +1,37 @@
 //! Read-only receipt and staging metadata checks preserve unrelated bytes.
 use super::OwnedRoot;
 use maestro_test_scratch::scratch_directory;
-use std::{fs, io};
+use std::{fs, io, path::Path};
+
+#[test]
+fn filesystem_owned_root_refuses_nameless_leaf() {
+    assert_eq!(
+        OwnedRoot::open(Path::new("."), false)
+            .unwrap_err()
+            .to_string(),
+        "owned root needs a name"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn filesystem_make_private_refuses_relocation() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let scratch = scratch_directory().unwrap();
+    let path = scratch.join("owned");
+    let root = OwnedRoot::open(&path, true).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o750)).unwrap();
+    let relocated = scratch.join("relocated");
+    fs::rename(&path, &relocated).unwrap();
+    fs::create_dir(&path).unwrap();
+    assert_eq!(
+        root.make_private().unwrap_err().to_string(),
+        "owned root was relocated or replaced"
+    );
+    assert_eq!(fs::metadata(&relocated).unwrap().mode() & 0o7777, 0o750);
+    drop(root);
+    fs::remove_dir_all(scratch).unwrap();
+}
 
 #[test]
 fn filesystem_receipt_metadata_refuses_missing_unsafe_names_and_aliases_read_only() {

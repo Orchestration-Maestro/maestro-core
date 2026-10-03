@@ -117,6 +117,7 @@ in place.
 │   │   │   │   │   │   ├── runner_tests/                                    # Runner tests
 │   │   │   │   │   │   │   ├── mod.rs                                       # Rust source: mod
 │   │   │   │   │   │   │   └── support.rs                                   # Rust source: support
+│   │   │   │   │   │   ├── cleanup_support.rs                               # Synthetic cleanup authority under the same private CLI apply boundary
 │   │   │   │   │   │   └── mod.rs                                           # How knowledge graph build classifies the kernel's refusals of a claim
 │   │   │   │   │   ├── attach.rs                                            # Attachment is separate leased work; completed extraction is never repeated
 │   │   │   │   │   ├── build.rs                                             # knowledge graph build: a collection's claims built with one strict
