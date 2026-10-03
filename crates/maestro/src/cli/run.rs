@@ -384,7 +384,12 @@ fn get_command(
 fn acquisition(output: Output, command: &acquisition_cli::Acquire) -> Result<ExitCode, Failure> {
     match acquisition_cli::run(command) {
         Ok(report) => {
-            output.result(&report, &report.text())?;
+            let text = if matches!(command, acquisition_cli::Acquire::Stop { .. }) {
+                "acquisition schedule cancellation acknowledged".to_owned()
+            } else {
+                report.text()
+            };
+            output.result(&report, &text)?;
             let preview = matches!(command, acquisition_cli::Acquire::Preview { .. });
             Ok(if preview || report.status == Status::Complete {
                 ExitCode::SUCCESS

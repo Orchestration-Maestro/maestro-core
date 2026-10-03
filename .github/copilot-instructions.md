@@ -377,7 +377,8 @@ in place.
 │   │   │   │   ├── mod.rs                                                               # Process-local acquisition lifecycle accounting
 │   │   │   │   ├── resources.rs                                                         # Shared owned reservations, with fresh measurements at every checkpoint
 │   │   │   │   ├── resume.rs                                                            # Resume composes current admission with kernel-owned captures, receipts and fences
-│   │   │   │   └── schedule.rs                                                          # Local scheduling is a trigger, not an authority or a second acquisition queue
+│   │   │   │   ├── schedule.rs                                                          # Local scheduling is a trigger, not an authority or a second acquisition queue
+│   │   │   │   └── schedule_stop.rs                                                     # Owner-fenced schedule stop and recovery on the existing kernel jobs
 │   │   │   ├── policy/                                                                  # Strict policy schemas and the single immutable baseline validator
 │   │   │   │   ├── acquisition.rs                                                       # Strict version-one source-policy wire contracts
 │   │   │   │   ├── authority.rs                                                         # Read-only acquisition authority; manifests and registry evidence grant no access
@@ -531,6 +532,8 @@ in place.
 │   │   │       ├── n37_prior.rs                                                         # Explicit S1 prior revision selection never becomes implicit stage completion
 │   │   │       ├── n37_resume_cancel_and_fence_failed_dependencies.rs                   # Durable resume never promotes derivatives of a failed prerequisite
 │   │   │       ├── n37_support.rs                                                       # N37 uses N12 durable fixtures and the real N05/N07 contracts
+│   │   │       ├── n42_guards.rs                                                        # Distinguishing cadence, outcome, renewal and fractional expiry assertions
+│   │   │       ├── n42_recovery.rs                                                      # Dead-owner recovery and lease timing refusal contracts
 │   │   │       ├── n42_schedule.rs                                                      # N42 scheduling guards on injected clocks and existing kernel jobs
 │   │   │       ├── n57_canonical_artifacts.rs                                           # N57 canonical bytes require explicit nulls without changing S1 card parsing
 │   │   │       ├── n57_decisions.rs                                                     # New exclusions use N03's exact singleton artifact, not a parallel schema

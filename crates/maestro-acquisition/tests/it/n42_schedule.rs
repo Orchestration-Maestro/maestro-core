@@ -151,7 +151,7 @@ fn n42_timer_requires_scope_and_current_schedule_lease() {
 
 /// Records only admitted trigger invocations, never effects or authority.
 #[derive(Default)]
-struct Trigger(Vec<SyncRequest>);
+pub(super) struct Trigger(pub(super) Vec<SyncRequest>);
 impl ScheduleTrigger for Trigger {
     fn invoke(&mut self, request: &SyncRequest, _: &str) -> Result<Handle, Refusal> {
         self.0.push(request.clone());
@@ -159,7 +159,7 @@ impl ScheduleTrigger for Trigger {
     }
 }
 /// Independently authored strict scheduling policy.
-fn policy(mode: SyncMode, cadence: Option<u64>) -> SyncPolicy {
+pub(super) fn policy(mode: SyncMode, cadence: Option<u64>) -> SyncPolicy {
     SyncPolicy {
         mode,
         timer_period_ms: cadence.and_then(NonZeroU64::new),
@@ -242,7 +242,7 @@ fn n42_fake_clock_manual_one_off_watch_and_replay() {
 }
 
 #[test]
-fn n42_requires_explicit_oa3_watch_cadence() {
+fn n42_requires_explicit_approved_watch_cadence() {
     let now = Instant::now();
     assert!(
         Schedule::new(
@@ -459,6 +459,43 @@ fn n42_stop_refuses_wrong_kind_missing_owner_and_scope_then_cancels_queued() {
         request_stop(&db, &scopes, job.id, "owner").unwrap();
         assert_eq!(
             db.job(&scopes, job.id).unwrap().unwrap().state,
+            JobState::Cancelled
+        );
+    }
+    drop(db);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn n42_stop_acknowledges_at_expiry() {
+    let root = scratch_directory().unwrap();
+    let db = Database::open_in(&root).unwrap();
+    let scope = "workspace/default/collection/synthetic".parse().unwrap();
+    db.grant("owner", &scope, Right::Read, "test").unwrap();
+    let policy = policy(SyncMode::Watch, Some(86_400_000));
+    let activation = Activation {
+        policy: &policy,
+        scope: &scope,
+        principal: "owner",
+        mode: Mode::Full,
+        lease_term: Duration::from_secs(10),
+    };
+    let now = Instant::now();
+    let wall = UNIX_EPOCH + Duration::from_secs(2_000_000);
+    let scopes = db.visible("owner").unwrap();
+    for elapsed in [Duration::from_secs(10), Duration::from_secs(11)] {
+        let mut timer = LocalTimer::activate(&db, &activation, now, wall).unwrap();
+        request_stop(&db, &scopes, timer.id(), "owner").unwrap();
+        let mut trigger = Trigger::default();
+        assert!(
+            timer
+                .poll(&mut trigger, now + elapsed, wall + elapsed)
+                .is_err()
+        );
+        assert!(trigger.0.is_empty());
+        assert!(stop_requested(&db, &scopes, timer.id()).unwrap());
+        assert_eq!(
+            db.job(&scopes, timer.id()).unwrap().unwrap().state,
             JobState::Cancelled
         );
     }

@@ -26,6 +26,7 @@ use std::{
     path::PathBuf,
     process::Command,
     sync::mpsc,
+    thread,
     time::{Duration, Instant, SystemTime},
 };
 
@@ -343,4 +344,118 @@ fn n42_stop_timeout_is_not_cancellation_and_stays_durable() {
         .unwrap()
         .len();
     assert_eq!(count, 3, "created, taken, one idempotent stop request");
+}
+
+#[test]
+fn n42_plain_stop_acknowledges_cancellation() {
+    let home = Home::new();
+    let db = home.database();
+    let scopes = db.refresh_config(&home.config()).unwrap();
+    let scope = "workspace/default/collection/synthetic".parse().unwrap();
+    for json_output in [false, true] {
+        let job = db
+            .submit_job(
+                &NewJob {
+                    kind: JOB_KIND,
+                    inputs: &json!({"owner":LOCAL,"case":json_output}),
+                    scope: &scope,
+                    resource: None,
+                },
+                SystemTime::now(),
+            )
+            .unwrap();
+        let id = job.id.to_string();
+        let mut args = vec!["knowledge", "acquire", "stop", "--schedule", &id];
+        if json_output {
+            args.insert(0, "--json");
+        }
+        let result = home.run(&args);
+        assert_eq!(result.code, Some(0), "{result:?}");
+        if !json_output {
+            assert!(
+                result.stdout.contains("cancellation acknowledged"),
+                "{result:?}"
+            );
+            assert!(!result.stdout.contains("preview"), "{result:?}");
+            assert!(!result.stdout.contains("capture"), "{result:?}");
+        }
+        assert_eq!(
+            db.job(&scopes, job.id).unwrap().unwrap().state,
+            JobState::Cancelled
+        );
+        assert!(stop_requested(&db, &scopes, job.id).unwrap());
+        assert_eq!(home.run(&args).code, Some(2));
+    }
+}
+
+#[test]
+fn n42_stop_refuses_non_cancelled_terminal_outcomes() {
+    for state in [JobState::Succeeded, JobState::Failed] {
+        let home = Home::new();
+        let db = home.database();
+        let scopes = db.refresh_config(&home.config()).unwrap();
+        let scope = "workspace/default/collection/synthetic".parse().unwrap();
+        let job = db
+            .submit_job(
+                &NewJob {
+                    kind: JOB_KIND,
+                    inputs: &json!({"owner":LOCAL}),
+                    scope: &scope,
+                    resource: None,
+                },
+                SystemTime::now(),
+            )
+            .unwrap();
+        let lease = db
+            .take_job(job.id, LOCAL, SystemTime::now(), Duration::from_secs(15))
+            .unwrap();
+        let id = job.id.to_string();
+        let child = home.start(&[
+            "--json",
+            "knowledge",
+            "acquire",
+            "stop",
+            "--schedule",
+            &id,
+            "--deadline-ms",
+            "1000",
+        ]);
+        let deadline = Instant::now() + Duration::from_secs(15);
+        while !stop_requested(&db, &scopes, job.id).unwrap() {
+            assert!(Instant::now() < deadline, "stop not committed");
+            thread::yield_now();
+        }
+        db.complete_job(&lease, state, &json!({})).unwrap();
+        let result = child.finish();
+        assert_eq!(result.code, Some(2), "{result:?}");
+        assert!(
+            result
+                .stdout
+                .contains("ended without cancellation acknowledgement"),
+            "{result:?}"
+        );
+        assert!(
+            result
+                .stdout
+                .contains(&format!("maestro --json job wait {id}")),
+            "{result:?}"
+        );
+        assert!(!result.stdout.contains("deadline elapsed"), "{result:?}");
+        assert!(!result.stdout.contains("retry"), "{result:?}");
+        assert_eq!(db.job(&scopes, job.id).unwrap().unwrap().state, state);
+        assert!(stop_requested(&db, &scopes, job.id).unwrap());
+    }
+}
+
+#[test]
+fn n42_stop_missing_database_refuses_without_creating_one() {
+    let home = Home::new();
+    let id = Handle::new().to_string();
+    let result = home.run(&["--json", "knowledge", "acquire", "stop", "--schedule", &id]);
+    assert_eq!(result.code, Some(2), "{result:?}");
+    assert!(
+        result.stdout.contains("no owned live acquisition schedule"),
+        "{result:?}"
+    );
+    assert!(!home.data().join("kernel.sqlite3").exists());
 }

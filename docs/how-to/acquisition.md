@@ -155,7 +155,8 @@ The local `ScheduleTrigger` adapter calls the same admitted sync operation;
 it has no S3/S4 dependency, fetch permission, credential store or second frontier.
 Manual policy refuses timer requests. One-off activation consumes one request,
 including an admitted failure. Watch requires an explicit cadence of at least
-OA3's 24 hours; a delayed tick never causes a catch-up burst. Every request is
+24 hours, approved in the [S6 specification](../../specs/006-native-acquisition/spec.md).
+OA3 has no cadence field. A delayed tick never causes a catch-up burst. Every request is
 bound to its activation, principal, lifecycle mode and single-use sequence.
 Source ownership and the existing OA3 envelope stay inside the same sync.
 
@@ -195,8 +196,14 @@ A cancelled schedule is terminal. Replaying its request or restarting the
 adapter cannot reactivate it; a new explicit activation must create a new job.
 Missing, foreign, denied, wrong-kind and already-ended jobs refuse with
 `no owned live acquisition schedule`. A running sync retains its own admitted
-budgets and source lease; stop prevents later timer dispatches, not a claim of
-instant cancellation of an already admitted capture.
+budgets and source lease. A stop committed after the last successful stop check
+allows one final dispatch before the next check acknowledges cancellation.
+This is a count-only bound, not an elapsed-time bound: process suspension may
+extend that interval indefinitely. Stop does not instantly cancel an admitted
+capture. An expired, stopped timer may be retired by its owner on a new explicit
+activation; the new job starts a new sequence and never resumes the old one.
+If an admitted one-off ends Succeeded or Failed instead, stop refuses immediately
+without cancellation acknowledgement; inspect `maestro --json job wait <id>`.
 
 ## Verify without a live site
 

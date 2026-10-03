@@ -9,6 +9,7 @@ use maestro_kernel::{
     scope::LOCAL,
 };
 use std::{
+    path::Path,
     thread,
     time::{Duration, Instant},
 };
@@ -25,10 +26,19 @@ pub(crate) fn activate() -> Result<Report, Failure> {
 /// Record owner stop and wait for the adapter's durable cancellation, never kill a PID.
 /// The CLI deadline mirrors Pi fast tools (300000 ms, maximum 2147483647 ms).
 pub(crate) fn stop(id: Ulid, deadline_ms: u64) -> Result<Report, Failure> {
-    let deadline = Instant::now()
-        .checked_add(Duration::from_millis(deadline_ms))
-        .ok_or_else(|| Failure::refused("acquisition stop deadline invalid"))?;
     let data = data_dir(&Environment::current()).map_err(|error| Failure::failed_by(&error))?;
+    stop_at(id, deadline_ms, &data, Kernel::open, Instant::now)
+}
+/// Explicit opener and monotonic clock keep each stop deadline boundary testable.
+fn stop_at(
+    id: Ulid,
+    deadline_ms: u64,
+    data: &Path,
+    open: impl FnOnce() -> Result<Kernel, Failure>,
+    mut clock: impl FnMut() -> Instant,
+) -> Result<Report, Failure> {
+    // The CLI's bounded maximum adds only 24.9 days on supported host clocks.
+    let deadline = clock() + Duration::from_millis(deadline_ms);
     if !data
         .join("kernel.sqlite3")
         .try_exists()
@@ -36,11 +46,11 @@ pub(crate) fn stop(id: Ulid, deadline_ms: u64) -> Result<Report, Failure> {
     {
         return Err(unavailable());
     }
-    let kernel = Kernel::open()?;
-    check_deadline(deadline)?;
+    let kernel = open()?;
+    check_deadline(deadline, clock())?;
     request_stop(&kernel.database, &kernel.scopes, id, LOCAL).map_err(|_| unavailable())?;
     loop {
-        check_deadline(deadline)?;
+        check_deadline(deadline, clock())?;
         let scopes = kernel
             .database
             .visible(LOCAL)
@@ -50,21 +60,28 @@ pub(crate) fn stop(id: Ulid, deadline_ms: u64) -> Result<Report, Failure> {
             .job(&scopes, id)
             .map_err(|error| Failure::failed_by(&error))?
             .ok_or_else(unavailable)?;
-        check_deadline(deadline)?;
+        check_deadline(deadline, clock())?;
         if job.state == JobState::Cancelled {
             let mut report = Report::new();
             report.status = Status::Complete;
             return Ok(report);
         }
+        if job.state == JobState::Succeeded || job.state == JobState::Failed {
+            return Err(Failure::refused(format!(
+                concat!(
+                    "acquisition schedule ended without cancellation acknowledgement; ",
+                    "inspect maestro --json job wait {}"
+                ),
+                id
+            )));
+        }
         // This is an observation interval, not a shutdown allowance; the deadline wins.
-        thread::sleep(
-            Duration::from_millis(1).min(deadline.saturating_duration_since(Instant::now())),
-        );
+        thread::sleep(Duration::from_millis(1).min(deadline.saturating_duration_since(clock())));
     }
 }
 /// A timeout retains the durable stop request; it is not cancellation acknowledgement.
-fn check_deadline(deadline: Instant) -> Result<(), Failure> {
-    if Instant::now() >= deadline {
+fn check_deadline(deadline: Instant, now: Instant) -> Result<(), Failure> {
+    if now >= deadline {
         return Err(Failure::refused(concat!(
             "acquisition stop deadline elapsed; stop request may be durable but ",
             "cancellation is not acknowledged; retry stop with a longer --deadline-ms"
@@ -212,5 +229,75 @@ mod tests {
             assert!(timer_signal.recv_timeout(Duration::from_millis(1)).is_err());
         }
         assert!(child.wait().unwrap().success());
+    }
+    #[test]
+    fn n42_stop_deadline_placements_refuse_without_false_acknowledgement() {
+        use super::stop_at;
+        use crate::{failure::Failure, kernel::Kernel};
+        use maestro_acquisition::lifecycle::schedule::stop_requested;
+        use maestro_kernel::{job::NewJob, scope::LOCAL};
+        use maestro_test_scratch::scratch_directory;
+        use rusqlite::Connection;
+        use serde_json::json;
+        use std::{fs, iter};
+
+        // Each distinct placement is exercised at the inclusive deadline.
+        for boundary in [1, 2, 3] {
+            let root = scratch_directory().unwrap();
+            let data = root.join("data");
+            let config = root.join("config");
+            fs::create_dir_all(&config).unwrap();
+            fs::write(
+                config.join("config.toml"),
+                "[access]\nread = ['workspace/default']\n",
+            )
+            .unwrap();
+            let kernel = Kernel::open_at(&data, &config).unwrap();
+            let db = kernel.database.clone();
+            let scopes = kernel.scopes.clone();
+            let scope = "workspace/default/collection/synthetic".parse().unwrap();
+            let job = db
+                .submit_job(
+                    &NewJob {
+                        kind: "acquisition.schedule",
+                        inputs: &json!({"owner":LOCAL}),
+                        scope: &scope,
+                        resource: None,
+                    },
+                    SystemTime::now(),
+                )
+                .unwrap();
+            if boundary == 2 {
+                db.take_job(job.id, LOCAL, SystemTime::now(), Duration::from_secs(15))
+                    .unwrap();
+                // An unreadable row after stop proves that the pre-read deadline
+                // wins over a storage failure, not just a later deadline check.
+                Connection::open(data.join("kernel.sqlite3"))
+                    .unwrap()
+                    .execute_batch(
+                        "CREATE TRIGGER n42_unreadable_after_stop AFTER INSERT ON events
+                     WHEN NEW.type = 'maestro.acquisition.schedule.stop_requested.v1'
+                     BEGIN UPDATE jobs SET idempotency_key = 'invalid'; END;",
+                    )
+                    .unwrap();
+            }
+            let start = Instant::now();
+            let deadline = start + Duration::from_millis(10);
+            let mut samples = [start; 4];
+            samples[boundary] = deadline;
+            let mut samples = samples.into_iter().chain(iter::repeat(start));
+            let result = stop_at(job.id, 10, &data, || Ok(kernel), || samples.next().unwrap());
+            assert!(
+                matches!(result, Err(Failure::Refused(_))),
+                "boundary {boundary}: {result:?}"
+            );
+            assert!(
+                result.unwrap_err().to_string().contains("deadline elapsed"),
+                "boundary {boundary}"
+            );
+            assert_eq!(stop_requested(&db, &scopes, job.id).unwrap(), boundary != 1);
+            drop(db);
+            fs::remove_dir_all(root).unwrap();
+        }
     }
 }

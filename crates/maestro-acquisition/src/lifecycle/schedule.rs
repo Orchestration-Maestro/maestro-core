@@ -1,29 +1,25 @@
 //! Local scheduling is a trigger, not an authority or a second acquisition queue.
-use super::full::Mode;
+pub use super::schedule_stop::{JOB_KIND, request_stop, stop_requested};
+use super::{
+    full::Mode,
+    schedule_stop::{recover, take_reserved, wall_time},
+};
 use crate::{
     Refusal,
-    policy::{
-        format_time,
-        source::{SyncMode, SyncPolicy},
-    },
+    policy::source::{SyncMode, SyncPolicy},
 };
 use maestro_kernel::{
     acquisition::Handle,
-    job::{CREATED, Job, JobState, Lease, NewJob, stream},
-    journal::{Filter, NewEvent},
-    scope::{Scope, ScopeSet},
+    job::{JobState, Lease, NewJob},
+    scope::Scope,
     store::Database,
 };
 use serde_json::json;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime};
 use ulid::Ulid;
 
-/// OA3's explicitly enabled cadence floor; Pi has no acquisition cadence equivalent.
+/// S6 spec's approved cadence floor; Pi has no acquisition cadence equivalent.
 const MIN_CADENCE: Duration = Duration::from_hours(24);
-/// Existing kernel job kind, independent of the source writer owned by sync.
-pub const JOB_KIND: &str = "acquisition.schedule";
-/// Durable stop request on the existing job journal, not a PID signal.
-const STOP_REQUESTED: &str = "maestro.acquisition.schedule.stop_requested.v1";
 
 /// How the identical admitted operation was requested.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,7 +65,7 @@ pub struct Schedule {
     active: bool,
 }
 impl Schedule {
-    /// Bind strict policy with explicit OA3 cadence and caller identity.
+    /// Bind strict policy with explicit S6 cadence and caller identity.
     /// # Errors
     /// Missing/too-fast cadence, invalid principal or clock overflow refuses.
     pub fn new(
@@ -206,6 +202,11 @@ impl<'a> LocalTimer<'a> {
         let deadline = now
             .checked_add(activation.lease_term)
             .ok_or(Refusal::Invalid)?;
+        wall_time(wall)?;
+        wall_time(
+            wall.checked_add(activation.lease_term)
+                .ok_or(Refusal::Invalid)?,
+        )?;
         let identity = Handle::new();
         let mut schedule = Schedule::new(
             activation.policy,
@@ -215,6 +216,13 @@ impl<'a> LocalTimer<'a> {
             now,
         )?;
         let resource = format!("acquisition/schedule/{}", activation.scope.as_str());
+        recover(
+            db,
+            &scopes,
+            &resource,
+            activation.principal,
+            (wall, activation.lease_term),
+        )?;
         let inputs = json!({
             "schema":"maestro-acquisition-schedule/1", "owner":activation.principal,
             "activation":identity, "sync":activation.policy, "mode":activation.mode
@@ -230,10 +238,14 @@ impl<'a> LocalTimer<'a> {
                 wall,
             )
             .map_err(|_| Refusal::Access)?;
-        schedule.request.activation = job.id.to_string().parse().map_err(|_| Refusal::Invalid)?;
-        let lease = db
-            .take_job(job.id, activation.principal, wall, activation.lease_term)
-            .map_err(|_| Refusal::Access)?;
+        schedule.request.activation = job.id.into();
+        let lease = take_reserved(
+            db,
+            job.id,
+            activation.principal,
+            wall,
+            activation.lease_term,
+        )?;
         Ok(Self {
             db,
             principal: activation.principal.into(),
@@ -308,11 +320,7 @@ impl<'a> LocalTimer<'a> {
             .db
             .visible(&self.principal)
             .map_err(|_| Refusal::Access)?;
-        owned(self.db, &scopes, self.id(), &self.principal)?;
-        if now >= self.deadline {
-            self.schedule.stop();
-            return Err(Refusal::Access);
-        }
+        super::schedule_stop::owned(self.db, &scopes, self.id(), &self.principal)?;
         if stop_requested(self.db, &scopes, self.id())? {
             self.schedule.stop();
             self.db
@@ -324,14 +332,11 @@ impl<'a> LocalTimer<'a> {
                 .map_err(|_| Refusal::Access)?;
             return Err(Refusal::Access);
         }
-        let fraction = wall
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| Refusal::Invalid)?
-            .subsec_millis();
-        let at = format!(
-            "{}.{fraction:03}Z",
-            format_time(wall)?.trim_end_matches('Z')
-        );
+        if now >= self.deadline {
+            self.schedule.stop();
+            return Err(Refusal::Access);
+        }
+        let at = wall_time(wall)?;
         if at >= self.lease.expires {
             self.schedule.stop();
             return Err(Refusal::Access);
@@ -342,78 +347,6 @@ impl<'a> LocalTimer<'a> {
         self.deadline = now.checked_add(self.term).ok_or(Refusal::Invalid)?;
         Ok(())
     }
-}
-/// Verify the exact visible live schedule and its frozen local owner.
-/// # Errors
-/// Missing, terminal, wrong-kind, foreign-owner or denied jobs refuse.
-fn owned(db: &Database, scopes: &ScopeSet, id: Ulid, principal: &str) -> Result<Job, Refusal> {
-    let job = db
-        .job(scopes, id)
-        .map_err(|_| Refusal::Access)?
-        .ok_or(Refusal::Access)?;
-    if job.kind != JOB_KIND || !matches!(job.state, JobState::Queued | JobState::Running) {
-        return Err(Refusal::Access);
-    }
-    let events = db
-        .events(
-            scopes,
-            &Filter {
-                stream: &stream(id),
-                after: 0,
-                r#type: Some(CREATED),
-            },
-        )
-        .map_err(|_| Refusal::Access)?;
-    if events
-        .first()
-        .and_then(|event| event.data.get("inputs")?.get("owner")?.as_str())
-        != Some(principal)
-    {
-        return Err(Refusal::Access);
-    }
-    Ok(job)
-}
-/// Whether the durable owner stop request exists; no PID or process name is consulted.
-/// # Errors
-/// Unreadable authorized journal refuses.
-pub fn stop_requested(db: &Database, scopes: &ScopeSet, id: Ulid) -> Result<bool, Refusal> {
-    Ok(!db
-        .events(
-            scopes,
-            &Filter {
-                stream: &stream(id),
-                after: 0,
-                r#type: Some(STOP_REQUESTED),
-            },
-        )
-        .map_err(|_| Refusal::Access)?
-        .is_empty())
-}
-/// Disable a schedule durably. The owner waits separately for honest cancellation acknowledgement.
-/// # Errors
-/// Foreign, unavailable, terminal or mismatched jobs and storage failures refuse.
-pub fn request_stop(
-    db: &Database,
-    scopes: &ScopeSet,
-    id: Ulid,
-    principal: &str,
-) -> Result<(), Refusal> {
-    let job = owned(db, scopes, id, principal)?;
-    if !stop_requested(db, scopes, id)? {
-        db.record(&NewEvent {
-            stream: &stream(id),
-            r#type: STOP_REQUESTED,
-            subject: &stream(id),
-            scope: job.scope.as_str(),
-            data: &json!({"owner":principal}),
-        })
-        .map_err(|_| Refusal::Access)?;
-    }
-    if job.state == JobState::Queued {
-        db.cancel_job(id, &json!({"reason":"owner_stop"}))
-            .map_err(|_| Refusal::Access)?;
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -452,5 +385,75 @@ mod tests {
                 .invoke(&mut Unreachable, &request, "owner", now)
                 .is_err()
         );
+    }
+    #[test]
+    fn n42_last_stop_check_bounds_one_final_dispatch() {
+        use super::{Activation, LocalTimer, request_stop};
+        use maestro_kernel::{job::JobState, scope::Right, store::Database};
+        use maestro_test_scratch::scratch_directory;
+        use std::{
+            fs,
+            num::NonZeroU64,
+            time::{Duration, UNIX_EPOCH},
+        };
+        struct Counting(usize);
+        impl ScheduleTrigger for Counting {
+            fn invoke(&mut self, _: &SyncRequest, _: &str) -> Result<Handle, Refusal> {
+                self.0 += 1;
+                Ok(Handle::new())
+            }
+        }
+        let root = scratch_directory().unwrap();
+        let db = Database::open_in(&root).unwrap();
+        let scope = "workspace/default/collection/synthetic".parse().unwrap();
+        db.grant("owner", &scope, Right::Read, "test").unwrap();
+        let policy = SyncPolicy {
+            mode: SyncMode::Watch,
+            timer_period_ms: NonZeroU64::new(86_400_000),
+            overlap_ms: 0,
+            clock_skew_ms: 0,
+            revision_fields: vec![],
+        };
+        let now = Instant::now();
+        let wall = UNIX_EPOCH + Duration::from_secs(2_000_000);
+        let mut timer = LocalTimer::activate(
+            &db,
+            &Activation {
+                policy: &policy,
+                scope: &scope,
+                principal: "owner",
+                mode: Mode::Full,
+                lease_term: Duration::from_hours(48),
+            },
+            now,
+            wall,
+        )
+        .unwrap();
+        let due = now + Duration::from_hours(24);
+        let scopes = db.visible("owner").unwrap();
+        timer.check(due, wall).unwrap();
+        request_stop(&db, &scopes, timer.id(), "owner").unwrap();
+        let mut trigger = Counting(0);
+        timer
+            .dispatch(&mut trigger, &timer.request(TriggerKind::Timer), due)
+            .unwrap();
+        assert_eq!(trigger.0, 1);
+        assert!(
+            timer
+                .poll(&mut trigger, due + Duration::from_hours(24), wall)
+                .is_err()
+        );
+        assert_eq!(trigger.0, 1);
+        assert_eq!(
+            db.job(&scopes, timer.id()).unwrap().unwrap().state,
+            JobState::Cancelled
+        );
+        drop(timer);
+        drop(db);
+        fs::remove_dir_all(root).unwrap();
+        let documentation = include_str!("../../../../docs/how-to/acquisition.md");
+        assert!(documentation.contains("last successful stop check"));
+        assert!(documentation.contains("one final dispatch"));
+        assert!(!documentation.contains("stop prevents later timer dispatches"));
     }
 }

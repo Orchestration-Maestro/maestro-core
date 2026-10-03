@@ -21,6 +21,11 @@ impl Handle {
         Self(Ulid::generate())
     }
 }
+impl From<Ulid> for Handle {
+    fn from(id: Ulid) -> Self {
+        Self(id)
+    }
+}
 impl FromStr for Handle {
     type Err = ReceiptError;
     fn from_str(text: &str) -> Result<Self, Self::Err> {
@@ -289,4 +294,19 @@ pub(super) fn snapshot_on(
         |row| row.get(0),
     )?;
     Ok(db.get(&Digest::parse(&digest).map_err(|_| ReceiptError::Storage)?)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Handle;
+    use ulid::Ulid;
+
+    #[test]
+    fn n42_handle_from_ulid_preserves_identity() {
+        let id = Ulid::generate();
+        let handle = Handle::from(id);
+        assert_eq!(handle.to_string(), id.to_string());
+        assert_eq!(handle.to_string().parse::<Ulid>().unwrap(), id);
+        assert_eq!(handle.to_string().parse::<Handle>().unwrap(), handle);
+    }
 }

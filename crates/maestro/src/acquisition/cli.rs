@@ -233,3 +233,38 @@ fn latest(store: &dyn Receipts, run: Handle) -> Result<Handle, Failure> {
         after = page.last().map(|progress| progress.receipt);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Acquire;
+    use clap::Parser;
+    use ulid::Ulid;
+
+    /// Parse the real acquisition grammar, without opening a kernel.
+    #[derive(Parser)]
+    struct Commands {
+        /// Production command and its defaults.
+        #[command(subcommand)]
+        command: Acquire,
+    }
+
+    #[test]
+    fn n42_stop_deadline_range_endpoints_and_exact_pi_default() {
+        let id = Ulid::generate().to_string();
+        for (argument, expected) in [
+            (Some("1"), 1),
+            (Some("2147483647"), 2_147_483_647),
+            (None, 300_000),
+        ] {
+            let mut args = vec!["maestro", "stop", "--schedule", &id];
+            if let Some(value) = argument {
+                args.extend(["--deadline-ms", value]);
+            }
+            let parsed = Commands::try_parse_from(args).unwrap();
+            let Acquire::Stop { deadline_ms, .. } = parsed.command else {
+                panic!("not stop")
+            };
+            assert_eq!(deadline_ms, expected);
+        }
+    }
+}
