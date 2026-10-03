@@ -1,10 +1,9 @@
 //! Resolve explicit preset names through a replaceable source port.
+use crate::source::json;
 use crate::{files::FileInput, limits::Limits, source::bootstrap_inventory::validate_source_path};
 use maestro_filesystem::Directory;
-use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fmt,
     path::{Path, PathBuf},
 };
 
@@ -116,66 +115,7 @@ pub(super) fn compose_resolved(presets: Vec<Preset>) -> Result<Vec<FileInput>, S
 
 /// Reject malformed or duplicate-key generated JSON before publication.
 pub(super) fn validate_json(path: &str, bytes: &[u8]) -> Result<(), String> {
-    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
-    StrictJson::deserialize(&mut deserializer)
+    json::parse(bytes)
         .map(|_| ())
-        .and_then(|()| deserializer.end())
         .map_err(|error| format!("generated JSON {path} is invalid: {error}"))
-}
-
-/// A recursively checked JSON value that refuses duplicate object keys.
-struct StrictJson;
-
-impl<'de> Deserialize<'de> for StrictJson {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_any(StrictJsonVisitor)
-    }
-}
-
-/// Validate each JSON value and every object key recursively.
-struct StrictJsonVisitor;
-
-impl<'de> Visitor<'de> for StrictJsonVisitor {
-    type Value = StrictJson;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("a JSON value")
-    }
-    fn visit_bool<E: de::Error>(self, _: bool) -> Result<Self::Value, E> {
-        Ok(StrictJson)
-    }
-    fn visit_i64<E: de::Error>(self, _: i64) -> Result<Self::Value, E> {
-        Ok(StrictJson)
-    }
-    fn visit_u64<E: de::Error>(self, _: u64) -> Result<Self::Value, E> {
-        Ok(StrictJson)
-    }
-    fn visit_f64<E: de::Error>(self, _: f64) -> Result<Self::Value, E> {
-        Ok(StrictJson)
-    }
-    fn visit_str<E: de::Error>(self, _: &str) -> Result<Self::Value, E> {
-        Ok(StrictJson)
-    }
-    fn visit_string<E: de::Error>(self, _: String) -> Result<Self::Value, E> {
-        Ok(StrictJson)
-    }
-    fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
-        Ok(StrictJson)
-    }
-
-    fn visit_seq<A: SeqAccess<'de>>(self, mut sequence: A) -> Result<Self::Value, A::Error> {
-        while sequence.next_element::<StrictJson>()?.is_some() {}
-        Ok(StrictJson)
-    }
-
-    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-        let mut keys = BTreeSet::new();
-        while let Some(key) = map.next_key::<String>()? {
-            if !keys.insert(key.clone()) {
-                return Err(de::Error::custom(format!("duplicate object key {key:?}")));
-            }
-            map.next_value::<StrictJson>()?;
-        }
-        Ok(StrictJson)
-    }
 }

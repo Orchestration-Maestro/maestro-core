@@ -3,7 +3,8 @@
 
 use super::types::{Bindings, NodeKind, ReviewEvidence, Workflow};
 use crate::source::{
-    Catalog, Diagnostic, Maturity, Problems, Refusal, Resource, ResourceId, closure::closure,
+    closure::closure,
+    types::{Catalog, Diagnostic, Maturity, Problems, Refusal, Resource, ResourceId},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},

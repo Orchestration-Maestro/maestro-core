@@ -153,6 +153,7 @@ fn build_snapshot(
             diagnostics.extend(refusal.diagnostics);
         }
         diagnostics.extend(across(&loaded, registry, known));
+        diagnostics.extend(super::workflow::contracts::check(&loaded));
     }
     if diagnostics.is_empty() {
         let mut resources: Vec<Resource> =

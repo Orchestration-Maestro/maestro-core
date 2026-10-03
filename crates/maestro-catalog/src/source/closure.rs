@@ -1,6 +1,6 @@
 //! The shared exact-ID forward traversal for topology and selection admission.
 
-use super::{Problems, Resource, ResourceId};
+use super::types::{Problems, Resource, ResourceId};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Walks declared dependencies and caller-supplied hook edges once, in ID order.

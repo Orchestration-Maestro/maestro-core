@@ -5,6 +5,7 @@ mod agent;
 mod backend;
 mod bootstrap_inventory;
 mod builtin;
+mod contract;
 mod instructions;
 mod model_card;
 mod package;

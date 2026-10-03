@@ -393,6 +393,21 @@ path = "unicode-width@0.1.14"
 reason = "Cedar 4.13.0 adoption (C19, ADR-0020): miette 7.6 uses unicode-width 0.1 while Cedar formatter pretty 0.12.5 uses 0.2; remove when miette adopts unicode-width 0.2"
 
 [[exception]]
+rule = "DEP-001"
+path = "foldhash@0.2.0"
+reason = "C22b, S3 D4: jsonschema/referencing 0.58.5 enables hashbrown 0.17/foldhash 0.2; whatlang 0.18 uses hashbrown 0.15/foldhash 0.1; remove when whatlang adopts hashbrown 0.17"
+
+[[exception]]
+rule = "DEP-001"
+path = "getrandom@0.3.4"
+reason = "C22b, S3 D4: jsonschema/referencing/jsonschema-value 0.58.5 and ahash 0.8 use getrandom 0.3; rand 0.10 uses 0.4; remove when jsonschema and ahash adopt getrandom 0.4"
+
+[[exception]]
+rule = "DEP-001"
+path = "r-efi@5.3.0"
+reason = "C22b, S3 D4: jsonschema 0.58.5 uses getrandom 0.3/r-efi 5; rand 0.10 uses getrandom 0.4/r-efi 6; remove when jsonschema and ahash adopt getrandom 0.4"
+
+[[exception]]
 rule = "TST-001"
 path = "crates/maestro-test-clock/src/stopped.rs"
 item = "work_is_constructed_on_the_stopped_clock"

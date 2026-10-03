@@ -1,7 +1,7 @@
 //! Effect-free Cedar checking and separately supplied trusted host facts.
 
 mod check;
-mod schema;
+pub(crate) mod schema;
 #[cfg(test)]
 mod tests;
 pub mod workspace;

@@ -187,7 +187,7 @@ pub fn test_cases(root: &Path, limits: &Limits) -> Result<Vec<Case>, String> {
 
 /// Bounds JSON containers before any parser allocates a tree.
 /// Quotes and escapes are skipped; the subsequent parser validates syntax.
-pub(super) fn bound_json(text: &str, limits: &Limits) -> Result<(), String> {
+pub(crate) fn bound_json(text: &str, limits: &Limits) -> Result<(), String> {
     bound(text, limits)?;
     let mut depth: usize = 0;
     let mut quoted = false;

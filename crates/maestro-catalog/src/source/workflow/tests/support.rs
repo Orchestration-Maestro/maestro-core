@@ -12,10 +12,10 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(super) const SOURCE: &str = "core/workflows/feature-delivery/workflow.md";
 /// The otherwise-valid topology excerpt.
 pub(super) const VALID: &str =
-    include_str!("../../../../../tests/fixtures/catalog/graphs/topology-valid.md");
+    include_str!("../../../../../../tests/fixtures/catalog/graphs/topology-valid.md");
 /// Its independent missing-reviewer mutation.
 pub(super) const INVALID: &str =
-    include_str!("../../../../../tests/fixtures/catalog/graphs/topology-invalid.md");
+    include_str!("../../../../../../tests/fixtures/catalog/graphs/topology-invalid.md");
 
 /// Test-only evidence explicitly admitted by exact ID, never read from source labels.
 #[derive(Debug)]

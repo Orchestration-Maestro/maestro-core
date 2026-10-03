@@ -142,6 +142,10 @@ pub enum Format {
     Markdown,
     /// A TOML document; its `schema` sits with its metadata.
     Toml,
+    /// A native JSON document paired with a TOML metadata sidecar.
+    Json,
+    /// Native Cedar source paired with a TOML metadata sidecar.
+    Cedar,
 }
 
 /// Where a kind's Maestro metadata sits.

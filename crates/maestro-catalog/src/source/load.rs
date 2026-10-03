@@ -12,17 +12,30 @@ use super::{
     types::{Diagnostic, Known, Problems, Resource, ResourceId, Value},
     walk::Unit,
 };
-use crate::limits::Limits;
+use crate::{limits::Limits, policy::schema::bound_json};
 
 /// A resource read from its files, with where its metadata lives.
 #[derive(Debug)]
-pub(super) struct Loaded {
+pub(crate) struct Loaded {
     /// The resource.
-    pub(super) resource: Resource,
+    pub(crate) resource: Resource,
+    /// The native primary input retained for the semantic compiler.
+    pub(crate) native: Native,
     /// The file holding its metadata.
     pub(super) metadata_path: String,
     /// The key prefix of its metadata there.
     pub(super) prefix: String,
+}
+
+/// Native primary input. JSON is decoded once; Cedar is parsed by C19 once.
+#[derive(Debug)]
+pub(crate) enum Native {
+    /// TOML/Markdown already represented in the resource's typed fields.
+    None,
+    /// Contract or Cedar schema JSON, retained without converting through TOML.
+    Json(serde_json::Value),
+    /// Policy source, never evaluated as an executable.
+    Cedar(String),
 }
 
 /// What reading a resource needs besides its unit and kind.
@@ -66,26 +79,41 @@ fn document<'a>(
     format: Format,
     limits: &Limits,
     problems: &mut Problems,
-) -> (Option<Table>, Option<&'a str>) {
+) -> (Option<Table>, Option<&'a str>, Native) {
     match format {
         Format::Toml => (
             toml_table(text, limits)
                 .map_err(|problem| problems.push(problem))
                 .ok(),
             None,
+            Native::None,
         ),
         Format::Markdown => {
             let Some((frontmatter, body)) = split_frontmatter(text) else {
                 problems.push((String::new(), "no frontmatter between --- lines".to_owned()));
-                return (None, None);
+                return (None, None, Native::None);
             };
             (
                 yaml_table(frontmatter, limits)
                     .map_err(|problem| problems.push(problem))
                     .ok(),
                 Some(body),
+                Native::None,
             )
         }
+        Format::Json => {
+            let native = bound_json(text, limits)
+                .and_then(|()| super::json::parse(text.as_bytes()))
+                .map_or_else(
+                    |message| {
+                        problems.push((String::new(), message));
+                        Native::None
+                    },
+                    Native::Json,
+                );
+            (Some(Table::new()), None, native)
+        }
+        Format::Cedar => (Some(Table::new()), None, Native::Cedar(text.to_owned())),
     }
 }
 
@@ -137,7 +165,8 @@ pub(super) fn load(
     };
     let mut primary = Problems::new();
     let mut beside = Problems::new();
-    let (mut table, body) = document(&text, descriptor.format, context.limits, &mut primary);
+    let (mut table, body, native) =
+        document(&text, descriptor.format, context.limits, &mut primary);
     let (found, prefix) = match &sidecar {
         Some(sidecar) => (
             toml_table(sidecar, context.limits)
@@ -201,6 +230,7 @@ pub(super) fn load(
     match resource {
         Some(resource) if diagnostics.is_empty() => Ok(Loaded {
             resource,
+            native,
             metadata_path,
             prefix,
         }),

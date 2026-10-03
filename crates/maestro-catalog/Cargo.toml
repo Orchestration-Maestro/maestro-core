@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 cedar-policy.workspace = true
+jsonschema.workspace = true
 maestro-filesystem.workspace = true
 maestro-kernel.workspace = true
 maestro-settings.workspace = true

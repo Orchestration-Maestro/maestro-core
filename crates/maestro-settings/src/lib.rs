@@ -26,6 +26,7 @@
 //! authority and never a preferences layer: nothing here reads or writes it.
 
 mod builtin;
+mod builtin_helpers;
 mod descriptor;
 mod discovery;
 mod edit;

@@ -547,15 +547,6 @@ in place.
 │   │   │   │   ├── plan.rs                                                  # Preview immutable file bytes, validate relative names, and bind content digests
 │   │   │   │   ├── recovery.rs                                              # Read and validate write-ahead journals through the shared held-handle filesystem
 │   │   │   │   └── remove.rs                                                # Remove only committed, digest-matching owned file names
-│   │   │   ├── graph/                                                       # Internal graph checks, not source admission, routing or execution
-│   │   │   │   ├── tests/                                                   # Topology compilation's synthetic checked inputs and refusal neighbours
-│   │   │   │   │   ├── mod.rs                                               # Topology compilation's synthetic checked inputs and refusal neighbours
-│   │   │   │   │   ├── references.rs                                        # Exact reference closure, lifecycle evidence and typed identity vectors
-│   │   │   │   │   ├── support.rs                                           # Synthetic checked topology inputs and explicit review admission, tests only
-│   │   │   │   │   └── topology.rs                                          # Each topology guard has a passing neighbour and an assertion-based refusal
-│   │   │   │   ├── mod.rs                                                   # Internal graph checks, not source admission, routing or execution
-│   │   │   │   ├── topology.rs                                              # Static rules 1, 2, 3, 6 and 9
-│   │   │   │   └── types.rs                                                 # Normalized topology inputs
 │   │   │   ├── limits/                                                      # The one immutable set of numeric limits every catalog input path shares
 │   │   │   │   ├── mod.rs                                                   # The one immutable set of numeric limits every catalog input path shares
 │   │   │   │   ├── tests.rs                                                 # Plan D2's production constants, asserted once here; every boundary test
@@ -610,6 +601,7 @@ in place.
 │   │   │   │   │   ├── backend.rs                                           # One declarative backend kind with strict role tables checked by its hook
 │   │   │   │   │   ├── bootstrap_inventory.rs                               # Strict owner-local inventories and their exact inert payload claims
 │   │   │   │   │   ├── builtin.rs                                           # The registry of the built-in kinds and the fixed table of hooks their
+│   │   │   │   │   ├── contract.rs                                          # Native JSON Schema contracts with an exact owner-local metadata pair
 │   │   │   │   │   ├── instructions.rs                                      # instructions: a Copilot .instructions.md file and its
 │   │   │   │   │   ├── mod.rs                                               # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── model_card.rs                                        # model-card: a strict catalog declaration of the kernel's v2 identity
@@ -661,6 +653,18 @@ in place.
 │   │   │   │   │   ├── support.rs                                           # An in-memory [SourceTree] adapter holding the valid synthetic catalog
 │   │   │   │   │   ├── versions.rs                                          # C53a exact area pins and bounded runtime compatibility neighbours
 │   │   │   │   │   └── yaml.rs                                              # YAML read node by node at injected limits: the exact node budget and
+│   │   │   │   ├── workflow/                                                # Internal graph checks, not source admission, routing or execution
+│   │   │   │   │   ├── tests/                                               # Topology compilation's synthetic checked inputs and refusal neighbours
+│   │   │   │   │   │   ├── contracts.rs                                     # Contract conditions: typed neighbours and hostile text never execute
+│   │   │   │   │   │   ├── mod.rs                                           # Topology compilation's synthetic checked inputs and refusal neighbours
+│   │   │   │   │   │   ├── references.rs                                    # Exact reference closure, lifecycle evidence and typed identity vectors
+│   │   │   │   │   │   ├── support.rs                                       # Synthetic checked topology inputs and explicit review admission, tests only
+│   │   │   │   │   │   └── topology.rs                                      # Each topology guard has a passing neighbour and an assertion-based refusal
+│   │   │   │   │   ├── conditions.rs                                        # Effect-free type checking for the architecture 03 condition language
+│   │   │   │   │   ├── contracts.rs                                         # Real JSON Schema validation over the loader's single parsed snapshot
+│   │   │   │   │   ├── mod.rs                                               # Internal graph checks, not source admission, routing or execution
+│   │   │   │   │   ├── topology.rs                                          # Static rules 1, 2, 3, 6 and 9
+│   │   │   │   │   └── types.rs                                             # Normalized topology inputs
 │   │   │   │   ├── area_walk.rs                                             # Scoped discovery over the bounded snapshot
 │   │   │   │   ├── backend_extensions.rs                                    # Owner-local, inert backend additions and descriptor-checked ceiling minima
 │   │   │   │   ├── backends.rs                                              # Registered backend contracts, independent of the adapters linked by a caller
@@ -671,6 +675,7 @@ in place.
 │   │   │   │   ├── descriptor.rs                                            # A kind described as data: where its files live, how they are written
 │   │   │   │   ├── discovered.rs                                            # Discovery records shared by the legacy and scoped descriptor walkers
 │   │   │   │   ├── graph.rs                                                 # The dependency graph across resources, its nodes numbered in ID order
+│   │   │   │   ├── json.rs                                                  # The single strict JSON decoder shared by source admission and bootstrap
 │   │   │   │   ├── load.rs                                                  # One discovered resource read from its files, as its kind's descriptor
 │   │   │   │   ├── metadata.rs                                              # The Maestro metadata every resource declares, read the same way wherever
 │   │   │   │   ├── mod.rs                                                   # The strict checker of a catalog's authoring sources: a registry of
@@ -1557,6 +1562,7 @@ in place.
 │   │   │   │   ├── synthetic.rs                                             # Adding a setting is one descriptor: a synthetic one, appended to the
 │   │   │   │   └── value.rs                                                 # Values: each kind read from the command line's text and from a file's
 │   │   │   ├── builtin.rs                                                   # The settings Maestro ships, one descriptor each
+│   │   │   ├── builtin_helpers.rs                                           # Const descriptor construction shared by the built-in declarations
 │   │   │   ├── descriptor.rs                                                # A setting's descriptor: everything Maestro knows about one setting, as
 │   │   │   ├── discovery.rs                                                 # Where a session finds its project file (plan D6): the nearest
 │   │   │   ├── language.rs                                                  # The language tags language accepts: the bounded BCP 47 subset S3 ruled

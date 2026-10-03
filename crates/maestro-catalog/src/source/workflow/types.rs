@@ -1,7 +1,7 @@
 //! Normalized topology inputs. Session bindings, start and terminal facts are
 //! resolved compile inputs, not additions to the authored workflow format.
 
-use crate::source::ResourceId;
+use crate::source::types::ResourceId;
 use std::collections::BTreeMap;
 
 /// Admission of completed protected review for an exact resource identity.

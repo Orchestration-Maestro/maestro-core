@@ -283,6 +283,9 @@ fn every_built_in_description_is_one_line_and_classes_match_architecture() {
             | "workspace_writers"
             | "delegation_depth"
             | "tool_calls"
+            | "workflow.budgets.tokens"
+            | "workflow.budgets.wall_ms"
+            | "workflow.budgets.tool_calls"
             | "repair_attempts"
             | "routing_candidates"
             | "mcp_call_timeout"
@@ -329,6 +332,58 @@ fn catalog_settings_are_appended_without_changing_existing_entries() {
     }
     assert!(registry.get("max_output_tokens").is_none());
     assert!(registry.get("ask.output_tokens").is_some());
+}
+
+#[test]
+fn workflow_budget_descriptors_keep_ask_limit_separate() {
+    let registry = Registry::built_in().unwrap();
+    for (key, min, max, default) in [
+        ("workflow.budgets.tokens", 0, 2_147_483_647, "2147483647"),
+        ("workflow.budgets.wall_ms", 1, 2_147_483_647, "1800000"),
+        (
+            "workflow.budgets.tool_calls",
+            0,
+            2_147_483_647,
+            "2147483647",
+        ),
+    ] {
+        let descriptor = registry.get(key).unwrap();
+        assert_eq!(descriptor.class, SettingClass::Bounded);
+        assert_eq!(descriptor.default, default);
+        assert_eq!(
+            descriptor.kind,
+            SettingKind::Integer {
+                min,
+                max,
+                off: false,
+                power_of_two: false
+            }
+        );
+        for accepted in [min, max] {
+            assert_eq!(
+                descriptor.kind.parse_text(&accepted.to_string()).unwrap(),
+                Value::Integer(accepted)
+            );
+        }
+        for refused in [
+            (min - 1).to_string(),
+            (max + 1).to_string(),
+            "off".to_owned(),
+            "1.0".to_owned(),
+        ] {
+            assert!(
+                descriptor.kind.parse_text(&refused).is_err(),
+                "{key} accepted {refused}"
+            );
+        }
+    }
+    let ask = registry.get("tool_calls").unwrap();
+    assert_eq!(ask.default, "40");
+    assert!(ask.description.contains("per ask run"));
+    assert_eq!(ask.kind.parse_text("40").unwrap(), Value::Integer(40));
+    assert!(ask.kind.parse_text("41").is_err());
+    assert!(registry.get("workflow.budgets.cost").is_none());
+    assert!(registry.get("workflow.budgets.cost_units").is_none());
 }
 
 #[test]

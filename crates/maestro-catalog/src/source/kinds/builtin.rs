@@ -3,7 +3,7 @@
 
 use super::{
     agent::{self, AgentRules},
-    backend, bootstrap_inventory, instructions, model_card, package,
+    backend, bootstrap_inventory, contract, instructions, model_card, package,
     preset::{self, PresetRules},
     quality_profile, skill, standard, standard_check, standard_exception,
 };
@@ -81,6 +81,7 @@ pub fn builtin() -> Result<Registry, String> {
         bootstrap_inventory::descriptor(),
         model_card::descriptor(),
         backend::descriptor(),
+        contract::descriptor(),
     ] {
         registry
             .register(descriptor)

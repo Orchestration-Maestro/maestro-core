@@ -12,8 +12,9 @@ pub(crate) mod defaults;
 mod descriptor;
 mod discovered;
 mod graph;
+pub(crate) mod json;
 mod kinds;
-mod load;
+pub(crate) mod load;
 mod metadata;
 mod naming;
 pub mod owners;
@@ -30,9 +31,10 @@ mod standards;
 #[cfg(test)]
 pub(crate) mod tests;
 pub(crate) mod tree;
-mod types;
+pub(crate) mod types;
 mod versions;
 mod walk;
+mod workflow;
 mod yaml;
 
 pub use backend_extensions::BackendExtensions;
