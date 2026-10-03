@@ -92,11 +92,16 @@ pub(in crate::cli::graph) struct Fixture {
     pub(in crate::cli::graph) root: PathBuf,
     pub(in crate::cli::graph) kernel: Kernel,
     pub(in crate::cli::graph) revisions: Vec<Revision>,
+    // Fields drop in declaration order: close the kernel before cleanup.
+    _directory: Directory,
 }
 
-impl Drop for Fixture {
+/// Removes the fixture directory after all database-owning fields drop.
+struct Directory(PathBuf);
+
+impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.root).expect("remove graph runner fixture");
+        fs::remove_dir_all(&self.0).expect("remove graph runner fixture");
     }
 }
 
@@ -177,7 +182,19 @@ pub(in crate::cli::graph) fn fixture(markdowns: &[&str]) -> Fixture {
             test_refresh_hook: None,
         },
         revisions,
+        _directory: Directory(root),
     }
+}
+
+#[test]
+fn fixture_closes_the_kernel_before_removing_its_directory() {
+    let fixture = fixture(&["Source text.\n"]);
+    let path = fixture.root.clone();
+    let database = Arc::downgrade(&fixture.kernel.database);
+    assert!(path.join("kernel.sqlite3").is_file());
+    drop(fixture);
+    assert!(database.upgrade().is_none());
+    assert!(!path.exists());
 }
 
 pub(in crate::cli::graph) fn extractor(

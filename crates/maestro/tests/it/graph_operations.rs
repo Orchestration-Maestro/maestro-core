@@ -78,7 +78,15 @@ fn ladybug_in_a_build_without_the_engine_is_named_and_nothing_is_created() {
             .contains("`engine` feature")
     );
     assert!(stderr.contains("`engine` feature"), "{stderr}");
-    assert!(calls.contains("systemctl"), "Qdrant still ran: {calls}");
+    if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        assert!(calls.contains("systemctl"), "Qdrant still ran: {calls}");
+    } else {
+        assert!(
+            stderr.contains("set Qdrant") && stderr.contains("up by hand"),
+            "Qdrant still reported its manual setup: {stderr}"
+        );
+        assert!(calls.is_empty(), "manual setup runs no tools: {calls}");
+    }
     assert!(!home.data().join("graph").exists());
     assert!(
         !home.data().join("qdrant").exists(),

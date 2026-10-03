@@ -203,13 +203,16 @@ fn the_canonical_document_must_be_the_revisions_own() {
 
 /// A kernel database in a new scratch directory, removed with it when
 /// dropped.
-struct Scratch(PathBuf, Database);
+struct Scratch(Database, Directory);
+
+/// Last field: cleanup runs only after the database field drops.
+struct Directory(PathBuf);
 
 impl Scratch {
     fn new() -> Self {
         let path = scratch_directory().unwrap();
         let database = Database::open_in(&path).unwrap();
-        Self(path, database)
+        Self(database, Directory(path))
     }
 
     /// A revision named as the frozen source's, whose artifacts hold
@@ -218,8 +221,8 @@ impl Scratch {
         Revision {
             id: source(&markdown()).revision_id().to_owned(),
             document_id: "doc-graph".to_owned(),
-            original_digest: self.1.put(original, "text/markdown").unwrap(),
-            canonical_digest: self.1.put(canonical, "application/json").unwrap(),
+            original_digest: self.0.put(original, "text/markdown").unwrap(),
+            canonical_digest: self.0.put(canonical, "application/json").unwrap(),
             status: RevisionStatus::Valid,
             captured_at: None,
             metadata: Map::new(),
@@ -227,10 +230,19 @@ impl Scratch {
     }
 }
 
-impl Drop for Scratch {
+impl Drop for Directory {
     fn drop(&mut self) {
-        drop(fs::remove_dir_all(&self.0));
+        fs::remove_dir_all(&self.0).unwrap();
     }
+}
+
+#[test]
+fn scratch_closes_the_database_before_removing_its_directory() {
+    let scratch = Scratch::new();
+    let path = scratch.1.0.clone();
+    assert!(path.join("kernel.sqlite3").is_file());
+    drop(scratch);
+    assert!(!path.exists());
 }
 
 #[test]
@@ -239,7 +251,7 @@ fn a_source_is_read_from_its_revisions_artifacts() {
     let markdown = markdown();
     let canonical = serde_json::to_vec(&canonical()).unwrap();
     let revision = scratch.revision(&canonical, markdown.as_bytes());
-    let read = Source::read(&scratch.1, &revision).unwrap();
+    let read = Source::read(&scratch.0, &revision).unwrap();
     assert_eq!(read.revision_id(), revision.id);
     assert_eq!(read.canonical(), &self::canonical());
     assert_eq!(read.markdown(), markdown);
@@ -250,7 +262,7 @@ fn a_source_whose_artifacts_are_not_what_they_say_is_refused() {
     let scratch = Scratch::new();
     let canonical = serde_json::to_vec(&canonical()).unwrap();
     let not_canonical = scratch.revision(b"{}", markdown().as_bytes());
-    let error = Source::read(&scratch.1, &not_canonical).unwrap_err();
+    let error = Source::read(&scratch.0, &not_canonical).unwrap_err();
     assert!(matches!(error, SourceError::Canonical(_)), "{error:?}");
     assert!(
         error
@@ -259,19 +271,19 @@ fn a_source_whose_artifacts_are_not_what_they_say_is_refused() {
     );
     assert!(error::Error::source(&error).is_some());
     let not_utf8 = scratch.revision(&canonical, b"label \xe9");
-    let error = Source::read(&scratch.1, &not_utf8).unwrap_err();
+    let error = Source::read(&scratch.0, &not_utf8).unwrap_err();
     assert!(matches!(error, SourceError::NotUtf8), "{error:?}");
     assert_eq!(error.to_string(), "its original is not UTF-8");
     assert!(error::Error::source(&error).is_none());
     let mut missing = scratch.revision(&canonical, markdown().as_bytes());
     missing.canonical_digest = Digest::of(b"never stored");
-    let error = Source::read(&scratch.1, &missing).unwrap_err();
+    let error = Source::read(&scratch.0, &missing).unwrap_err();
     assert!(matches!(error, SourceError::Store(_)), "{error:?}");
     assert!(error::Error::source(&error).is_some());
     assert!(!error.to_string().is_empty());
     let mut missing = scratch.revision(&canonical, markdown().as_bytes());
     missing.original_digest = Digest::of(b"never stored");
-    let error = Source::read(&scratch.1, &missing).unwrap_err();
+    let error = Source::read(&scratch.0, &missing).unwrap_err();
     assert!(matches!(error, SourceError::Store(_)), "{error:?}");
 }
 

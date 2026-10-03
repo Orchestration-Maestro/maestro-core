@@ -18,8 +18,6 @@ use std::{collections::BTreeMap, fs, path::PathBuf};
 
 /// A real admitted table and a scoped reviewer in an isolated database.
 struct Fixture {
-    /// Directory removed after the database closes.
-    path: PathBuf,
     /// Kernel authority under test.
     database: Database,
     /// Request scopes pinned to this reviewer.
@@ -28,7 +26,12 @@ struct Fixture {
     input: ResolutionInput,
     /// Two distinct sourced subjects.
     pair: [Mention; 2],
+    /// Last field: remove the directory only after the database closes.
+    path: Directory,
 }
+
+/// A scratch directory removed after the fixture's database drops.
+struct Directory(PathBuf);
 
 impl Fixture {
     /// Admit the existing synthetic table through the public kernel API.
@@ -111,11 +114,11 @@ impl Fixture {
             decisions: vec![],
         };
         Self {
-            path,
             database,
             scopes,
             input,
             pair,
+            path: Directory(path),
         }
     }
 
@@ -132,7 +135,7 @@ impl Fixture {
 
     /// Count immutable rows independently of the returned result.
     fn count(&self) -> i64 {
-        Connection::open(self.path.join("kernel.sqlite3"))
+        Connection::open(self.path.0.join("kernel.sqlite3"))
             .unwrap()
             .query_row("SELECT count(*) FROM graph_resolutions", [], |row| {
                 row.get(0)
@@ -141,10 +144,19 @@ impl Fixture {
     }
 }
 
-impl Drop for Fixture {
+impl Drop for Directory {
     fn drop(&mut self) {
-        drop(fs::remove_dir_all(&self.path));
+        fs::remove_dir_all(&self.0).unwrap();
     }
+}
+
+#[test]
+fn fixture_closes_the_database_before_removing_its_directory() {
+    let fixture = Fixture::new();
+    let path = fixture.path.0.clone();
+    assert!(path.join("kernel.sqlite3").is_file());
+    drop(fixture);
+    assert!(!path.exists());
 }
 
 #[test]

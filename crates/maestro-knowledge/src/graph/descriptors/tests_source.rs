@@ -32,8 +32,6 @@ use std::{
 
 /// Kernel/artifact scratch fixture, constructed through public write APIs.
 pub(super) struct Authority {
-    /// Owned scratch directory.
-    path: PathBuf,
     /// Sole source of claims and original bytes.
     pub(super) database: Database,
     /// Source scopes before any revocation.
@@ -42,7 +40,12 @@ pub(super) struct Authority {
     pub(super) pin: DescriptorPin,
     /// Frozen reviewed identity snapshot.
     pub(super) resolution: Digest,
+    /// Last field: remove the directory only after the database closes.
+    path: Directory,
 }
+
+/// A scratch directory removed after the authority's database drops.
+struct Directory(PathBuf);
 
 impl Authority {
     /// Populate a real attached generation and admitted synthetic claims.
@@ -76,7 +79,6 @@ impl Authority {
             )
             .unwrap();
         Self {
-            path,
             database,
             scopes,
             pin: DescriptorPin {
@@ -85,6 +87,7 @@ impl Authority {
                 version: None,
             },
             resolution: snapshot.id,
+            path: Directory(path),
         }
     }
 
@@ -100,9 +103,9 @@ impl Authority {
     }
 }
 
-impl Drop for Authority {
+impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.path).unwrap();
+        fs::remove_dir_all(&self.0).unwrap();
     }
 }
 
@@ -276,6 +279,15 @@ fn populate(database: &Database, source: &VerifiedSource, membership: (bool, boo
 }
 
 #[test]
+fn authority_closes_the_database_before_removing_its_directory() {
+    let fixture = Authority::new();
+    let path = fixture.path.0.clone();
+    assert!(path.join("kernel.sqlite3").is_file());
+    drop(fixture);
+    assert!(!path.exists());
+}
+
+#[test]
 fn resolution_must_include_the_generation_attachment() {
     let fixture = Authority::new();
     let mut claim = fixture.read().claims[0].claim.clone();
@@ -353,7 +365,7 @@ fn reader_refuses_failed_incomplete_misbound_or_ineligible_sources() {
         "UPDATE quality_dispositions SET disposition = 'quarantined'",
     ] {
         let fixture = Authority::new();
-        Connection::open(fixture.path.join("kernel.sqlite3"))
+        Connection::open(fixture.path.0.join("kernel.sqlite3"))
             .unwrap()
             .execute(statement, [])
             .unwrap();
