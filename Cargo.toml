@@ -10,6 +10,11 @@ license = "MIT"
 publish = false
 
 [workspace.dependencies]
+# OA9 / C05f: the measured minimum umbrella backend features.
+ratatui = { version = "=0.30.2", default-features = false, features = [
+  "crossterm",
+] }
+crossterm = { version = "=0.29.0", default-features = false }
 # Real evaluator and validator, measured in C09; optional features stay off.
 cedar-policy = { version = "=4.13.0", default-features = false }
 jsonschema = { version = "0.58", default-features = false }

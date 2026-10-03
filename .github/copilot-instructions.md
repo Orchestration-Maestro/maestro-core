@@ -40,7 +40,8 @@ in place.
 │   │   ├── dependabot-auto-merge.yml                                        # Dependabot auto-merge
 │   │   ├── event-schemas.yml                                                # Released event schema compatibility
 │   │   ├── integration.yml                                                  # Qdrant integration: the projection's tests against a Qdrant 1.19 image pinned by digest
-│   │   └── scorecard.yml                                                    # OpenSSF Scorecard
+│   │   ├── scorecard.yml                                                    # OpenSSF Scorecard
+│   │   └── terminal-qualification.yml                                       # Native terminal qualification
 │   ├── CODEOWNERS                                                           # Who reviews each path
 │   ├── copilot-instructions.md                                              # This guide, written by rust-gate guide at every commit
 │   ├── dependabot.yml                                                       # The organization merges only conventional titles: "ci(deps): bump ..."
@@ -123,15 +124,26 @@ in place.
 │   │   │   │   │   ├── settings.rs                                          # The settings check: which preferences files a session reads, the user's
 │   │   │   │   │   └── status.rs                                            # maestro status: the kernel, Qdrant and the router ready or not, and each readable collection; exits 0
 │   │   │   │   ├── init/                                                    # Init's shared flow and plain adapter; the catalog planner remains independent
+│   │   │   │   │   ├── menu/                                                # Shared init orchestration; test receipts stay behind a test-only door
+│   │   │   │   │   │   ├── mod.rs                                           # Shared init orchestration; test receipts stay behind a test-only door
+│   │   │   │   │   │   ├── run.rs                                           # Init orchestration over the shared draft, plain port and unchanged planner
+│   │   │   │   │   │   └── terminal_tests.rs                                # Rust source: terminal tests
 │   │   │   │   │   ├── tests/                                               # Integration tests
+│   │   │   │   │   │   ├── pty/                                             # Pty
+│   │   │   │   │   │   │   ├── cases.rs                                     # Real backend parser and cleanup receipts, including unwinding inside the renderer
+│   │   │   │   │   │   │   ├── mod.rs                                       # Rust source: mod
+│   │   │   │   │   │   │   ├── stream.rs                                    # Shared bounded output collection for native PTY and ConPTY receipts
+│   │   │   │   │   │   │   ├── unix.rs                                      # Safe rustix PTY operations; only registering pre_exec is unsafe
+│   │   │   │   │   │   │   └── windows.rs                                   # Native ConPTY qualification, never redirected pipes posing as a console
 │   │   │   │   │   │   ├── approval.rs                                      # Rust source: approval
 │   │   │   │   │   │   ├── flow.rs                                          # Registry injection and renderer-independent draft/navigation regression tests
-│   │   │   │   │   │   └── mod.rs                                           # Rust source: mod
+│   │   │   │   │   │   ├── mod.rs                                           # Rust source: mod
+│   │   │   │   │   │   └── terminal.rs                                      # Terminal frames and semantic keys use the same draft as the plain flow
 │   │   │   │   │   ├── command.rs                                           # maestro init: show the complete authoring plan and apply only on request
 │   │   │   │   │   ├── flow.rs                                              # Shared draft and renderer port; S1 owns descriptors, validation and edits
-│   │   │   │   │   ├── menu.rs                                              # Init orchestration over the shared draft, plain port and unchanged planner
 │   │   │   │   │   ├── mod.rs                                               # Init's shared flow and plain adapter; the catalog planner remains independent
-│   │   │   │   │   └── plain.rs                                             # Sequential labelled prompts; no raw mode, repaint, color or terminal state
+│   │   │   │   │   ├── plain.rs                                             # Sequential labelled prompts; no raw mode, repaint, color or terminal state
+│   │   │   │   │   └── terminal.rs                                          # Branded presentation only: all validation, planning and effects stay in the flow
 │   │   │   │   ├── publish/                                                 # Explicit replacement of a lost projection and frozen resume identity
 │   │   │   │   │   ├── mod.rs                                               # Explicit replacement of a lost projection and frozen resume identity
 │   │   │   │   │   ├── recovery.rs                                          # Frozen identity and restart selection for explicit projection recovery
@@ -1859,61 +1871,69 @@ in place.
 │       │   └── trust/                                                       # Trust
 │       │       ├── valid.json                                               # JSON data: valid
 │       │       └── wrong-signer.json                                        # JSON data: wrong signer
-│       └── synthetic/                                                       # The public synthetic collection and its suite, which stand in for the private corpus in public CI (ADR-0009)
-│           ├── corpus/                                                      # The collection's one source: its maestro-corpus/1 manifest beside the Markdown documents it names
-│           │   ├── en/                                                      # The documents written in English
-│           │   │   ├── backups/                                             # Backups
-│           │   │   │   ├── backup-policy.md                                 # Sample document: Backup policy
-│           │   │   │   └── restoring-a-database.md                          # Sample document: Restoring a database from a backup
-│           │   │   ├── databases/                                           # Databases
-│           │   │   │   └── schema-migrations.md                             # Sample document: Running schema migrations
-│           │   │   ├── http/                                                # HTTP APIs
-│           │   │   │   ├── error-codes.md                                   # Sample document: HTTP error codes
-│           │   │   │   └── pagination.md                                    # Sample document: Paginating API results
-│           │   │   ├── logging/                                             # Logging
-│           │   │   │   └── log-rotation.md                                  # Sample document: Log rotation
-│           │   │   ├── messaging/                                           # Messaging
-│           │   │   │   └── dead-letter-queues.md                            # Sample document: Dead-letter queues
-│           │   │   ├── operations/                                          # Operations
-│           │   │   │   ├── payments/                                        # The payments team's runbooks
-│           │   │   │   │   └── on-call-handover.md                          # Sample document: On-call handover, a near-duplicate of operations/on-call-handover.md on purpose (T023)
-│           │   │   │   ├── glossary.md                                      # Sample document: Glossary, an exact copy of en/glossary.md on purpose (T023)
-│           │   │   │   └── on-call-handover.md                              # Sample document: On-call handover
-│           │   │   ├── scheduling/                                          # Scheduling
-│           │   │   │   ├── job-retries.md                                   # Sample document: Retrying scheduled jobs
-│           │   │   │   └── schedule-expressions.md                          # Sample document: Schedule expressions
-│           │   │   ├── tls/                                                 # TLS certificates
-│           │   │   │   ├── certificate-renewal-4.1.md                       # Sample document: Renewing TLS certificates as release 4.1 had it, the older of two versions on purpose (T032)
-│           │   │   │   └── certificate-renewal.md                           # Sample document: Renewing TLS certificates in release 4.2, the newer of two versions
-│           │   │   └── glossary.md                                          # Sample document: Glossary
-│           │   ├── fr/                                                      # The documents written in French
-│           │   │   ├── backups/                                             # Backups
-│           │   │   │   ├── politique-de-sauvegarde.md                       # Sample document: Politique de sauvegarde
-│           │   │   │   └── verification-des-sauvegardes.md                  # Sample document: Vérifier les sauvegardes
-│           │   │   ├── databases/                                           # Databases
-│           │   │   │   └── migrations-sans-interruption.md                  # Sample document: Migrations sans interruption de service
-│           │   │   ├── http/                                                # HTTP APIs
-│           │   │   │   ├── codes-d-erreur.md                                # Sample document: Codes d'erreur HTTP
-│           │   │   │   ├── jetons.md                                        # Sample document: Jetons d'accès à l'API
-│           │   │   │   └── limites-de-debit.md                              # Sample document: Limites de débit
-│           │   │   ├── logging/                                             # Logging
-│           │   │   │   └── journaux-structures.md                           # Sample document: Journaux structurés
-│           │   │   ├── messaging/                                           # Messaging
-│           │   │   │   ├── accuses-de-reception.md                          # Sample document: Accusés de réception
-│           │   │   │   └── ordre-des-messages.md                            # Sample document: Ordre des messages et partitions
-│           │   │   ├── operations/                                          # Operations
-│           │   │   │   └── gestion-des-incidents.md                         # Sample document: Gestion des incidents
-│           │   │   ├── scheduling/                                          # Scheduling
-│           │   │   │   ├── relance-manuelle.md                              # Sample document: Relancer une tâche à la main
-│           │   │   │   └── supervision-des-taches.md                        # Sample document: Surveiller les tâches planifiées
-│           │   │   └── tls/                                                 # TLS certificates
-│           │   │       └── certificats-clients.md                           # Sample document: Certificats clients et TLS mutuel
-│           │   └── maestro-corpus.jsonl                                     # The source's manifest: one maestro-corpus/1 line per document, with its digest and size
-│           ├── evals/                                                       # The collection's evaluation suites, as evals.suite names them: each <name>.jsonl is the suite <name>
-│           │   ├── baseline.json                                            # JSON data: baseline
-│           │   └── synthetic.jsonl                                          # The suite synthetic: one maestro-suite/1 question per line, French and English, each with the sections that answer it
-│           ├── .rumdl.toml                                                  # The synthetic collection is test input, not documentation: one of its documents repeats a heading under the same parent, as authors do
-│           └── collection.json                                              # The maestro-collection/1 declaration of the public collection synthetic
+│       ├── synthetic/                                                       # The public synthetic collection and its suite, which stand in for the private corpus in public CI (ADR-0009)
+│       │   ├── corpus/                                                      # The collection's one source: its maestro-corpus/1 manifest beside the Markdown documents it names
+│       │   │   ├── en/                                                      # The documents written in English
+│       │   │   │   ├── backups/                                             # Backups
+│       │   │   │   │   ├── backup-policy.md                                 # Sample document: Backup policy
+│       │   │   │   │   └── restoring-a-database.md                          # Sample document: Restoring a database from a backup
+│       │   │   │   ├── databases/                                           # Databases
+│       │   │   │   │   └── schema-migrations.md                             # Sample document: Running schema migrations
+│       │   │   │   ├── http/                                                # HTTP APIs
+│       │   │   │   │   ├── error-codes.md                                   # Sample document: HTTP error codes
+│       │   │   │   │   └── pagination.md                                    # Sample document: Paginating API results
+│       │   │   │   ├── logging/                                             # Logging
+│       │   │   │   │   └── log-rotation.md                                  # Sample document: Log rotation
+│       │   │   │   ├── messaging/                                           # Messaging
+│       │   │   │   │   └── dead-letter-queues.md                            # Sample document: Dead-letter queues
+│       │   │   │   ├── operations/                                          # Operations
+│       │   │   │   │   ├── payments/                                        # The payments team's runbooks
+│       │   │   │   │   │   └── on-call-handover.md                          # Sample document: On-call handover, a near-duplicate of operations/on-call-handover.md on purpose (T023)
+│       │   │   │   │   ├── glossary.md                                      # Sample document: Glossary, an exact copy of en/glossary.md on purpose (T023)
+│       │   │   │   │   └── on-call-handover.md                              # Sample document: On-call handover
+│       │   │   │   ├── scheduling/                                          # Scheduling
+│       │   │   │   │   ├── job-retries.md                                   # Sample document: Retrying scheduled jobs
+│       │   │   │   │   └── schedule-expressions.md                          # Sample document: Schedule expressions
+│       │   │   │   ├── tls/                                                 # TLS certificates
+│       │   │   │   │   ├── certificate-renewal-4.1.md                       # Sample document: Renewing TLS certificates as release 4.1 had it, the older of two versions on purpose (T032)
+│       │   │   │   │   └── certificate-renewal.md                           # Sample document: Renewing TLS certificates in release 4.2, the newer of two versions
+│       │   │   │   └── glossary.md                                          # Sample document: Glossary
+│       │   │   ├── fr/                                                      # The documents written in French
+│       │   │   │   ├── backups/                                             # Backups
+│       │   │   │   │   ├── politique-de-sauvegarde.md                       # Sample document: Politique de sauvegarde
+│       │   │   │   │   └── verification-des-sauvegardes.md                  # Sample document: Vérifier les sauvegardes
+│       │   │   │   ├── databases/                                           # Databases
+│       │   │   │   │   └── migrations-sans-interruption.md                  # Sample document: Migrations sans interruption de service
+│       │   │   │   ├── http/                                                # HTTP APIs
+│       │   │   │   │   ├── codes-d-erreur.md                                # Sample document: Codes d'erreur HTTP
+│       │   │   │   │   ├── jetons.md                                        # Sample document: Jetons d'accès à l'API
+│       │   │   │   │   └── limites-de-debit.md                              # Sample document: Limites de débit
+│       │   │   │   ├── logging/                                             # Logging
+│       │   │   │   │   └── journaux-structures.md                           # Sample document: Journaux structurés
+│       │   │   │   ├── messaging/                                           # Messaging
+│       │   │   │   │   ├── accuses-de-reception.md                          # Sample document: Accusés de réception
+│       │   │   │   │   └── ordre-des-messages.md                            # Sample document: Ordre des messages et partitions
+│       │   │   │   ├── operations/                                          # Operations
+│       │   │   │   │   └── gestion-des-incidents.md                         # Sample document: Gestion des incidents
+│       │   │   │   ├── scheduling/                                          # Scheduling
+│       │   │   │   │   ├── relance-manuelle.md                              # Sample document: Relancer une tâche à la main
+│       │   │   │   │   └── supervision-des-taches.md                        # Sample document: Surveiller les tâches planifiées
+│       │   │   │   └── tls/                                                 # TLS certificates
+│       │   │   │       └── certificats-clients.md                           # Sample document: Certificats clients et TLS mutuel
+│       │   │   └── maestro-corpus.jsonl                                     # The source's manifest: one maestro-corpus/1 line per document, with its digest and size
+│       │   ├── evals/                                                       # The collection's evaluation suites, as evals.suite names them: each <name>.jsonl is the suite <name>
+│       │   │   ├── baseline.json                                            # JSON data: baseline
+│       │   │   └── synthetic.jsonl                                          # The suite synthetic: one maestro-suite/1 question per line, French and English, each with the sections that answer it
+│       │   ├── .rumdl.toml                                                  # The synthetic collection is test input, not documentation: one of its documents repeats a heading under the same parent, as authors do
+│       │   └── collection.json                                              # The maestro-collection/1 declaration of the public collection synthetic
+│       └── terminal/                                                        # Terminal
+│           ├── language.json                                                # JSON data: language
+│           ├── plain-config-cancel.json                                     # JSON data: plain config cancel
+│           ├── plain-init-back.json                                         # JSON data: plain init back
+│           ├── review.json                                                  # JSON data: review
+│           ├── settings.json                                                # JSON data: settings
+│           ├── tone.json                                                    # JSON data: tone
+│           └── workspace.json                                               # JSON data: workspace
 ├── .editorconfig                                                            # Editor settings that survive the editor
 ├── .gitattributes                                                           # How Git should treat each kind of file
 ├── .gitignore                                                               # Paths git never tracks

@@ -5,7 +5,7 @@ mod catalog_traceability;
 mod s1_traceability;
 mod unsafe_policy;
 
-use unsafe_policy::{privilege_support_is_gated, unsafe_file_violation};
+use unsafe_policy::{cfg_test_module, privilege_support_is_gated, unsafe_file_violation};
 
 use maestro_conventions::{
     broken_links, counted_lines, names_a_personal_directory, repository_files, root,
@@ -341,7 +341,7 @@ fn opaque_canonical_fields_require_canonical_serialization() {
     }
 }
 
-/// Unsafe operations and lint exceptions are confined to the held-handle Windows adapter.
+/// Unsafe operations stay in held-handle production code or exact native PTY test boundaries.
 #[test]
 fn unsafe_is_confined_to_windows_handle_security() {
     let files = text_files();
@@ -354,6 +354,11 @@ fn unsafe_is_confined_to_windows_handle_security() {
     assert!(
         privilege_support_is_gated(&declarations),
         "native privilege support must remain test-only and Windows-only"
+    );
+    let init = fs::read_to_string(root().join("crates/maestro/src/cli/init/mod.rs")).unwrap();
+    assert!(
+        cfg_test_module(&init, "tests"),
+        "native PTY support must remain test-only"
     );
     let offenders: Vec<_> = files
         .into_iter()
