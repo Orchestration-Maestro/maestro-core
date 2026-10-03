@@ -5,6 +5,8 @@
 mod owned;
 #[cfg(test)]
 mod owned_tests;
+#[cfg(test)]
+mod removal_tests;
 mod root;
 #[cfg(unix)]
 mod unix;
@@ -15,4 +17,7 @@ pub(crate) use unix::{Directory, open_nofollow};
 #[cfg(windows)]
 pub(crate) use windows::{Directory, open_nofollow};
 
-pub use owned::{ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot, SystemFileLock};
+pub use owned::{
+    ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot, ReceiptFile, SystemFileLock,
+    is_receipt_basename,
+};

@@ -98,6 +98,52 @@ impl Directory {
         Ok(())
     }
 
+    /// Open only a regular single-link receipt, anchored below this root.
+    pub(crate) fn open_receipt_file(&self, name: &str) -> io::Result<File> {
+        let file = File::from(openat(
+            &self.0,
+            name,
+            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+            Mode::empty(),
+        )?);
+        let metadata = file.metadata()?;
+        if !metadata.is_file()
+            || metadata.nlink() != 1
+            || metadata.uid() != self.0.metadata()?.uid()
+        {
+            return Err(io::Error::other(
+                "receipt file must be regular, single-link and root-owned",
+            ));
+        }
+        Ok(file)
+    }
+
+    /// Recheck the held identity immediately before one anchored unlink, then sync.
+    pub(crate) fn remove_receipt_file(
+        &self,
+        name: &str,
+        expected: Option<&File>,
+    ) -> io::Result<bool> {
+        let named = match self.open_receipt_file(name) {
+            Ok(named) => named,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                self.0.sync_all()?;
+                return Ok(false);
+            }
+            Err(error) => return Err(error),
+        };
+        let held = expected
+            .ok_or_else(|| io::Error::other("receipt file appeared after lookup"))?
+            .metadata()?;
+        let current = named.metadata()?;
+        if (held.dev(), held.ino()) != (current.dev(), current.ino()) {
+            return Err(io::Error::other("receipt file identity was replaced"));
+        }
+        unlinkat(&self.0, name, AtFlags::empty())?;
+        self.0.sync_all()?;
+        Ok(true)
+    }
+
     /// The bytes of a regular file in the directory, never read through a link.
     pub(crate) fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
         let fd = openat(

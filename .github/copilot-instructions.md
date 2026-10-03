@@ -120,6 +120,7 @@ in place.
 │   │   │   │   │   │   └── mod.rs                                           # How knowledge graph build classifies the kernel's refusals of a claim
 │   │   │   │   │   ├── attach.rs                                            # Attachment is separate leased work; completed extraction is never repeated
 │   │   │   │   │   ├── build.rs                                             # knowledge graph build: a collection's claims built with one strict
+│   │   │   │   │   ├── cleanup.rs                                           # Cleanup only a selected authorized receipt file; the knowledge layer owns deletion policy
 │   │   │   │   │   ├── extract_output.rs                                    # Aggregate-only output for model-backed graph extraction
 │   │   │   │   │   ├── extractor.rs                                         # Selects the explicit table-rule or registered model extractor and its sources
 │   │   │   │   │   ├── failure.rs                                           # Shared classification of graph authority failures
@@ -296,6 +297,8 @@ in place.
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
 │   │   │       ├── fakes.rs                                                 # Fake curl and systemctl for the binary's tests, found first on the PATH, logging each call
 │   │   │       ├── graph_build.rs                                           # knowledge graph build: the frozen synthetic defaults table (plan A0)
+│   │   │       ├── graph_cleanup.rs                                         # Exact preview/apply grammar and outcomes; cleanup needs no native engine
+│   │   │       ├── graph_cleanup_support.rs                                 # Real rule-build, attachment and readiness fixtures for the cleanup command
 │   │   │       ├── graph_draft.rs                                           # Draft commands share the private refusal boundary before any default kernel open
 │   │   │       ├── graph_draft_bounds.rs                                    # Private drafting file bounds and receipt schema regressions
 │   │   │       ├── graph_draft_redirect.rs                                  # A drafting endpoint that redirects fails the window, and the redirect's
@@ -381,6 +384,7 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
 │   │   │   │   ├── owned.rs                                                 # Owned filesystem roots and permanent control files, independent of any engine
 │   │   │   │   ├── owned_tests.rs                                           # Permanent control files use the same held filesystem boundary on both platforms
+│   │   │   │   ├── removal_tests.rs                                         # Receipt-only removal keeps the permanent lock domain and unrelated bytes
 │   │   │   │   ├── root.rs                                                  # The root a caller names, resolved once, and the names the store appends below it
 │   │   │   │   ├── unix.rs                                                  # Unix: every name resolves against an open directory through rustix's openat family, which
 │   │   │   │   └── windows.rs                                               # Windows: names resolve by path, but every directory on the way is held open without
@@ -991,6 +995,7 @@ in place.
 │   │   │   │   │   ├── engine/                                              # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── backend.rs                                       # Private native projection adapter; E08b supplies publication and staging reservation
 │   │   │   │   │   │   ├── backend_tests.rs                                 # Private native adapter entry points into the unchanged fake/native contract
+│   │   │   │   │   │   ├── cleanup_tests.rs                                 # Native files/read-only handles for the feature-independent cleanup process suite
 │   │   │   │   │   │   ├── codec_tests.rs                                   # Synthetic canonical fact-vector and malformed-byte checks
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── open.rs                                          # The native adapter's single rooted construction boundary
@@ -1004,12 +1009,17 @@ in place.
 │   │   │   │   │   ├── tests/                                               # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── writer/                                          # Writer
 │   │   │   │   │   │   │   └── extra.rs                                     # Additional validation cases for the generic projection writer
+│   │   │   │   │   │   ├── cleanup.rs                                       # Cleanup policy: authorization first, immutable receipts retained, no engine required
+│   │   │   │   │   │   ├── cleanup_boundaries.rs                            # Valid neighbours for cleanup state, authority and leaf-boundary refusals
+│   │   │   │   │   │   ├── cleanup_process.rs                               # Independent processes synchronize over pipes, never sleeps
+│   │   │   │   │   │   ├── cleanup_support.rs                               # Synthetic kernel authority for feature-independent cleanup tests
 │   │   │   │   │   │   ├── content_fields.rs                                # Each full-record field must affect durable projection verification
 │   │   │   │   │   │   ├── contract.rs                                      # Backend-generic projection writer contract; adapters call this unchanged
 │   │   │   │   │   │   ├── contract_reads.rs                                # Ordered application-ID reads and exact scope/family pin contract for every backend
 │   │   │   │   │   │   ├── mod.rs                                           # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── port.rs                                          # Rust source: port
 │   │   │   │   │   │   └── projection_writer.rs                             # Backend-neutral projection writer and reader contract tests
+│   │   │   │   │   ├── cleanup.rs                                           # Reader-safe, single-receipt cleanup; native engine code is never opened here
 │   │   │   │   │   ├── content.rs                                           # Frozen application-ID encodings for projection content and receipt names
 │   │   │   │   │   ├── mod.rs                                               # Public typed-edge and literal-fact projection ports and unpublished build writer
 │   │   │   │   │   ├── port.rs                                              # Public application-ID boundary for disposable typed-edge projections

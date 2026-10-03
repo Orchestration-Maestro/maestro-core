@@ -133,13 +133,60 @@ and never copy one in by hand.
 
 - **Rebuild offline.** The projection build, which G27 and G28 add, rebuilds
   the graph from the kernel's database and artifacts only, with no network.
-- **Remove safely.** Stop every `maestro` process that may read or write the
-  graph, and confirm none is left, because on Linux and macOS a lock does not
-  keep a reader out. Then remove the files under `<data directory>/graph`
-  only: never the kernel's database or artifacts beside it. The next
-  projection build writes a new graph.
 
-Maestro has no graph cleanup command yet. A command that refuses to remove
-files while a reader holds them, and refuses files Maestro does not own, comes
-with G27, the first task that writes graph files: before then there is no
-receipt that says which files are the graph's.
+## Remove one retained graph file
+
+```sh
+maestro knowledge graph cleanup --generation 42        # preview: changes no graph files
+maestro knowledge graph cleanup --generation 42 --yes  # apply the single-file cleanup
+```
+
+Only a **Retired** generation or a **Failed** generation with an immutable
+readiness receipt is eligible. Published, Verified and Building generations
+remain retained. Unknown and unauthorized selections get the same refusal.
+Cleanup works without compiling or opening the native graph engine. On Windows,
+the current safe boundary cannot durably delete a held leaf: apply reports
+`unsupported` and preserves the file rather than using a path-only fallback.
+
+Preview shows only the exact authorized receipt basename and whether it is
+present. Apply takes a scoped `knowledge.graph.cleanup` job lease, rechecks
+current authority and generation state, then removes that one file and syncs its
+directory. The generation, attachment, claims and readiness receipt are kept.
+An already missing file is idempotent success after authorization; retry is safe
+after process death following unlink. Reading a removed pin reports unavailable,
+not an empty graph; its eventual rebuild remains separate work.
+
+Readers and writers hold the permanent `.access.guard` for their full lifetime.
+Cleanup takes it exclusively **before** any receipt lookup, without waiting.
+A live reader (even of another collection or generation) makes apply report
+`access_busy`; let it finish and retry. Missing guards require `maestro setup
+--yes`; cleanup never creates or replaces them. Links, hard-link aliases,
+directories, replaced identities, relocated roots and Unsupported file locking
+refuse without deleting files. Direct engine-file access bypassing this supported
+Maestro guard protocol is unsupported.
+
+Under `--json`, the schema-first document uses
+`maestro-cli/knowledge-graph-cleanup/1`. Authorized previews include `action`,
+`reason` (`candidate` or `already_missing`), `generation`, `collection`,
+`file_name` and `present`. Applied documents add `job` and use `removed` or
+`already_missing`; refusals include only `action: "refused"`, the fixed reason
+code and the supplied generation. Refusal codes are `target_unavailable`,
+`generation_retained`, `receipt_missing`, `guard_missing`, `access_busy`,
+`unsupported`, `unsafe_root`, `unsafe_file`, `authority_unavailable` and
+`lease_invalid`. Successful operations exit 0; refusals exit 2, except unavailable
+kernel authority (exit 1). Diagnostics go to stderr. Text apply prints the job
+ID first; following an already completed job also replays its journal lines
+before the final cleanup result.
+
+## Preserve orphans for recovery
+
+A crash or expired publication lease after file installation but before readiness
+can leave a **receiptless final file**. Interrupted native builds can leave
+**staging directories and sidecars**. This command authorizes neither, even for a
+Failed generation or a convincing canonical-looking filename.
+
+Preserve those files and report them for explicit recovery. Never glob, recurse,
+or manually delete a guessed name. Cleanup never deletes sidecars, staging,
+permanent guards, other graph files, kernel files or artifacts. Corruption is not
+permission for broader deletion or repair. Ownership-proven orphan inventory and
+recovery are deferred; no automatic garbage collector is implied.

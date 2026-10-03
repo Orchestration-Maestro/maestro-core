@@ -5,3 +5,10 @@ pub(in crate::graph::projection) mod contract;
 pub(in crate::graph::projection) mod contract_reads;
 mod port;
 mod projection_writer;
+
+mod cleanup;
+mod cleanup_support;
+
+mod cleanup_boundaries;
+#[cfg(unix)]
+mod cleanup_process;

@@ -11,6 +11,8 @@ mod doctor_checks;
 #[cfg(unix)]
 mod fakes;
 mod graph_build;
+mod graph_cleanup;
+mod graph_cleanup_support;
 mod graph_eval;
 mod graph_extract;
 mod graph_operations;

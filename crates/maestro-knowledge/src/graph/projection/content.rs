@@ -5,6 +5,7 @@
 )]
 
 use super::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope};
+use maestro_canonicalization::is_receipt_basename;
 use maestro_kernel::{
     artifact::Digest,
     facts::{Object, ReviewState, Validity},
@@ -153,16 +154,7 @@ pub(super) fn basename(scope: &ProjectionScope, claim_set_id: &Digest) -> Result
 
 /// Whether a receipt name is canonical and safe from companion-name aliasing.
 pub(super) fn is_canonical_basename(name: &str) -> bool {
-    let Some(digest) = name
-        .strip_prefix('g')
-        .and_then(|name| name.strip_suffix(".lbdb"))
-    else {
-        return false;
-    };
-    digest.len() == 64
-        && digest
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    is_receipt_basename(name)
 }
 
 /// Encode a record tag followed by UTF-8 fields with u32 big-endian byte lengths.

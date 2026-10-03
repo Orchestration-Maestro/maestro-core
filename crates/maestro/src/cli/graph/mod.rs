@@ -2,6 +2,7 @@
 
 pub(super) mod attach;
 pub(super) mod build;
+pub(super) mod cleanup;
 mod extract_output;
 mod extractor;
 mod failure;

@@ -87,6 +87,49 @@ impl Directory {
         Ok(file)
     }
 
+    /// Retain the no-follow leaf against deletion/replacement; inspect its held link count.
+    pub(crate) fn open_receipt_file(&self, name: &str) -> io::Result<File> {
+        let file = hold(
+            &self.path.join(name),
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+        )?;
+        refuse_reparse_point(&file)?;
+        if !file.metadata()?.is_file() || information(&file)?.number_of_links() != 1 {
+            return Err(io::Error::other(
+                "receipt file must be regular with one link",
+            ));
+        }
+        Ok(file)
+    }
+
+    /// Safe Rust exposes neither held-leaf deletion nor directory durability here.
+    /// Validate identity but refuse rather than release the leaf for a path-only fallback.
+    pub(crate) fn remove_receipt_file(
+        &self,
+        name: &str,
+        expected: Option<&File>,
+    ) -> io::Result<bool> {
+        match self.open_receipt_file(name) {
+            Ok(named) => {
+                let held = expected
+                    .ok_or_else(|| io::Error::other("receipt file appeared after lookup"))?;
+                let held = information(held)?;
+                let current = information(&named)?;
+                if (held.volume_serial_number(), held.file_index())
+                    != (current.volume_serial_number(), current.file_index())
+                {
+                    return Err(io::Error::other("receipt file identity was replaced"));
+                }
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "anchored receipt removal and directory sync are unsupported on Windows",
+        ))
+    }
+
     /// The bytes of a regular file in the directory, never read through a link.
     pub(crate) fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
         let mut file = open_nofollow(&self.path.join(name))?;

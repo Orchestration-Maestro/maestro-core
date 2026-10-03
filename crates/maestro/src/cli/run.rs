@@ -266,6 +266,9 @@ fn knowledge(
         KnowledgeCommand::Graph(GraphCommand::Build { arguments }) => {
             graph::build::run(kernel, output, arguments)
         }
+        KnowledgeCommand::Graph(GraphCommand::Cleanup { generation, yes }) => {
+            graph::cleanup::run(kernel, output, *generation, *yes)
+        }
         KnowledgeCommand::Graph(GraphCommand::Attach { build, generation }) => {
             graph::attach::run(kernel, output, *build, *generation)
         }

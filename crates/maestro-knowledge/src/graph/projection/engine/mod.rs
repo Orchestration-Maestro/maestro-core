@@ -25,3 +25,8 @@ mod validation_tests;
 
 #[cfg(test)]
 mod backend_tests;
+
+// Native Windows writes are refused; guard/identity and Unsupported removal are tested separately.
+#[cfg(test)]
+#[cfg(unix)]
+pub(super) mod cleanup_tests;

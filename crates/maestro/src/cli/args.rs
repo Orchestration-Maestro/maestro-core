@@ -303,6 +303,15 @@ pub(super) enum GraphCommand {
         #[command(flatten)]
         arguments: super::graph::build::Arguments,
     },
+    /// Preview removal of one Retired or Failed generation's receipt-named graph file.
+    Cleanup {
+        /// Selected generation; unknown and unauthorized selections refuse identically.
+        #[arg(long)]
+        generation: i64,
+        /// Apply the previewed single-file cleanup rather than only print it.
+        #[arg(long)]
+        yes: bool,
+    },
     /// Attach an existing frozen build without re-extraction.
     Attach {
         /// Completed build job ID.
