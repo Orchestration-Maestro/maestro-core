@@ -124,7 +124,7 @@ ranges below. Do not add either included allocation twice. Landed G01/G26
 base work does not satisfy these additions. Qualified pins are execution
 inputs from observed qualification, never invented by this amendment.
 The release order is **qualification → C48 → G22 → C49a**, never C48 ↔ G22;
-C49a additionally requires **E11 and G28**, alongside its S3 prerequisites.
+C49a additionally requires **E11 and G28d**, alongside its S3 prerequisites.
 
 ## S2 integration workflow and global gates
 
@@ -766,7 +766,12 @@ integration tick or completion of the umbrella.
 `N/tests/it/projection_lifecycle/native_processes.rs`,
 `C/src/cli/graph/tests/cleanup_support.rs`, `C/tests/it/graph_cleanup_support.rs`,
 `C/src/cli/health/graph_native.rs`, `C/src/settings/session.rs`,
-`crates/maestro-catalog/src/settings/preferences.rs`.
+`crates/maestro-catalog/src/settings/preferences.rs`,
+`P/engine/producer.rs`, `P/engine/backend.rs`,
+`P/engine/backend_tests.rs`, `P/engine/cleanup_tests.rs`,
+`P/engine/public_tests.rs`, `P/engine/tests.rs`,
+`P/engine/validation_tests.rs`, `P/engine/transaction.rs`,
+`P/tests/contract_reads.rs`.
 **Test:** `capped cargo nextest run -p maestro-kernel facts::tests::projection`,
 `capped cargo nextest run -p maestro-kernel store::tests::migrations`,
 `capped cargo nextest run -p maestro-knowledge graph::projection`,
@@ -798,7 +803,7 @@ not G28's loader/rebuild acceptance.
   Preserve `reader`/`reader_cancellable`: the receipt supplies resolution,
   never a latest lookup or new resolution argument. Verify pins separately
   from `BuildVerification` counts/content. Health changes "not yet bound" to
-  per-receipt bound or mismatch plus the shared `maestro graph rebuild` repair.
+  per-receipt bound or mismatch plus the shared `maestro knowledge graph rebuild` repair.
   The 15:58 ruling uses `ProjectionError::InputMismatch` and
   `ProbeError::InputMismatch` with shared `Settings`/`Lock`/`Resolution`/`Format`
   kinds only for pin inequality or legacy formats. Display contains kind and
@@ -862,9 +867,10 @@ FR-S2-008/019 and SC-S2-006 only with G28a–G28c's integrated evidence; no slic
 is accepted alone, and G30/G22 retain their own equality/restore obligations.
 
 - **Red.** Test the literal command from G28b's shared rebuild-repair constant
-  through the real CLI parser: **`maestro graph rebuild` must parse** (15:31
-  ruling; G28a report's last section). Test explicit/default resolution display,
-  refusal before changed-input replay, interrupted rebuild and old-reader pins.
+  through the real CLI parser: **`maestro knowledge graph rebuild` must parse**
+  (17:00 correction superseding the 15:31 command; G28a report's last section).
+  Test explicit/default resolution display, refusal before changed-input replay,
+  interrupted rebuild and old-reader pins.
 - **Green.** Wire that rebuild command to G28c's sole loader and G28a/G28b pins.
   Show the chosen resolution, including any CLI default, without adding a
   latest lookup to readers or the loader. Orchestrate G35's optional descriptor
@@ -885,7 +891,7 @@ A second loader is outside S2; proposing it later requires a supervisor-set
 
 ### G04 [US1] Return scoped neighbors from the pilot
 
-**Time:** 4 h. **After:** G03, G25, G28.
+**Time:** 4 h. **After:** G03, G25, G28d.
 **Files:** `P/read.rs`, `P/tests/neighbors.rs`, `G/query.rs`,
 `G/tests/neighbors.rs`, `K/src/facts/read.rs`, `K/src/facts/quote.rs`,
 `C/src/cli/graph/read.rs`, `C/src/cli/args.rs`, `C/src/cli/run.rs`,
@@ -1022,7 +1028,7 @@ acceptance; pilot success is not M2.
 
 ### G11 [US2] [P] Extend LadybugDB neighbors with bounded Cypher paths
 
-**Time:** 4 h. **After:** G04, G25, G28, G31.
+**Time:** 4 h. **After:** G04, G25, G28d, G31.
 **Files:** `G/query.rs`, `G/cypher.rs`, `G/tests/cypher.rs`,
 `G/tests/paths.rs`, `P/port.rs`, `P/read.rs`, `K/src/facts/recheck.rs`,
 `K/src/facts/tests/recheck.rs`, `C/src/cli/graph/read.rs`,
@@ -1686,7 +1692,7 @@ G28 consumes its qualified native lifecycle through E10 and may start before
 E11's receipts/how-to (2026-10-03 13:33 ruling); G24 still requires both complete
 umbrellas. G25 requalifies the combined E01/E02/E03/E03b fork before E07a.
 The S3 handoff is **G25/E07a qualification → C48 → G22 → C49a**, never C48 ↔ G22.
-C49a also joins E11/G28 and its existing C47b/C48/C18/C16b inputs. E11 supplies
+C49a also joins E11/G28d and its existing C47b/C48/C18/C16b inputs. E11 supplies
 engine/gate receipts; G22 performs release packaging/drills, not a prerequisite
 for E11 or C48. C49a is a downstream S3 consumer, not an added S2 release gate.
 
@@ -1696,7 +1702,7 @@ for E11 or C48. C49a is a downstream S3 consumer, not an added S2 release gate.
 | G03 | G06 scoring, G09 builds and G31 vocabulary are `[P]`; shared registration hunks are supervisor-rebased, not concurrent writes. G10 waits for G09/G31 so resolver edits serialize too. |
 | G06 | G34 local drafting tooling can run beside public native work; actual private drafting still waits for G05 and the frozen receipt. |
 | G04 and G34 | G32 reviewer/capture, then G33 owner page, unblock G05; G11/G12 proof work can proceed beside these tools. G34 precedes G32 for their shared manifest. |
-| G28 and G25 | G04 pilot neighbors can start immediately (G03 already landed); G11 adds paths after G04. |
+| G28d and G25 | G04 pilot neighbors can start immediately (G03 already landed); G11 adds paths after G04. |
 | G05 and G34 | G07 drafts source/arm-A questions independently of G38; G08 final freeze additionally waits for G38 selection, recorded receipts and reviewer confirmation. |
 | G27's qualified native lifecycle through E10, G35, G26 and C47a | G28a → G28b → G28c → G28d can proceed without E11; no slice alone closes G28. S3 C27a separately consumes the qualified G27 port; coordinate its public contract. |
 | G13 and G35 | G14 R4 and G15 tools proceed with a shared contract; G36 follows G11, G37 joins both routes, then G16/G38. |

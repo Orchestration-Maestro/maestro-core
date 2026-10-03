@@ -568,10 +568,11 @@ informational "not yet bound" (12:08 and 15:30 rulings).
 Pin inequality and legacy unpinned formats use `ProjectionError::InputMismatch`
 and `ProbeError::InputMismatch` with one shared kind enum: `Settings`, `Lock`,
 `Resolution`, `Format`. Display names only the kind and the shared
-`maestro graph rebuild` repair constant, never values, digests, paths or backend
+`maestro knowledge graph rebuild` repair constant, never values, digests, paths or backend
 text. Malformed/corrupt data keeps its existing error, not a mismatch label
 (15:58 ruling). G28d tests that the constant's command actually parses
-(15:31 ruling; ledger `s2-knowledge-graph/g28-part1-report.md`, last section).
+(17:00 correction superseding the 15:31 command; ledger
+`s2-knowledge-graph/g28-part1-report.md`, last section).
 
 #### Immutable checkpoints and explicit resume
 
@@ -721,7 +722,7 @@ delta table is authoritative:
   never guessed metadata.
 
 The order is **G25/E07a qualification → C48 → G22 → C49a**, never C48 ↔ G22.
-C49a also needs **E11 and all of G28**, plus its S3 prerequisites. E11 supplies
+C49a also needs **E11 and G28d (all G28 slices integrated)**, plus its S3 prerequisites. E11 supplies
 engine/gate receipts and how-to evidence; G22 owns release packaging/drills,
 not a prerequisite for E11 or C48. G27's full umbrella still waits for E11,
 but G28 may proceed on its qualified native lifecycle before E11 (2026-10-03
