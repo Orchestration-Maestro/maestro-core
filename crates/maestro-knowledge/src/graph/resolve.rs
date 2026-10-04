@@ -17,7 +17,7 @@ use std::{
 
 /// Immutable algorithm identity. Changed normalization or grouping needs a new
 /// version and new snapshots; the golden derivation test pins this version.
-pub const EXACT_RESOLVER_VERSION: &str = "maestro-exact-resolution/1";
+pub use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
 
 /// How a subject resolves: one entity for its kind and exact spelling, or
 /// ambiguous with the others whose name normalizes alike.

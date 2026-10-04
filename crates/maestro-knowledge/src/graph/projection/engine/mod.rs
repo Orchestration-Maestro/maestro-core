@@ -3,6 +3,13 @@
 pub(super) mod backend;
 mod cancellation;
 mod config;
+#[cfg(test)]
+mod input_guard_tests;
+mod input_pins;
+#[cfg(test)]
+mod input_pins_tests;
+#[cfg(all(test, unix))]
+mod native_pin_tests;
 mod open;
 pub(super) mod probe;
 #[cfg(test)]

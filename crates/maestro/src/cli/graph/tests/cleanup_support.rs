@@ -1,6 +1,11 @@
 //! Synthetic cleanup authority under the same private CLI apply boundary.
 use super::runner_tests::support::{Fixture, fixture};
 use maestro_filesystem::{ControlFile, OwnedRoot};
+use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::facts::ProjectionReceiptIdentity;
+use maestro_kernel::facts::ResolutionInput;
+use maestro_kernel::scope::{LOCAL, ScopeSet};
+use maestro_kernel::store::Database;
 use maestro_kernel::{
     artifact::Digest,
     facts::ProjectionReceipt,
@@ -77,19 +82,26 @@ pub(in crate::cli::graph) fn cleanup_fixture() -> (Fixture, i64, String) {
             Duration::from_secs(30),
         )
         .unwrap();
+    let resolution = frozen_resolution(database, &fixture.kernel.scopes, &set);
     database
         .record_projection_ready(
             &fixture.kernel.scopes,
             &ProjectionReceipt {
-                collection_id: "graph-test".into(),
-                generation_id: generation,
-                claim_set_id: set,
-                file_name: name.clone(),
-                schema_version: "maestro-typed-edges/1".into(),
-                knowledge_edge_count: 0,
-                catalog_dependency_edge_count: 0,
-                entity_fact_count: 0,
-                content_digest: Digest::of(b"disposable"),
+                identity: ProjectionReceiptIdentity {
+                    collection_id: "graph-test".into(),
+                    generation_id: generation,
+                    claim_set_id: set,
+                    file_name: name.clone(),
+                    schema_version: "maestro-typed-edges/2".into(),
+                    knowledge_edge_count: 0,
+                    catalog_dependency_edge_count: 0,
+                    entity_fact_count: 0,
+                    content_digest: Digest::of(b"disposable"),
+                },
+                resolution_id: resolution,
+                resolver_version: EXACT_RESOLVER_VERSION.into(),
+                settings_identity: Digest::of(b"settings"),
+                frozen_lock: Digest::of(b"frozen-lock"),
             },
             &lease,
             SystemTime::now(),
@@ -131,4 +143,22 @@ fn seed_attachment(connection: &Connection, generation: i64, build: &str, set: &
             params![generation, build, set.as_str()],
         )
         .unwrap();
+}
+
+/// Freeze the explicit source set used by this projection fixture.
+fn frozen_resolution(database: &Database, scopes: &ScopeSet, set: &Digest) -> Digest {
+    database
+        .record_resolution(
+            scopes,
+            LOCAL,
+            &ResolutionInput {
+                resolver_version: EXACT_RESOLVER_VERSION.into(),
+                sets: vec![set.clone()],
+                previous: None,
+                decisions: vec![],
+            },
+            &|_| Ok(()),
+        )
+        .unwrap()
+        .id
 }

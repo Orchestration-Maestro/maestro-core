@@ -126,7 +126,7 @@ fn an_unverified_count_or_index_set_never_becomes_ready() {
     let mut backend = Fake::default();
     let mut writer = ProjectionWriter::create(&mut backend, scope.clone()).unwrap();
     let wrong = BuildVerification {
-        schema: "maestro-typed-edges/1".to_owned(),
+        schema: "maestro-typed-edges/2".to_owned(),
         family_counts: BTreeMap::new(),
         fact_count: 0,
         content_digest: content::digest(&[], &[]).unwrap(),

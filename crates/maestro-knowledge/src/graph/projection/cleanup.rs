@@ -3,7 +3,7 @@ use maestro_filesystem::{
     ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot, ReceiptFile, SystemFileLock,
 };
 use maestro_kernel::{
-    facts::ProjectionReceipt,
+    facts::ProjectionReceiptIdentity,
     generation::GenerationState,
     job::{self, JobState, Lease, LeaseTiming},
     journal::Filter,
@@ -19,7 +19,7 @@ pub struct Cleanup {
     /// Permanent root-wide access guard.
     guard: ControlHandle,
     /// Immutable kernel receipt retained after cleanup.
-    receipt: ProjectionReceipt,
+    receipt: ProjectionReceiptIdentity,
     /// Held leaf identity, or validated absence.
     file: Option<ReceiptFile>,
     /// Preview cannot authorize deletion.
@@ -57,7 +57,7 @@ impl Cleanup {
 
     /// Exact authorized receipt selected under the guard.
     #[must_use]
-    pub fn receipt(&self) -> &ProjectionReceipt {
+    pub fn receipt(&self) -> &ProjectionReceiptIdentity {
         &self.receipt
     }
 
@@ -164,7 +164,7 @@ fn candidate(
     database: &Database,
     scopes: &ScopeSet,
     generation: i64,
-) -> Result<ProjectionReceipt, CleanupError> {
+) -> Result<ProjectionReceiptIdentity, CleanupError> {
     let generation = database
         .generation(scopes, generation)
         .map_err(|_| CleanupError::AuthorityUnavailable)?
@@ -176,7 +176,7 @@ fn candidate(
         }
     }
     let receipt = database
-        .projection_ready(scopes, generation.id)
+        .projection_receipt_identity(scopes, generation.id)
         .map_err(|_| CleanupError::AuthorityUnavailable)?
         .ok_or(CleanupError::ReceiptMissing)?;
     if receipt.collection_id != generation.collection_id {
@@ -190,7 +190,7 @@ fn validate_lease(
     database: &Database,
     scopes: &ScopeSet,
     lease: &Lease,
-    receipt: &ProjectionReceipt,
+    receipt: &ProjectionReceiptIdentity,
 ) -> Result<(), CleanupError> {
     let holder = database
         .job(scopes, lease.job)

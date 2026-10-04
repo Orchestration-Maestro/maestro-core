@@ -26,6 +26,8 @@ mod build_read;
 mod build_types;
 mod error;
 mod projection;
+mod projection_binding;
+mod projection_inputs;
 mod quote;
 mod read;
 mod resolve;
@@ -36,7 +38,7 @@ mod write;
 
 pub use build_types::{
     Batch, BatchReceipt, Budget, BuildPlan, BuildRecord, GraphAttachment, ProjectionReceipt,
-    Rejection,
+    ProjectionReceiptIdentity, Rejection,
 };
 pub use error::Error;
 pub use projection::{
@@ -51,4 +53,8 @@ pub use crate::vocabulary::{EntityKind, Predicate};
 
 pub use resolve::{
     Decision, DecisionKind, Endpoint, Mention, ResolutionInput, ResolutionSnapshot, ReviewRecord,
+};
+
+pub use projection_binding::{
+    EXACT_RESOLVER_VERSION, InputMismatchKind, PROJECTION_REBUILD_REPAIR,
 };

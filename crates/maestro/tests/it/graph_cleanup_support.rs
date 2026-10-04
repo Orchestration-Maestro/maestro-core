@@ -4,6 +4,11 @@ use super::{
     support::Home,
 };
 use maestro_filesystem::{ControlFile, OwnedRoot};
+use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::facts::ProjectionReceiptIdentity;
+use maestro_kernel::facts::ResolutionInput;
+use maestro_kernel::scope::ScopeSet;
+use maestro_kernel::store::Database;
 use maestro_kernel::{
     artifact::Digest,
     facts::ProjectionReceipt,
@@ -11,6 +16,8 @@ use maestro_kernel::{
     job::{JobState, NewJob},
     scope::LOCAL,
 };
+#[cfg(feature = "engine")]
+use maestro_knowledge::graph::projection::EngineSettings;
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::{
@@ -20,17 +27,25 @@ use std::{
 
 /// One real rule build, generation attachment and immutable readiness receipt.
 pub(super) fn retired(home: &Home) -> (i64, String) {
-    ready(home, false)
+    ready(
+        home,
+        false,
+        (Digest::of(b"settings"), Digest::of(b"frozen-lock")),
+    )
 }
 
 /// Canonically named published corruption fixture for read-only health checks.
 #[cfg(feature = "engine")]
-pub(super) fn published(home: &Home) -> (i64, String) {
-    ready(home, true)
+pub(super) fn published(home: &Home, settings: &EngineSettings) -> (i64, String) {
+    ready(
+        home,
+        true,
+        (settings.identity(), settings.frozen_lock().clone()),
+    )
 }
 
 /// Reuse the real build/attachment protocol; preserve cleanup's historical fixture bytes.
-fn ready(home: &Home, published: bool) -> (i64, String) {
+fn ready(home: &Home, published: bool, pins: (Digest, Digest)) -> (i64, String) {
     let rule = pilot(home);
     let built = home.run(&[
         "--json",
@@ -98,19 +113,16 @@ fn ready(home: &Home, published: bool) -> (i64, String) {
             Duration::from_secs(30),
         )
         .unwrap();
+    let resolution = frozen_resolution(&database, &scopes, &attachment.claim_set_id);
     database
         .record_projection_ready(
             &scopes,
             &ProjectionReceipt {
-                collection_id: "synthetic-graph".into(),
-                generation_id: generation,
-                claim_set_id: attachment.claim_set_id,
-                file_name: name.clone(),
-                schema_version: "maestro-typed-edges/1".into(),
-                knowledge_edge_count: 0,
-                catalog_dependency_edge_count: 0,
-                entity_fact_count: 4,
-                content_digest: Digest::of(b"disposable"),
+                identity: cleanup_identity(generation, attachment.claim_set_id, name.clone()),
+                resolution_id: resolution,
+                resolver_version: EXACT_RESOLVER_VERSION.into(),
+                settings_identity: pins.0,
+                frozen_lock: pins.1,
             },
             &lease,
             SystemTime::now(),
@@ -186,5 +198,38 @@ fn receipt_name(generation: i64, claim_set: &Digest, published: bool) -> String 
             "g{}.lbdb",
             Digest::of(generation.to_string().as_bytes()).as_str()
         )
+    }
+}
+
+/// Freeze the explicit source set used by this projection fixture.
+fn frozen_resolution(database: &Database, scopes: &ScopeSet, set: &Digest) -> Digest {
+    database
+        .record_resolution(
+            scopes,
+            LOCAL,
+            &ResolutionInput {
+                resolver_version: EXACT_RESOLVER_VERSION.into(),
+                sets: vec![set.clone()],
+                previous: None,
+                decisions: vec![],
+            },
+            &|_| Ok(()),
+        )
+        .unwrap()
+        .id
+}
+
+/// Historical disposable content identity, shared by cleanup and health fixtures.
+fn cleanup_identity(generation: i64, set: Digest, name: String) -> ProjectionReceiptIdentity {
+    ProjectionReceiptIdentity {
+        collection_id: "synthetic-graph".into(),
+        generation_id: generation,
+        claim_set_id: set,
+        file_name: name,
+        schema_version: "maestro-typed-edges/2".into(),
+        knowledge_edge_count: 0,
+        catalog_dependency_edge_count: 0,
+        entity_fact_count: 4,
+        content_digest: Digest::of(b"disposable"),
     }
 }

@@ -9,12 +9,20 @@ pub struct ProjectionBuild {
     pub scope: ProjectionScope,
     /// Attached authoritative claim set.
     pub claim_set_id: Digest,
+    /// Frozen resolution chosen explicitly by the caller.
+    pub resolution_id: Digest,
+    /// Exact version of the pinned resolver.
+    pub resolver_version: String,
+    /// Versioned typed settings identity admitted for this build.
+    pub settings_identity: Digest,
+    /// Complete frozen non-resource lock admitted for this build.
+    pub frozen_lock: Digest,
     /// Caller-held `knowledge.graph.project` lease, never inferred from a PID.
     pub lease: Lease,
 }
 
 /// Result of durable installation and successful kernel readiness recording.
-/// The frozen lock is carried here without changing the persisted receipt format.
+/// The returned settings match the durable receipt pins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishedProjection {
     /// Exact immutable kernel receipt.

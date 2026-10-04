@@ -3,9 +3,7 @@ use super::{
     public_fixture::{Fixture, settings},
     public_tests::publish,
 };
-use crate::graph::projection::{
-    EngineSettings, ProjectionEngine, ProjectionError, ProjectionFactory,
-};
+use crate::graph::projection::{EngineSettings, ProjectionEngine, ProjectionFactory};
 use maestro_filesystem::SystemFileLock;
 use maestro_kernel::artifact::Digest;
 use std::{fs, time::Instant};
@@ -46,15 +44,16 @@ fn lifecycle_active_readers_refuse_changed_settings_or_changed_complete_lock() {
             changed,
             &SystemFileLock,
         );
-        assert_eq!(
+        assert!(
             incompatible
                 .reader(
                     &fixture.authority.database,
                     &fixture.authority.scopes,
                     fixture.build.scope.clone()
                 )
-                .unwrap_err(),
-            ProjectionError::NotReady
+                .unwrap_err()
+                .to_string()
+                .contains("maestro knowledge graph rebuild")
         );
     }
     let matching = factory
@@ -82,7 +81,7 @@ fn lifecycle_active_readers_refuse_changed_settings_or_changed_complete_lock() {
         .projection_ready(&fixture.authority.scopes, fixture.build.scope.generation_id)
         .unwrap()
         .unwrap();
-    let bytes = fs::metadata(fixture.native.path.join(receipt.file_name))
+    let bytes = fs::metadata(fixture.native.path.join(receipt.identity.file_name))
         .unwrap()
         .len();
     println!(

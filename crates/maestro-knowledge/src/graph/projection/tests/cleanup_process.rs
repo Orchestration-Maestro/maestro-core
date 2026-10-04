@@ -112,10 +112,13 @@ impl Actor {
                 "--nocapture",
             ])
             .env("MAESTRO_E10_PROCESS_ROOT", fixture.path.join("graph"))
-            .env("MAESTRO_E10_PROCESS_NAME", &fixture.receipt.file_name)
+            .env(
+                "MAESTRO_E10_PROCESS_NAME",
+                &fixture.receipt.identity.file_name,
+            )
             .env(
                 "MAESTRO_E10_PROCESS_GENERATION",
-                fixture.receipt.generation_id.to_string(),
+                fixture.receipt.identity.generation_id.to_string(),
             )
             .env("MAESTRO_E10_PROCESS_MODE", mode)
             .stdin(Stdio::piped())
@@ -171,7 +174,7 @@ fn cleanup_process_live_reader_blocks_apply_and_exit_releases_guard() {
             &fixture.database,
             "cleaner",
             &graph,
-            fixture.receipt.generation_id,
+            fixture.receipt.identity.generation_id,
             true
         )
         .unwrap_err(),
@@ -182,7 +185,7 @@ fn cleanup_process_live_reader_blocks_apply_and_exit_releases_guard() {
             &fixture.database,
             "cleaner",
             &graph,
-            fixture.receipt.generation_id,
+            fixture.receipt.identity.generation_id,
             false
         )
         .is_ok()
@@ -192,7 +195,7 @@ fn cleanup_process_live_reader_blocks_apply_and_exit_releases_guard() {
         &fixture.database,
         "cleaner",
         &graph,
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         true,
     )
     .unwrap();
@@ -212,7 +215,7 @@ fn cleanup_process_open_delete_race_has_no_lookup_to_unlink_gap() {
         &fixture.database,
         "cleaner",
         &fixture.path.join("graph"),
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         true,
     )
     .unwrap();
@@ -263,7 +266,7 @@ fn cleanup_process_crash_after_unlink_retries_under_taken_over_lease() {
         &fixture.database,
         "cleaner",
         &fixture.path.join("graph"),
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         true,
     )
     .unwrap();
@@ -284,7 +287,7 @@ fn cleanup_process_crash_after_unlink_retries_under_taken_over_lease() {
     assert_eq!(
         fixture
             .database
-            .projection_ready(&fixture.scopes, fixture.receipt.generation_id)
+            .projection_ready(&fixture.scopes, fixture.receipt.identity.generation_id)
             .unwrap(),
         Some(fixture.receipt.clone())
     );

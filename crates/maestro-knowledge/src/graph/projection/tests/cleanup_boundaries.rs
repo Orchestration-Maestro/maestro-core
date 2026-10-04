@@ -37,7 +37,7 @@ fn cleanup_building_and_receiptless_failed_preserve_orphans() {
             &fixture.database,
             "cleaner",
             &graph,
-            fixture.receipt.generation_id,
+            fixture.receipt.identity.generation_id,
             true
         )
         .is_ok()
@@ -56,15 +56,15 @@ fn cleanup_lease_refuses_visible_nonexact_scope() {
         &fixture.database,
         "cleaner",
         &fixture.path.join("graph"),
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         true,
     )
     .unwrap();
     let scope = "workspace/default/collection/cleanup/source/synthetic"
         .parse()
         .unwrap();
-    let resource = format!("graph-cleanup:{}", fixture.receipt.generation_id);
-    let inputs = json!({"generation": fixture.receipt.generation_id});
+    let resource = format!("graph-cleanup:{}", fixture.receipt.identity.generation_id);
+    let inputs = json!({"generation": fixture.receipt.identity.generation_id});
     let job = fixture
         .database
         .submit_job(
@@ -99,7 +99,7 @@ fn cleanup_lease_refuses_visible_nonexact_scope() {
         fixture
             .path
             .join("graph")
-            .join(&fixture.receipt.file_name)
+            .join(&fixture.receipt.identity.file_name)
             .exists()
     );
 }
@@ -112,13 +112,13 @@ fn cleanup_lease_requires_exact_kind_scope_resource_inputs_number_and_holder() {
         &fixture.database,
         "cleaner",
         &fixture.path.join("graph"),
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         true,
     )
     .unwrap();
-    let resource = format!("graph-cleanup:{}", fixture.receipt.generation_id);
-    let inputs = json!({"generation": fixture.receipt.generation_id});
-    let wrong = json!({"generation": fixture.receipt.generation_id + 1});
+    let resource = format!("graph-cleanup:{}", fixture.receipt.identity.generation_id);
+    let inputs = json!({"generation": fixture.receipt.identity.generation_id});
+    let wrong = json!({"generation": fixture.receipt.identity.generation_id + 1});
     for (kind, scope, resource, inputs) in [
         (
             "knowledge.graph.cleanup.wrong",
@@ -212,7 +212,7 @@ fn cleanup_symlink_hard_link_and_root_relocation_refuse_with_valid_neighbour() {
     let fixture = Fixture::new();
     fixture.retire();
     let graph = fixture.path.join("graph");
-    let path = graph.join(&fixture.receipt.file_name);
+    let path = graph.join(&fixture.receipt.identity.file_name);
     let sentinel = fixture.path.join("sentinel");
     fs::write(&sentinel, b"outside sentinel").unwrap();
     fs::remove_file(&path).unwrap();
@@ -222,7 +222,7 @@ fn cleanup_symlink_hard_link_and_root_relocation_refuse_with_valid_neighbour() {
             &fixture.database,
             "cleaner",
             &graph,
-            fixture.receipt.generation_id,
+            fixture.receipt.identity.generation_id,
             true
         )
         .unwrap_err(),
@@ -235,7 +235,7 @@ fn cleanup_symlink_hard_link_and_root_relocation_refuse_with_valid_neighbour() {
             &fixture.database,
             "cleaner",
             &graph,
-            fixture.receipt.generation_id,
+            fixture.receipt.identity.generation_id,
             false
         )
         .unwrap_err(),
@@ -247,7 +247,7 @@ fn cleanup_symlink_hard_link_and_root_relocation_refuse_with_valid_neighbour() {
         &fixture.database,
         "cleaner",
         &graph,
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         true,
     )
     .unwrap();
@@ -267,7 +267,7 @@ fn cleanup_symlink_hard_link_and_root_relocation_refuse_with_valid_neighbour() {
         &fixture.database,
         "cleaner",
         &graph,
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         true,
     )
     .unwrap();
@@ -284,13 +284,13 @@ fn cleanup_failed_with_receipt_has_the_same_apply_policy() {
     let fixture = Fixture::new();
     fixture
         .database
-        .fail_generation(fixture.receipt.generation_id)
+        .fail_generation(fixture.receipt.identity.generation_id)
         .unwrap();
     let cleanup = Cleanup::prepare(
         &fixture.database,
         "cleaner",
         &fixture.path.join("graph"),
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         true,
     )
     .unwrap();
@@ -311,7 +311,7 @@ fn cleanup_failed_with_receipt_has_the_same_apply_policy() {
     assert_eq!(
         fixture
             .database
-            .projection_ready(&fixture.scopes, fixture.receipt.generation_id)
+            .projection_ready(&fixture.scopes, fixture.receipt.identity.generation_id)
             .unwrap(),
         Some(fixture.receipt.clone())
     );
@@ -328,7 +328,7 @@ fn cleanup_corrupt_collection_and_changed_readiness_refuse_without_unlink() {
         &fixture.database,
         "cleaner",
         &graph,
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         true,
     )
     .unwrap();
@@ -372,11 +372,11 @@ fn cleanup_corrupt_collection_and_changed_readiness_refuse_without_unlink() {
             .unwrap_err(),
         CleanupError::UnsafeFile
     );
-    assert!(graph.join(&fixture.receipt.file_name).exists());
+    assert!(graph.join(&fixture.receipt.identity.file_name).exists());
     connection
         .execute(
             "UPDATE graph_projection_receipts SET content_digest = ?1",
-            [fixture.receipt.content_digest.as_str()],
+            [fixture.receipt.identity.content_digest.as_str()],
         )
         .unwrap();
     #[cfg(unix)]
@@ -404,7 +404,7 @@ fn cleanup_unavailable_authority_refuses_with_recovered_valid_neighbour() {
         &fixture.database,
         "cleaner",
         &graph,
-        fixture.receipt.generation_id,
+        fixture.receipt.identity.generation_id,
         true,
     )
     .unwrap();
@@ -418,7 +418,7 @@ fn cleanup_unavailable_authority_refuses_with_recovered_valid_neighbour() {
             .unwrap_err(),
         CleanupError::AuthorityUnavailable
     );
-    assert!(graph.join(&fixture.receipt.file_name).exists());
+    assert!(graph.join(&fixture.receipt.identity.file_name).exists());
     fs::rename(&unavailable, &kernel).unwrap();
     assert!(
         cleanup

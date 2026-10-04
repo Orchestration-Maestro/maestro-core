@@ -1,6 +1,9 @@
 //! Guarded read-only graph health bridge, bypassing the native handle registry.
 
+use super::input_pins;
 use super::{config::native, open::open, rows};
+use crate::graph::projection::binding;
+use crate::graph::projection::port::ProjectionError;
 use crate::graph::projection::{
     EngineSettings, content,
     health::{OpenGraph, ProbeError, PublishedFile, Receipt},
@@ -10,6 +13,7 @@ use crate::graph::projection::{
 };
 use lbug::{Connection, Database, RootDirectory, SystemConfig, Value};
 use maestro_filesystem::{ControlFile, ControlHandle, FileLock, LockMode, OwnedRoot};
+use maestro_kernel::facts::Error as FactError;
 use maestro_kernel::{
     facts::{InventoryState, ProjectionInventory, ProjectionReceipt},
     scope::{Config, LOCAL},
@@ -114,10 +118,10 @@ impl Probe {
         let root = OwnedRoot::open(directory, false).map_err(|_| ProbeError::GuardUnavailable)?;
         let access = acquire(&root, ControlFile::Access, locks)?;
         let writer = acquire(&root, ControlFile::Writer, locks)?;
-        let entries = match inventory
-            .inventory(LOCAL)
-            .map_err(|_| ProbeError::InventoryUnreadable)?
-        {
+        let entries = match inventory.inventory(LOCAL).map_err(|error| match error {
+            FactError::ProjectionInputMismatch(kind) => ProbeError::InputMismatch(kind),
+            _ => ProbeError::InventoryUnreadable,
+        })? {
             InventoryState::Missing => return Err(ProbeError::AuthorityMissing),
             InventoryState::NeedsMigration(_) => return Err(ProbeError::NeedsMigration),
             InventoryState::NewerSchema(_) => return Err(ProbeError::NewerSchema),
@@ -131,9 +135,17 @@ impl Probe {
             .map(validate_receipt)
             .collect::<Result<Vec<_>, _>>()?;
         for (_, receipt) in &receipts {
-            check_file(&root, &receipt.file_name)?;
+            check_file(&root, &receipt.identity.file_name)?;
         }
         let settings = settings.ok_or(ProbeError::NotActivated)?;
+        for (_, receipt) in &receipts {
+            binding::admitted(&binding::receipt_pins(receipt), &settings).map_err(|error| {
+                match error {
+                    ProjectionError::InputMismatch(kind) => ProbeError::InputMismatch(kind),
+                    error => ProbeError::Corrupt(error.to_string()),
+                }
+            })?;
+        }
         let config = native(&settings).read_only(true);
         let held = Arc::new(HeldRoot {
             native: RootDirectory::open(directory)
@@ -147,7 +159,7 @@ impl Probe {
             receipts
                 .into_iter()
                 .map(|(scope, receipt)| ProbeFile {
-                    path: directory.join(&receipt.file_name),
+                    path: directory.join(&receipt.identity.file_name),
                     receipt,
                     scope,
                     held: Arc::clone(&held),
@@ -166,10 +178,11 @@ fn validate_receipt(
         collection_id: entry.collection_id,
         generation_id: entry.generation_id,
     };
-    if receipt.collection_id != scope.collection_id
-        || receipt.generation_id != scope.generation_id
-        || content::basename(&scope, &receipt.claim_set_id).map_err(|_| ProbeError::Stale)?
-            != receipt.file_name
+    if receipt.identity.collection_id != scope.collection_id
+        || receipt.identity.generation_id != scope.generation_id
+        || content::basename(&scope, &receipt.identity.claim_set_id)
+            .map_err(|_| ProbeError::Stale)?
+            != receipt.identity.file_name
     {
         return Err(ProbeError::Stale);
     }
@@ -207,16 +220,16 @@ impl ProbeFile {
     /// Refuses absent, unsafe or unreadable files; only observed native lock forms
     /// are typed as locked. Unknown native diagnostics remain unreadable.
     pub(super) fn open_native(&self) -> Result<ProbeOpen, ProbeError> {
-        check_file(&self.held.owned, &self.receipt.file_name)?;
+        check_file(&self.held.owned, &self.receipt.identity.file_name)?;
         let database = open(
             &self.held.native,
-            &self.receipt.file_name,
+            &self.receipt.identity.file_name,
             self.held.config.clone(),
         )
         .map_err(|error| {
             classify_native(
                 &error.to_string(),
-                &self.receipt.file_name,
+                &self.receipt.identity.file_name,
                 NativePlatform::current(),
             )
         })?;
@@ -246,14 +259,23 @@ impl OpenGraph for ProbeOpen {
                 .query("RETURN 1")
                 .map_err(|error| ProbeError::Corrupt(error.to_string()))?,
         )?;
-        let verification = rows::read(&connection, &self.file.scope)
-            .and_then(|rows| rows.verification())
-            .map_err(ProbeError::Corrupt)?;
+        let rows = rows::read(&connection, &self.file.scope).map_err(|error| match error {
+            ProjectionError::InputMismatch(kind) => ProbeError::InputMismatch(kind),
+            error => ProbeError::Corrupt(error.to_string()),
+        })?;
+        let verification = rows.verification().map_err(ProbeError::Corrupt)?;
+        input_pins::compare(&rows.pins, &binding::receipt_pins(&self.file.receipt)).map_err(
+            |error| match error {
+                ProjectionError::InputMismatch(kind) => ProbeError::InputMismatch(kind),
+                error => ProbeError::Corrupt(error.to_string()),
+            },
+        )?;
         let mapped = receipt_from_verification(
             &self.file.scope,
-            self.file.receipt.claim_set_id.clone(),
-            self.file.receipt.file_name.clone(),
+            self.file.receipt.identity.claim_set_id.clone(),
+            self.file.receipt.identity.file_name.clone(),
             &verification,
+            &rows.pins,
         )
         .map_err(|_| ProbeError::Stale)?;
         if mapped != self.file.receipt {
@@ -405,8 +427,8 @@ mod readonly_tests {
             .unwrap()
             .unwrap();
         let inventory = Inventory(ProjectionInventory {
-            collection_id: receipt.collection_id.clone(),
-            generation_id: receipt.generation_id,
+            collection_id: receipt.identity.collection_id.clone(),
+            generation_id: receipt.identity.generation_id,
             receipt: Some(receipt),
         });
         let ProbeReceipt::Files(files) = Probe::receipt_with(

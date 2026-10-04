@@ -145,7 +145,7 @@ fn graph_cleanup_apply_exact_json_and_repeat_preserve_claims_receipt_and_neighbo
         .projection_ready(&scopes, generation)
         .unwrap()
         .unwrap();
-    assert_eq!(receipt.file_name, name);
+    assert_eq!(receipt.identity.file_name, name);
     assert_eq!(claim_authority(&home, generation), before);
     let retry = home.run(&[
         "--json",
@@ -207,7 +207,7 @@ fn claim_authority(home: &Home, generation: i64) -> ClaimSetRecord {
         .unwrap()
         .unwrap();
     let claims = database
-        .claim_set(&scopes, &receipt.claim_set_id)
+        .claim_set(&scopes, &receipt.identity.claim_set_id)
         .unwrap()
         .unwrap();
     assert_eq!(claims.claims.len(), 4);

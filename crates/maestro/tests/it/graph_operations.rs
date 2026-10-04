@@ -5,14 +5,18 @@
 //! creates or changes a graph file.
 
 use super::support::{Ended, Home};
+#[cfg(feature = "engine")]
+use maestro_kernel::artifact::Digest;
 #[cfg(all(unix, feature = "engine"))]
 use maestro_kernel::store::Database;
+#[cfg(feature = "engine")]
+use maestro_knowledge::graph::projection::EngineSettings;
 use serde_json::Value;
 use std::fs;
 #[cfg(all(unix, feature = "engine"))]
 use std::path::Path;
 use std::path::PathBuf;
-#[cfg(feature = "engine")]
+#[cfg(all(unix, feature = "engine"))]
 use std::time::Instant;
 
 /// The graph's entry of a `status` or `doctor` document.
@@ -326,7 +330,24 @@ fn assert_missing_graph_authority(home: &Home) {
 fn graph_operations_real_lock_enables_read_only_corruption_and_lock_diagnoses() {
     use maestro_filesystem::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
     let home = Home::new();
-    let (_, name) = super::graph_cleanup_support::published(&home);
+    let workspace = admitted_workspace(
+        &home,
+        concat!(
+            "schema = 'maestro-preferences/1'\n[overrides]\n",
+            "'graphdb.buffer_pool_size' = 16777216\n'graphdb.max_db_size' = 67108864\n",
+            "'graphdb.max_num_threads' = 1\n"
+        ),
+    );
+    let lock_path = workspace.join(".maestro/authoring.lock.json");
+    let lock_before = fs::read(&lock_path).unwrap();
+    let settings = EngineSettings::new(
+        16 * 1024 * 1024,
+        64 * 1024 * 1024,
+        1,
+        Digest::of(&lock_before),
+    )
+    .unwrap();
+    let (_, name) = super::graph_cleanup_support::published(&home, &settings);
     let directory = home.data().join("graph");
     let path = directory.join(name);
     let before = fs::read(&path).unwrap();
@@ -336,9 +357,7 @@ fn graph_operations_real_lock_enables_read_only_corruption_and_lock_diagnoses() 
         "{no_lock:?}"
     );
     assert_eq!(fs::read(&path).unwrap(), before);
-    let workspace = admitted_workspace(&home, "schema = 'maestro-preferences/1'\n");
-    let lock_path = workspace.join(".maestro/authoring.lock.json");
-    let lock_before = fs::read(&lock_path).unwrap();
+
     for command in ["status", "doctor"] {
         let report = home.run_in(
             &workspace,

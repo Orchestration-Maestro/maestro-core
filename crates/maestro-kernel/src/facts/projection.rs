@@ -1,6 +1,10 @@
 //! Kernel-controlled verification receipts for immutable graph projections.
 
-use super::{build_types::ProjectionReceipt, error::Error};
+use super::{
+    build_types::{ProjectionReceipt, ProjectionReceiptIdentity},
+    error::Error,
+    projection_binding::{EXACT_RESOLVER_VERSION, InputMismatchKind, PROJECTION_REBUILD_REPAIR},
+};
 use crate::{
     artifact::Digest,
     job::{self, Lease, NewJob},
@@ -13,7 +17,20 @@ use serde_json::json;
 use std::{path::Path, time::SystemTime};
 
 /// Stored projection-readiness receipt columns before decoding.
-type ProjectionReceiptRow = (String, String, String, String, i64, i64, i64, String);
+type ProjectionReceiptRow = (
+    String,
+    String,
+    String,
+    String,
+    i64,
+    i64,
+    i64,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
 
 /// A current published generation and its readiness receipt, if present.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,20 +43,36 @@ pub struct ProjectionInventory {
     pub receipt: Option<ProjectionReceipt>,
 }
 
-/// Decode the stored columns with the same validation used by normal receipt lookup.
-fn decode_receipt(
+/// Strict version-2 pins; legacy identities have no such tuple.
+type ProjectionPins = (Digest, String, Digest, Digest);
+
+/// Decode common fields before classifying the format or validating pins.
+fn decode_identity(
     generation_id: i64,
     row: ProjectionReceiptRow,
-) -> Result<ProjectionReceipt, Error> {
-    let (collection_id, set, file_name, schema_version, edges, catalog_edges, facts, digest) = row;
-    Ok(ProjectionReceipt {
+) -> Result<(ProjectionReceiptIdentity, Option<ProjectionPins>), Error> {
+    let (
+        collection_id,
+        set,
+        file_name,
+        schema_version,
+        edges,
+        catalog_edges,
+        facts,
+        digest,
+        resolution,
+        resolver,
+        settings,
+        lock,
+    ) = row;
+    let identity = ProjectionReceiptIdentity {
         collection_id,
         generation_id,
+        file_name,
+        schema_version,
         claim_set_id: Digest::parse(&set).map_err(|error| {
             Error::Conflict(format!("invalid projection claim-set id: {error}"))
         })?,
-        file_name,
-        schema_version,
         knowledge_edge_count: usize::try_from(edges)
             .map_err(|_| Error::Conflict("invalid projection edge count".to_owned()))?,
         catalog_dependency_edge_count: usize::try_from(catalog_edges)
@@ -49,6 +82,51 @@ fn decode_receipt(
         content_digest: Digest::parse(&digest).map_err(|error| {
             Error::Conflict(format!("invalid projection content digest: {error}"))
         })?,
+    };
+    let invalid = || {
+        Error::Conflict(format!(
+            "invalid projection input pins; {PROJECTION_REBUILD_REPAIR}"
+        ))
+    };
+    if identity.schema_version == "maestro-typed-edges/1" {
+        if resolution.is_some() || resolver.is_some() || settings.is_some() || lock.is_some() {
+            return Err(invalid());
+        }
+        return Ok((identity, None));
+    }
+    if identity.schema_version != "maestro-typed-edges/2"
+        || resolver.as_deref() != Some(EXACT_RESOLVER_VERSION)
+    {
+        return Err(invalid());
+    }
+    let pin = |value: Option<String>| {
+        value
+            .and_then(|value| Digest::parse(&value).ok())
+            .ok_or_else(invalid)
+    };
+    let pins = (
+        pin(resolution)?,
+        resolver.ok_or_else(invalid)?,
+        pin(settings)?,
+        pin(lock)?,
+    );
+    Ok((identity, Some(pins)))
+}
+
+/// Readiness admission remains strictly version 2, even for valid legacy metadata.
+fn decode_receipt(
+    generation_id: i64,
+    row: ProjectionReceiptRow,
+) -> Result<ProjectionReceipt, Error> {
+    let (identity, pins) = decode_identity(generation_id, row)?;
+    let (resolution_id, resolver_version, settings_identity, frozen_lock) =
+        pins.ok_or(Error::ProjectionInputMismatch(InputMismatchKind::Format))?;
+    Ok(ProjectionReceipt {
+        identity,
+        resolution_id,
+        resolver_version,
+        settings_identity,
+        frozen_lock,
     })
 }
 
@@ -70,28 +148,33 @@ impl Database {
     ) -> Result<(), Error> {
         self.write(|transaction| {
             validate_publication(transaction, scopes, receipt, lease, now)?;
-            let edge_count = i64::try_from(receipt.knowledge_edge_count)
+            let edge_count = i64::try_from(receipt.identity.knowledge_edge_count)
                 .map_err(|_| Error::Conflict("projection edge count is too large".to_owned()))?;
-            let catalog_count = i64::try_from(receipt.catalog_dependency_edge_count)
+            let catalog_count = i64::try_from(receipt.identity.catalog_dependency_edge_count)
                 .map_err(|_| Error::Conflict("projection catalog count is too large".to_owned()))?;
-            let fact_count = i64::try_from(receipt.entity_fact_count)
+            let fact_count = i64::try_from(receipt.identity.entity_fact_count)
                 .map_err(|_| Error::Conflict("projection fact count is too large".to_owned()))?;
             transaction.execute(
                 "INSERT INTO graph_projection_receipts
                  (generation_id, collection_id, claim_set_id, file_name, schema_version,
                   knowledge_edge_count, catalog_dependency_edge_count,
-                  entity_fact_count, content_digest)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                  entity_fact_count, content_digest, resolution_id, resolver_version,
+                  settings_identity, frozen_lock)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
-                    receipt.generation_id,
-                    receipt.collection_id,
-                    receipt.claim_set_id.as_str(),
-                    receipt.file_name,
-                    receipt.schema_version,
+                    receipt.identity.generation_id,
+                    receipt.identity.collection_id,
+                    receipt.identity.claim_set_id.as_str(),
+                    receipt.identity.file_name,
+                    receipt.identity.schema_version,
                     edge_count,
                     catalog_count,
                     fact_count,
-                    receipt.content_digest.as_str(),
+                    receipt.identity.content_digest.as_str(),
+                    receipt.resolution_id.as_str(),
+                    receipt.resolver_version,
+                    receipt.settings_identity.as_str(),
+                    receipt.frozen_lock.as_str(),
                 ],
             )?;
             Ok(())
@@ -143,13 +226,40 @@ impl Database {
         scopes: &ScopeSet,
         generation: i64,
     ) -> Result<Option<ProjectionReceipt>, Error> {
-        let row: Option<ProjectionReceiptRow> = self
-            .reader()?
+        self.projection_receipt_row(scopes, generation)?
+            .map(|row| decode_receipt(generation, row))
+            .transpose()
+    }
+
+    /// Read strictly decoded file identity, including valid retained version-1 receipts.
+    /// This authorizes cleanup only; it does not admit a native projection.
+    ///
+    /// # Errors
+    /// Refuses malformed common fields, formats or input pins.
+    pub fn projection_receipt_identity(
+        &self,
+        scopes: &ScopeSet,
+        generation: i64,
+    ) -> Result<Option<ProjectionReceiptIdentity>, Error> {
+        self.projection_receipt_row(scopes, generation)?
+            .map(|row| decode_identity(generation, row).map(|(identity, _)| identity))
+            .transpose()
+    }
+
+    /// Query immutable receipt columns using the generation's visibility boundary.
+    fn projection_receipt_row(
+        &self,
+        scopes: &ScopeSet,
+        generation: i64,
+    ) -> Result<Option<ProjectionReceiptRow>, Error> {
+        self.reader()?
             .query_row(
                 &format!(
                     "SELECT r.collection_id, r.claim_set_id, r.file_name, r.schema_version,
                             r.knowledge_edge_count, r.catalog_dependency_edge_count,
-                            r.entity_fact_count, r.content_digest
+                            r.entity_fact_count, r.content_digest, r.resolution_id,
+                            r.resolver_version,
+                            r.settings_identity, r.frozen_lock
                      FROM graph_projection_receipts r
                      JOIN generations g ON g.id = r.generation_id
                      WHERE r.generation_id = ?1 AND {}",
@@ -166,11 +276,15 @@ impl Database {
                         row.get(5)?,
                         row.get(6)?,
                         row.get(7)?,
+                        row.get(8)?,
+                        row.get(9)?,
+                        row.get(10)?,
+                        row.get(11)?,
                     ))
                 },
             )
-            .optional()?;
-        row.map(|row| decode_receipt(generation, row)).transpose()
+            .optional()
+            .map_err(Error::from)
     }
 }
 
@@ -187,7 +301,9 @@ impl HealthDatabase {
         let mut statement = self.connection.prepare(&format!(
             "SELECT g.collection_id, g.id, r.collection_id, r.claim_set_id, r.file_name,
                     r.schema_version, r.knowledge_edge_count, r.catalog_dependency_edge_count,
-                    r.entity_fact_count, r.content_digest
+                    r.entity_fact_count, r.content_digest, r.resolution_id,
+                            r.resolver_version,
+                            r.settings_identity, r.frozen_lock
              FROM generations g LEFT JOIN graph_projection_receipts r ON r.generation_id = g.id
              WHERE g.state = 'published' AND {}
              ORDER BY g.collection_id, g.id",
@@ -206,6 +322,10 @@ impl HealthDatabase {
                         row.get(7)?,
                         row.get(8)?,
                         row.get(9)?,
+                        row.get(10)?,
+                        row.get(11)?,
+                        row.get(12)?,
+                        row.get(13)?,
                     ))
                 })
                 .transpose()?;
@@ -282,25 +402,31 @@ fn validate_publication(
     lease: &Lease,
     now: SystemTime,
 ) -> Result<(), Error> {
-    if receipt.generation_id <= 0
+    if receipt.identity.generation_id <= 0
         || !receipt
+            .identity
             .file_name
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
         || !receipt
+            .identity
             .file_name
             .as_bytes()
             .first()
             .is_some_and(u8::is_ascii_alphanumeric)
-        || receipt.schema_version != "maestro-typed-edges/1"
+        || receipt.identity.schema_version != "maestro-typed-edges/2"
+        || receipt.resolver_version != EXACT_RESOLVER_VERSION
     {
-        return Err(Error::Conflict(
-            "invalid projection receipt identity".to_owned(),
-        ));
+        return Err(Error::Conflict(format!(
+            "invalid projection receipt identity; {PROJECTION_REBUILD_REPAIR}"
+        )));
     }
     validate_project_lease(
         transaction,
-        (&receipt.collection_id, receipt.generation_id),
+        (
+            &receipt.identity.collection_id,
+            receipt.identity.generation_id,
+        ),
         lease,
         now,
     )?;
@@ -319,8 +445,8 @@ fn validate_publication(
                 ScopeSet::collection_condition("g.collection_id", 3)
             ),
             params![
-                receipt.generation_id,
-                receipt.collection_id,
+                receipt.identity.generation_id,
+                receipt.identity.collection_id,
                 scopes.parameter()
             ],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
@@ -329,9 +455,9 @@ fn validate_publication(
     let Some((claim_set, edges, facts)) = expected else {
         return Err(Error::Unauthorized);
     };
-    if claim_set != receipt.claim_set_id.as_str()
-        || usize::try_from(edges).ok() != Some(receipt.knowledge_edge_count)
-        || usize::try_from(facts).ok() != Some(receipt.entity_fact_count)
+    if claim_set != receipt.identity.claim_set_id.as_str()
+        || usize::try_from(edges).ok() != Some(receipt.identity.knowledge_edge_count)
+        || usize::try_from(facts).ok() != Some(receipt.identity.entity_fact_count)
     {
         return Err(Error::Conflict(
             "projection receipt differs from its authoritative claim set".to_owned(),
@@ -339,7 +465,7 @@ fn validate_publication(
     }
     let already_ready: bool = transaction.query_row(
         "SELECT EXISTS(SELECT 1 FROM graph_projection_receipts WHERE generation_id = ?1)",
-        [receipt.generation_id],
+        [receipt.identity.generation_id],
         |row| row.get(0),
     )?;
     if already_ready {

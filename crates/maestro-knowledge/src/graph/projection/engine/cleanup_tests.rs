@@ -27,12 +27,17 @@ impl Publication for Install {
 }
 
 /// Build a real rooted native file before any cleanup reader enters the access domain.
-pub(in crate::graph::projection) fn install(path: &Path, scope: &ProjectionScope, name: &str) {
+pub(in crate::graph::projection) fn install(
+    path: &Path,
+    scope: &ProjectionScope,
+    name: &str,
+    pins: [String; 4],
+) {
     let mut backend = Backend::new(
         RootDirectory::open(path).unwrap(),
         RootDirectory::open(path).unwrap(),
         "cleanup-staging.lbdb".into(),
-        config(),
+        (config(), pins),
         Install(path.to_path_buf()),
     );
     backend.create_unpublished(scope).unwrap();
@@ -55,14 +60,14 @@ pub(in crate::graph::projection) fn reader(
         .unwrap()
         .unwrap();
     let scope = ProjectionScope {
-        collection_id: receipt.collection_id.clone(),
+        collection_id: receipt.identity.collection_id.clone(),
         generation_id: generation,
     };
     let root = RootDirectory::open(path).unwrap();
     let reader = Reader::published(&root, config(), &scope, &receipt).unwrap();
     assert_eq!(
         reader.verification().unwrap().content_digest,
-        receipt.content_digest
+        receipt.identity.content_digest
     );
     reader
 }

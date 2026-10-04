@@ -21,7 +21,10 @@ fn projection_holder_mismatch_refuses_without_writes() {
         ("lease", |database, scopes, receipt, lease| {
             database.validate_projection_lease(
                 scopes,
-                (&receipt.collection_id, receipt.generation_id),
+                (
+                    &receipt.identity.collection_id,
+                    receipt.identity.generation_id,
+                ),
                 lease,
                 timing(5).now,
             )
@@ -51,7 +54,7 @@ fn completion_holder_mismatch_refuses_without_writes() {
 /// Each operation gets a fresh authority; a refusal preserves its exact job/journal/readiness.
 fn holder_mismatch_refuses(name: &str, check: Check) {
     let (_scratch, database, all, receipt) = attached();
-    let lease = projection_lease(&database, receipt.generation_id);
+    let lease = projection_lease(&database, receipt.identity.generation_id);
     let snapshot = || {
         (
             database.job(&all, lease.job).unwrap(),
@@ -66,7 +69,7 @@ fn holder_mismatch_refuses(name: &str, check: Check) {
                 )
                 .unwrap(),
             database
-                .projection_ready(&all, receipt.generation_id)
+                .projection_ready(&all, receipt.identity.generation_id)
                 .unwrap(),
         )
     };
@@ -97,12 +100,15 @@ fn holder_mismatch_refuses(name: &str, check: Check) {
 #[test]
 fn projection_current_holder_can_cancel_after_expiry_without_takeover() {
     let (_scratch, database, all, receipt) = attached();
-    let lease = projection_lease(&database, receipt.generation_id);
+    let lease = projection_lease(&database, receipt.identity.generation_id);
     assert!(
         database
             .validate_projection_lease(
                 &all,
-                (&receipt.collection_id, receipt.generation_id),
+                (
+                    &receipt.identity.collection_id,
+                    receipt.identity.generation_id
+                ),
                 &lease,
                 timing(65).now
             )
@@ -114,7 +120,7 @@ fn projection_current_holder_can_cancel_after_expiry_without_takeover() {
     assert_eq!(ended.state, JobState::Cancelled);
     assert_eq!(
         database
-            .projection_ready(&all, receipt.generation_id)
+            .projection_ready(&all, receipt.identity.generation_id)
             .unwrap(),
         None
     );
@@ -123,7 +129,7 @@ fn projection_current_holder_can_cancel_after_expiry_without_takeover() {
 #[test]
 fn projection_readiness_expiry_without_takeover_refuses_and_valid_neighbor_succeeds() {
     let (_scratch, database, all, receipt) = attached();
-    let lease = projection_lease(&database, receipt.generation_id);
+    let lease = projection_lease(&database, receipt.identity.generation_id);
     // Expiry does not require a successor to take the lease first.
     for now in [timing(64).now, timing(65).now] {
         assert!(
@@ -134,7 +140,7 @@ fn projection_readiness_expiry_without_takeover_refuses_and_valid_neighbor_succe
     }
     assert_eq!(
         database
-            .projection_ready(&all, receipt.generation_id)
+            .projection_ready(&all, receipt.identity.generation_id)
             .unwrap(),
         None
     );
@@ -147,14 +153,17 @@ fn projection_readiness_expiry_without_takeover_refuses_and_valid_neighbor_succe
 fn projection_lease_preflight_checks_scope_kind_generation_cancellation_and_authoritative_renewal()
 {
     let (_scratch, database, all, receipt) = attached();
-    let lease = projection_lease(&database, receipt.generation_id);
-    let target = (receipt.collection_id.as_str(), receipt.generation_id);
+    let lease = projection_lease(&database, receipt.identity.generation_id);
+    let target = (
+        receipt.identity.collection_id.as_str(),
+        receipt.identity.generation_id,
+    );
     database
         .validate_projection_lease(&all, target, &lease, timing(5).now)
         .unwrap();
     for wrong in [
-        ("other", receipt.generation_id),
-        ("graph", receipt.generation_id + 1),
+        ("other", receipt.identity.generation_id),
+        ("graph", receipt.identity.generation_id + 1),
         ("graph", 0),
     ] {
         assert!(
@@ -174,7 +183,7 @@ fn projection_lease_preflight_checks_scope_kind_generation_cancellation_and_auth
             .is_err()
     );
     let scope = "workspace/default/collection/graph".parse().unwrap();
-    let inputs = json!({"generation":receipt.generation_id});
+    let inputs = json!({"generation":receipt.identity.generation_id});
     let wrong_job = database
         .submit_job(
             &job::NewJob {
@@ -202,7 +211,7 @@ fn projection_lease_preflight_checks_scope_kind_generation_cancellation_and_auth
             .validate_projection_publication(&all, &receipt, &lease, timing(5).now)
             .is_err()
     );
-    let lease = projection_lease(&database, receipt.generation_id);
+    let lease = projection_lease(&database, receipt.identity.generation_id);
     let mut renewed = lease.clone();
     database
         .heartbeat(&mut renewed, timing(63).now, timing(63).term)
