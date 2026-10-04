@@ -51,8 +51,9 @@ Build `maestro` with the `engine` feature to unlock the `ladybug` setting:
 cargo build --release -p maestro --features engine
 ```
 
-With the feature, the build includes the native engine; the graph's
-projection operations arrive with later tasks.
+With the feature, the build includes the native engine and checkpointed
+projection loader. Native writes are supported on Linux and macOS; Windows
+currently supports immutable readers but refuses native projection writes.
 
 Select it for every run, or for one run:
 
@@ -102,7 +103,7 @@ repairs, migrates, fetches or deletes a file.
 | Relocated | the graph directory is a link | stop every `maestro`, move the target into place |
 | Nothing published | no graph is published yet, so no file was opened | none; the first projection build publishes one |
 | Locked | a writer holds the graph file's lock | let the writer finish, then run `doctor` again |
-| Corrupt | the file does not open read-only, or does not answer | rebuild the projection; keep the files |
+| Corrupt | the file does not open read-only, or does not answer | keep the files; published-generation repair is pending design |
 
 Graph files come only from the kernel's projection receipt. The check refuses
 a listed file outside the graph directory, or reached through a link, before
@@ -111,9 +112,10 @@ it, and does both again. Locks differ by platform: on Windows a writer's lock
 refuses every reader, while on Linux and macOS the lock is advisory and a reader
 can open beside a writer.
 
-**Today no graph is published.** The receipt and the engine adapter that opens
-graph files arrive with G27, so every enabled check stops at "no graph is
-published yet" and opens no file.
+Readiness binds the native file to its exact claim set, resolution, resolver
+version, engine settings and complete admitted authoring-lock digest. A newer
+resolution does not invalidate an existing reader. Changed settings or lock
+pins refuse before opening the native file.
 
 ## Move the data directory
 
@@ -131,8 +133,70 @@ setup refuses it.
 The graph is disposable. Never back up or restore a graph file as an authority,
 and never copy one in by hand.
 
-- **Rebuild offline.** The projection build, which G27 and G28 add, rebuilds
-  the graph from the kernel's database and artifacts only, with no network.
+### Load one frozen attached generation
+
+Run inside the trusted workspace containing the admitted authoring lock.
+`GENERATION` must name an existing **Verified**, attached generation from the
+publication workflow; `RESOLUTION` is a recorded G10 frozen resolution digest
+covering its claim set. This command does not create a search generation,
+re-embed passages, or change the collection's published search pointer.
+
+```sh
+maestro --set graph.engine=ladybug knowledge graph rebuild \
+  --generation "$GENERATION" --resolution "$RESOLUTION"
+```
+
+The command loads both entity edges and literal facts from kernel authority and
+original artifacts through one checkpointed loader, verifies durable content,
+and records its first immutable readiness receipt. It requires no model,
+network, Qdrant claim authority, or live-file copy. Rule-only operation leaves
+G35 descriptors disabled. The optional composition uses G35's canonical source
+documents and the same frozen generation, claim set, resolution and selected
+embedding/preprocessing/linking profile; only descriptor re-embedding may need
+that pinned model. Descriptors are not an authority or a backup requirement.
+G36's later transitions must extend this loader, not introduce another one.
+
+Every result shows the chosen resolution and its source (`flag` or `receipt`).
+With an existing `/2` receipt, omitting `--resolution` selects only its pin,
+never the latest review snapshot. If its pins and native file are valid, the
+command prints `ready, nothing to rebuild` and exits 0. With no receipt, an
+explicit resolution is required. Bare `maestro knowledge graph rebuild` parses
+and asks for `--generation`; no implicit generation is selected.
+
+**Published-generation repair is not implemented yet.** Missing/corrupt files,
+changed resolution/settings/lock pins and legacy `/1` receipts refuse before
+any write: `model-free repair of a published generation is pending design`.
+Keep the old generation, receipt and files. Do not bypass this refusal by
+copying files or fabricating search verification. A legacy receipt has no
+resolution default. Successive projection builds within one search generation
+need a separate recovery design; G28 does not close that recovery gap.
+
+### Resume an interrupted loader job
+
+The command prints its project job ID on stderr. After an interrupted process,
+repeat with that exact job and the original frozen inputs:
+
+```sh
+maestro --set graph.engine=ladybug knowledge graph rebuild \
+  --generation "$GENERATION" --resolution "$RESOLUTION" --resume "$JOB"
+```
+
+Only a live or taken-over `knowledge.graph.project` job for that generation can
+resume. Current leases fence the writer. The loader validates its immutable
+manifest, checkpoint ordering and every durable row prefix before replay;
+changed pins, unrelated staging or an already published target refuse. If a
+project job is unfinished, a run without `--resume` refuses rather than silently
+reopening its staging. Old readers retain their original generation and pins.
+
+Failed/cancelled jobs start a new attempt without reusing or deleting the old
+staging. **Known recovery gap:** retained staging lives at
+`<data directory>/graph/.build-JOB`; successful publication removes only its
+known loader records and keeps the staging directory. Automatic staging discard
+is deferred. For manual removal, first stop every Maestro process, readers
+included, and confirm the directory belongs to the terminal job being discarded.
+Preserve it for diagnosis when uncertain. Only then may that specific staging
+directory be removed; never remove unrelated entries, published graph files,
+`.access.guard`, `.writer.guard`, the kernel database or artifacts.
 
 ## Remove one retained graph file
 

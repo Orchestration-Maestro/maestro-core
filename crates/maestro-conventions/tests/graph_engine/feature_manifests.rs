@@ -112,6 +112,10 @@ fn required_ci_owns_native_coverage_and_the_exact_engine_source() {
     engine_files.push(Value::String(
         "crates/maestro-knowledge/src/graph/projection/probe.rs".into(),
     ));
+    engine_files.extend(
+        ["rebuild", "rebuild_work", "rebuild_descriptors"]
+            .map(|name| Value::String(format!("crates/maestro/src/cli/graph/{name}.rs"))),
+    );
     assert_eq!(
         policy["ci"]["mutation-engine"]["files"].as_array().unwrap(),
         &engine_files
