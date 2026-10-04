@@ -66,6 +66,7 @@ pub(super) fn read_journal(
         id: journal.id,
         entries: journal.entries,
         applied: false,
+        replacement: None,
     };
     if plan.id != id {
         return Err(io::Error::new(

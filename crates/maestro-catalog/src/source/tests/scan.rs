@@ -152,3 +152,73 @@ fn inert_source_read_and_listing_failures_cannot_be_skipped() {
         assert_eq!(found.diagnostics[0].cause, Cause::Unreadable);
     }
 }
+
+#[test]
+fn empty_catalog_root_listing_is_unreadable_not_an_empty_catalog() {
+    let refusal = scan(&MemoryTree::default(), &Limits::PRODUCTION).unwrap_err();
+    assert_eq!(refusal.diagnostics.len(), 1);
+    assert_eq!(refusal.diagnostics[0].cause, Cause::Unreadable);
+    assert!(
+        refusal.diagnostics[0]
+            .message
+            .contains("cannot list the catalog directory")
+    );
+}
+
+#[test]
+fn malformed_names_refuse_empty_slashes_and_unsafe_components() {
+    for name in ["", "nested/file", ".."] {
+        let tree = MalformedTree {
+            entries: vec![Entry {
+                name: name.to_owned(),
+                kind: EntryKind::File,
+            }],
+        };
+        let found = scan(&tree, &Limits::PRODUCTION).unwrap();
+        assert_eq!(found.diagnostics.len(), 1, "{name:?}");
+        assert_eq!(
+            found.diagnostics[0].message, "unsafe catalog path component",
+            "{name:?}"
+        );
+    }
+}
+
+#[test]
+fn unreadable_common_defaults_preserves_its_specific_diagnostic() {
+    let tree = MemoryTree::valid()
+        .with("settings/defaults.toml", "schema = 'maestro-preferences/1'")
+        .with_unreadable("settings/defaults.toml");
+    let refusal = check_by(&tree, &builtin().unwrap(), &Limits::PRODUCTION).unwrap_err();
+    assert!(
+        refusal
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.path == "settings/defaults.toml"
+                && diagnostic.cause == Cause::Unreadable
+                && !diagnostic.message.starts_with("cannot read:")),
+        "{refusal}"
+    );
+}
+
+#[test]
+fn unreadable_generated_output_is_diagnostic_before_the_final_cached_read() {
+    let tree = MemoryTree::valid()
+        .with(".github/CODEOWNERS", "generated")
+        .with_unreadable(".github/CODEOWNERS");
+    let snapshot = scan(&tree, &Limits::PRODUCTION).unwrap();
+    assert!(
+        snapshot
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.path == ".github/CODEOWNERS"
+                && diagnostic.cause == Cause::Unreadable)
+    );
+    let refusal = check_by(&tree, &builtin().unwrap(), &Limits::PRODUCTION).unwrap_err();
+    assert!(
+        refusal
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.path == ".github/CODEOWNERS"
+                && diagnostic.cause == Cause::Unreadable)
+    );
+}

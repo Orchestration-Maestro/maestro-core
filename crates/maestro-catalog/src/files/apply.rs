@@ -3,21 +3,17 @@ use super::{
     effects,
     names::{journal_name, ownership_name},
     plan::{FilePlan, digest, ownership_matches},
+    publication::write_new,
     recovery::{read_optional, record_bytes},
 };
-use crate::policy::workspace::{Access, CheckedTrust};
+use crate::policy::workspace::CheckedTrust;
 use serde::Serialize;
 #[cfg(unix)]
 use std::fs::Metadata;
 use std::{
     io::{self, ErrorKind},
     path::Path,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
-
-/// Unique process-local suffixes for unpublished state-record files.
-static NEXT_TEMP: AtomicUsize = AtomicUsize::new(0);
 
 /// A completed transaction's durable ownership record.
 #[derive(Serialize)]
@@ -80,6 +76,9 @@ pub(crate) fn apply_with_failure(
     fail_after: Option<usize>,
     trust: &CheckedTrust<'_>,
 ) -> io::Result<()> {
+    if let Some(replacement) = &plan.replacement {
+        return replacement.apply_with_failure(root, trust, fail_after);
+    }
     for file in &plan.entries {
         effects::check(root, &file.path, trust)?;
     }
@@ -193,40 +192,6 @@ fn file_identity(metadata: &Metadata) -> FileIdentity {
         device: metadata.dev(),
         inode: metadata.ino(),
     }
-}
-
-/// Write a complete state record privately, then publish it atomically without replacement.
-fn write_new(
-    root: &Path,
-    (name, bytes): (&str, &[u8]),
-    tear: bool,
-    trust: &CheckedTrust<'_>,
-) -> io::Result<()> {
-    let temporary = loop {
-        let sequence = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
-        let (parent, leaf) = name
-            .rsplit_once('/')
-            .ok_or_else(|| io::Error::other("state path has no parent"))?;
-        let temporary = format!("{parent}/.{leaf}.tmp-{}-{sequence}", process::id());
-        let written = if tear {
-            bytes.get(..bytes.len() / 2).unwrap_or_default()
-        } else {
-            bytes
-        };
-        match effects::write(root, &temporary, written, trust) {
-            Ok(_) => break temporary,
-            Err(error) if error.kind() == ErrorKind::AlreadyExists => {}
-            Err(error) => return Err(error),
-        }
-    };
-    if tear {
-        return Err(io::Error::other("injected torn state-record write"));
-    }
-    let source = trust.authorize(root, Path::new(&temporary), Access::Read)?;
-    trust
-        .authorize(root, Path::new(name), Access::Write)?
-        .publish_from(&source, bytes)?;
-    effects::remove(root, &temporary, bytes, None, trust)
 }
 
 /// Stop at a named durable boundary in crash-contract tests.

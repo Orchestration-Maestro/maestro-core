@@ -1,7 +1,6 @@
 use super::{TestLayers, registry, resolve, value};
-use crate::settings::{
-    ResolvedSettings, conversation_instructions, native_preferences_instructions,
-};
+use crate::instructions::native_preferences_instructions;
+use crate::settings::{ResolvedSettings, conversation_instructions};
 use maestro_settings::Value;
 
 #[test]

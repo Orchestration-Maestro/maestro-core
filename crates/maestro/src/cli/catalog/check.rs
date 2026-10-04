@@ -150,3 +150,28 @@ pub(in crate::cli) fn today() -> Result<i64, Failure> {
         .map_err(Failure::failed)?;
     i64::try_from(duration.as_secs() / 86_400).map_err(Failure::failed)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::today;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn catalog_today_is_the_current_utc_epoch_day() {
+        let before = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            .div_euclid(86_400);
+        let actual = today().unwrap();
+        let after = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            .div_euclid(86_400);
+        assert!(
+            actual == i64::try_from(before).unwrap() || actual == i64::try_from(after).unwrap(),
+            "day {actual} outside {before}..={after}"
+        );
+    }
+}

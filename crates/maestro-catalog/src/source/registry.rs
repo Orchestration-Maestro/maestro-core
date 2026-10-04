@@ -12,7 +12,7 @@ use super::{
     parse::is_name,
     placements,
     rules::KindRules,
-    types::Maturity,
+    types::{Maturity, Resource, ResourceId},
 };
 
 /// Retired kind and area-file spellings, paired for the v4 migration.
@@ -72,6 +72,14 @@ pub struct Registry {
 }
 
 impl Registry {
+    /// Descriptor-selected semantic edges for the shared closure traversal.
+    pub(crate) fn edges(&self, resource: &Resource) -> Vec<ResourceId> {
+        self.kind(&resource.id.kind)
+            .and_then(|kind| kind.rules)
+            .map(|rules| rules.edges(resource))
+            .unwrap_or_default()
+    }
+
     /// An empty registry whose descriptors may select `hooks`.
     pub(super) fn with_hooks(hooks: Hooks) -> Self {
         Self {
@@ -196,9 +204,12 @@ fn shape_problem(descriptor: &KindDescriptor) -> Option<String> {
     } else if descriptor.version == 0 {
         "its version must be 1 or more".to_owned()
     } else if matches!(descriptor.metadata, MetadataPlace::Sidecar { .. })
-        && !matches!(descriptor.layout, Layout::Files { .. })
+        && !matches!(
+            descriptor.layout,
+            Layout::Files { .. } | Layout::Folder { .. }
+        )
     {
-        "a sidecar pairs only with the files layout".to_owned()
+        "a sidecar pairs only with the files or folder layout".to_owned()
     } else if descriptor.body && descriptor.format != Format::Markdown {
         "only a Markdown kind has a body".to_owned()
     } else if descriptor.lifecycle.contains(&Maturity::Qualified) {

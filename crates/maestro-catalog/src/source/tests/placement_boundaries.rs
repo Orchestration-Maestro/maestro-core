@@ -277,3 +277,20 @@ fn root_support_scope_does_not_exempt_other_scopes() {
         true,
     );
 }
+
+#[test]
+fn root_support_table_is_exact() {
+    use crate::source::Scope;
+    assert_eq!(
+        Scope::SUPPORT_ROOTS,
+        [
+            "presets",
+            "marketplace",
+            "templates",
+            "schemas",
+            "fixtures",
+            "docs",
+            ".github"
+        ]
+    );
+}

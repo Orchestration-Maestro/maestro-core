@@ -475,3 +475,17 @@ fn moved_area_preserves_base_identity_and_protects_new_path() {
     evidence.approvals[1].actor = "new-owner".into();
     assert_eq!(check_owners(&base, &head, &evidence, REPOSITORY), Ok(()));
 }
+
+#[test]
+fn positional_evidence_errors_explain_the_required_object_shape() {
+    let (_, _, evidence) = fixture();
+    let mut value = serde_json::to_value(&evidence).unwrap();
+    value["principals"][0] = json!([]);
+    let error = OwnerEvidence::parse(&serde_json::to_vec(&value).unwrap()).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("an evidence object, not a positional array"),
+        "{error}"
+    );
+}

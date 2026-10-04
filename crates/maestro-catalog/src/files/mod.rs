@@ -7,13 +7,16 @@ mod effects;
 mod names;
 /// Immutable previews and hostile relative-path validation.
 mod plan;
+mod publication;
 /// Durable journals and restart recovery.
 mod recovery;
 /// Digest-checked removal of committed ownership.
 mod remove;
+mod replacement;
 /// Contract tests for owned-file operations.
 #[cfg(test)]
 pub(crate) mod tests;
+mod transition;
 
 pub use crate::file_input::FileInput;
 pub use apply::{apply, recover};

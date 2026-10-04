@@ -1,0 +1,24 @@
+description = "Synthetic evaluation cases"
+input_contract = "contract:common/input"
+output_contract = "contract:common/output"
+driver = "synthetic"
+subjects = ["prompt:common/synthetic"]
+inputs = ["eval-inputs.json"]
+cases = ["eval-cases.json"]
+checks = ["standard-check:security/shape"]
+[expected]
+outputs = ["eval-outputs.json"]
+statuses = ["passed"]
+[limits]
+timeout_ms = 1800000
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]
+requires = [
+  "contract:common/input",
+  "contract:common/output",
+  "prompt:common/synthetic",
+  "standard-check:security/shape",
+]

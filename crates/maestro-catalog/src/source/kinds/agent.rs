@@ -107,7 +107,7 @@ impl KindRules for AgentRules {
         problems: &mut Problems,
     ) {
         if let Some(body) = body {
-            section_problems(body, problems);
+            section_problems(body, &SECTIONS, problems);
         }
         for name in servers(resource).into_iter().filter(|name| !is_name(name)) {
             problems.push((
@@ -155,21 +155,10 @@ impl KindRules for AgentRules {
                 continue;
             };
             let id = server(name);
-            let message = match catalog.get(&id) {
-                None => format!("names {name}/{tool}, and {id} does not exist"),
-                Some(listed)
-                    if !listed
-                        .fields
-                        .get("tools")
-                        .and_then(Value::texts)
-                        .unwrap_or_default()
-                        .contains(&tool) =>
-                {
-                    format!("names {name}/{tool}, which {id} does not list")
-                }
-                Some(_) => continue,
-            };
-            problems.push(("tools".to_owned(), message));
+            problems.push((
+                "tools".to_owned(),
+                format!("names {name}/{tool}, and {id} does not exist"),
+            ));
         }
     }
 }
@@ -211,9 +200,9 @@ impl Sections {
     }
 }
 
-/// Notes a body whose level-two sections are not exactly [`SECTIONS`] in
-/// order, each holding text.
-fn section_problems(body: &str, problems: &mut Problems) {
+/// Notes a body whose level-two sections are not exactly `expected` in
+/// order, each holding text. Shared with the handoff contract.
+pub(super) fn section_problems(body: &str, expected: &[&str], problems: &mut Problems) {
     let mut sections = Sections::default();
     for event in Parser::new(body) {
         sections.read(event);
@@ -223,12 +212,12 @@ fn section_problems(body: &str, problems: &mut Problems) {
         .iter()
         .map(|(title, _)| title.as_str())
         .collect();
-    if titles != SECTIONS {
+    if titles != expected {
         problems.push((
             "body".to_owned(),
             format!(
                 "expected the sections {} in order; found {}",
-                SECTIONS.join(", "),
+                expected.join(", "),
                 titles.join(", ")
             ),
         ));

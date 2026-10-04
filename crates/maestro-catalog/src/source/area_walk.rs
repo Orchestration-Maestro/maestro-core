@@ -219,6 +219,16 @@ impl Walker<'_> {
         let path = join(directory, file);
         self.consumed.insert(path.clone());
         let mut unit = Unit::new(descriptor, name, path);
+        if let MetadataPlace::Sidecar { suffix } = &descriptor.metadata {
+            let stem = file.rsplit_once('.').map_or(file, |(stem, _)| stem);
+            let sidecar = join(directory, &format!("{stem}{suffix}"));
+            self.consumed.insert(sidecar.clone());
+            if !exists(self.snapshot, &sidecar) {
+                self.note(&unit.path, &format!("no {stem}{suffix} sidecar beside it"));
+                return Ok(());
+            }
+            unit.sidecar = Some(sidecar);
+        }
         for asset in data {
             let path = join(directory, asset);
             self.consumed.insert(path.clone());

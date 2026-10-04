@@ -8,6 +8,7 @@ use crate::{
     limits::Limits,
     source::{ReviewPath, ReviewRole, ReviewRule},
 };
+use std::panic::catch_unwind;
 
 #[test]
 fn area_owners_maintainers_validate() {
@@ -469,4 +470,42 @@ fn legacy_owner_missing_maturity_points_to_area() {
             .contains("ownership is derived from core/package.toml"),
         "legacy owner must still point to its area: {diagnostic}"
     );
+}
+
+#[test]
+fn review_rules_check_nested_overrides_after_zero_and_later_owner_indices() {
+    let catalog = check_under(&MemoryTree::valid(), &Limits::PRODUCTION).unwrap();
+    let area = catalog
+        .resources
+        .iter()
+        .find(|resource| resource.id.name == "core" && resource.id.kind == "package")
+        .unwrap();
+    let ownership = catalog.ownership(area).unwrap();
+    for prefix in [0, 2] {
+        let mut rules = vec![
+            ReviewRule {
+                path: ReviewPath::Exact("unrelated".to_owned()),
+                role: ReviewRole::Content
+            };
+            prefix
+        ];
+        rules.push(ReviewRule {
+            path: ReviewPath::Tree(String::new()),
+            role: ReviewRole::OwnersOnly,
+        });
+        let checked = catch_unwind(|| ownership.check_review_rules(&rules, &[]));
+        assert!(
+            matches!(checked, Ok(Ok(()))),
+            "valid zero-index owner rule must not panic or refuse"
+        );
+        rules.push(ReviewRule {
+            path: ReviewPath::Exact("core/nested.txt".to_owned()),
+            role: ReviewRole::Content,
+        });
+        assert!(
+            ownership
+                .check_review_rules(&rules, &[ReviewPath::Tree("core".to_owned())])
+                .is_err()
+        );
+    }
 }

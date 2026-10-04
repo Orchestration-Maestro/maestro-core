@@ -327,3 +327,16 @@ fn epoch_day(text: &str) -> Option<i64> {
             - 719_162,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::epoch_day;
+
+    #[test]
+    fn gregorian_century_and_four_hundred_year_leap_dates_are_exact() {
+        assert_eq!(epoch_day("2000-02-29"), Some(11_016));
+        assert_eq!(epoch_day("2000-03-01"), Some(11_017));
+        assert_eq!(epoch_day("1900-02-29"), None);
+        assert_eq!(epoch_day("2024-02-29"), Some(19_782));
+    }
+}

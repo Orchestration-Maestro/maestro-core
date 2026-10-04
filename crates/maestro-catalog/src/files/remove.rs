@@ -50,6 +50,16 @@ struct FileIdentity {
 /// # Errors
 /// Returns an error for malformed ownership, edited content, unsafe paths, or filesystem failure.
 pub fn remove(root: &Path, id: &str, trust: &CheckedTrust<'_>) -> io::Result<()> {
+    remove_with(root, id, trust, |_| {})
+}
+
+/// Schedule a check/read boundary while the public entry point always passes a no-op.
+fn remove_with(
+    root: &Path,
+    id: &str,
+    trust: &CheckedTrust<'_>,
+    after_owned_check: impl Fn(&str),
+) -> io::Result<()> {
     validate_id(id)?;
     let name = format!(".maestro-files/{}", ownership_name(id));
     effects::check(root, &name, trust)?;
@@ -77,6 +87,7 @@ pub fn remove(root: &Path, id: &str, trust: &CheckedTrust<'_>) -> io::Result<()>
     for owned in &ownership.files {
         validate_relative_path(&owned.path)?;
         effects::check(root, &owned.path, trust)?;
+        after_owned_check(&owned.path);
         match effects::read(root, &owned.path, trust) {
             Ok(current) if digest(&current) == owned.digest => {
                 verified.push((
@@ -103,4 +114,38 @@ pub fn remove(root: &Path, id: &str, trust: &CheckedTrust<'_>) -> io::Result<()>
     }
     effects::remove(root, &name, &bytes, None, trust)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::remove_with;
+    use crate::files::{
+        FileInput,
+        names::ownership_name,
+        tests::support::{apply, preview, with_trust},
+    };
+    use maestro_test_scratch::scratch_directory;
+    use std::{fs, io};
+
+    #[test]
+    fn removal_propagates_non_absence_read_error_after_successful_check() {
+        let root = scratch_directory().unwrap();
+        let plan = preview(&root, [FileInput::new("target", b"owned".to_vec())]).unwrap();
+        apply(&root, &plan).unwrap();
+        with_trust(&root, |trust| {
+            let error = remove_with(&root, plan.id(), trust, |path| {
+                fs::remove_file(root.join(path)).unwrap();
+                fs::create_dir(root.join(path)).unwrap();
+            })
+            .unwrap_err();
+            assert_ne!(error.kind(), io::ErrorKind::NotFound, "{error}");
+        });
+        assert!(
+            root.join(".maestro-files")
+                .join(ownership_name(plan.id()))
+                .is_file()
+        );
+        assert!(root.join("target").is_dir());
+        fs::remove_dir_all(root).unwrap();
+    }
 }

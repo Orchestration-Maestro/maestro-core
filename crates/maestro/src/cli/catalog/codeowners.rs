@@ -93,3 +93,36 @@ pub(in crate::cli) fn run(
     )?;
     Ok(ExitCode::SUCCESS)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::run;
+    use crate::{cli::output::Output, failure::Failure};
+    use maestro_test_scratch::scratch_directory;
+    use std::fs;
+
+    #[test]
+    fn codeowners_directory_refusal_names_the_regular_file_requirement() {
+        let scratch = scratch_directory().unwrap();
+        fs::create_dir_all(scratch.join(".github/CODEOWNERS")).unwrap();
+        let error = run(Output::new(false), &scratch, true).unwrap_err();
+        let expected = ".github/CODEOWNERS: generated CODEOWNERS must be a regular file";
+        let refused = matches!(error, Failure::Refused(ref message) if message == expected);
+        assert!(refused, "{error}");
+        fs::remove_dir_all(scratch).unwrap();
+    }
+
+    // A path under a regular file is ENOTDIR on Unix (a non-NotFound metadata
+    // error); Windows reports NotFound, which this code correctly treats as absent.
+    #[cfg(unix)]
+    #[test]
+    fn codeowners_metadata_errors_preserve_the_failed_path() {
+        let scratch = scratch_directory().unwrap();
+        fs::write(scratch.join(".github"), "not a directory").unwrap();
+        let error = run(Output::new(false), &scratch, true).unwrap_err();
+        let failed = matches!(error,
+            Failure::Failed(ref message) if message.starts_with(".github/CODEOWNERS:"));
+        assert!(failed, "{error}");
+        fs::remove_dir_all(scratch).unwrap();
+    }
+}

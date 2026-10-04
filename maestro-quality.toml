@@ -20,6 +20,8 @@ mutation-windows = [
   "crates/maestro-settings/src/file/windows.rs",
   "crates/maestro-filesystem/src/windows.rs",
   "crates/maestro-filesystem/src/windows_owned.rs",
+  "crates/maestro-filesystem/src/windows_flags.rs",
+  "crates/maestro-filesystem/src/windows_replacement_security.rs",
   "crates/maestro-filesystem/src/windows_security.rs",
 ]
 
@@ -54,6 +56,13 @@ platforms = ["linux"]
 key-files = ["Cargo.lock"]
 published = ["entry-*"]
 
+# Copilot owns this documented read-only discovery override; it is not Maestro configuration.
+[[exception]]
+rule = "NAME-004"
+path = "crates/maestro-catalog/src/hosts/copilot.rs"
+item = "COPILOT_HOME"
+reason = "Copilot owns COPILOT_HOME; its adapter reads user profiles only and writes solely to the explicit target"
+
 # The seams of the canonicalization crate that keep one caller: each door is a
 # subsystem, and its one outside caller is the stage that composes it.
 [[exception]]
@@ -67,13 +76,6 @@ rule = "ARC-005"
 path = "crates/maestro-catalog/src/source/kinds/mod.rs"
 item = "builtin_hooks"
 reason = "public API of maestro-catalog: the seam through which kinds loaded as data register with the built-in hooks; ARC-005 does not count cross-crate callers"
-
-# Remove after C06 or C07 adds the next owned-file adapter caller.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-catalog/src/files/mod.rs"
-item = "apply"
-reason = "C04's shared owned-file write port: C05 bootstrap is first; C06/C07 projections and C16 install are next"
 
 [[exception]]
 rule = "ARC-005"

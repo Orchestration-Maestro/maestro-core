@@ -15,9 +15,9 @@ workspace = true
 engine = ["maestro-knowledge/engine"]
 
 [dependencies]
-maestro-filesystem.workspace = true
 clap.workspace = true
 maestro-catalog.workspace = true
+maestro-filesystem.workspace = true
 maestro-kernel.workspace = true
 maestro-knowledge.workspace = true
 maestro-settings.workspace = true

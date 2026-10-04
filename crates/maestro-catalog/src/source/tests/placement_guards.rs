@@ -77,3 +77,20 @@ fn directory_non_utf8_names_are_unsupported() {
         assert_eq!(entries[0].kind, EntryKind::Unsupported);
     }
 }
+
+#[test]
+fn single_layout_requires_an_actual_safe_file_not_just_a_valid_name() {
+    use crate::source::Layout;
+    for file in ["", "nested/file.toml", "file.toml"] {
+        let mut descriptor = scoped("glossaries", &["core"]);
+        descriptor.layout = Layout::Single {
+            file: file.to_owned(),
+            name: "valid".to_owned(),
+        };
+        assert_eq!(
+            Registry::default().register(descriptor).is_ok(),
+            file == "file.toml",
+            "{file:?}"
+        );
+    }
+}

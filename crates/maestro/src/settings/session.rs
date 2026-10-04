@@ -187,6 +187,23 @@ mod tests {
     }
 
     #[test]
+    fn session_workspace_preferences_returns_the_frozen_file_layers() {
+        let mut session = source(Registry::built_in().unwrap());
+        let layer = maestro_settings::Layer::parse(
+            &session.registry,
+            "schema = 'maestro-preferences/1'\ntone = 'brief'\n",
+        )
+        .unwrap();
+        session.layers.user = Some((Path::new("user.toml").to_path_buf(), layer.clone()));
+        session.layers.project = Some((Path::new("project.toml").to_path_buf(), layer));
+        let returned = session
+            .layers(&session.registry, &Limits::PRODUCTION)
+            .unwrap();
+        assert_eq!(returned.user, session.layers.user);
+        assert_eq!(returned.project, session.layers.project);
+    }
+
+    #[test]
     fn catalog_client_preferences_missing_registered_language_is_failed() {
         let session = source(Registry::new(&[]).unwrap());
         assert!(matches!(session.mcp_context(), Err(Failure::Failed(key)) if key == "language"));

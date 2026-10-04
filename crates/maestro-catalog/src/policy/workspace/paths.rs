@@ -28,9 +28,9 @@ pub struct AuthorizedPath<'a> {
     /// Walked spelling before resolving the existing final leaf.
     walked_target: PathBuf,
     /// Parent held for the lifetime of the capability.
-    parent: Directory,
+    pub(super) parent: Directory,
     /// One normal UTF-8 name; no path separator or traversal is accepted.
-    name: String,
+    pub(super) name: String,
     /// The decision cannot be promoted from read to write.
     access: Access,
 }
@@ -465,7 +465,7 @@ impl AuthorizedPath<'_> {
     }
 
     /// A write lease rechecks current denies and journal authority immediately before creation.
-    fn prepare_creation(&self) -> io::Result<()> {
+    pub(super) fn prepare_creation(&self) -> io::Result<()> {
         if self.access != Access::Write {
             return Err(io::Error::other("not a write capability"));
         }
@@ -504,7 +504,7 @@ impl AuthorizedPath<'_> {
     }
 
     /// Refresh immutable deny data from live bindings, retaining both supplied and resolved names.
-    fn check_current_policy(&self) -> io::Result<()> {
+    pub(super) fn check_current_policy(&self) -> io::Result<()> {
         let boundaries = self.trust.boundaries.refreshed()?;
         let names = relative_names(&self.relative)?;
         check_supplied(&boundaries, &self.supplied_base, &names)?;

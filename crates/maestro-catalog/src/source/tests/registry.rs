@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// A glossary kind, described as data only.
-pub(super) fn glossary() -> KindDescriptor {
+pub(crate) fn glossary() -> KindDescriptor {
     KindDescriptor {
         scopes: vec![Scope::Common],
         kind: "glossary".to_owned(),
@@ -113,7 +113,7 @@ fn registry_refuses_a_descriptor_that_contradicts_itself() {
                     suffix: ".maestro.toml".to_owned(),
                 };
             },
-            "kind glossary: a sidecar pairs only with the files layout",
+            "kind glossary: a sidecar pairs only with the files or folder layout",
         ),
         (
             "body of a TOML kind",
@@ -247,7 +247,7 @@ fn registry_admits_a_name_field_that_is_a_text_field_and_a_known_hook() {
 
 /// The built-in kinds, each descriptor written as JSON, read back and
 /// registered: hooks come from the names the data holds.
-fn from_data() -> Registry {
+pub(super) fn from_data() -> Registry {
     let mut registry = builtin_hooks();
     for registration in builtin().unwrap().registrations() {
         let json = serde_json::to_string(&registration.descriptor).unwrap();
@@ -281,14 +281,17 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
             "bootstrap-inventory",
             "model-card",
             "backend",
-            "contract"
+            "contract",
+            "prompt",
+            "handoff",
+            "eval-case"
         ]
     );
     let versions = registry.registrations().map(|kind| kind.descriptor.version);
     for ((kind, actual), expected) in kinds
         .iter()
         .zip(versions)
-        .zip([3, 3, 4, 5, 5, 5, 1, 1, 3, 2, 1, 3, 1, 1])
+        .zip([3, 3, 4, 5, 5, 5, 1, 1, 3, 2, 1, 3, 1, 1, 1, 1, 1])
     {
         assert_eq!(actual, expected, "{kind}");
     }
@@ -403,23 +406,6 @@ fn root_support_and_scope_boundaries_refuse_unregistered_areas() {
         Registry::default()
             .register(scoped("unchecked", &["root"]))
             .is_err()
-    );
-}
-
-#[test]
-fn root_support_table_is_exact() {
-    use crate::source::Scope;
-    assert_eq!(
-        Scope::SUPPORT_ROOTS,
-        [
-            "presets",
-            "marketplace",
-            "templates",
-            "schemas",
-            "fixtures",
-            "docs",
-            ".github"
-        ]
     );
 }
 

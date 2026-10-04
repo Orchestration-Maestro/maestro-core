@@ -13,4 +13,5 @@ mod support;
 
 use super::{Preset, PresetPort, compose, inspect};
 
+mod mutation_boundaries;
 mod session_ownership;

@@ -505,3 +505,32 @@ pub(super) fn within(text: &str, limit: u64) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::locate;
+    use crate::source::builtin;
+
+    #[test]
+    fn ownership_location_rewrites_only_legacy_ownership_unknown_or_ambiguous_errors() {
+        let registry = builtin().unwrap();
+        let descriptor = &registry.kind("agent").unwrap().descriptor;
+        let mut problems = vec![
+            ("owners".to_owned(), "unknown key".to_owned()),
+            ("owners".to_owned(), "must be a list".to_owned()),
+            ("other".to_owned(), "unknown key".to_owned()),
+        ];
+        locate("core/agents/example.agent.md", descriptor, &mut problems);
+        assert_eq!(
+            problems,
+            [
+                (
+                    "owners".to_owned(),
+                    "unknown key; ownership is derived from core/package.toml".to_owned()
+                ),
+                ("owners".to_owned(), "must be a list".to_owned()),
+                ("other".to_owned(), "unknown key".to_owned())
+            ]
+        );
+    }
+}

@@ -5,10 +5,13 @@
 pub mod adapters;
 /// Digest-bound, recoverable writes and removal for catalog-owned files.
 pub mod bootstrap;
+pub mod bundle;
 mod file_input;
 pub mod files;
+mod frontmatter;
 /// Replaceable client session preference delivery.
 pub mod hosts;
+mod instructions;
 pub mod limits;
 mod model_cards;
 /// Effect-free policy checks behind a replaceable evaluator and host-facts port.

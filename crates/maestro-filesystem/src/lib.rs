@@ -15,6 +15,9 @@ mod listing;
 mod listing_tests;
 mod publication;
 mod read;
+mod replacement;
+#[cfg(test)]
+mod replacement_tests;
 mod root;
 #[cfg(test)]
 mod tests;
@@ -22,10 +25,22 @@ mod tests;
 mod unix;
 #[cfg(unix)]
 mod unix_creation;
+#[cfg(all(test, unix))]
+mod unix_mutation_tests;
 #[cfg(windows)]
 mod windows;
+#[cfg(all(test, windows))]
+mod windows_behavior_tests;
+#[cfg(windows)]
+mod windows_flags;
+#[cfg(windows)]
+mod windows_replacement_security;
 #[cfg(windows)]
 mod windows_security;
+#[cfg(all(test, windows))]
+mod windows_security_fixture_tests;
+#[cfg(all(test, windows))]
+mod windows_test_security;
 #[cfg(unix)]
 pub use unix::{Directory, open_nofollow};
 #[cfg(windows)]

@@ -185,6 +185,19 @@ mod tests {
     use maestro_kernel::workspace::Confirmation;
     use std::path::Path;
 
+    #[cfg(windows)]
+    #[test]
+    fn approval_path_preserves_exact_verbatim_confirmation_but_displays_mismatches() {
+        let root = Path::new(r"\\?\C:\synthetic\workspace");
+        assert_eq!(super::approval_path(root, Some(root)), root);
+        for path in [None, Some(Path::new(r"C:\other"))] {
+            assert_eq!(
+                super::approval_path(root, path),
+                Path::new(r"C:\synthetic\workspace")
+            );
+        }
+    }
+
     #[test]
     fn terminal_preferences_prompt_is_localized_and_default_no() {
         let root = Path::new("/synthetic/workspace");

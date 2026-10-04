@@ -182,3 +182,25 @@ fn read(root: &Path, relative: &str, trust: &CheckedTrust<'_>, max: u64) -> io::
     }
     Ok(bytes)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::read;
+    use crate::files::tests::support::with_trust;
+    use maestro_test_scratch::scratch_directory;
+    use std::{fs, io};
+
+    #[test]
+    fn output_read_accepts_exact_limit_and_refuses_one_more_byte() {
+        let root = scratch_directory().unwrap();
+        fs::write(root.join("output"), b"abc").unwrap();
+        with_trust(&root, |trust| {
+            assert_eq!(read(&root, "output", trust, 3).unwrap(), b"abc");
+            assert_eq!(
+                read(&root, "output", trust, 2).unwrap_err().kind(),
+                io::ErrorKind::FileTooLarge
+            );
+        });
+        fs::remove_dir_all(root).unwrap();
+    }
+}

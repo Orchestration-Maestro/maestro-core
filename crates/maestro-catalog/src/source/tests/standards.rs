@@ -17,7 +17,7 @@ fn standard(name: &str, rule: &str) -> String {
 }
 
 /// One inert machine check referencing its own standard's rule.
-fn machine_check() -> &'static str {
+pub(super) fn machine_check() -> &'static str {
     "name = \"shape\"\nrules = [\"SEC-001\"]\nvalidator = \"area-package\"\n\
      applicability = [\"all\"]\ninputs = [\"skill:common/valid-skill\"]\n\
      evidence = [\"shape-report\"]\nrefusals = [\"invalid-shape\"]\n\
@@ -241,4 +241,21 @@ fn machine_check_shape_identity_and_inputs_refuse() {
             .to_string()
             .contains("nonempty")
     );
+}
+
+#[test]
+fn duplicate_rule_diagnostic_names_the_later_standard() {
+    let source = tree().with(
+        "standards/quality/package.toml",
+        &standard("quality", "SEC-001"),
+    );
+    let refusal = check_under(&source, &Limits::PRODUCTION).unwrap_err();
+    let duplicates: Vec<_> = refusal
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.message.contains("duplicate rule identity"))
+        .collect();
+    assert_eq!(duplicates.len(), 1);
+    assert_eq!(duplicates[0].path, "standards/security/package.toml");
+    assert!(duplicates[0].message.contains("also standard:quality"));
 }

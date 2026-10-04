@@ -1,6 +1,6 @@
 //! Catalog-only dispatch; foreground session and repair ordering stay at the caller.
 
-use super::{check, codeowners, index, owners};
+use super::{check, codeowners, index, owners, project};
 use crate::{
     cli::{args::CatalogCommand, output::Output},
     failure::Failure,
@@ -13,6 +13,8 @@ use std::process::ExitCode;
 /// The selected foreground command's source/evidence/output refusal.
 pub(in crate::cli) fn run(output: Output, command: &CatalogCommand) -> Result<ExitCode, Failure> {
     match command {
+        CatalogCommand::Project(request) => project::run(output, request),
+        CatalogCommand::Compile(args) => super::compile::run(output, args),
         CatalogCommand::Owners {
             catalog_dir,
             base_dir,

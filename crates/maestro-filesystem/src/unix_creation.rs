@@ -3,10 +3,18 @@ use crate::{
     root::leaf_name,
     unix::{Directory, NEXT_QUARANTINE},
 };
-use rustix::fs::{AtFlags, Mode, RenameFlags, fstat, mkdirat, renameat_with, statat, unlinkat};
+use rustix::fs::{
+    AtFlags, Mode, RenameFlags, fstat, mkdirat, renameat, renameat_with, statat, unlinkat,
+};
 use std::{fs::File, io, process, sync::atomic::Ordering};
 
 impl Directory {
+    /// Atomically publish a replacement within the retained directory.
+    pub(super) fn rename_replacement(&self, from: &str, to: &str) -> io::Result<()> {
+        renameat(&self.0, from, &self.0, to)?;
+        Ok(())
+    }
+
     /// Exclusively create and hold one child directory without following links.
     ///
     /// # Errors

@@ -457,6 +457,10 @@ pub(super) enum CollectionCommand {
 /// What to do with a catalog's authoring sources.
 #[derive(Debug, Subcommand)]
 pub(super) enum CatalogCommand {
+    /// Preview/apply owned native host files; shared JSON entries stay independently owned.
+    Project(super::catalog::project::Request),
+    /// Compile inert checked sources into a deterministic bundle.
+    Compile(super::catalog::compile::Arguments),
     /// Check trusted CI identity/review evidence, with no network or credential handling.
     Owners {
         /// Require trusted identity checks; there is no offline approval bypass.
