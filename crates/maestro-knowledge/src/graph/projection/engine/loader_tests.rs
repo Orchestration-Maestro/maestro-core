@@ -3,7 +3,8 @@
 use super::public_fixture::{Fixture, now};
 use crate::graph::build::inputs;
 use crate::graph::projection::{
-    BuildVerification, ProjectionSnapshot, TypedEdgeProjection,
+    BuildVerification, ProjectionEngine, ProjectionFactory, ProjectionSnapshot,
+    TypedEdgeProjection,
     checkpoint::{Journal, Manifest, prefix},
 };
 use maestro_kernel::{
@@ -16,7 +17,7 @@ use maestro_kernel::{
     scope::collection_path,
 };
 use serde_json::json;
-use std::{collections::BTreeSet, fs, path::PathBuf, time::Duration};
+use std::{collections::BTreeSet, fs, os::unix::fs::symlink, path::PathBuf, time::Duration};
 
 /// Freeze a real attached set with enough rows to cross the loader's batch boundary.
 pub(super) fn fixture(edge_count: usize) -> Fixture {
@@ -188,6 +189,47 @@ pub(super) fn staging(fixture: &Fixture) -> PathBuf {
         .native
         .path
         .join(format!(".build-{}", fixture.build.lease.job))
+}
+
+#[test]
+fn loader_factory_loads_and_resumes_through_symlinked_data_parent() {
+    let fixture = fixture(65);
+    let snapshot = snapshot(&fixture);
+    let scratch = super::open::tests::Scratch::new();
+    let linked = scratch.0.join("linked-parent");
+    symlink(fixture.native.path.parent().unwrap(), &linked).unwrap();
+    let data = linked.join(fixture.native.path.file_name().unwrap());
+    // Do not canonicalize: production must normalize the linked parent itself.
+    let factory = ProjectionFactory::new(
+        &data,
+        ProjectionEngine::Ladybug,
+        super::public_fixture::settings(),
+        &maestro_filesystem::SystemFileLock,
+    );
+    let clock = || now(0);
+    let mut producer = factory
+        .producer(
+            &fixture.authority.database,
+            &fixture.authority.scopes,
+            fixture.build.clone(),
+            &clock,
+        )
+        .unwrap();
+    producer.load(&snapshot).unwrap();
+    let expected = BuildVerification::expected(&snapshot.edges, &snapshot.facts).unwrap();
+    assert_eq!(producer.verify().unwrap(), expected);
+    drop(producer);
+    let mut resumed = factory
+        .resume(
+            &fixture.authority.database,
+            &fixture.authority.scopes,
+            fixture.build.clone(),
+            &clock,
+        )
+        .unwrap();
+    resumed.load(&snapshot).unwrap();
+    assert_eq!(resumed.verify().unwrap(), expected);
+    resumed.publish(&expected).unwrap();
 }
 
 #[test]

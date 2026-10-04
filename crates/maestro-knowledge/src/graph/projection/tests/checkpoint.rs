@@ -7,9 +7,10 @@ use super::super::{
 use maestro_kernel::{artifact::Digest, facts::ClaimSetRecord};
 use maestro_test_scratch::scratch_directory;
 use serde_json::json;
-use std::fs;
+use std::{fs, path::PathBuf};
 
-fn inputs() -> (ProjectionSnapshot, Manifest) {
+fn fixture() -> (PathBuf, ProjectionSnapshot, Manifest) {
+    let path = fs::canonicalize(scratch_directory().unwrap()).unwrap();
     let fact = fact();
     let rows = ProjectionSnapshot {
         scope: fact.scope.clone(),
@@ -30,7 +31,7 @@ fn inputs() -> (ProjectionSnapshot, Manifest) {
         "counts": [0, 1], "digest": prefix(&rows, 1).unwrap().content_digest,
     }))
     .unwrap();
-    (rows, manifest)
+    (path, rows, manifest)
 }
 
 #[test]
@@ -49,8 +50,7 @@ fn checkpoint_manifest_rejects_unknown_fields_and_unsupported_schema() {
 
 #[test]
 fn checkpoint_publication_is_immutable_and_unknown_or_changed_files_refuse() {
-    let path = scratch_directory().unwrap();
-    let (rows, manifest) = inputs();
+    let (path, rows, manifest) = fixture();
     let journal = Journal::create(&path, manifest).unwrap();
     assert_eq!(journal.ordinals().unwrap(), 0);
     journal.record(&rows, 1).unwrap();
