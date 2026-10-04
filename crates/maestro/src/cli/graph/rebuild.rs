@@ -110,6 +110,7 @@ use maestro_filesystem::{OwnedRoot, SystemFileLock};
 #[cfg(feature = "engine")]
 use maestro_kernel::{
     facts::{Error as FactError, InputMismatchKind, ProjectionReceipt},
+    generation::GenerationState,
     paths::{self, Environment},
 };
 #[cfg(feature = "engine")]
@@ -148,6 +149,7 @@ fn native(
     let receipt = match kernel.database.projection_ready(&kernel.scopes, generation) {
         Ok(receipt) => receipt,
         Err(FactError::ProjectionInputMismatch(InputMismatchKind::Format)) => {
+            resolution(arguments.resolution.as_deref(), None)?;
             return Err(published_refusal("legacy receipt"));
         }
         Err(error) => return Err(Failure::failed_by(&error)),
@@ -175,16 +177,21 @@ fn native(
     );
     let chosen = json!({"schema":"maestro-cli/knowledge-graph-rebuild/1", "generation":generation,
         "resolution":selection.resolution, "resolution_source":origin});
-    output.step(&chosen)?;
     if let Some(receipt) = receipt {
         published_ready(kernel, &factory, &path, &selection, (&settings, &receipt))?;
+        output.step(&chosen)?;
         output.result(&json!({
             "schema":"maestro-cli/knowledge-graph-rebuild/1", "action":"ready", "selection":chosen
         }), READY)?;
         return Ok(ExitCode::SUCCESS);
     }
+    if record.state != GenerationState::Verified {
+        return Err(Failure::refused(
+            "graph rebuild requires a verified generation",
+        ));
+    }
     let snapshot = selection.read(kernel)?;
-    Work {
+    let fresh = Work {
         selection: &selection,
         snapshot: &snapshot,
         factory: &factory,
@@ -197,14 +204,35 @@ fn native(
         .projection_ready(&kernel.scopes, generation)
         .map_err(|error| Failure::failed_by(&error))?
         .ok_or_else(|| Failure::failed(MISSING_RECEIPT))?;
+    let action = completion_action(&selection, &settings, &receipt, fresh)?;
+    output.step(&chosen)?;
     output.result(
         &json!({
-            "schema":"maestro-cli/knowledge-graph-rebuild/1", "action":"built", "selection":chosen,
+            "schema":"maestro-cli/knowledge-graph-rebuild/1",
+            "action":action, "selection":chosen,
             "receipt":receipt_document(&receipt)
         }),
-        BUILT,
+        if fresh { BUILT } else { READY },
     )?;
     Ok(ExitCode::SUCCESS)
+}
+
+/// A competing completion must not be reported under this command's inputs.
+#[cfg(feature = "engine")]
+fn completion_action(
+    selection: &Selection,
+    settings: &EngineSettings,
+    receipt: &ProjectionReceipt,
+    fresh: bool,
+) -> Result<&'static str, Failure> {
+    if receipt.identity.claim_set_id != selection.claim_set
+        || receipt.resolution_id != selection.resolution
+        || receipt.settings_identity != settings.identity()
+        || receipt.frozen_lock != *settings.frozen_lock()
+    {
+        return Err(Failure::refused("another build published different inputs"));
+    }
+    Ok(if fresh { "built" } else { "ready" })
 }
 
 /// Refuse in-place repair without touching an immutable receipt or file.
@@ -333,5 +361,95 @@ mod tests {
             assert_eq!(error.to_string(), published_refusal(case).to_string());
             assert_eq!(fs::read(path.join(&name)).unwrap(), before);
         }
+    }
+    #[cfg(all(feature = "engine", not(windows)))]
+    #[test]
+    fn graph_rebuild_concurrent_completion_rechecks_each_pin_and_identical_is_ready() {
+        use crate::cli::graph::tests::rebuild_support::authority;
+        use maestro_filesystem::ControlFile;
+        let (fixture, selection) = authority();
+        let kernel = &fixture.kernel;
+        let path = fixture.root.join("graph");
+        let root = OwnedRoot::open(&path, true).unwrap();
+        for control in [ControlFile::Access, ControlFile::Writer] {
+            root.ensure_control(control).unwrap();
+        }
+        let settings =
+            EngineSettings::new(16 * 1024 * 1024, 64 * 1024 * 1024, 1, Digest::of(b"lock"))
+                .unwrap();
+        let factory = ProjectionFactory::new(
+            &path,
+            ProjectionEngine::Ladybug,
+            settings.clone(),
+            &SystemFileLock,
+        );
+        // Freeze this request before a competing command finishes.
+        let snapshot = selection.read(kernel).unwrap();
+        let work = Work {
+            selection: &selection,
+            snapshot: &snapshot,
+            factory: &factory,
+            settings: &settings,
+            descriptors: None,
+        };
+        assert!(work.run(kernel, Output::new(true), None).unwrap());
+        let receipt = kernel
+            .database
+            .projection_ready(&kernel.scopes, selection.scope.generation_id)
+            .unwrap()
+            .unwrap();
+        for pin in 0..4 {
+            let changed = Selection {
+                scope: selection.scope.clone(),
+                claim_set: if pin == 0 {
+                    Digest::of(b"other")
+                } else {
+                    selection.claim_set.clone()
+                },
+                resolution: if pin == 1 {
+                    Digest::of(b"other")
+                } else {
+                    selection.resolution.clone()
+                },
+            };
+            let changed_settings = if pin == 2 {
+                EngineSettings::new(16 * 1024 * 1024, 32 * 1024 * 1024, 1, Digest::of(b"lock"))
+                    .unwrap()
+            } else {
+                settings.clone()
+            };
+            // Hold the already validated snapshot: the race is after preflight.
+            let pending = Work {
+                selection: &changed,
+                snapshot: &snapshot,
+                factory: &factory,
+                settings: &changed_settings,
+                descriptors: None,
+            };
+            assert!(
+                !pending.run(kernel, Output::new(true), None).unwrap(),
+                "existing completion is ready, never built"
+            );
+            let mut returned = receipt.clone();
+            if pin == 3 {
+                returned.frozen_lock = Digest::of(b"other");
+            }
+            let error =
+                completion_action(&changed, &changed_settings, &returned, false).unwrap_err();
+            assert!(matches!(error, Failure::Refused(_)));
+            assert_eq!(
+                error.to_string(),
+                "another build published different inputs"
+            );
+        }
+        assert!(!work.run(kernel, Output::new(true), None).unwrap());
+        assert_eq!(
+            completion_action(&selection, &settings, &receipt, false).unwrap(),
+            "ready"
+        );
+        assert_eq!(
+            completion_action(&selection, &settings, &receipt, true).unwrap(),
+            "built"
+        );
     }
 }

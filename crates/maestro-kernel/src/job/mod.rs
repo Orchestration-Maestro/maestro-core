@@ -67,7 +67,7 @@ mod tests;
 
 pub use error::Error;
 pub use events::{CANCELLED, CREATED, FAILED, PROGRESSED, SUCCEEDED, TAKEN, TAKEN_OVER, stream};
-pub use record::{Job, Lease, LeaseTiming, NewJob};
+pub use record::{Job, Lease, LeaseTiming, NewJob, Submitted};
 pub use state::JobState;
 
 pub(crate) use lease::{held as validate_lease, timestamp};

@@ -21,7 +21,7 @@ use maestro_knowledge::graph::projection::{
 use serde_json::json;
 use std::{
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::{Duration, SystemTime},
 };
 use ulid::Ulid;
@@ -155,9 +155,16 @@ impl Fixture {
         )
     }
     pub(super) fn interrupted(&self) -> (Ulid, PathBuf) {
+        self.interruption(true)
+    }
+    pub(super) fn interrupted_without_resource(&self) -> (Ulid, PathBuf) {
+        self.interruption(false)
+    }
+    fn interruption(&self, resource: bool) -> (Ulid, PathBuf) {
         let database = self.home.database();
         let scopes = database.visible(LOCAL).unwrap();
         let now = SystemTime::UNIX_EPOCH;
+        let resource_name = format!("graph-project:{}", self.generation);
         let scope = collection_path(COLLECTION).parse().unwrap();
         let job = database
             .submit_job(
@@ -165,7 +172,7 @@ impl Fixture {
                     kind: "knowledge.graph.project",
                     inputs: &json!({"generation":self.generation}),
                     scope: &scope,
-                    resource: Some(&format!("graph-project:{}", self.generation)),
+                    resource: resource.then_some(resource_name.as_str()),
                 },
                 now,
             )
@@ -204,6 +211,24 @@ impl Fixture {
             settings_identity: self.settings.identity(),
             frozen_lock: self.settings.frozen_lock().clone(),
             lease,
+        }
+    }
+}
+
+pub(super) fn tree(path: &Path) -> Vec<(String, Vec<u8>)> {
+    let mut files = Vec::new();
+    collect_tree(path, "", &mut files);
+    files.sort();
+    files
+}
+
+fn collect_tree(path: &Path, prefix: &str, files: &mut Vec<(String, Vec<u8>)>) {
+    for entry in fs::read_dir(path).unwrap().flatten() {
+        let name = format!("{prefix}{}", entry.file_name().to_string_lossy());
+        if entry.file_type().unwrap().is_dir() {
+            collect_tree(&entry.path(), &format!("{name}/"), files);
+        } else {
+            files.push((name, fs::read(entry.path()).unwrap()));
         }
     }
 }

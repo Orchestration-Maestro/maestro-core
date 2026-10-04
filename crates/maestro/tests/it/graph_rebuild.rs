@@ -15,9 +15,22 @@ fn graph_rebuild_bare_command_reports_generation_guidance() {
     assert!(!home.data().join("graph").exists());
 }
 
+#[cfg(not(feature = "engine"))]
+#[test]
+fn graph_rebuild_generation_without_engine_refuses_without_graph() {
+    let home = Home::new();
+    let result = home.run(&["knowledge", "graph", "rebuild", "--generation", "1"]);
+    assert_eq!(result.code, Some(2), "{result:?}");
+    assert!(result.stderr.contains("engine feature"), "{result:?}");
+    assert!(!home.data().join("graph").exists());
+}
+
 #[cfg(all(feature = "engine", not(windows)))]
 mod native {
-    use super::super::{graph_build::exited, graph_rebuild_fixture::Fixture};
+    use super::super::{
+        graph_build::exited,
+        graph_rebuild_fixture::{Fixture, tree},
+    };
     use maestro_kernel::{
         facts::{EXACT_RESOLVER_VERSION, ResolutionInput},
         scope::LOCAL,
@@ -277,6 +290,12 @@ mod native {
             resolution_id=NULL, resolver_version=NULL, settings_identity=NULL, frozen_lock=NULL;",
             )
             .unwrap();
+        let missing_flag = fixture.run(&[]);
+        exited(&missing_flag, 2);
+        assert!(
+            missing_flag.stderr.contains("supply --resolution"),
+            "{missing_flag:?}"
+        );
         let legacy = fixture.run(&["--resolution", fixture.resolution.as_str()]);
         exited(&legacy, 2);
         assert!(legacy.stderr.contains("(legacy receipt)"), "{legacy:?}");
@@ -412,23 +431,5 @@ mod native {
             before,
             "new attempt cannot discard previous staging"
         );
-    }
-
-    fn tree(path: &Path) -> Vec<(String, Vec<u8>)> {
-        let mut files = Vec::new();
-        collect_tree(path, "", &mut files);
-        files.sort();
-        files
-    }
-
-    fn collect_tree(path: &Path, prefix: &str, files: &mut Vec<(String, Vec<u8>)>) {
-        for entry in fs::read_dir(path).unwrap().flatten() {
-            let name = format!("{prefix}{}", entry.file_name().to_string_lossy());
-            if entry.file_type().unwrap().is_dir() {
-                collect_tree(&entry.path(), &format!("{name}/"), files);
-            } else {
-                files.push((name, fs::read(entry.path()).unwrap()));
-            }
-        }
     }
 }

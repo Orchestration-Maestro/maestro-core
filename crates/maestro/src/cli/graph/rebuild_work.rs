@@ -66,7 +66,7 @@ impl Work<'_> {
         kernel: &Kernel,
         output: Output,
         resume: Option<Ulid>,
-    ) -> Result<(), Failure> {
+    ) -> Result<bool, Failure> {
         let generation = self.selection.scope.generation_id;
         let inputs = json!({"generation":generation});
         if let Some(id) = resume {
@@ -76,28 +76,19 @@ impl Work<'_> {
             .parse()
             .map_err(|error| Failure::refused_by(&error))?;
         let resource = format!("graph-project:{generation}");
-        if resume.is_none() {
-            let unfinished = kernel
-                .database
-                .unfinished_jobs(&kernel.scopes, &resource)
-                .map_err(|error| Failure::refused_by(&error))?;
-            if let Some(job) = unfinished.first() {
-                return Err(Failure::refused(format!(
-                    "graph project {} is unfinished; preserve staging and repeat with --resume {}",
-                    job.id, job.id
-                )));
-            }
-        }
         let new = NewJob {
             kind: "knowledge.graph.project",
             inputs: &inputs,
             scope: &scope,
             resource: Some(&resource),
         };
-        let ended = foreground::run_to_end(kernel, output, &new, TIMING, |holder| {
-            job::outcome(self.execute(kernel, holder, resume))
-        })?;
-        job::check(&ended)
+        let policy = resume.map_or(foreground::Policy::FreshOnly, foreground::Policy::Named);
+        let (ended, fresh) =
+            foreground::run_selected(kernel, output, (&new, policy), TIMING, |holder| {
+                job::outcome(self.execute(kernel, holder, resume))
+            })?;
+        job::check(&ended)?;
+        Ok(fresh)
     }
     /// Load and publish outside the heartbeat mutex; each native operation fences itself.
     fn execute(
@@ -266,5 +257,85 @@ mod tests {
                 .unwrap();
             assert!(validate_resume(kernel, job.id, (&inputs, &selection)).is_err());
         }
+    }
+    #[test]
+    fn graph_rebuild_named_policy_never_submits_or_selects_by_key() {
+        let (fixture, selection) = authority();
+        let kernel = &fixture.kernel;
+        let inputs = json!({"generation":selection.scope.generation_id});
+        let scope = collection_path(&selection.scope.collection_id)
+            .parse()
+            .unwrap();
+        let new = NewJob {
+            kind: "knowledge.graph.project",
+            inputs: &inputs,
+            scope: &scope,
+            resource: None,
+        };
+        let job = kernel
+            .database
+            .submit_job(&new, SystemTime::UNIX_EPOCH)
+            .unwrap();
+        let unrelated = NewJob {
+            kind: "must.not.submit",
+            ..new
+        };
+        let (ended, fresh) = foreground::run_selected(
+            kernel,
+            Output::new(true),
+            (&unrelated, foreground::Policy::Named(job.id)),
+            TIMING,
+            |holder| {
+                assert_eq!(holder.job_id(), job.id);
+                (JobState::Succeeded, json!({}))
+            },
+        )
+        .unwrap();
+        assert_eq!(ended.id, job.id);
+        assert!(fresh);
+        assert_eq!(ended.state, JobState::Succeeded);
+    }
+
+    #[test]
+    fn graph_rebuild_fresh_policy_never_supersedes_held_resource() {
+        let (fixture, selection) = authority();
+        let kernel = &fixture.kernel;
+        let scope = collection_path(&selection.scope.collection_id)
+            .parse()
+            .unwrap();
+        let inputs = json!({"generation":selection.scope.generation_id});
+        let new = NewJob {
+            kind: "knowledge.graph.project",
+            inputs: &inputs,
+            scope: &scope,
+            resource: Some("shared"),
+        };
+        let job = kernel
+            .database
+            .submit_job(&new, SystemTime::UNIX_EPOCH)
+            .unwrap();
+        let changed = json!({"generation":-1});
+        let request = NewJob {
+            inputs: &changed,
+            ..new
+        };
+        let refused = foreground::run_selected(
+            kernel,
+            Output::new(true),
+            (&request, foreground::Policy::FreshOnly),
+            TIMING,
+            |_| panic!("held resource must never run"),
+        )
+        .unwrap_err();
+        assert!(matches!(refused, Failure::Refused(_)));
+        assert_eq!(
+            kernel
+                .database
+                .job(&kernel.scopes, job.id)
+                .unwrap()
+                .unwrap()
+                .state,
+            JobState::Queued
+        );
     }
 }

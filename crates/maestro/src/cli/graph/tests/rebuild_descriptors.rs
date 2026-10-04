@@ -36,6 +36,7 @@ use tokio::runtime::Builder;
 struct Projection {
     calls: RefCell<Vec<&'static str>>,
     fail_verify: bool,
+    fail_rebuild: bool,
 }
 impl DescriptorProjection for Projection {
     fn rebuild(
@@ -43,7 +44,11 @@ impl DescriptorProjection for Projection {
         _: &EmbeddedDescriptors,
     ) -> impl Future<Output = Result<(), DescriptorError>> {
         self.calls.borrow_mut().push("rebuild");
-        ready(Ok(()))
+        ready(if self.fail_rebuild {
+            Err(DescriptorError::Refused("rebuild unavailable".into()))
+        } else {
+            Ok(())
+        })
     }
     fn verify(&self, _: &EmbeddedDescriptors) -> impl Future<Output = Result<(), DescriptorError>> {
         self.calls.borrow_mut().push("verify");
@@ -140,6 +145,65 @@ fn graph_rebuild_optional_descriptors_share_snapshot_profile_and_verify_readines
     };
     assert!(runtime.block_on(project(&failing, &output)).is_err());
     assert_eq!(*failing.calls.borrow(), ["rebuild", "verify"]);
+}
+
+#[test]
+fn graph_rebuild_descriptor_rebuild_failure_never_verifies() {
+    let (fixture, selection) = authority();
+    let output = embedded(&fixture.kernel, &selection);
+    let port = Projection {
+        fail_rebuild: true,
+        ..Projection::default()
+    };
+    let runtime = Builder::new_current_thread().enable_all().build().unwrap();
+    assert!(runtime.block_on(project(&port, &output)).is_err());
+    assert_eq!(*port.calls.borrow(), ["rebuild"]);
+}
+
+#[test]
+fn graph_rebuild_valid_resolution_with_different_canonical_documents_refuses() {
+    use maestro_kernel::facts::{EXACT_RESOLVER_VERSION, ResolutionInput};
+    let (fixture, selection) = authority();
+    let kernel = &fixture.kernel;
+    let output = embedded(kernel, &selection);
+    let changed = kernel
+        .database
+        .record_resolution(
+            &kernel.scopes,
+            LOCAL,
+            &ResolutionInput {
+                resolver_version: EXACT_RESOLVER_VERSION.into(),
+                sets: vec![selection.claim_set.clone()],
+                previous: Some(selection.resolution.clone()),
+                decisions: vec![],
+            },
+            &|_| Ok(()),
+        )
+        .unwrap()
+        .id;
+    let pin = &output.receipt().pin;
+    let input =
+        DescriptorInput::read(&kernel.database, &kernel.scopes, LOCAL, (pin, &changed)).unwrap();
+    let documents = descriptors::build(&input).unwrap();
+    assert_ne!(
+        documents,
+        output.descriptors(),
+        "both valid snapshots yield different canonical documents"
+    );
+    let called = RefCell::new(false);
+    let apply = |_: &EmbeddedDescriptors| {
+        *called.borrow_mut() = true;
+        Ok(())
+    };
+    let error = Descriptors {
+        output: &output,
+        profile: &output.receipt().profile,
+        project: &apply,
+    }
+    .run(kernel, (&selection.scope, &selection.claim_set, &changed))
+    .unwrap_err();
+    assert!(error.to_string().contains("descriptor content differs"));
+    assert!(!*called.borrow());
 }
 
 fn embedded(kernel: &Kernel, selection: &Selection) -> EmbeddedDescriptors {
