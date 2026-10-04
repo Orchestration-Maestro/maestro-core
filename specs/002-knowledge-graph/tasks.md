@@ -27,15 +27,16 @@ Stable IDs preserve the draft's references; G29's second loader is removed.
 Tasks are dependency-ordered, not numeric. There are **37 stable G tasks**:
 35 non-umbrella initial budgets total **132 lane-hours**, each at most four
 hours including targeted gates, plus **9 h** of reopened follow-ups and **3 h**
-of other cross-slice G follow-ups (**144 h**). G28's **four ordered slices**
-total **13 h**, including its original 1 h cross-slice allocation, for
-**157 bounded lane-hours**. G27's **14 E slices** total **43–89 h**, including
-their **3 h** cross-slice delta, for **200–246 lane-hours** overall. The old
+of other cross-slice G follow-ups (**144 h**). G28's **five ordered slices**
+total **21 h**, including its original 1 h cross-slice allocation, for
+**165 bounded lane-hours**. G27's **14 E slices** total **43–89 h**, including
+their **3 h** cross-slice delta, for **208–254 lane-hours** overall. The old
 G27 4 h and G28 5 h umbrella budgets are excluded, not counted twice.
-The 2026-10-03 16:38 Oracle budget ruling adds 8 h: the old G28 estimate
-predates the resolution pin, durable binding and explicit resume obligations
-surfaced in implementation. Scope and acceptance do not change. These are
-planning budgets, not observed durations. Slice and DAG accounting are below.
+The 2026-10-03 16:38 Oracle budget ruling replaced G28's 5 h with 13 h for
+resolution pins, durable binding and explicit resume. The 2026-10-04 G28e
+amendment adds 8 h for model-free published repair, making 21 h. Scope and
+acceptance do not change. These are planning budgets, not observed durations.
+Slice and DAG accounting are below.
 Every task has a failing check, exact file targets and acceptance criteria.
 Split an overrun before dispatch rather than omit a check. Native CI waits are
 reported separately; a four-hour timebox does not turn pending CI into a pass.
@@ -65,10 +66,18 @@ generated guide updates are shared-file edits, not wider scope. Per the
 2026-10-03 15:16 migration-number ruling in ledger
 `s1-knowledge-kernel/progress.md`, new migrations use S2 **0030–0039**,
 S3 **0040–0049**, S6 **0050–0059**. G28b uses `0030_graph_input_pins`;
-the slice merging to main second renumbers the existing 0019 collision.
+G28e adds `0031_graph_projection_builds`. The slice merging to main second
+renumbers the existing 0019 collision.
 Historical `NNNN` targets below refer to already assigned names in the
 [plan's migration table](plan.md#migration-landing-order), not new reservations.
 Timestamps in this amendment cite that same ledger.
+
+**G28e source (2026-10-04):** ledger
+`s2-knowledge-graph/g28-repair-decision.md`, §6 and its bookkeeping, with
+`s2-knowledge-graph/g28-repair-decision-validation.md`, R1/R2 (2026-10-04 UTC;
+supervisor ruling recorded at 2026-10-03 20:29). R1 couples checkpoints 1 and 2
+in one qualified landing; R2 requires the two-repair race proof. Both amendments
+are included below. This is planning authority, not implementation acceptance.
 
 ## Reopened by the 2026-09-30 amendment
 
@@ -115,16 +124,16 @@ plus its 1 h delta is not permission for a 5 h lane.
 | G26 | Consume C46's registry-backed graph settings through existing setup/health; preserve disabled/unavailable and owned-root boundaries. | 1 h | C46, G25, G01. |
 | G27 E07a | Wire C47a's frozen backend settings and complete non-resource lock handoff into the qualified native adapter. | 2 h | C47a, G01, combined E01/E02/E03/E03b fork, G25, released E04. |
 | E08b | Carry the approved backend settings and lock handoff through reader, writer and publication paths. | 1 h | E08a, E06, unchanged; reader/writer/publication names the delta's scope, not new predecessors. |
-| G28 | G28b owns durable resolution/settings/lock pins and open/probe comparison; G28c/G28d reuse those pins for resume/rebuild, never changed-input replay or latest-resolution lookup (2026-10-03 12:08, 13:36, 15:30–15:58). | Original 1 h is inside the replacement 13 h slice budget, not additional. | C47a, G26, G35 and G27's qualified native lifecycle; E11 is not a G28 start gate (13:33). |
+| G28 | G28b owns durable resolution/settings/lock pins and open/probe comparison; G28c/G28d reuse those pins for resume/rebuild (2026-10-03 12:08, 13:36, 15:30–15:58). G28e repairs a published projection with new settings/lock in a fresh build, never changed-input replay or latest-resolution lookup (2026-10-04). | Original 1 h is inside the replacement 21 h slice budget, not additional. | C47a, G26, G35 and G27's qualified native lifecycle; E11 is not a G28 start gate (13:33). |
 | G22 | Use C48's actual qualified backend declarations with the existing release/drill inputs; provide native/release evidence to C49a. | 1 h | C48, G14, G15, G16, G19, G30; retain release inputs. |
 
 The original increment is **7 h**: **4 h** G work (including G28's 1 h, now
-inside its 13 h slice budget) and **3 h** already included in the E07a/E08b
+inside its 21 h slice budget) and **3 h** already included in the E07a/E08b
 ranges below. Do not add either included allocation twice. Landed G01/G26
 base work does not satisfy these additions. Qualified pins are execution
 inputs from observed qualification, never invented by this amendment.
 The release order is **qualification → C48 → G22 → C49a**, never C48 ↔ G22;
-C49a additionally requires **E11 and G28d**, alongside its S3 prerequisites.
+C49a additionally requires **E11 and G28e**, alongside its S3 prerequisites.
 
 ## S2 integration workflow and global gates
 
@@ -696,10 +705,12 @@ claim-first descriptor data under the existing Qdrant/model infrastructure.
 
 ### G28 [US5] Load the frozen snapshot with one resumable batch loader
 
-**Time:** umbrella; G28a–G28d total **13 h** (2 + 4 + 4 + 3), replacing the
-old 4 + 1 = 5 h, including its cross-slice hour (2026-10-03 16:38 ruling).
+**Time:** umbrella; G28a–G28e total **21 h** (2 + 4 + 4 + 3 + 8).
+G28e adds 8 h to the prior 13 h (2026-10-04); the original cross-slice hour
+stays included, not added again (2026-10-03 16:38 ruling).
 **After:** G26, G35, C47a and G27's qualified native lifecycle through E10;
-not E11's receipts/how-to (13:33 ruling). Execute G28a → G28b → G28c → G28d.
+not E11's receipts/how-to (13:33 ruling).
+Execute G28a → G28b → G28c → G28d → G28e.
 **Files:** the exact input, binding, loader and CLI targets in the slices below.
 **Test:** all slice Test commands below; shared projection/native/CLI suites,
 not an input-seam-only pass.
@@ -712,7 +723,7 @@ and the umbrella checkboxes remain open until the integrated G28 evidence
 passes. G28 also consumes the deferred E07a frozen `graphdb.*` activation
 obligation after S2 and S3 share a branch, through the S1 resolver.
 
-- [ ] **Red.** All four slices' guards have failing-first evidence, including
+- [ ] **Red.** All five slices' guards have failing-first evidence, including
   both record families, disk-full/repeated/uncertain batches, changed inputs,
   explicit resume refusals and old-reader pin survival.
 - [ ] **Green.** One complete snapshot loader uses the four input groups,
@@ -797,7 +808,8 @@ not G28's loader/rebuild acceptance.
   digest is separate. Rebuild `graph_projection_receipts` in append-only 0030:
   `/1` requires NULL pins, `/2` all four well-formed/non-NULL; copy legacy rows
   as `/1`, recreate indexes/triggers, add the resolution foreign key and
-  BEFORE INSERT coverage trigger. No `graph_projection_builds` table.
+  BEFORE INSERT coverage trigger. No `graph_projection_builds` table in G28b;
+  G28e adds it later through 0031.
 - **Check.** Strict decoding refuses legacy unpinned `/1`; open/probe compares
   native stamps to receipt pins and receipt settings/lock to current admission.
   Preserve `reader`/`reader_cancellable`: the receipt supplies resolution,
@@ -825,8 +837,8 @@ not G28's loader/rebuild acceptance.
 `capped cargo nextest run -p maestro-knowledge --features engine graph::projection`
 and `capped cargo nextest run -p maestro-knowledge --features engine --test it projection_lifecycle`.
 **Acceptance:** contributes the single qualified loader and clean/resumed
-IDs/digests/counts equality to G28's FR-S2-008/019 and SC-S2-006; G28d still gates
-umbrella acceptance.
+IDs/digests/counts equality to G28's FR-S2-008/019 and SC-S2-006; G28d and G28e
+still gate umbrella acceptance.
 
 - **Red.** Load subject facts and entity edges, checking separate counts/digests
   and no literal node/edge. Inject disk-full, repeated batch and kill after
@@ -862,9 +874,16 @@ umbrella acceptance.
 **Test:** `capped cargo nextest run -p maestro graph_rebuild` and
 `capped cargo nextest run -p maestro-knowledge graph::projection`; engine-enabled
 CLI/integration runs use `--features engine` and the existing CI qualification.
-**Acceptance:** completes G28's CLI/integration/measurement obligations toward
-FR-S2-008/019 and SC-S2-006 only with G28a–G28c's integrated evidence; no slice
-is accepted alone, and G30/G22 retain their own equality/restore obligations.
+**Acceptance:** contributes G28's CLI/integration/measurement obligations toward
+FR-S2-008/019 and SC-S2-006 with G28a–G28c's integrated evidence; published
+model-free repair still requires G28e. No slice is accepted alone, and G30/G22
+retain their own equality/restore obligations.
+
+**Status:** partial delivery. Keep G28d's typed refusal for a published target
+until G28e passes; the rebuild command alone does not yet satisfy published
+projection repair. Preserve the private target-selection seam and its
+no-generation/receipt/job/native-side-effects regression. G28e replaces that
+refusal with build reservation, not a new generation or a second loader.
 
 - **Red.** Test the literal command from G28b's shared rebuild-repair constant
   through the real CLI parser: **`maestro knowledge graph rebuild` must parse**
@@ -877,13 +896,112 @@ is accepted alone, and G30/G22 retain their own equality/restore obligations.
   rebuild/readiness from the same frozen snapshot/profile; the rule-only pilot
   leaves it disabled. Preserve owned-root and publication boundaries.
 - **Check.** Run end-to-end tests and record this loader's rebuild time and peak
-  disk in `S2/research.md`, then document the runnable repair and explicit
-  resume flow. G11 retains the later explicit scale benchmark; invent no new
+  disk in `S2/research.md`, then document the supported rebuild and explicit
+  resume flow, naming the published-target refusal until G28e passes.
+  G11 retains the later explicit scale benchmark; invent no new
   ceiling. Graph-file rebuild, including G36's later transitions, needs no
   model, Qdrant claim authority or live-file copy. Only descriptor re-embedding
   may use the pinned existing embedding profile; backup/restore requires no
   descriptor projection storage. G36 extends this one loader, not a second
   engine. G28 must land whole before S2 reaches main (15:31 ruling).
+
+#### G28e — model-free repair of a published projection
+
+**Time:** **8 h** planning allocation: 3 h schema/kernel authority and
+mechanical caller adaptation, 3 h producer/native/reader/resume integration,
+and 2 h CLI/cleanup/end-to-end evidence. The first two checkpoints are coupled
+implementation milestones, qualified and landed together. Do not activate
+0031's publication contract without matching producer binding, versioned
+project-job submission for existing callers, `/3` native stamps and `/2` read
+compatibility. Each intermediate milestone must compile in default and engine
+configurations and run its focused checks; existing native/CLI publication
+tests must be green before the combined cutover lands. Hosted CI/review waits
+are additional; estimates are not measured durations. *(Amended 2026-10-04
+after validation R1; supervisor ruling: checkpoints 1 and 2 are one lane and
+one commit.)*
+**After:** G28d and integrated G28a–G28c, including their reviewed follow-up
+fixes; use the qualified lifecycle through E10. Do not revert later journal
+revalidation/cleanup fixes to reproduce this decision's source snapshot.
+E11 remains a separate umbrella/release gate.
+**Files:** `K/migrations/0031_graph_projection_builds.sql`,
+`K/src/store/migration.rs` and migration/upgrade fixtures;
+`K/src/facts/{build_types,projection,projection_inputs}.rs` and projection
+build/receipt tests; `P/{build,content,checkpoint,writer,cleanup,receipts}.rs`,
+`P/engine/{producer,backend,schema,rows,reader,registry,probe}.rs` and their
+shared/native tests; `N/tests/it/projection_lifecycle/`;
+`C/src/cli/graph/{rebuild,cleanup}.rs` plus existing CLI argument/dispatch
+registration; `C/tests/it/{graph_rebuild,graph_cleanup}.rs`;
+`docs/how-to/knowledge-graph.md`, ADR-0021 and `S2/research.md`.
+Here K = maestro-kernel, N = maestro-knowledge, C = maestro under `crates/`,
+P = `N/src/graph/projection`, and S2 = `specs/002-knowledge-graph`.
+New helper/test files may split these targets to retain the source size rules.
+**Test:** focused commands below, default and engine-enabled as applicable.
+**Acceptance:** inherits G28's **FR-S2-008, FR-S2-019, SC-S2-006**; completes
+published model-free repair without reducing G28d's obligations. Preserve
+G27/E10's existing reader-safe cleanup requirements; do not reassign their
+requirement ownership. No independent umbrella acceptance.
+
+- [ ] **Red.** Prove same-generation fresh repair after changed settings,
+  changed complete lock, missing file and corrupt file; hold an old reader
+  across a healthy predecessor's replacement. Start with failures on the old
+  one-receipt/name/job model. Add legacy `/1` upgrade + explicit-resolution
+  repair; `/2` migration and read compatibility; no fabricated legacy pins;
+  malformed authority remains corruption. Assert every generation row/search
+  event, attachment and Qdrant/model call count is unchanged (external calls
+  zero). Freeze unchanged canonical claim/content vectors and new name vectors.
+  Kill raw-SQL guards for wrong-generation/head, invalid pins/coverage/counts,
+  duplicate/replaced/deleted builds/receipts, and pointers without receipts.
+- [ ] **Green.** Implement 0031, immutable build reservation and versioned job
+  inputs; bind one producer to its build and current lease. Reuse the sole
+  snapshot loader and immutable native installation. Atomically insert receipt
+  and CAS the active head; never mutate a predecessor or search generation.
+  Add `/3` build stamps, `/2` read compatibility, build-specific names and
+  `/2` manifests. Reader/health select one active receipt; explicit cleanup
+  removes only a guarded eligible build. Replace G28d's private refusal with
+  this operation, retaining explicit resolution display and disabled optional
+  descriptors for the model-free path.
+- [ ] **Check.** Run the focused matrix, then hosted three-OS qualification,
+  coverage, strict rustdoc and diff mutations. Deterministically test lease
+  expiry/takeover, head change/retirement between preflight and commit, a
+  receipt/head transaction failure, disk-full, kill after native batch commit,
+  and kill after install but before receipt: the old head survives every
+  unsuccessful publication. Prove repeated repairs get fresh build IDs/names,
+  same-job resume keeps them, changed-pin resume refuses, and published or
+  foreign builds never resume. Test cleanup of superseded/retired/missing `/1`
+  and `/2` files, active/busy/foreign refusals and per-build cleanup job replay.
+  A cleanup error after commit still reports published and readable.
+  Synchronize two distinct lease-valid jobs that reserve builds against the
+  same active predecessor, then race their kernel publication transactions.
+  Exactly one succeeds; the loser records neither receipt nor head change and
+  cannot resume against the new head. Separately prove identical concurrent
+  submissions deduplicate to the same job/build, and native writer contention
+  preserves staging without overwriting it. *(Added after validation R2.)*
+  Record repair time and peak disk including retained predecessor, candidate
+  and checkpoints; document the one-time legacy-resolution selection, read
+  rule, explicit resume, cleanup and preserved orphan gap. No new performance
+  ceiling.
+
+Focused commands (implementation evidence still required):
+
+```sh
+capped cargo nextest run -p maestro-kernel \
+  -E 'test(facts::tests::projection) | test(store::tests::migrations) | test(facts::tests::upgrade) | test(model::tests::extractor)'
+capped cargo nextest run -p maestro-knowledge graph::projection
+capped cargo nextest run -p maestro-knowledge --features engine graph::projection
+capped cargo nextest run -p maestro-knowledge --features engine \
+  --test it projection_lifecycle
+capped cargo nextest run -p maestro \
+  -E 'test(graph_rebuild) | test(graph_cleanup) | test(graph_operations)'
+capped cargo nextest run -p maestro --features engine \
+  -E 'test(graph_rebuild) | test(graph_cleanup) | test(graph_operations)'
+```
+
+Use `CARGO_BUILD_JOBS=3`, the brief's native-build cap and immediate
+`capped cargo clean -p lbug` after native evidence. Locally run fmt, host Clippy
+(S2's `env -u CLIPPY_CONF_DIR`), conventions, architecture, duplication and
+guide checks. GitHub owns full workspace, portability, rustdoc, coverage and
+mutation qualification. Windows verifies immutable `/2`/`/3` reads and honest
+write refusal; this slice does not claim to enable Windows native writers.
 
 G29 is removed: resuming G28 is not a separate incremental implementation.
 A second loader is outside S2; proposing it later requires a supervisor-set
@@ -891,7 +1009,7 @@ A second loader is outside S2; proposing it later requires a supervisor-set
 
 ### G04 [US1] Return scoped neighbors from the pilot
 
-**Time:** 4 h. **After:** G03, G25, G28d.
+**Time:** 4 h. **After:** G03, G25, G28e.
 **Files:** `P/read.rs`, `P/tests/neighbors.rs`, `G/query.rs`,
 `G/tests/neighbors.rs`, `K/src/facts/read.rs`, `K/src/facts/quote.rs`,
 `C/src/cli/graph/read.rs`, `C/src/cli/args.rs`, `C/src/cli/run.rs`,
@@ -1028,7 +1146,7 @@ acceptance; pilot success is not M2.
 
 ### G11 [US2] [P] Extend LadybugDB neighbors with bounded Cypher paths
 
-**Time:** 4 h. **After:** G04, G25, G28d, G31.
+**Time:** 4 h. **After:** G04, G25, G28e, G31.
 **Files:** `G/query.rs`, `G/cypher.rs`, `G/tests/cypher.rs`,
 `G/tests/paths.rs`, `P/port.rs`, `P/read.rs`, `K/src/facts/recheck.rs`,
 `K/src/facts/tests/recheck.rs`, `C/src/cli/graph/read.rs`,
@@ -1678,7 +1796,7 @@ SC-S2-006, SC-S2-007, SC-S2-008; supervisor-approved release evidence.
 
 ## Dependencies and parallel opportunities
 
-The **After** line is authoritative for G tasks and G28a–G28d; the E table
+The **After** line is authoritative for G tasks and G28a–G28e; the E table
 owns G27 slice prerequisites. Every G predecessor appears earlier above.
 C44 → G01, C46 → G26 and C47a → E07a/G28 are explicit cross-slice waits; external
 private/CI evidence is separate. M1 release is not an S2 start gate.
@@ -1692,7 +1810,7 @@ G28 consumes its qualified native lifecycle through E10 and may start before
 E11's receipts/how-to (2026-10-03 13:33 ruling); G24 still requires both complete
 umbrellas. G25 requalifies the combined E01/E02/E03/E03b fork before E07a.
 The S3 handoff is **G25/E07a qualification → C48 → G22 → C49a**, never C48 ↔ G22.
-C49a also joins E11/G28d and its existing C47b/C48/C18/C16b inputs. E11 supplies
+C49a also joins E11/G28e and its existing C47b/C48/C18/C16b inputs. E11 supplies
 engine/gate receipts; G22 performs release packaging/drills, not a prerequisite
 for E11 or C48. C49a is a downstream S3 consumer, not an added S2 release gate.
 
@@ -1702,9 +1820,9 @@ for E11 or C48. C49a is a downstream S3 consumer, not an added S2 release gate.
 | G03 | G06 scoring, G09 builds and G31 vocabulary are `[P]`; shared registration hunks are supervisor-rebased, not concurrent writes. G10 waits for G09/G31 so resolver edits serialize too. |
 | G06 | G34 local drafting tooling can run beside public native work; actual private drafting still waits for G05 and the frozen receipt. |
 | G04 and G34 | G32 reviewer/capture, then G33 owner page, unblock G05; G11/G12 proof work can proceed beside these tools. G34 precedes G32 for their shared manifest. |
-| G28d and G25 | G04 pilot neighbors can start immediately (G03 already landed); G11 adds paths after G04. |
+| G28e and G25 | G04 pilot neighbors can start immediately (G03 already landed); G11 adds paths after G04. |
 | G05 and G34 | G07 drafts source/arm-A questions independently of G38; G08 final freeze additionally waits for G38 selection, recorded receipts and reviewer confirmation. |
-| G27's qualified native lifecycle through E10, G35, G26 and C47a | G28a → G28b → G28c → G28d can proceed without E11; no slice alone closes G28. S3 C27a separately consumes the qualified G27 port; coordinate its public contract. |
+| G27's qualified native lifecycle through E10, G35, G26 and C47a | G28a → G28b → G28c → G28d → G28e can proceed without E11; no slice alone closes G28. S3 C27a separately consumes the qualified G27 port; coordinate its public contract. |
 | G13 and G35 | G14 R4 and G15 tools proceed with a shared contract; G36 follows G11, G37 joins both routes, then G16/G38. |
 
 These are opportunities, not permission to write shared files in parallel.
@@ -1722,13 +1840,14 @@ behavior, not a framework assembled before the first useful result.
 The G-heading inventory remains **37 tasks** (G01–G38 except removed G29),
 including G27 and G28 umbrellas. The **35** other initial budgets total
 **132 h**; five reopened follow-ups add **9 h**, and G01/G26/G22 cross-slice
-follow-ups add **3 h**, for **144 h**. G28's **four slices** add
-**2 + 4 + 4 + 3 = 13 h**, including its original cross-slice hour, giving
-**157 h** bounded G work. This replaces its former 5 h by 13 h (**+8 h**), not
-scope or acceptance, per the 2026-10-03 16:38 ruling. G27's **14 E slices**
+follow-ups add **3 h**, for **144 h**. G28's **five slices** add
+**2 + 4 + 4 + 3 + 8 = 21 h**, including its original cross-slice hour, giving
+**144 + 21 = 165 h** bounded G work. G28e adds **8 h** to the prior 13 h
+(2026-10-04); the 2026-10-03 16:38 ruling had replaced G28's former 5 h with
+13 h. Neither amendment changes scope or acceptance. G27's **14 E slices**
 replace its old four-hour allocation; E07a **+2 h** and E08b **+1 h** remain
 inside the **43–89 h** E ranges.
-Thus **157 + (43–89) = 200–246 lane-hours**, not elapsed time or remaining work.
+Thus **165 + (43–89) = 208–254 lane-hours**, not elapsed time or remaining work.
 The original cross-slice increase stays **4 + 2 + 1 = 7 h**; G28's included
 hour is not added again. Already landed base tasks/slices remain in this
 inventory, but their new deltas are explicitly budgeted and dispatched
@@ -1736,16 +1855,16 @@ separately. Extraction, acceptance runtime, human review and external native
 CI/gate-release waits remain additional.
 
 For a reproducible bounded-G subtotal only, give G27 weight zero, use G28's
-13 h serial slice total once, add other reopened/cross-slice G deltas to their
+21 h serial slice total once, add other reopened/cross-slice G deltas to their
 named tasks, use internal G **After** edges and make G24 wait for all G tasks/
 follow-ups. Treat all C/E boundaries as already available for this calculation
 only; it is not the combined release path.
-The longest weighted G path is **80 h**:
-G01 → G02 → G03 → G31 → G10 → G35 → G28a → G28b → G28c → G28d → G04 →
+The longest weighted G path is **88 h**:
+G01 → G02 → G03 → G31 → G10 → G35 → G28a → G28b → G28c → G28d → G28e → G04 →
 G11 → G13 → G14 → G37 → G16 → G38 → G08 → G20 → G23 → G24.
 G31's follow-up breaks its former tie with G09.
-The pilot's G ancestor set costs **78 h** with a **55 h** longest G path:
-G01 → G02 → G03 → G31 → G10 → G35 → G28a → G28b → G28c → G28d → G04 →
+The pilot's G ancestor set costs **86 h** with a **63 h** longest G path:
+G01 → G02 → G03 → G31 → G10 → G35 → G28a → G28b → G28c → G28d → G28e → G04 →
 G32 → G33 → G05.
 These full-plan subtotals include base work plus all G deltas; they neither
 measure remaining work nor waive the G10/G35 recheck or native qualification.
@@ -1766,7 +1885,7 @@ These are planned owners, not delivered statuses. G01 checks exact equality in
 `crates/maestro-knowledge/tests/it/graph_fixture.rs`; missing, extra and duplicate
 map rows fail. Owners stay in task/document order, not numeric order (for
 example `G28, G30, G22`); only `### GNN [US…]` headings define tasks.
-`#### G28a` through `#### G28d` inherit the G28 umbrella requirements without
+`#### G28a` through `#### G28e` inherit the G28 umbrella requirements without
 adding duplicate ownership rows or independent acceptance. G24 replaces
 planning claims with integrated evidence/blockers before release.
 

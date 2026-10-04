@@ -145,21 +145,45 @@ checks are not evidence that any downstream v4 consumer or release is complete.
 | G26 | +1 h for registry-backed graph settings in setup/health. | C46, G25, G01. |
 | G27 E07a | +2 h for the frozen settings/lock handoff into native activation. | C47a, G01, combined fork, G25, released E04. |
 | E08b | +1 h to carry settings/locks through reader, writer and publication. | E08a and E06, unchanged; these paths describe scope, not new edges. |
-| G28 | +1 h to bind those inputs to the existing loader/rebuild, included in the replacement 13 h slice budget below. | C47a, G26, G35 and G27's qualified native lifecycle through E10; E11 is not a start gate (2026-10-03 13:33 ruling). |
+| G28 | +1 h to bind those inputs to the existing loader/rebuild, included in the replacement 21 h slice budget below. | C47a, G26, G35 and G27's qualified native lifecycle through E10; E11 is not a start gate (2026-10-03 13:33 ruling). |
 | G22 | +1 h for qualified backend declarations in the native/release drill. | C48 and existing release inputs. |
 
 S2 MUST preserve **qualification → C48 → G22 → C49a**, never C48 ↔ G22.
-C49a also requires **E11 and G28d**; qualified pins come from actual execution
+C49a also requires **E11 and G28e**; qualified pins come from actual execution
 receipts, never invented metadata. C49a remains S3-owned, not a new S2 task.
 The original increment is **7 h** (4 G + 3 E), retaining **37 G tasks and
 14 E slices**. The supervisor's 2026-10-03 16:38 Oracle budget ruling in ledger
-`s1-knowledge-kernel/progress.md` replaces G28's 5 h (including its 1 h
-cross-slice allocation) with **four ordered slices: 2 + 4 + 4 + 3 = 13 h**.
-The old estimate predates the resolution pin, durable binding and explicit
-resume obligations surfaced in implementation; scope and acceptance do not
-change. The **+8 h** gives **157 h** bounded G + **43–89 h** E = **200–246 h**
-full-plan effort, not remaining work or elapsed time. Do not count G28's
-included cross-slice hour again. Task acceptance ownership is retained.
+`s1-knowledge-kernel/progress.md` replaced G28's 5 h (including its 1 h
+cross-slice allocation) with 13 h for resolution pins, durable binding and
+explicit resume. The 2026-10-04 G28e amendment adds **8 h** for published repair:
+**five ordered slices: 2 + 4 + 4 + 3 + 8 = 21 h**. Scope and acceptance do not
+change. The total is **144 + 21 = 165 h** bounded G + **43–89 h** E =
+**208–254 lane-hours** full-plan effort, not remaining work or elapsed time.
+The bounded-G longest path is **88 h**; pilot ancestor effort is **86 h**, with
+a **63 h** longest G path. Do not count G28's included cross-slice hour again.
+Task acceptance ownership is retained.
+
+### Published projection repair amendment, 2026-10-04
+
+Source: ledger `s2-knowledge-graph/g28-repair-decision.md`, §6 and its
+bookkeeping, with `s2-knowledge-graph/g28-repair-decision-validation.md`, R1/R2
+(2026-10-04 UTC; supervisor ruling recorded at 2026-10-03 20:29). The
+[plan](plan.md#published-projection-repair-g28e) and
+[G28e task](tasks.md#g28e--model-free-repair-of-a-published-projection) include
+both validation amendments: checkpoints 1 and 2 qualify and land together
+(R1), and two distinct repair jobs race the same predecessor with exactly one
+receipt/head transaction succeeding (R2). This is not implementation evidence.
+
+G28e repairs the published projection through successive immutable builds and
+a kernel-owned active-build pointer, preserving the search generation, graph
+attachment, predecessor receipts and held readers. It reuses the sole snapshot
+loader without model calls, Qdrant changes or opening the damaged old file.
+G28d remains partial delivery; its typed published-target refusal stays until
+G28e passes. G04 and G11 now wait for G28e, as does the C49a handoff alongside
+E11. E10 remains G28's start boundary; E11 remains G27's independent
+umbrella/release gate. G28e inherits FR-S2-008/019 and SC-S2-006, without a new
+requirement owner or any change to requirements, acceptance bars or success
+criteria.
 
 ## Needs owner action
 
@@ -223,8 +247,8 @@ one approved subset/version; independently review every accepted claim.
 
 The rule-only pilot reads neighbors only through qualified LadybugDB and G27's
 projection port, using G28's single loader. SQLite holds claim authority and
-evidence checks, never graph queries. G04 waits for G25/G28; G11 extends the
-same engine with bounded paths. This pilot is not M2. G01 freezes the public
+evidence checks, never graph queries. G04 waits for G25/G28e; G11 also waits
+for G28e and extends the same engine with bounded paths. This pilot is not M2. G01 freezes the public
 [synthetic source](../../tests/fixtures/synthetic/graph/defaults.md) and
 [rule/oracle fixture](../../tests/fixtures/synthetic/graph/defaults.json).
 Plan A0 specifies this single table contract and the separately approved
@@ -708,8 +732,9 @@ receipts for every FR-S2 and SC-S2 item before declaring M2.
 
 - The integrated S1 APIs are the starting point; S1 finishes in parallel.
   No S2 task waits for M1 release. Public claims/rules/model-role work can
-  start alongside G25, but G04 pilot neighbors need G25/G27/G28 first; no
-  temporary SQLite graph queries or postponed LadybugDB delivery.
+  start alongside G25, but G04 pilot neighbors need G25/G27/G28e first; G11
+  also waits for G28e. No temporary SQLite graph queries or postponed
+  LadybugDB delivery.
 - No S1 receipt applies to the pilot. U2 approves one deterministically
   selected 9.0.22 table and the whole published acceptance generation locally;
   G05/G07/G08 still need verified separate `pilot-inputs.json` and
