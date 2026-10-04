@@ -60,6 +60,11 @@ fn the_same_kind_scope_and_inputs_make_the_same_key_whatever_the_order_of_their_
     let reordered = json!({"force": true, "collection": "demo"});
     let job = database.submit_job(&publish(&inputs), at(0)).unwrap();
     assert_eq!(
+        job.idempotency_key.as_str(),
+        "43d4ee76384534c89632d96e154969433162641b4ee84d6b1c3cb1b772ba1edd",
+        "the existing sorted-map identity must never change"
+    );
+    assert_eq!(
         database.submit_job(&publish(&reordered), at(1)).unwrap(),
         job
     );

@@ -8,17 +8,16 @@ use maestro_settings::USER_FILE;
 use std::path::Path;
 
 /// The check of the session `session`, whose user file is in `config_dir`.
-pub(super) fn settings_check(config_dir: &Path, session: Result<Session, Failure>) -> Check {
+pub(super) fn settings_check(config_dir: &Path, session: Result<&Session, Failure>) -> Check {
     let target = config_dir.join(USER_FILE).display().to_string();
     let session = match session {
         Ok(session) => session,
-        Err(failure) => {
+        Err(error) => {
             return Check::failed(
                 "settings",
                 &target,
-                failure.to_string(),
-                "fix or remove the key it names; `maestro config explain` shows what each \
-                 setting accepts",
+                error.to_string(),
+                "fix the named preferences file, then run maestro doctor again",
             );
         }
     };

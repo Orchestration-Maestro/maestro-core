@@ -1,5 +1,6 @@
 //! Filesystem operations for private backup and restore files.
 
+use super::super::filesystem::has_multiple_links;
 use crate::failure::Failure;
 use sha2::{Digest as _, Sha256};
 use std::{
@@ -9,8 +10,6 @@ use std::{
     path::Path,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-#[cfg(windows)]
-use winapi_util::file::information;
 
 /// Reports whether `path` cannot be used as an empty backup destination.
 pub(super) fn directory_problem(path: &Path) -> Result<Option<String>, Failure> {
@@ -213,40 +212,6 @@ pub(super) fn source_file(path: &Path) -> Result<(), Failure> {
         )));
     }
     Ok(())
-}
-
-/// Reports whether a file has more than one filesystem link.
-#[cfg_attr(
-    unix,
-    expect(
-        clippy::unnecessary_wraps,
-        reason = "Windows handle inspection can fail, so all targets share a fallible API"
-    )
-)]
-pub(super) fn has_multiple_links(path: &Path, metadata: &fs::Metadata) -> io::Result<bool> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt as _;
-        let _ = path;
-        Ok(has_multiple_links_count(metadata.nlink()))
-    }
-    #[cfg(windows)]
-    {
-        let _ = metadata;
-        let file = File::open(path)?;
-        let information = information(file)?;
-        Ok(has_multiple_links_count(information.number_of_links()))
-    }
-    #[cfg(not(any(unix, windows)))]
-    {
-        let _ = (path, metadata);
-        Ok(false)
-    }
-}
-
-/// Reports whether `count` exceeds the one link owned by a standalone file.
-fn has_multiple_links_count(count: u64) -> bool {
-    count > 1
 }
 
 /// Returns the current UTC time in RFC 3339 milliseconds.

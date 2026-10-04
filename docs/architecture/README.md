@@ -98,7 +98,7 @@ flowchart TB
     end
     app --> kernel[(Kernel<br/>SQLite WAL + CAS artifacts)]
     knowledge --> qdrant[(Qdrant 1.19<br/>vector + BM25 projections)]
-    knowledge --> neo4j[(Neo4j 2026.x Community<br/>graph projection)]
+    knowledge --> graph_projection[(Embedded LadybugDB / lbug<br/>S2 projection, G25 pending)]
     runtime --> sdk[Copilot SDK 1.0.14<br/>spawns Copilot runtime]
     knowledge --> router[model router<br/>llama.cpp: generate, embed, rerank, tokenize<br/>models chosen by bake-off]
     runtime --> router
@@ -113,8 +113,15 @@ serves the local HTTP API and schedules). All of them call the same application
 operations; no transport owns logic. The daemon's extension host runs
 subscribers and connectors that read the journal's event stream through durable
 cursors and call operations as their own principals. The kernel is the only
-authority. Qdrant and Neo4j hold **projections** that can be deleted and rebuilt
-from the kernel at any time.
+authority. Qdrant and the planned embedded LadybugDB hold **projections** that
+can be deleted and rebuilt from the kernel. S2 engine adoption requires G25
+qualification; later user-selected external Neo4j belongs to deployment modes,
+not a runtime fallback ([ADR-0021](../adr/0021-embedded-ladybug-graph-projection.md)).
+The [manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff)
+keeps `graph.engine`, maps core backend `type = "ladybug"` through the registered
+adapter, and reuses one S1 defaults slot. C46/C47a and the S2 consumer deltas
+still own registry/frozen-lock wiring; C48 publishes only qualified metadata.
+These design rows do not supply native or release evidence.
 
 ## 4. Layer map
 
@@ -125,9 +132,9 @@ from the kernel at any time.
 | L3 | Canonicalization | Markdown → typed, replayable canonical document | `maestro-canonicalization` | pulldown-cmark 0.13.4 | S0 (existing) |
 | L4 | Deduplication | Exact groups; near-duplicate version groups | `maestro-canonicalization`, `maestro-knowledge::prepare` | SHA-256, MinHash | S1 |
 | L5 | Chunking | Structural chunks with mapped spans, budgeted in the selected embedder's tokens | `maestro-canonicalization` | router `/tokenize` of the selected embedding model | S1 |
-| L6 | Representations | Dense, sparse, entity and (later) late-interaction vectors | `maestro-knowledge::represent` | Embedder selected by bake-off, Qdrant BM25 | S1 |
+| L6 | Representations | Dense and sparse vectors; entity vectors deferred, late interaction a candidate | `maestro-knowledge::represent` | Embedder selected by bake-off, Qdrant BM25 | S1 |
 | L7 | Indexing | Generation-versioned projections, atomic alias switch | `maestro-knowledge::index` | Qdrant 1.19 + qdrant-client 1.19 | S1 |
-| L8 | Knowledge graph | Entities, relations, claims with evidence; graph projection | `maestro-knowledge::graph` | Neo4j 2026.x + neo4rs; petgraph 0.8 | S2 |
+| L8 | Knowledge graph | Entities, relations, claims with evidence; graph projection | `maestro-knowledge::graph` | Embedded LadybugDB through `lbug`, G25 qualification pending; no petgraph fallback | S2 |
 | L9 | Retrieval | Routes, fusion, rerank, evidence bundles | `maestro-knowledge::search` | RRF, reranker selected by bake-off | S1, S2 |
 | L10 | Generation | Grounded, cited answers with deterministic guards | `maestro-knowledge::answer` | Generator selected per role by bake-off; JSON-schema output | S1 |
 | L11 | Catalog | Parse, compile, sign, install and route the catalog | `maestro-catalog` | Copilot `.agent.md`/`SKILL.md`, jsonschema 0.57 | S3 |
@@ -154,7 +161,7 @@ that the combination has been tested.
 | Authority store | SQLite (rusqlite 0.40.2, bundled), WAL | Scopes, journal, jobs, facts, catalog state | Postgres, SurrealDB 3.2 | Embedded, zero-ops on a laptop, transactional, one file to back up | Single writer: short transactions, no I/O inside them |
 | Artifact store | Content-addressed files (SHA-256, zstd 0.14 optional) | Originals, canonical JSON, bundles, reports | Object store | Immutable, verifiable, deduplicated, rsync-able | fsync + atomic rename; verify on read |
 | Vector + lexical index | Qdrant 1.19 server + qdrant-client 1.19.0 | Dense and client-generated sparse vectors, payload filters, aliases | Qdrant Edge 0.8 (embedded), LanceDB 0.39, tantivy 0.26 | Qdrant stores and searches `bm25-en-fr/1` vectors with IDF weighting and provides aliases for atomic generations | Edge evaluation is deferred until after M1 (ADR-0003) |
-| Graph projection | Neo4j 2026.x Community + neo4rs 0.9 | Traversal, paths, Leiden communities, centrality | LadybugDB (lbug 0.20, embedded), SurrealDB 3.2, FalkorDB, SQLite + petgraph | Mature Cypher and graph algorithms; user-selected pairing with Qdrant | JVM footprint; Bolt compatibility of neo4rs with 2026.x; LadybugDB spike (ADR-0004) |
+| Graph projection | Embedded LadybugDB through `lbug`; exact pin/features from G25 | Bounded admissible neighbors/paths and whole source proofs; algorithms deferred | Later user-selected external Neo4j via deployment modes; no runtime fallback | Embedded-first S2 without a graph service (ADR-0021 amends ADR-0004) | G25 native, process, dependency and cost qualification pending; G24 finalizes release evidence |
 | Canonicalization | `maestro-canonicalization` (in repo) | Canonical documents, dedup, chunking | — | Already built, tested and fixture-backed | Strict lints and file-size limits applied in S0 |
 | Token counting | llama.cpp `/tokenize` of the **selected** embedding model, through the router | Chunk budgets that the embedder will honour | Native `llama-tokenize` subprocess (kept for parity), HF `tokenizers` 0.23 | Same vocabulary as the embedder, no machine paths, no process per count | Ordered-ID parity test against the native counter; a new embedder means a new chunk profile (ADR-0008) |
 | Models (every role) | **None preselected.** Each role (embedder, reranker, generator, extractor, judge, agent roles) is filled by the winner of a recorded bake-off on our eval suites | Quality, latency, VRAM and licence decide | See [model selection](05-platform-and-operations.md#3-model-selection) for the candidate pools | "Use the best one", measured on our data, not on a leaderboard | Winners bound in model cards (GGUF hash, template, server build); re-run on any change (ADR-0011) |
@@ -182,7 +189,7 @@ that the combination has been tested.
 These hold in every slice and are enforced by tests, not by prose.
 
 1. **One authority, many projections.** The kernel (SQLite + artifacts) is the
-   only source of truth. Qdrant collections, Neo4j graphs and caches are
+   only source of truth. Qdrant collections, graph files and caches are
    generation-stamped projections, rebuildable from the kernel; losing one loses
    no information.
 2. **Provenance is never dropped.** Every chunk, vector, entity, relation, claim,

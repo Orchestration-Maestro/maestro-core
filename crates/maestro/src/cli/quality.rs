@@ -29,6 +29,7 @@ use crate::{
 use maestro_kernel::{
     artifact::Digest,
     job::{Job, JobState, NewJob},
+    json::canonical,
 };
 use maestro_knowledge::quality::{self, Ledger, LedgerError, Report};
 use serde_json::{Value, json};
@@ -95,9 +96,8 @@ fn summary(job: &Job) -> String {
     };
     let count = |name: &str| report[name].as_u64().unwrap_or_default();
     let counted = |name: &str| -> Option<String> {
-        let counts = report[name]
-            .as_object()
-            .filter(|counts| !counts.is_empty())?;
+        let value = canonical(report[name].clone());
+        let counts = value.as_object().filter(|counts| !counts.is_empty())?;
         let listed: Vec<String> = counts
             .iter()
             .map(|(key, count)| format!("{key} {count}"))

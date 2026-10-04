@@ -9,8 +9,8 @@ use crate::failure::Failure;
 use maestro_kernel::evidence::RouteStatus;
 use maestro_knowledge::{
     eval::{
-        Ask, AskOutcome, DeliveryScore, LadderQuestion, LadderScore, Search, SearchOutcome,
-        SectionRef, score_delivery, score_ladder,
+        Ask, AskOutcome, DeliveryScore, LadderQuestion, LadderScore, Located, Search,
+        SearchOutcome, SectionRef, score_delivery, score_ladder,
     },
     search::evidence::Anchor,
     suite::Suite,
@@ -65,13 +65,15 @@ pub(super) struct Searched {
     /// The anchors of its evidence, assembled under the rung's ask budget:
     /// scored when the rung does not ask.
     pub(super) delivered: Vec<Anchor>,
-    /// What else it gave, never scored.
+    /// Post-delivery anchors and unscored route diagnostics.
     pub(super) diagnostic: SearchDiagnostic,
 }
 
-/// What a search gave beyond what the floors score: diagnostics only.
+/// Delivered proof coordinates plus diagnostics beyond the S1 retrieval floors.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(super) struct SearchDiagnostic {
+    /// Original anchors remaining after the shared context and wire bounds.
+    pub(super) delivered: Vec<Located>,
     /// Expansion outcome, absent when intent is off.
     pub(super) intent_status: Option<RouteStatus>,
     /// Original top-depth candidates the intent votes put below the rerank

@@ -24,14 +24,18 @@ use std::{
 ///
 /// [`SettingsError::File`] for a larger file, and [`SettingsError::Io`]
 /// for one that cannot be read or is not UTF-8.
-pub(super) fn read_bounded(path: &Path) -> Result<Option<String>, SettingsError> {
-    read_opened(path, File::open(path))
+pub(super) fn read_bounded(path: &Path, max_bytes: u64) -> Result<Option<String>, SettingsError> {
+    read_opened(path, File::open(path), max_bytes)
 }
 
 /// Reads an opened file or classifies its open error.
-fn read_opened(path: &Path, opened: io::Result<File>) -> Result<Option<String>, SettingsError> {
+fn read_opened(
+    path: &Path,
+    opened: io::Result<File>,
+    max_bytes: u64,
+) -> Result<Option<String>, SettingsError> {
     match opened {
-        Ok(file) => read_text(file, path).map(Some),
+        Ok(file) => read_text_bounded(file, path, max_bytes).map(Some),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(unreadable(path, &error)),
     }
@@ -48,10 +52,20 @@ pub(super) fn read_in(
     name: &OsStr,
     path: &Path,
 ) -> Result<Option<String>, SettingsError> {
+    read_in_bounded(directory, name, path, MAX_FILE_BYTES as u64)
+}
+
+/// Read a regular file through the same handles with an injected byte bound.
+pub(super) fn read_in_bounded(
+    directory: &Directory,
+    name: &OsStr,
+    path: &Path,
+    max_bytes: u64,
+) -> Result<Option<String>, SettingsError> {
     directory
         .open_regular(name)
         .map_err(|error| unreadable(path, &error))?
-        .map(|file| read_text(file, path))
+        .map(|file| read_text_bounded(file, path, max_bytes))
         .transpose()
 }
 
@@ -62,21 +76,31 @@ pub(super) fn read_in(
 ///
 /// As [`read_bounded`].
 pub(super) fn read_text(file: File, path: &Path) -> Result<String, SettingsError> {
+    read_text_bounded(file, path, MAX_FILE_BYTES as u64)
+}
+
+/// Bound the held file before decoding UTF-8.
+fn read_text_bounded(file: File, path: &Path, max_bytes: u64) -> Result<String, SettingsError> {
     let mut bytes = Vec::new();
-    let limit = u64::try_from(MAX_FILE_BYTES)
-        .unwrap_or(u64::MAX)
-        .saturating_add(1);
+    let limit = max_bytes.saturating_add(1);
     let size = file.metadata().map(|metadata| metadata.len()).ok();
     file.take(limit)
         .read_to_end(&mut bytes)
         .map_err(|error| unreadable(path, &error))?;
-    if bytes.len() > MAX_FILE_BYTES {
+    if bytes.len() as u64 > max_bytes {
         let size = size
             .and_then(|size| usize::try_from(size).ok())
             .unwrap_or(bytes.len());
         return Err(SettingsError::File {
             path: path.to_path_buf(),
-            error: LayerError::TooLarge(size),
+            error: if max_bytes == MAX_FILE_BYTES as u64 {
+                LayerError::TooLarge(size)
+            } else {
+                LayerError::ByteLimit {
+                    bytes: size,
+                    limit: max_bytes,
+                }
+            },
         });
     }
     String::from_utf8(bytes)
@@ -101,7 +125,8 @@ mod tests {
         assert!(matches!(
             read_opened(
                 Path::new("settings.toml"),
-                Err(io::Error::from(io::ErrorKind::NotFound))
+                Err(io::Error::from(io::ErrorKind::NotFound)),
+                crate::MAX_FILE_BYTES as u64
             ),
             Ok(None)
         ));
@@ -112,7 +137,8 @@ mod tests {
         assert!(matches!(
             read_opened(
                 Path::new("settings.toml"),
-                Err(io::Error::from(io::ErrorKind::PermissionDenied))
+                Err(io::Error::from(io::ErrorKind::PermissionDenied)),
+                crate::MAX_FILE_BYTES as u64
             ),
             Err(SettingsError::Io { .. })
         ));

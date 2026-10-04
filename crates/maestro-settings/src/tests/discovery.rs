@@ -1,6 +1,8 @@
 //! Project-file discovery: the nearest `.maestro/config.toml` upward from the
 //! working directory, never above home, never through a link.
 
+use std::io::ErrorKind;
+
 use crate::{PROJECT_DIRECTORY, PROJECT_FILE, discover_project_file};
 use maestro_test_scratch::scratch_directory;
 use std::{
@@ -166,4 +168,134 @@ fn discover_project_file_never_follows_a_link() {
             ),
         ]
     );
+}
+
+#[test]
+fn callback_walk_respects_boundary_and_returns_nearest_held_snapshot() {
+    use crate::discover_project_with;
+    use maestro_filesystem::Directory;
+    let root = scratch_directory().unwrap();
+    let boundary = root.join("home");
+    let start = boundary.join("nested/deeper");
+    fs::create_dir_all(&start).unwrap();
+    fs::write(boundary.join("value"), "farther").unwrap();
+    fs::write(boundary.join("nested/value"), "nearest").unwrap();
+    let start = start.canonicalize().unwrap();
+    let boundary = boundary.canonicalize().unwrap();
+    let mut held = Directory::open_canonical(&start).unwrap();
+    let mut visited = Vec::new();
+    let (discovery, snapshot) = discover_project_with(&start, &boundary, |path| {
+        visited.push(path.to_path_buf());
+        let candidate = match held.read_regular_bounded("value", 100) {
+            Ok(bytes) => Some((path.join("value"), bytes)),
+            Err(error) if error.kind() == ErrorKind::NotFound => None,
+            Err(error) => panic!("{error}"),
+        };
+        held = held.parent().unwrap();
+        Ok(candidate)
+    });
+    assert_eq!(snapshot.unwrap(), b"nearest");
+    assert_eq!(discovery.file, Some(boundary.join("nested/value")));
+    assert_eq!(visited, [start.clone(), boundary.join("nested")]);
+    let mut count = 0;
+    let (missing, snapshot) = discover_project_with(&start, &boundary, |_| {
+        count += 1;
+        Ok::<_, String>(None::<(PathBuf, Vec<u8>)>)
+    });
+    assert_eq!(count, 3);
+    assert!(missing.file.is_none() && snapshot.is_none());
+    let (outside, _) = discover_project_with(
+        &root,
+        &boundary,
+        |_| -> Result<Option<(PathBuf, Vec<u8>)>, String> {
+            panic!("a callback outside the approved boundary must never run")
+        },
+    );
+    assert!(outside.note.is_some());
+    drop(held);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn held_callback_refuses_an_ancestor_swap_and_never_reopens_selected_bytes() {
+    use crate::discover_project_with;
+    use maestro_filesystem::Directory;
+    let root = scratch_directory().unwrap();
+    let start = root.join("home/nested");
+    fs::create_dir_all(&start).unwrap();
+    fs::write(start.join("config"), "original").unwrap();
+    let start = start.canonicalize().unwrap();
+    let boundary = root.join("home").canonicalize().unwrap();
+    let held = Directory::open_canonical(&start).unwrap();
+    let (discovery, _) = discover_project_with(&start, &boundary, |path| {
+        if path == start {
+            fs::rename(&start, boundary.join("displaced")).unwrap();
+            fs::create_dir(&start).unwrap();
+            fs::write(start.join("config"), "planted").unwrap();
+            return held
+                .read_preferences("config", 100)
+                .map(|bytes| Some((path.join("config"), bytes)))
+                .map_err(|error| format!("skipped: {error}"));
+        }
+        Ok(None)
+    });
+    assert!(discovery.file.is_none());
+    assert!(discovery.skipped[0].contains("changed"));
+    // A selected callback snapshot remains its original bytes after an edit.
+    let held = Directory::open_canonical(&start).unwrap();
+    let (_, snapshot) = discover_project_with(&start, &boundary, |path| {
+        let bytes = held.read_regular_bounded("config", 100).unwrap();
+        fs::write(start.join("config"), "later edit").unwrap();
+        Ok(Some((path.join("config"), bytes)))
+    });
+    assert_eq!(snapshot.unwrap(), b"planted");
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn held_callback_prevents_ancestor_swap_on_windows() {
+    use crate::discover_project_with;
+    use maestro_filesystem::Directory;
+    let root = scratch_directory().unwrap();
+    let start = root.join("home/nested");
+    fs::create_dir_all(&start).unwrap();
+    fs::write(start.join("config"), "original").unwrap();
+    let start = start.canonicalize().unwrap();
+    let boundary = root.join("home").canonicalize().unwrap();
+    let held = Directory::open_canonical(&start).unwrap();
+    let (_, snapshot) = discover_project_with(&start, &boundary, |path| {
+        assert!(fs::rename(&boundary, root.join("displaced")).is_err());
+        let bytes = held.read_regular_bounded("config", 100).unwrap();
+        fs::write(start.join("config"), "later edit").unwrap();
+        Ok(Some((path.join("config"), bytes)))
+    });
+    assert_eq!(snapshot.unwrap(), b"original");
+    drop(held);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn callback_discovery_refuses_relative_start_or_boundary_without_visiting() {
+    use crate::discover_project_with;
+    let scratch = scratch_directory().unwrap();
+    let absolute = scratch.canonicalize().unwrap();
+    for (start, boundary) in [
+        (Path::new("relative"), absolute.as_path()),
+        (absolute.as_path(), Path::new("")),
+    ] {
+        let mut visits = 0;
+        let (discovery, snapshot) = discover_project_with(start, boundary, |_| {
+            visits += 1;
+            Ok(Some((PathBuf::from("selected"), ())))
+        });
+        assert_eq!(visits, 0);
+        assert!(snapshot.is_none());
+        assert_eq!(
+            discovery.note.as_deref(),
+            Some("directory is outside the approved boundary")
+        );
+    }
+    fs::remove_dir_all(scratch).unwrap();
 }

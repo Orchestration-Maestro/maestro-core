@@ -15,13 +15,69 @@ platforms = "macos windows"
 # Split mutation testing across remote runners, the count chosen from the
 # mutants of the change (maestro-rust-workflows v4.4.0).
 mutation-shards = 0
+coverage-features = ["maestro/engine", "maestro-knowledge/engine"]
 mutation-windows = [
   "crates/maestro-settings/src/file/windows.rs",
-  "crates/maestro-canonicalization/src/filesystem/windows.rs",
+  "crates/maestro-filesystem/src/windows.rs",
+  "crates/maestro-filesystem/src/windows_owned.rs",
+  "crates/maestro-filesystem/src/windows_flags.rs",
+  "crates/maestro-filesystem/src/windows_replacement_security.rs",
+  "crates/maestro-filesystem/src/windows_security.rs",
 ]
+
+# Package-local native mutation ownership; no unrelated package gains lbug.
+[ci.mutation-engine]
+features = ["engine"]
+files = [
+  "crates/maestro-knowledge/src/graph/projection/engine/open.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/schema.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/input_pins.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/transaction.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/rows.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/backend.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/reader.rs",
+  "crates/maestro/src/cli/setup/graph_engine.rs",
+  "crates/maestro-knowledge/src/graph/projection/access.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/config.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/cancellation.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/producer.rs",
+  "crates/maestro-knowledge/src/graph/projection/configuration.rs",
+  "crates/maestro-knowledge/src/graph/projection/lifecycle.rs",
+  "crates/maestro-knowledge/src/graph/projection/operations.rs",
+  "crates/maestro-knowledge/src/graph/projection/handle.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/registry.rs",
+  "crates/maestro-knowledge/src/graph/projection/engine/probe.rs",
+  "crates/maestro/src/cli/health/graph_native.rs",
+  "crates/maestro-knowledge/src/graph/projection/probe.rs",
+]
+
+[native-cache]
+environment = "LBUG_NATIVE_CACHE_DIR"
+platforms = ["linux"]
+key-files = ["Cargo.lock"]
+published = ["entry-*"]
+
+# Copilot owns this documented read-only discovery override; it is not Maestro configuration.
+[[exception]]
+rule = "NAME-004"
+path = "crates/maestro-catalog/src/hosts/copilot.rs"
+item = "COPILOT_HOME"
+reason = "Copilot owns COPILOT_HOME; its adapter reads user profiles only and writes solely to the explicit target"
 
 # The seams of the canonicalization crate that keep one caller: each door is a
 # subsystem, and its one outside caller is the stage that composes it.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-catalog/src/source/kinds/mod.rs"
+item = "builtin"
+reason = "public API of maestro-catalog: the maestro crate's catalog check composes the built-in kinds; ARC-005 does not count cross-crate callers"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-catalog/src/source/kinds/mod.rs"
+item = "builtin_hooks"
+reason = "public API of maestro-catalog: the seam through which kinds loaded as data register with the built-in hooks; ARC-005 does not count cross-crate callers"
+
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/chunk_split/mod.rs"
@@ -45,20 +101,6 @@ rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/validate/mod.rs"
 item = "validate_structure"
 reason = "the pipeline runs the structural validator, a subsystem of its own"
-
-# The platform door picks rustix on Unix or Win32's flags on Windows, so that
-# neither the store nor the tokenizer branches on the platform (ADR-0018).
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
-item = "Directory"
-reason = "the store's link-free directories, one type on each platform"
-
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
-item = "open_nofollow"
-reason = "the artifact check's link-free open, one function on each platform"
 
 # The journal's filter, which jobs alone use outside the journal for now, to
 # read a job's last step: the lane that adds a second reader of a stream, the
@@ -98,8 +140,7 @@ reason = "the public knowledge event catalogue: the lifecycle writer journals ea
 
 # Scope name rules are public: maestro-knowledge's parser applies them to
 # collection and source ids, which the rule does not count, and the kernel's
-# record writers apply them again. A second caller in the crate removes these,
-# which the rule then reports stale.
+# record writers apply them again.
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-kernel/src/scope/mod.rs"
@@ -108,9 +149,9 @@ reason = "the scope module owns the public name rule: maestro-knowledge's parser
 
 [[exception]]
 rule = "ARC-005"
-path = "crates/maestro-kernel/src/scope/mod.rs"
-item = "check_collection_name"
-reason = "the scope module owns the collection name rule: maestro-knowledge's declaration parser and the kernel's record writers apply it"
+path = "crates/maestro-kernel/src/job/mod.rs"
+item = "LeaseTiming"
+reason = "one shared lease timing value crosses the kernel write seam, CLI holder and integration-test helpers"
 
 [[exception]]
 rule = "ARC-005"
@@ -275,6 +316,25 @@ rule = "DEP-001"
 path = "hashbrown@0.15.5"
 reason = "whatlang 0.18 requires it (ADR-0020); remove when whatlang moves to hashbrown 0.17"
 
+# The organization's lbug fork, a git dependency pinned by commit in
+# Cargo.toml and Cargo.lock: crates.io lbug 0.20.4 with its OpenSSL-bound extension
+# installer made optional and one CMake build reused (S2 G25, ADR-0021).
+[[exception]]
+rule = "DEP-001"
+path = "https://github.com/Orchestration-Maestro/lbug"
+reason = "lbug 0.20.4 links OpenSSL for its extension installer alone (ADR-0021, G25 bar item 2); remove when an upstream lbug release makes OpenSSL optional (LadybugDB/ladybug#777, #796)"
+
+[[exception]]
+rule = "DEP-001"
+path = "foldhash@0.1.5"
+reason = "whatlang 0.18 requires it through hashbrown 0.15 while lbug 0.20.4's cxx uses foldhash 0.2 (S2 G25 spike; ADR-0020); remove when whatlang moves to hashbrown 0.17"
+
+# The shared S2/S3 base combines two already-approved dependency closures.
+[[exception]]
+rule = "DEP-001"
+path = "arrayvec@0.5.2"
+reason = "Cedar 4.13.0 -> cedar-policy-formatter -> pretty 0.12.5 requires it; lbug -> rust_decimal 1.43.0 uses 0.7.8 (ADR-0020); remove when pretty/Cedar move to arrayvec 0.7"
+
 # The MCP module owns its transport and service startup; CLI dispatch selects
 # its one public protocol entry point.
 [[exception]]
@@ -294,8 +354,12 @@ reason = "the MCP module owns bounded transport and server startup; the CLI disp
 # of the synthetic collection in tests/fixtures/synthetic; celle, celles and
 # toi, French stopwords of the lexical analyzer, as sur is too, and requet and
 # schedul, stems its golden test pins; flate, of flate2, the compression crate
+# qdrant-client's tonic brings, which supply-chain/config.toml exempts;
+# ratatui, the proposed TUI crate's proper name in S3's owner-action register.
 # qdrant-client's tonic brings, which supply-chain/config.toml exempts; nd,
 # the ordinal ending of 2nd that the intent guard reads as a quantity.
+# espace and distincte are French, requiere is Spanish: C05c interface data
+# and its literal presentation expectations, not misspelled English.
 [typos]
 words = [
   "Exemple",
@@ -325,7 +389,11 @@ words = [
   "requet",
   "schedul",
   "flate",
+  "ratatui",
   "nd",
+  "espace",
+  "distincte",
+  "requiere",
 ]
 
 [[exception]]
@@ -333,6 +401,66 @@ rule = "ARC-005"
 path = "crates/maestro-kernel/src/unit_graph/mod.rs"
 item = "GraphKey"
 reason = "the public source-scoped graph read key belongs to graph storage; representation completion also reads each graph through this boundary"
+
+[[exception]]
+rule = "DEP-001"
+path = "block-buffer@0.10.4"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): lalrpop 0.22.2 uses sha3 0.10.9/digest 0.10; remove when lalrpop adopts sha3 on digest 0.11 and block-buffer 0.12"
+
+[[exception]]
+rule = "DEP-001"
+path = "cpufeatures@0.2.17"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): lalrpop 0.22.2 uses sha3 0.10.9; remove when lalrpop adopts sha3 on cpufeatures 0.3"
+
+[[exception]]
+rule = "DEP-001"
+path = "crypto-common@0.1.7"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): lalrpop 0.22.2 uses sha3 0.10.9/digest 0.10; remove when lalrpop adopts sha3 on digest 0.11 and crypto-common 0.2"
+
+[[exception]]
+rule = "DEP-001"
+path = "digest@0.10.7"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): lalrpop 0.22.2 uses sha3 0.10.9; remove when lalrpop adopts sha3 on digest 0.11"
+
+[[exception]]
+rule = "DEP-001"
+path = "darling@0.20.11"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): Cedar uses serde_with 3.24 on darling 0.24 while qdrant-client uses derive_builder 0.20 on darling 0.20; remove when derive_builder adopts darling 0.24"
+
+[[exception]]
+rule = "DEP-001"
+path = "darling_core@0.20.11"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): Cedar uses serde_with 3.24 on darling_core 0.24 while qdrant-client uses derive_builder 0.20 on darling_core 0.20; remove when derive_builder adopts darling_core 0.24"
+
+[[exception]]
+rule = "DEP-001"
+path = "darling_macro@0.20.11"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): Cedar uses serde_with 3.24 on darling_macro 0.24 while qdrant-client uses derive_builder 0.20 on darling_macro 0.20; remove when derive_builder adopts darling_macro 0.24"
+
+[[exception]]
+rule = "DEP-001"
+path = "itertools@0.14.0"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): lalrpop 0.22.2 and prost-derive 0.14 use itertools 0.14 while Cedar uses 0.15; remove when lalrpop and prost-derive adopt itertools 0.15"
+
+[[exception]]
+rule = "DEP-001"
+path = "unicode-width@0.1.14"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): miette 7.6 uses unicode-width 0.1 while Cedar formatter pretty 0.12.5 uses 0.2; remove when miette adopts unicode-width 0.2"
+
+[[exception]]
+rule = "DEP-001"
+path = "foldhash@0.2.0"
+reason = "C22b, S3 D4: jsonschema/referencing 0.58.5 enables hashbrown 0.17/foldhash 0.2; whatlang 0.18 uses hashbrown 0.15/foldhash 0.1; remove when whatlang adopts hashbrown 0.17"
+
+[[exception]]
+rule = "DEP-001"
+path = "getrandom@0.3.4"
+reason = "C22b, S3 D4: jsonschema/referencing/jsonschema-value 0.58.5 and ahash 0.8 use getrandom 0.3; rand 0.10 uses 0.4; remove when jsonschema and ahash adopt getrandom 0.4"
+
+[[exception]]
+rule = "DEP-001"
+path = "r-efi@5.3.0"
+reason = "C22b, S3 D4: jsonschema 0.58.5 uses getrandom 0.3/r-efi 5; rand 0.10 uses getrandom 0.4/r-efi 6; remove when jsonschema and ahash adopt getrandom 0.4"
 
 [[exception]]
 rule = "TST-001"

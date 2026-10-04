@@ -105,6 +105,7 @@ pub struct Envelope {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub traceparent: Option<String>,
     /// What it carries.
+    #[serde(serialize_with = "crate::json::serialize_canonical")]
     pub data: Value,
 }
 

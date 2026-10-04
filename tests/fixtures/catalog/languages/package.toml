@@ -1,0 +1,16 @@
+kind = "language"
+name = "synthetic"
+version = "1.2.3"
+owners = ["@synthetic/knowledge"]
+description = "Synthetic language"
+status = "active"
+technology = "uv"
+quality_profile = "quality-profile:synthetic/default"
+instructions = ["instructions:synthetic/rules"]
+starter = ["bootstrap-inventory:synthetic/starter"]
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]
+requires = []

@@ -1,0 +1,180 @@
+{
+  "": {
+    "entityTypes": {
+      "Actor": {},
+      "Target": {}
+    },
+    "actions": {
+      "read": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Target"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {
+              "trusted": {
+                "type": "Boolean"
+              },
+              "approved": {
+                "type": "Boolean",
+                "required": false
+              },
+              "protected": {
+                "type": "Boolean",
+                "required": false
+              },
+              "egress": {
+                "type": "Boolean",
+                "required": false
+              },
+              "tool": {
+                "type": "String",
+                "required": false
+              }
+            }
+          }
+        }
+      },
+      "write": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Target"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {
+              "trusted": {
+                "type": "Boolean"
+              },
+              "approved": {
+                "type": "Boolean",
+                "required": false
+              },
+              "protected": {
+                "type": "Boolean",
+                "required": false
+              },
+              "egress": {
+                "type": "Boolean",
+                "required": false
+              },
+              "tool": {
+                "type": "String",
+                "required": false
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Target"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {
+              "trusted": {
+                "type": "Boolean"
+              },
+              "approved": {
+                "type": "Boolean",
+                "required": false
+              },
+              "protected": {
+                "type": "Boolean",
+                "required": false
+              },
+              "egress": {
+                "type": "Boolean",
+                "required": false
+              },
+              "tool": {
+                "type": "String",
+                "required": false
+              }
+            }
+          }
+        }
+      },
+      "network": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Target"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {
+              "trusted": {
+                "type": "Boolean"
+              },
+              "approved": {
+                "type": "Boolean",
+                "required": false
+              },
+              "protected": {
+                "type": "Boolean",
+                "required": false
+              },
+              "egress": {
+                "type": "Boolean",
+                "required": false
+              },
+              "tool": {
+                "type": "String",
+                "required": false
+              }
+            }
+          }
+        }
+      },
+      "mcp": {
+        "appliesTo": {
+          "principalTypes": [
+            "Actor"
+          ],
+          "resourceTypes": [
+            "Target"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {
+              "trusted": {
+                "type": "Boolean"
+              },
+              "approved": {
+                "type": "Boolean",
+                "required": false
+              },
+              "protected": {
+                "type": "Boolean",
+                "required": false
+              },
+              "egress": {
+                "type": "Boolean",
+                "required": false
+              },
+              "tool": {
+                "type": "String",
+                "required": false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

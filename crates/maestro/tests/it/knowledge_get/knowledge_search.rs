@@ -278,7 +278,7 @@ pub(super) fn mcp_search_result_of(command: Command, arguments: &Value) -> Value
     response["result"].clone()
 }
 
-pub(super) fn published_identifier_source(home: &Home) -> i64 {
+pub(crate) fn published_identifier_source(home: &Home) -> i64 {
     home.add_synthetic();
     write_identifier_corpus(home);
 

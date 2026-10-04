@@ -168,6 +168,7 @@ fn parse_flags_refuses_unknown_repeated_malformed_and_locked_settings() {
         default: Cow::Borrowed("false"),
         description: Cow::Borrowed("Locked."),
         class: SettingClass::Locked,
+        standard_only: false,
     }];
     let locked = Registry::new(&locked).unwrap();
     assert_eq!(

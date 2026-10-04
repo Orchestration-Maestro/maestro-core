@@ -1,0 +1,10 @@
+name = "starter"
+bindings = []
+tools = []
+files = []
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]
+requires = []

@@ -33,10 +33,13 @@ pub struct SourceMetadata {
     /// Supplied language identifier; no language detection is performed.
     pub language: Option<String>,
     /// Supplied extraction details, retained without inventing an extractor history.
+    #[serde(serialize_with = "maestro_kernel::json::serialize_canonical")]
     pub extraction: Option<Value>,
     /// Opaque supplied policy, never inferred from availability or URL.
+    #[serde(serialize_with = "maestro_kernel::json::serialize_canonical")]
     pub access_policy: Option<Value>,
     /// Uninterpreted metadata; `markdown_frontmatter` is reserved for the original YAML map.
+    #[serde(serialize_with = "maestro_kernel::json::serialize_canonical")]
     pub extra: BTreeMap<String, Value>,
 }
 
@@ -118,6 +121,7 @@ pub struct OriginalLocation {
     /// Supplied one-based page number. Markdown never supplies a PDF page number.
     pub page: Option<u32>,
     /// Original locator or bounding-box representation, retained as supplied.
+    #[serde(serialize_with = "maestro_kernel::json::serialize_canonical")]
     pub locator: Option<Value>,
 }
 
@@ -131,6 +135,7 @@ pub struct ExtractorBlock {
     /// Supplied original-document coordinates; empty means unavailable.
     pub original_locations: Vec<OriginalLocation>,
     /// Original extractor structure, retained verbatim as JSON, never flattened.
+    #[serde(serialize_with = "maestro_kernel::json::serialize_canonical")]
     pub structured_content: Value,
 }
 

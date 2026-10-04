@@ -58,11 +58,20 @@
 //! - [`Database::setting_changes`](crate::store::Database::setting_changes):
 //!   a principal's own changes to its preferences files, keys and values
 //!   only, which serve `maestro config history`: they name no record;
+//! - [`Database::workspace_answers`](crate::store::Database::workspace_answers) and
+//!   [`Database::trusted_workspaces`](crate::store::Database::trusted_workspaces), plus
+//!   [`ReadOnlyDatabase::workspace_answers`][view-answers] and
+//!   [`ReadOnlyDatabase::trusted_workspaces`][view-trust] on the read-only view:
+//!   private user-local workspace answers and approval receipts, read only by
+//!   trust administration and the workspace policy adapter, never scoped tools;
 //! - [`store::pending_migrations`](crate::store::pending_migrations): the
 //!   migrations a database lacks, or the one it records that this binary
 //!   lacks, read from the file opened read-only, which serve `maestro
 //!   doctor` and `maestro status` only, so that neither migrates a database:
 //!   the database applies them when it opens.
+//!
+//! [view-answers]: crate::workspace::ReadOnlyDatabase::workspace_answers
+//! [view-trust]: crate::workspace::ReadOnlyDatabase::trusted_workspaces
 
 mod config;
 mod grant;

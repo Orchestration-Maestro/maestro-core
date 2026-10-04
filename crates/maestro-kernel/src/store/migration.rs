@@ -2,7 +2,13 @@
 //! applied in number order and recorded by name.
 
 use super::error::Error;
+use crate::vocabulary::{EntityKind, Predicate};
 use rusqlite::{Connection, OptionalExtension as _, TransactionBehavior};
+use serde_json::json;
+
+/// The migration that closes the graph vocabulary; it refuses a database
+/// holding a claim it cannot carry forward ([`refused`]).
+const CLAIM_VOCABULARY: &str = "0013_graph_claim_vocabulary";
 
 /// Every migration this binary carries, as `(name, SQL)`. A name starts with
 /// its four-digit number, so name order is number order; each task appends the
@@ -51,12 +57,40 @@ pub(super) const MIGRATIONS: &[(&str, &str)] = &[
         include_str!("../../migrations/0011_exact_identifiers.sql"),
     ),
     (
+        "0012_graph_claims",
+        include_str!("../../migrations/0012_graph_claims.sql"),
+    ),
+    (
+        CLAIM_VOCABULARY,
+        include_str!("../../migrations/0013_graph_claim_vocabulary.sql"),
+    ),
+    (
+        "0014_graph_builds",
+        include_str!("../../migrations/0014_graph_builds.sql"),
+    ),
+    (
+        "0015_graph_resolution",
+        include_str!("../../migrations/0015_graph_resolution.sql"),
+    ),
+    (
+        "0016_extractor_role",
+        include_str!("../../migrations/0016_extractor_role.sql"),
+    ),
+    (
         "0017_unit_graphs",
         include_str!("../../migrations/0017_unit_graphs.sql"),
     ),
     (
         "0018_retrieval_representations",
         include_str!("../../migrations/0018_retrieval_representations.sql"),
+    ),
+    (
+        "0019_graph_projection",
+        include_str!("../../migrations/0019_graph_projection.sql"),
+    ),
+    (
+        "0030_graph_input_pins",
+        include_str!("../../migrations/0030_graph_input_pins.sql"),
     ),
 ];
 
@@ -114,14 +148,41 @@ pub(super) fn pending<'m>(
     Ok(missing)
 }
 
+/// Refuses incompatible legacy claims before opening a writer or changing journal mode.
+/// Databases predating claims are checked when migration 0013 runs instead.
+pub(super) fn preflight(connection: &Connection, migrations: &[(&str, &str)]) -> Result<(), Error> {
+    let recorded = recorded(connection)?;
+    if recorded.iter().any(|name| name == "0012_graph_claims")
+        && !recorded.iter().any(|name| name == CLAIM_VOCABULARY)
+        && migrations.iter().any(|(name, _)| *name == CLAIM_VOCABULARY)
+    {
+        check_refused(connection, CLAIM_VOCABULARY)?;
+    }
+    Ok(())
+}
+
+/// Checks the same refusal policy in the read-only preflight and the migration transaction.
+fn check_refused(connection: &Connection, name: &str) -> Result<(), Error> {
+    let ids = refused(connection, name)?;
+    if ids.is_empty() {
+        Ok(())
+    } else {
+        Err(Error::RefusedMigration {
+            name: name.to_owned(),
+            ids,
+        })
+    }
+}
+
 /// Applies the migration `name` of statements `sql` in a transaction of its
 /// own that records it, unless the database records it already: another
 /// process opening the database may have applied it since the list was read.
 ///
 /// # Errors
 ///
-/// [`Error::Sqlite`] when the migration fails, which leaves it neither
-/// applied nor recorded.
+/// [`Error::RefusedMigration`] when the database holds records the
+/// migration cannot carry forward, and [`Error::Sqlite`] when the migration
+/// fails; either leaves it neither applied nor recorded.
 pub(super) fn apply(connection: &mut Connection, name: &str, sql: &str) -> Result<(), Error> {
     let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let applied = transaction
@@ -130,7 +191,8 @@ pub(super) fn apply(connection: &mut Connection, name: &str, sql: &str) -> Resul
         })
         .optional()?;
     if applied.is_none() {
-        transaction.execute_batch(sql)?;
+        check_refused(&transaction, name)?;
+        transaction.execute_batch(&vocabulary_sql(name, sql))?;
         transaction.execute(
             "INSERT INTO migrations (name, applied_at)
              VALUES (?1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
@@ -139,6 +201,26 @@ pub(super) fn apply(connection: &mut Connection, name: &str, sql: &str) -> Resul
     }
     transaction.commit()?;
     Ok(())
+}
+
+/// The ids of the records the migration `name` cannot carry forward, in
+/// order: for [`CLAIM_VOCABULARY`], the claims whose subject kind is outside
+/// the closed list, the one field of a claim 0012 admitted that can be (its
+/// predicate was `DEFAULTS_TO` and its object a typed literal); none for
+/// every other migration. Nothing is ever mapped to a listed kind.
+fn refused(connection: &Connection, name: &str) -> Result<Vec<String>, Error> {
+    if name != CLAIM_VOCABULARY {
+        return Ok(Vec::new());
+    }
+    let kinds = json!(EntityKind::ALL.map(EntityKind::as_str)).to_string();
+    let mut statement = connection.prepare(
+        "SELECT id FROM claims
+         WHERE subject_kind NOT IN (SELECT value FROM json_each(?1)) ORDER BY id",
+    )?;
+    let ids = statement
+        .query_map([kinds], |row| row.get(0))?
+        .collect::<Result<_, _>>()?;
+    Ok(ids)
 }
 
 /// The names of the migrations `connection` records: none when its database
@@ -157,4 +239,22 @@ fn recorded(connection: &Connection) -> Result<Vec<String>, Error> {
         .query_map([], |row| row.get(0))?
         .collect::<Result<_, _>>()?;
     Ok(names)
+}
+
+/// Expands only the vocabulary migration from the authoritative Rust types.
+fn vocabulary_sql(name: &str, sql: &str) -> String {
+    if name != CLAIM_VOCABULARY {
+        return sql.to_owned();
+    }
+    let kinds = EntityKind::ALL
+        .map(|kind| format!("'{}'", kind.as_str()))
+        .join(", ");
+    let predicates = Predicate::ALL
+        .into_iter()
+        .filter(|predicate| predicate.is_claimable())
+        .map(|predicate| format!("'{}'", predicate.as_str()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    sql.replace("{entity_kinds}", &kinds)
+        .replace("{claim_predicates}", &predicates)
 }

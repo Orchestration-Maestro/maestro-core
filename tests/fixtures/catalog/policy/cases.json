@@ -1,0 +1,174 @@
+[
+  {
+    "name": "default-deny-allow",
+    "operation": {
+      "action": "read",
+      "target": "public"
+    },
+    "facts": null,
+    "expected": "allow"
+  },
+  {
+    "name": "default-deny-refuse",
+    "operation": {
+      "action": "read",
+      "target": "unknown"
+    },
+    "facts": null,
+    "expected": "deny"
+  },
+  {
+    "name": "destructive-allow",
+    "operation": {
+      "action": "delete",
+      "target": "document"
+    },
+    "facts": {
+      "actor": "local-user",
+      "operation": "delete",
+      "target": "document",
+      "approved": true,
+      "protected": false,
+      "egress": false,
+      "mcp_tool": "maestro.knowledge.search"
+    },
+    "expected": "allow"
+  },
+  {
+    "name": "destructive-approval",
+    "operation": {
+      "action": "delete",
+      "target": "document"
+    },
+    "facts": {
+      "actor": "local-user",
+      "operation": "delete",
+      "target": "document",
+      "approved": false,
+      "protected": false,
+      "egress": false,
+      "mcp_tool": "maestro.knowledge.search"
+    },
+    "expected": "approval_needed"
+  },
+  {
+    "name": "destructive-missing-facts",
+    "operation": {
+      "action": "delete",
+      "target": "document"
+    },
+    "facts": null,
+    "expected": "deny"
+  },
+  {
+    "name": "protected-allow",
+    "operation": {
+      "action": "write",
+      "target": "document"
+    },
+    "facts": {
+      "actor": "local-user",
+      "operation": "write",
+      "target": "document",
+      "approved": true,
+      "protected": false,
+      "egress": false,
+      "mcp_tool": "maestro.knowledge.search"
+    },
+    "expected": "allow"
+  },
+  {
+    "name": "protected-deny",
+    "operation": {
+      "action": "write",
+      "target": "document"
+    },
+    "facts": {
+      "actor": "local-user",
+      "operation": "write",
+      "target": "document",
+      "approved": true,
+      "protected": true,
+      "egress": false,
+      "mcp_tool": "maestro.knowledge.search"
+    },
+    "expected": "deny"
+  },
+  {
+    "name": "egress-allow",
+    "operation": {
+      "action": "network",
+      "target": "endpoint"
+    },
+    "facts": {
+      "actor": "local-user",
+      "operation": "network",
+      "target": "endpoint",
+      "approved": false,
+      "protected": false,
+      "egress": true,
+      "mcp_tool": "maestro.knowledge.search"
+    },
+    "expected": "allow"
+  },
+  {
+    "name": "egress-deny",
+    "operation": {
+      "action": "network",
+      "target": "endpoint"
+    },
+    "facts": {
+      "actor": "local-user",
+      "operation": "network",
+      "target": "endpoint",
+      "approved": false,
+      "protected": false,
+      "egress": false,
+      "mcp_tool": "maestro.knowledge.search"
+    },
+    "expected": "deny"
+  },
+  {
+    "name": "mcp-allow",
+    "operation": {
+      "action": "mcp",
+      "target": "server"
+    },
+    "facts": {
+      "actor": "local-user",
+      "operation": "mcp",
+      "target": "server",
+      "approved": false,
+      "protected": false,
+      "egress": false,
+      "mcp_tool": "maestro.knowledge.search"
+    },
+    "expected": "allow"
+  },
+  {
+    "name": "mcp-deny",
+    "operation": {
+      "action": "mcp",
+      "target": "server"
+    },
+    "facts": {
+      "actor": "local-user",
+      "operation": "mcp",
+      "target": "server",
+      "approved": false,
+      "protected": false,
+      "egress": false,
+      "mcp_tool": "unknown.tool"
+    },
+    "expected": "deny"
+  },
+  {
+    "name": "unknown-action",
+    "operation": {
+      "action": "shell",
+      "target": "public"
+    },
+    "facts": null,
+    "expected": "deny"
+  }
+]

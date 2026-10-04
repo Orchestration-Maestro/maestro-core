@@ -8,6 +8,7 @@ use crate::{failure::Failure, kernel::Kernel};
 use maestro_kernel::{
     job::{self, Job, JobState},
     journal::Filter,
+    json::canonical,
 };
 use serde::Serialize;
 use serde_json::Value;
@@ -38,6 +39,7 @@ struct JobDocument<'a> {
     /// The state it ended in.
     state: String,
     /// The JSON it ended with.
+    #[serde(serialize_with = "maestro_kernel::json::serialize_canonical")]
     outcome: &'a Value,
 }
 
@@ -116,15 +118,8 @@ impl<'a> Follower<'a> {
             .events(&self.kernel.scopes, &filter)
             .map_err(|error| Failure::failed_by(&error))?;
         for event in events {
-            let mut data = event.data;
-            if matches!(
-                event.r#type.as_str(),
-                job::SUCCEEDED | job::FAILED | job::CANCELLED
-            ) {
-                drop(data.as_object_mut().map(|data| data.remove("outcome")));
-            }
             self.output
-                .text(&format!("{} {} {}", event.sequence, event.r#type, data))?;
+                .text(&progress_line(event.sequence, &event.r#type, event.data))?;
             self.after = event.sequence;
         }
         let ended = matches!(
@@ -148,6 +143,7 @@ pub(super) struct Printing {
 /// `job`, which ended, for people: its state, then its outcome's JSON.
 pub(super) fn line(job: &Job) -> String {
     let outcome = job.outcome.as_ref().unwrap_or(&Value::Null);
+    let outcome = canonical(outcome.clone());
     format!("{} {outcome}", job.state)
 }
 
@@ -173,4 +169,58 @@ pub(super) fn report(output: Output, printing: Printing, job: &Job) -> Result<Ex
     } else {
         ExitCode::from(1)
     })
+}
+
+/// One event's text, omitting the final outcome printed by the ending report.
+fn progress_line(sequence: u64, kind: &str, mut data: Value) -> String {
+    data = canonical(data);
+    if matches!(kind, job::SUCCEEDED | job::FAILED | job::CANCELLED) {
+        drop(data.as_object_mut().map(|data| data.remove("outcome")));
+    }
+    format!("{sequence} {kind} {data}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use maestro_kernel::{artifact::Digest, scope::WORKSPACE};
+
+    #[test]
+    fn progress_and_outcome_formatting_keep_pre_cedar_bytes() {
+        let data = serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap();
+        assert_eq!(
+            progress_line(3, job::PROGRESSED, data),
+            r#"3 maestro.job.progressed.v1 {"a":0,"z":{"a":1,"z":2}}"#
+        );
+        let outcome = serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap();
+        let job = Job {
+            id: Ulid::from(0_u128),
+            kind: "synthetic".into(),
+            idempotency_key: Digest::of(b"synthetic"),
+            attempt: 1,
+            scope: WORKSPACE.parse().unwrap(),
+            resource: None,
+            state: JobState::Succeeded,
+            lease: None,
+            outcome: Some(outcome),
+        };
+        assert_eq!(line(&job), r#"succeeded {"a":0,"z":{"a":1,"z":2}}"#);
+        let document = JobDocument {
+            schema: PRINTING.schema,
+            job: job.id.to_string(),
+            kind: &job.kind,
+            attempt: 1,
+            state: job.state.to_string(),
+            outcome: job.outcome.as_ref().unwrap(),
+        };
+        assert_eq!(
+            serde_json::to_string(&document).unwrap(),
+            concat!(
+                "{\"schema\":\"maestro-cli/job-wait/1\",",
+                "\"job\":\"00000000000000000000000000\",\"kind\":\"synthetic\",",
+                "\"attempt\":1,\"state\":\"succeeded\",",
+                "\"outcome\":{\"a\":0,\"z\":{\"a\":1,\"z\":2}}}",
+            )
+        );
+    }
 }

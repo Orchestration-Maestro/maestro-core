@@ -35,7 +35,10 @@ fn check<'a>(document: &'a Value, name: &str) -> &'a Value {
 fn assert_next_action_matches_outcome(check: &Value) {
     let next = &check["next_action"];
     if check["checked"] == false {
-        assert_eq!(check["name"], "model_card", "{check}");
+        assert!(
+            matches!(check["name"].as_str(), Some("model_card" | "graph")),
+            "{check}"
+        );
         assert_eq!(check["passed"], false, "{check}");
         assert!(next.is_null(), "{check}");
     } else if check["passed"] == false {
@@ -47,6 +50,42 @@ fn assert_next_action_matches_outcome(check: &Value) {
         assert_eq!(check["passed"], true, "{check}");
         assert!(next.is_null(), "{check}");
     }
+}
+
+#[test]
+fn doctor_keeps_health_checks_when_preferences_are_invalid() {
+    let home = Home::bare();
+    fs::write(home.config().join("preferences.toml"), b"schema = [\n").unwrap();
+    let ended = checked(&home, &["doctor", "--json"]);
+    assert_eq!(ended.code, Some(1), "{ended:?}");
+    let document = ended.json();
+    assert_eq!(document["schema"], "maestro-cli/doctor/1");
+    assert_eq!(checks(&document).len(), 11);
+    let settings = check(&document, "settings");
+    assert_eq!(settings["passed"], false);
+    assert!(
+        settings["detail"]
+            .as_str()
+            .unwrap()
+            .contains("preferences.toml")
+    );
+    assert!(settings["next_action"].as_str().unwrap().contains("fix"));
+    for name in [
+        "config",
+        "bindings",
+        "database",
+        "graph",
+        "artifacts",
+        "qdrant",
+        "router",
+    ] {
+        assert_next_action_matches_outcome(check(&document, name));
+    }
+    assert!(!home.data().join("kernel.sqlite3").exists());
+    assert_eq!(
+        fs::read(home.config().join("preferences.toml")).unwrap(),
+        b"schema = [\n"
+    );
 }
 
 #[test]
@@ -68,6 +107,7 @@ fn every_failed_check_names_its_next_action() {
             "settings",
             "bindings",
             "database",
+            "graph",
             "artifacts",
             "qdrant",
             "router",
@@ -126,7 +166,7 @@ fn the_report_for_people_puts_each_next_action_under_its_failure() {
     );
     assert_eq!(
         lines.last().copied(),
-        Some(format!("{failures} of 10 checks failed.").as_str())
+        Some(format!("{failures} of 11 checks failed.").as_str())
     );
     assert!(
         !text.stdout.contains("left untouched") && !text.stdout.contains("reach no known scope"),

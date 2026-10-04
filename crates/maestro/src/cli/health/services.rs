@@ -141,11 +141,12 @@ pub(super) fn router_check(url: Result<Url, String>) -> Check {
     }
 }
 
-/// The check of each role's model card, which cannot run yet: model cards
-/// are recorded per collection, and their per-collection check is not built
-/// yet, so each role is reported as not checked, never as failed.
+/// Model cards are recorded per collection, and their per-collection check is
+/// not built yet, so each role is reported as not checked, never as failed.
+/// The extractor's check comes with its selection (S2 G20).
 pub(super) fn card_checks() -> Vec<Check> {
-    Role::ALL
+    // The extractor's check comes with its selection (S2 G20).
+    [Role::Embedder, Role::Reranker, Role::Answerer]
         .iter()
         .map(|role| {
             Check::not_checked(

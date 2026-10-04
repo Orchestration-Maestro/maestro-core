@@ -14,7 +14,7 @@ use maestro_test_scratch::{disk_scratch_directory, scratch_directory};
 use serde_json::{Value, json};
 use std::{
     env, fs,
-    io::{BufRead, BufReader, Read},
+    io::{BufRead, BufReader, Read, Write as _},
     path::{Path, PathBuf},
     process::{self, Child, Command, Stdio},
     sync::mpsc::{self, Receiver, RecvTimeoutError},
@@ -34,6 +34,20 @@ const DEADLINE: Duration = Duration::from_secs(60);
 pub(crate) const IMPORT: &str = "knowledge.import";
 /// The resource an import of `synthetic` holds.
 const SYNTHETIC_IMPORT: &str = "collection/synthetic/import";
+
+/// Complete the MCP initialization handshake using a bounded synthetic client frame.
+pub(crate) fn initialize_mcp(input: &mut process::ChildStdin) {
+    input
+        .write_all(
+            concat!(
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{",
+                "\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},",
+                "\"clientInfo\":{\"name\":\"test\",\"version\":\"1\"}}}\n",
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+}
 
 /// A new empty scratch directory, removed with everything in it when
 /// dropped: `data/` is `XDG_DATA_HOME` and `config/` is `XDG_CONFIG_HOME`
@@ -99,6 +113,7 @@ impl Home {
         let mut command = Command::new(env!("CARGO_BIN_EXE_maestro"));
         command
             .args(arguments)
+            .current_dir(self.root())
             .env("HOME", &self.0)
             .env("USERPROFILE", &self.0)
             .env("XDG_DATA_HOME", self.0.join("data"))
@@ -456,3 +471,18 @@ impl Ended {
         document
     }
 }
+
+/// Safe fixtures use explicit owner-only-write modes, independent of the umask.
+#[cfg(unix)]
+pub(crate) fn make_safe_preferences_path(path: &Path) {
+    use std::os::unix::fs::PermissionsExt as _;
+    fs::set_permissions(
+        path,
+        fs::Permissions::from_mode(if path.is_dir() { 0o755 } else { 0o644 }),
+    )
+    .unwrap();
+}
+
+/// Windows fixtures inherit the owner-only scratch directory's DACL.
+#[cfg(windows)]
+pub(crate) fn make_safe_preferences_path(_path: &Path) {}

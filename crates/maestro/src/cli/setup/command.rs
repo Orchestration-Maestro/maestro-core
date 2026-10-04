@@ -1,19 +1,33 @@
-//! `maestro setup`: the search service's install, previewed, then done with
-//! `--yes`. It opens no kernel: it only reads, then writes the service's own
-//! files and asks systemd's user manager to run it.
+//! `maestro setup`: the embedded graph's directory, then the search
+//! service's install, each previewed, then done with `--yes`. It opens no
+//! kernel and no graph: it only reads, then writes the graph's directory and
+//! the service's own files and asks systemd's user manager to run it.
 
+#[cfg(not(feature = "engine"))]
+use super::graph::run as graph_setup;
+#[cfg(feature = "engine")]
+use super::graph_engine::run as graph_setup;
 use super::{
+    graph::GraphSetup,
     release::{GRPC_PORT, HOST, HTTP_PORT, Release, SERVICE, release_for},
     service::{Layout, Step, apply, survey, user_manager},
     tools::Tools,
 };
-use crate::{cli::output::Output, failure::Failure};
+use crate::{
+    cli::output::{Output, diagnose},
+    failure::Failure,
+    settings::{GraphEngine, Session},
+};
 use maestro_kernel::paths::{self, Environment};
 use serde::Serialize;
-use std::{env::consts, path::Path, process::ExitCode};
+use std::{env::consts, fmt::Write as _, path::Path, process::ExitCode};
 
 /// The schema of the document `setup` prints under `--json`.
 const SCHEMA: &str = "maestro-cli/setup/1";
+
+/// The schema of the document `setup` prints under `--json` before it
+/// refuses or fails the search service's part: the graph's part alone.
+const GRAPH_SCHEMA: &str = "maestro-cli/setup-graph/1";
 
 /// What `setup` prints under `--json`.
 #[derive(Debug, Serialize)]
@@ -36,11 +50,23 @@ struct SetupDocument<'a> {
     http: String,
     /// The address of its gRPC API.
     grpc: String,
+    /// The embedded graph's part.
+    graph: &'a GraphSetup,
     /// The steps the install lacks, which `--yes` takes: none when
     /// everything is in place.
     steps: Vec<&'static str>,
     /// Whether this run took them.
     changed: bool,
+}
+
+/// What `setup` prints under `--json` when the search service's part is
+/// refused or fails: the graph's part, which came first.
+#[derive(Debug, Serialize)]
+struct GraphDocument<'a> {
+    /// [`GRAPH_SCHEMA`].
+    schema: &'static str,
+    /// The embedded graph's part.
+    graph: &'a GraphSetup,
 }
 
 /// What stands between this machine and the search service setup installs.
@@ -52,18 +78,85 @@ pub(in crate::cli) enum Readiness {
     Steps(Vec<Step>),
 }
 
-/// Previews the install, or takes its steps when `yes` is given, and prints
-/// the service and what it lacked.
+/// Previews the graph's directory for the session's `graph.engine`, then
+/// the install, or takes their steps when `yes` is
+/// given, and prints both and what they lacked. The graph's part runs on
+/// every platform; when the service's part is refused or fails, the graph's
+/// is printed alone first.
 ///
 /// # Errors
 ///
-/// [`Failure::Refused`] on a platform setup does not install on, with the
-/// manual steps, where no systemd user manager runs, or for a path no unit
-/// can hold, before any step; [`Failure::Failed`] when a directory cannot be
-/// resolved or a step fails.
-pub(in crate::cli) fn run(output: Output, yes: bool) -> Result<ExitCode, Failure> {
+/// As [`service`], when its part is refused or fails. A graph refusal is
+/// reported independently and does not prevent the service part from running.
+pub(in crate::cli) fn run(
+    output: Output,
+    yes: bool,
+    session: Result<&Session, Failure>,
+) -> Result<ExitCode, Failure> {
     let environment = Environment::current();
-    let layout = layout(&environment)?;
+    let graph = session
+        .and_then(GraphEngine::from_session)
+        .and_then(|engine| graph_setup(&environment, engine, yes));
+    let (graph, graph_refusal) = match graph {
+        Ok(graph) => (graph, None),
+        Err(failure) => {
+            let detail = failure.to_string();
+            (
+                GraphSetup {
+                    engine: "unknown",
+                    directory: None,
+                    action: "refused",
+                    missing_guards: Vec::new(),
+                    changed: false,
+                    detail: Some(detail.clone()),
+                },
+                Some(detail),
+            )
+        }
+    };
+    if let Some(detail) = &graph_refusal {
+        diagnose(detail);
+    }
+    match service(&environment, yes) {
+        Ok(service) => {
+            report(output, &service, &graph)?;
+            Ok(if graph_refusal.is_some() {
+                ExitCode::from(2)
+            } else {
+                ExitCode::SUCCESS
+            })
+        }
+        Err(failure) => {
+            let document = GraphDocument {
+                schema: GRAPH_SCHEMA,
+                graph: &graph,
+            };
+            output.result(&document, &graph_text(&graph))?;
+            Err(failure)
+        }
+    }
+}
+
+/// The search service's part of a run: where it lives, the release, the
+/// steps it lacked, and whether they were taken.
+struct Service<'a> {
+    /// Where it lives.
+    layout: Layout,
+    /// The release it installs.
+    release: Release<'a>,
+    /// The steps it lacked.
+    steps: Vec<Step>,
+    /// Whether this run took them.
+    changed: bool,
+}
+
+/// Previews the install, or takes its steps when `yes` is given.
+///
+/// # Errors
+///
+/// As [`run`], for the search service.
+fn service(environment: &Environment, yes: bool) -> Result<Service<'static>, Failure> {
+    let layout = layout(environment)?;
     let release = release_for(consts::OS, consts::ARCH).map_err(|unsupported| {
         Failure::refused(unsupported.manual_steps(&layout.storage, &layout.snapshots))
     })?;
@@ -74,7 +167,12 @@ pub(in crate::cli) fn run(output: Output, yes: bool) -> Result<ExitCode, Failure
     if changed {
         apply(&steps, &layout, &release, &tools)?;
     }
-    report(output, &layout, &release, &steps, changed)
+    Ok(Service {
+        layout,
+        release,
+        steps,
+        changed,
+    })
 }
 
 /// What stands between this machine and the search service, as the
@@ -109,15 +207,16 @@ fn layout(environment: &Environment) -> Result<Layout, Failure> {
     Ok(Layout::new(&data, config.parent().unwrap_or(&config)))
 }
 
-/// Prints the service `layout` places and the `steps` it lacked, taken when
-/// `changed`.
-fn report(
-    output: Output,
-    layout: &Layout,
-    release: &Release<'_>,
-    steps: &[Step],
-    changed: bool,
-) -> Result<ExitCode, Failure> {
+/// Prints the `graph`'s part, then the `service` its layout places and the
+/// steps it lacked, taken when it changed.
+fn report(output: Output, service: &Service<'_>, graph: &GraphSetup) -> Result<ExitCode, Failure> {
+    let Service {
+        layout,
+        release,
+        steps,
+        changed,
+    } = service;
+    let changed = *changed;
     let (http, grpc) = (format!("{HOST}:{HTTP_PORT}"), format!("{HOST}:{GRPC_PORT}"));
     let document = SetupDocument {
         schema: SCHEMA,
@@ -129,10 +228,12 @@ fn report(
         unit: shown(&layout.unit),
         http: http.clone(),
         grpc: grpc.clone(),
+        graph,
         steps: steps.iter().map(|step| name(*step)).collect(),
         changed,
     };
     let mut text = vec![
+        graph_text(graph),
         format!(
             "Qdrant {}, as the user service {SERVICE}, bound to {HOST} with telemetry off:",
             release.version
@@ -162,6 +263,34 @@ fn report(
     }
     output.result(&document, &text.join("\n"))?;
     Ok(ExitCode::SUCCESS)
+}
+
+/// The `graph`'s part, for people.
+pub(super) fn graph_text(graph: &GraphSetup) -> String {
+    if let Some(detail) = &graph.detail {
+        return format!("Graph: refused: {detail}");
+    }
+    let Some(directory) = &graph.directory else {
+        return "Graph: off (graph.engine = none), nothing to do.".to_owned();
+    };
+    let state = match (graph.action, graph.changed) {
+        ("create_directory", true) => "created",
+        ("create_directory", false) => "to create, which `maestro setup --yes` does",
+        ("secure_permissions", true) => "given mode 0700",
+        ("secure_permissions", false) => "to give mode 0700, which `maestro setup --yes` does",
+        _ => "in place",
+    };
+    let mut text = format!("Graph: the embedded engine's directory {directory}, {state}.");
+    if !graph.missing_guards.is_empty() {
+        let guards = graph.missing_guards.join(", ");
+        let state = if graph.changed {
+            "created"
+        } else {
+            "missing; run maestro setup --yes to create"
+        };
+        let _ = write!(text, " Permanent guards {guards}: {state}.");
+    }
+    text
 }
 
 /// `path` as a document shows it.

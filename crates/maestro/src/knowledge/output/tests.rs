@@ -269,3 +269,25 @@ fn trace(number: u32) -> Trace {
         procedural: false,
     }
 }
+
+#[test]
+fn search_metadata_keeps_pre_cedar_bytes() {
+    let result = search_tool_result(
+        &bundle(vec![passage(1, "synthetic")], 450),
+        SearchTruncation {
+            passages: 1,
+            inventory_items: 0,
+        },
+    )
+    .unwrap();
+    let value = serde_json::to_value(result).unwrap();
+    assert_eq!(
+        value["_meta"]["maestro/truncation"].to_string(),
+        concat!(
+            "{\"dropped\":{\"inventory_items\":0,\"passages\":1},\"limit_bytes\":65536,",
+            "\"omitted\":[\"passages\"],\"truncated\":true,",
+            "\"warning\":\"Search result truncated: dropped 1 passages and ",
+            "0 inventory items; not exhaustive.\"}",
+        )
+    );
+}

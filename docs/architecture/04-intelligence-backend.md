@@ -115,7 +115,7 @@ Built in S1 (B8 in S2), each as a small interface over a deep implementation in
 | **B3 Artifacts** | Immutable content-addressed bytes | `put(bytes, media) -> Digest`, `get(digest) -> Bytes`, `pin`/`gc` | SHA-256 verified on read; atomic write (temp, fsync, rename); garbage collection only of unreferenced, unpinned artifacts |
 | **B4 Jobs** | Long-running work with leases | `job(spec) -> Job`, `heartbeat`, `complete(outcome)` | One writer per lease; states `queued/running/succeeded/failed/cancelled`; resumable from the journal |
 | **B5 Documents** | Collections, sources, documents, revisions, occurrences | pipeline operations of [01](01-knowledge-pipeline.md) | Revisions immutable; failed revisions inspectable, never eligible |
-| **B6 Projections** | Generation-stamped derived indexes (Qdrant, Neo4j, caches) | `generation(collection, profiles)`, `publish`, `retire`, `rebuild` | Always rebuildable from B3/B5/B8; readers pinned to one generation |
+| **B6 Projections** | Generation-stamped derived indexes (Qdrant, embedded LadybugDB pending G25, caches; graph amended by ADR-0021) | `generation(collection, profiles)`, `publish`, `retire`, `rebuild` | Always rebuildable from B3/B5/B8; readers pinned to one generation; planned S2 [manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff) binds frozen settings/locks without changing authority |
 | **B7 Evidence** | Spans, citations and evidence bundles | `resolve(chunk_set, chunk) -> Excerpt`, bundle schema `maestro-evidence/1` | Text always read from the authority; every passage carries digest, span and version |
 | **B8 Facts** (S2) | Entities, aliases, relations and claims with provenance and validity | `assert(claim, evidence)`, `supersede`, `query(pattern, as_of)` | No claim without verified evidence; supersession keeps history; ambiguity goes to review, never auto-merged |
 | **B9 Capabilities** | Registry of tools and their effects, exposed through MCP | `register(tool, schema, effects)`, MCP adapters | Every tool declares its effects and required scopes; the Cedar schema is generated from it |
@@ -255,8 +255,11 @@ feature list.
 The method these steps rely on — how a provider is studied without inheriting
 its code or its licence obligations — is [09](09-reverse-engineering.md).
 
-1. Register each provider in `maestro-manifests/mcp/` with an approved tool
-   allowlist and the policies that govern it; agents use them today.
+1. Register each provider in its owning capability's
+   `capabilities/<domain>/<capability>/mcp/<provider>.toml` in `maestro-manifests`,
+   with an approved tool allowlist and qualified policy IDs in declared `requires`.
+   Consuming agents declare `mcp:<capability>/<provider>` in their own `requires`;
+   registration alone never launches a server or authorizes a tool call.
 2. For each capability, build the eval suite first, from real questions. The
    behaviour contracts of [09 §7](09-reverse-engineering.md#7-behaviour-contracts)
    are how that suite is derived from the provider itself.
@@ -279,7 +282,7 @@ its code or its licence obligations — is [09](09-reverse-engineering.md).
 | ID | Decision | Status |
 | --- | --- | --- |
 | D01 | First primary journey | Proposed: scoped every-agent continuity plus exact project evidence (I1), then change review (I2) |
-| D02 | Construction and storage | Decided: one coherent native core on the kernel (SQLite + artifacts) with Qdrant and Neo4j projections |
+| D02 | Construction and storage | Decided: one coherent native core on the kernel (SQLite + artifacts) with Qdrant and embedded LadybugDB projections (G25 pending); graph amended by ADR-0021, selected external Neo4j later in deployment modes; manifest v4 registry/lock consumer deltas remain planned, not qualified backend evidence |
 | D03 | Capture consent and private events | Proposed: all authorized user, assistant, tool and ancestry events; private reasoning excluded unless separately authorized; secret and sensitive-output policy to write |
 | D04 | Identity ownership and budgets | Partly decided: exact L0 never truncated, adaptive budget under a ceiling; global versus per-project identity still open |
 | D05 | Scope, retention, deletion | Partly decided: no automatic expiry of originals; erasure, backup expiry and key custody still open |

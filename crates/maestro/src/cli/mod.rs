@@ -5,15 +5,20 @@
 mod args;
 mod ask;
 mod backup;
+mod catalog;
 mod collection;
 mod config;
 mod eval;
+mod filesystem;
 mod foreground;
+mod graph;
 pub(crate) mod health;
 mod import;
+mod init;
 mod lease;
 mod model;
 mod output;
+mod policy;
 mod prepare;
 /// Explicit replacement of a lost published projection.
 mod publish;
@@ -23,10 +28,13 @@ mod quality;
 mod retrieve;
 mod run;
 mod search;
+pub(crate) mod session;
 mod setup;
 mod status;
 #[cfg(test)]
 mod tests;
+mod trust;
+mod trust_path;
 mod verify;
 mod wait;
 

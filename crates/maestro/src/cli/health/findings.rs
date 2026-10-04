@@ -5,6 +5,7 @@
 //! and never changes or removes them.
 
 use super::kernel::{ARTIFACTS, DATABASE};
+use crate::cli::setup::graph::DIRECTORY as GRAPH;
 use maestro_kernel::{
     scope::{Scope, ScopeSet},
     store::{self, Database},
@@ -20,7 +21,7 @@ const SEARCH_SERVICE: &str = "qdrant";
 
 /// The data directory entries the kernel does not own and the database
 /// creation temporaries, each in path order. The database, its WAL and SHM,
-/// artifact tree and search service are owned; temporary links are only listed.
+/// artifact tree, graph directory and search service are owned; temporary links are only listed.
 pub(super) fn directory_findings(data: &Path) -> (Vec<PathBuf>, Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(data) else {
         return (Vec::new(), Vec::new());
@@ -65,6 +66,7 @@ fn owned(name: &str) -> bool {
         || matches!(name.strip_prefix(DATABASE), Some("-wal" | "-shm"))
         || name == ARTIFACTS
         || name == SEARCH_SERVICE
+        || name == GRAPH
 }
 
 /// The grants of `scopes` that reach no scope the kernel knows, in path

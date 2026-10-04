@@ -47,6 +47,7 @@ async fn a_prompt_text_reaches_the_chat_request_with_the_data_in_its_slot() {
         .expect("validated answer");
 
     assert!(answer.refusal.is_none());
+    assert_eq!(answer.language_check, LanguageCheck::Unchecked);
     let calls = port.chat_calls.lock().expect("chat-call lock");
     let messages = &calls[0].2.messages;
     assert_eq!(messages[0].content, SYSTEM);

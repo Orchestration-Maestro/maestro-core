@@ -8,6 +8,7 @@ pub(super) use super::engine_outcome::answer_outcome;
 
 use super::{
     candidates::{candidate_answerer, candidate_reranker},
+    delivered::anchors,
     documents::{bundle_documents, ranked_documents},
     manifest::{AskSettings, Rung},
     runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
@@ -360,6 +361,7 @@ impl Engine for KernelEngine<'_> {
             record_evidence_bytes(&mut diagnostic, &bundle);
             diagnostic.intent_status = bundle.routes.get("intent_expansion").cloned();
             diagnostic.bundle_documents = bundle_documents(&bundle, &order);
+            diagnostic.delivered = anchors(bundle.clone()).map_err(|_| StageFailure::Failed)?;
             match stage_failure(&configuration, &bundle.routes) {
                 Some(failure) => Err(failure),
                 None => Ok(ranked_documents(&order, |chunk| {

@@ -69,7 +69,7 @@ portion, integrated code or test evidence, and remaining work.
 | owner.n007 | The best fully local Rust pipeline from crawl to answer, automated | Kept | [01](01-knowledge-pipeline.md), [02](02-retrieval-and-knowledge-graph.md) |
 | owner.n012 | A graph database and how agents consume it (MCP, agents) | Kept | [02 §8–§9](02-retrieval-and-knowledge-graph.md#8-knowledge-graph-s2) |
 | owner.n017 | Is Oxigraph dead; what is SurrealDB | Answered: Oxigraph is maintained but RDF is not needed; SurrealDB not chosen (§16) | §16 |
-| owner.n020 | Qdrant and Neo4j combined with fusion | Kept | ADR-0003, ADR-0004, [02 §4](02-retrieval-and-knowledge-graph.md#4-fusion) |
+| owner.n020 | Qdrant and Neo4j combined with fusion | Adapted (§15 A29): embedded-first S2, later selected Neo4j | ADR-0003, ADR-0021, [02 §4](02-retrieval-and-knowledge-graph.md#4-fusion), §24 |
 | owner.n024 | An Archify diagram of the whole architecture | Deferred: regenerate the atlas from this design once S0 publishes it | [06 S0](06-roadmap.md#s0-foundation) |
 | owner.n029, n065 | BM25 versus BGE-M3; why not BM25 | Kept: both, at different layers | [01 §8](01-knowledge-pipeline.md#8-l6-representations), [02 §3](02-retrieval-and-knowledge-graph.md#3-retrieval-routes) |
 | owner.n031 | Source to answer step by step, with fusion, reranking and deduplication | Kept | [01 §6](01-knowledge-pipeline.md#6-l4-deduplication), [02 §4–§6](02-retrieval-and-knowledge-graph.md#4-fusion) |
@@ -91,7 +91,7 @@ portion, integrated code or test evidence, and remaining work.
 | chat.M006 layers | Definitions → deterministic compiler → immutable bundle → laptop runtime → enforcement and evidence | Kept | [03 §1.3](03-agent-orchestration.md#13-check-compile-release-install) |
 | chat.M006 vocabulary | Agent, capability, tool, skill, policy, workflow, team; infrastructure orchestration ≠ agent orchestration | Kept | CONTEXT.md, [03 §2.6](03-agent-orchestration.md#26-roles) |
 | chat.M006 layout, M023 layout | Repository layout with agents, teams, workflows, capabilities, guardrails, tools, skills, models, compatibility, presets | Adapted (§15 A10) | [03 §1.1](03-agent-orchestration.md#11-layout) |
-| chat.M006 compiler | Structure, references, duplicate IDs, cycles, permission analysis, contract compatibility, normalization, native generation; never last-file-wins | Kept | [03 §1.3](03-agent-orchestration.md#13-check-compile-release-install), [§2.3](03-agent-orchestration.md#23-compile-time-validation), [§1.6](03-agent-orchestration.md#16-configuration-and-overrides) |
+| chat.M006 compiler | Structure, references, duplicate IDs, cycles, permission analysis, contract compatibility, normalization, native generation; never last-file-wins | Kept: S3 static checks, S4 runtime execution (§21) | [03 §1.3](03-agent-orchestration.md#13-check-compile-release-install), [§2.3](03-agent-orchestration.md#23-compile-time-validation), [§1.6](03-agent-orchestration.md#16-configuration-and-overrides) |
 | chat.M006 explain | Explain every effective setting (decision, reason, source, requester) | Kept | [03 §1.6](03-agent-orchestration.md#16-configuration-and-overrides) |
 | chat.M006 lockfile | Pin SDK and runtime, component digests, model identity, template, llama.cpp build, sandbox and OS profiles | Kept | [03 §1.3](03-agent-orchestration.md#13-check-compile-release-install) (project lock) |
 | chat.M006 project file | Tiny project configuration that cannot redefine hooks, orchestration, authentication or destructive rules | Kept | [03 §1.7](03-agent-orchestration.md#17-project-bootstrap-maestro-init) |
@@ -174,7 +174,7 @@ portion, integrated code or test evidence, and remaining work.
 | chat.M031 workflow first | Retrieve workflows, then resolve declared roles, skills, steps and checks | Kept | [03 §1.4](03-agent-orchestration.md#14-routing-an-intent-to-a-workflow) |
 | chat.M031 API | `catalog_route`, `catalog_resolve`, `catalog_search`; typed outputs; statuses including no match and clarification; context bound to the principal | Kept | [03 §1.4](03-agent-orchestration.md#14-routing-an-intent-to-a-workflow), [§8](03-agent-orchestration.md#8-mcp-surface) |
 | chat.M031 cards | Discovery cards with use-when and avoid-when; dependencies as exact data; one card per entry | Kept | [03 §1.4](03-agent-orchestration.md#14-routing-an-intent-to-a-workflow) |
-| chat.M031 hybrid | Dense + BM25 + RRF; eligibility filters in every branch; optional rerank | Kept | [03 §1.4](03-agent-orchestration.md#14-routing-an-intent-to-a-workflow) |
+| chat.M031 hybrid | Dense + BM25 + RRF; eligibility filters in every branch; optional rerank | Adapted: D5 enables hybrid only on measured paired gain; otherwise lexical (§21) | [03 §1.4](03-agent-orchestration.md#14-routing-an-intent-to-a-workflow) |
 | chat.M031 optimal | Smallest qualified workflow; scores are not probabilities; feedback never rewrites routing automatically | Kept | [03 §1.4](03-agent-orchestration.md#14-routing-an-intent-to-a-workflow) |
 | chat.M031 separation | Catalog discovery separate from knowledge RAG (collections, pipelines, scopes) | Kept | [03 §1.4](03-agent-orchestration.md#14-routing-an-intent-to-a-workflow), [02 §1](02-retrieval-and-knowledge-graph.md#1-admission-and-scope) |
 | chat.M031 offline | Cached bundle and cards; exact-ID and local lexical fallback | Kept | [03 §1.4](03-agent-orchestration.md#14-routing-an-intent-to-a-workflow) |
@@ -195,7 +195,7 @@ portion, integrated code or test evidence, and remaining work.
 | chat.M023 operating model | Platform, security, capability maintainers and application teams; contribution path | Kept | [03 §10](03-agent-orchestration.md#10-innersource-flow-s5) |
 | chat.M006 capability package | Maintainer, backup, maturity, environments, evaluations, deprecation, limitations; scaffolder | Kept | [03 §10](03-agent-orchestration.md#10-innersource-flow-s5) |
 | chat.M027 ladder, delivery.R10 | Compose tools → out-of-process tool or extension → core release | Kept | [03 §10](03-agent-orchestration.md#10-innersource-flow-s5), [07](07-extensibility.md) |
-| product.GD2, GD4, GD5 | Four initial clients; hook administration; local-only access | Kept | [03 §1.5](03-agent-orchestration.md#15-native-projection-convenience-mode), [04 §1](04-intelligence-backend.md#1-scope-and-stance) |
+| product.GD2, GD4, GD5 | Four initial clients; hook administration; local-only access | Kept: four-client MCP and static ten-point hook maps in S3; Deferred: all live hooks including C20 Copilot to S4, owner v4 amendment 2026-09-30 (A28, §21) | [03 §1.5](03-agent-orchestration.md#15-native-projection-convenience-mode), [04 §1](04-intelligence-backend.md#1-scope-and-stance) |
 
 ## 10. Testing, observability, benchmarks and improvement
 
@@ -311,14 +311,14 @@ portion, integrated code or test evidence, and remaining work.
 
 | ID | Requirement | Status | Where |
 | --- | --- | --- | --- |
-| rag.N016 claims | Qualified claims; three logical graphs; world and record time; contradictions visible | Kept | [02 §8.2](02-retrieval-and-knowledge-graph.md#82-graph-model) |
+| rag.N016 claims | Qualified claims; three logical graphs; world and record time; contradictions visible | Adapted (§15 A29): source structure remains canonical; navigation deferred | [02 §8.2](02-retrieval-and-knowledge-graph.md#82-graph-model), §24 |
 | rag.N016 resolution | Reliable identifiers first; reversible merges; answers never evidence | Kept | [02 §8.2–8.3](02-retrieval-and-knowledge-graph.md#83-construction-pipeline) |
-| rag.N052 layers | Structural graph first, extracted knowledge later; claims anchored to spans; coverage visible | Kept | [02 §8.2–8.3](02-retrieval-and-knowledge-graph.md#82-graph-model) |
-| rag.N023 roles | Qdrant for passages, Neo4j for relations, Rust for fusion; graph results mapped to passages before fusion | Kept | [02 §8.4–8.5](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
-| rag.N023 access | neo4rs or the official HTTP Query API behind a graph interface; application IDs | Kept | [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
-| rag.N023 variants | Compare Qdrant only, Neo4j only and the pairing | Kept | [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
-| rag.N023 editions | Community single instance, GPL, GDS limits; no global analytics interactively | Kept | [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
-| rag.N016 methods | GraphRAG global and DRIFT, HippoRAG 2, LightRAG, LazyGraphRAG, HyperGraphRAG, in order and on evidence | Kept | [02 §8.5](02-retrieval-and-knowledge-graph.md#85-graph-retrieval-route-r4) |
+| rag.N052 layers | Structural graph first, extracted knowledge later; claims anchored to spans; coverage visible | Adapted (§15 A29): reuse block references, no Document/Section projection nodes | [02 §8.2–8.3](02-retrieval-and-knowledge-graph.md#82-graph-model), §24 |
+| rag.N023 roles | Qdrant for passages, Neo4j for relations, Rust for fusion; graph results mapped to passages before fusion | Adapted (§15 A29): LadybugDB in S2, whole source proofs | [02 §8.4–8.5](02-retrieval-and-knowledge-graph.md#84-authority-and-projection), §24 |
+| rag.N023 access | neo4rs or the official HTTP Query API behind a graph interface; application IDs | Adapted (§15 A29): G27 typed-edge port; selected Neo4j later via deployment-modes D07 | [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection), §24 |
+| rag.N023 variants | Compare Qdrant only, Neo4j only and the pairing | Adapted (§15 A29): same-run passage-only (all S1 default routes, graph `none`), LadybugDB-only and pairing | [02 §10](02-retrieval-and-knowledge-graph.md#10-evaluation), §24 |
+| rag.N023 editions | Community single instance, GPL, GDS limits; no global analytics interactively | Deferred: requalify for the later selected Neo4j adapter, not S2 | ADR-0021, §24 |
+| rag.N016 methods | GraphRAG global and DRIFT, HippoRAG 2, LightRAG, LazyGraphRAG, HyperGraphRAG, in order and on evidence | Deferred: measured gain and a later plan required; S2 is bounded traversal only | [02 §8.5](02-retrieval-and-knowledge-graph.md#85-graph-retrieval-route-r4), §24 |
 | rag.N052 publication | Graph and indexes published together; claims in later publications | Kept | [01 §9](01-knowledge-pipeline.md#9-l7-indexing-and-publication), [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
 | rag.N016, N052 authority | Neo4j as the authority for jobs, metadata and claims | Adapted (§15 A1) | ADR-0002 |
 
@@ -405,7 +405,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | product.CD6 | Adaptive L1 budget under a ceiling; L0 never truncated; optional model-traffic relay | Kept | [04 §4](04-intelligence-backend.md#4-phase-i1--memory-and-continuity), [§7](04-intelligence-backend.md#7-context-management-the-undecided-489-surfaces) |
 | product.CD7 | Views keep manual adjustments; frozen snapshots | Kept | [04 §8](04-intelligence-backend.md#8-phase-i4--workbench) |
 | product.CD8 | Graceful shutdown by default, real stop-all, forced termination | Kept | [04 §9](04-intelligence-backend.md#9-operating-model), [07 §4.3](07-extensibility.md#43-the-extension-host) |
-| product.GD1–GD5 | Provider configuration, four initial clients, non-blocking graph advice, hook administration, local access | Kept | §6, §9, [04 §7](04-intelligence-backend.md#7-context-management-the-undecided-489-surfaces) |
+| product.GD1–GD5 | Provider configuration, four initial clients, non-blocking graph advice, hook administration, local access | Kept: four-client MCP and static hook maps in S3; all live hooks, including Copilot, in S4 (owner v4 amendment, 2026-09-30; §9, A28) | §6, §9, [04 §7](04-intelligence-backend.md#7-context-management-the-undecided-489-surfaces) |
 | product.NP | Native Rust desktop; Rust wherever feasible; justified Python exceptions; no framework reuse; one backend; three platforms | Kept | ADR-0016, [04 §1](04-intelligence-backend.md#1-scope-and-stance), [§8](04-intelligence-backend.md#8-phase-i4--workbench) |
 
 ## 14. Foundation and engineering
@@ -429,8 +429,8 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 
 | # | Earlier choice | Now | Reason |
 | --- | --- | --- | --- |
-| A1 | Neo4j holds jobs, publication metadata and claims (rag.N038, N052) | The kernel (SQLite + artifacts) is the only authority; Neo4j is a rebuildable projection (ADR-0002) | One authority; the later unified analysis (rag.N075) chose SQLite for lifecycle state itself |
-| A2 | SurrealDB as the graph store (rag.N016) | Neo4j (ADR-0004) | The owner asked for Qdrant + Neo4j (rag.N020); SurrealDB's licence and storage caveats |
+| A1 | Neo4j holds jobs, publication metadata and claims (rag.N038, N052) | The kernel (SQLite + artifacts) is the only authority; graph engines are rebuildable projections (ADR-0002, ADR-0021) | One authority; the later unified analysis (rag.N075) chose SQLite for lifecycle state itself |
+| A2 | SurrealDB as the graph store (rag.N016) | Historical Neo4j choice (ADR-0004), amended for S2 by A29 | The owner asked for Qdrant + Neo4j (rag.N020); SurrealDB's licence and storage caveats |
 | A3 | redb or apalis as the job registry (chat.M023, rag.N011) | Kernel jobs on SQLite | One store; SQLite selected by the unified plan |
 | A4 | Qwen3-Embedding-0.6B, gte reranker and Qwen3.8-27B as starting models (rag.N011, N030, N038) | Candidates in a recorded bake-off (ADR-0011) | Owner decision: no preselected model |
 | A5 | text-splitter for chunking (rag) | The existing canonicalization chunker | Already built, tested and span-mapped |
@@ -439,7 +439,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | A8 | mistral.rs for generation (rag) | The router first; mistral.rs an alternative | Same |
 | A9 | Child 512 / parent 1,500 tokens, 0–15 % overlap (rag.N011) | Target 500, maximum 700, zero primary overlap; parents are section objects | The canonicalization contract (rag.N060) supersedes the first study |
 | A10 | YAML platform and capability manifests, `org-agent` names (chat) | Copilot-native Markdown, TOML sidecars, JSON policies, `maestro` noun-verb commands | ADR-0005, ADR-0014 |
-| A11 | Empty agent metadata with a separate descriptor (chat.M019) | Frontmatter `metadata:` if Copilot tolerates it, else a sidecar | Decided by an S3 spike |
+| A11 | Empty agent metadata with a separate descriptor (chat.M019) | Agent sidecars confirmed; skills use specification-backed `metadata`, not support inferred from a silent unknown-key control; a host warning reopens ADR-0005's sidecar decision | ADR-0005 retained; integrated [C01 report](../../specs/003-catalog/research/hosts.md) at `0be954b` |
 | A12 | Ordered workflow steps (chat) | Workflow graphs with bounded loops and joins (ADR-0006) | Expresses reviews, repairs and fan-out |
 | A13 | Rig as the agent abstraction (rag.N016) | The in-house engine and sessions | Semantics are host-specific |
 | A14 | Tantivy for lexical search (rag.N011) | Qdrant sparse vectors from maestro's `bm25-en-fr/1` analyzer (R7); Tantivy only if tests show gaps | One engine |
@@ -455,6 +455,9 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | A24 | A separately deployable catalog MCP service (chat.M031) | The same `maestro` MCP server; a service deployment waits for a team profile | Laptop first |
 | A25 | Recopy 43 reviewed migration candidates (core) | The crate stays as is with its fixtures; S0 only brings it to the gates | Already present; delivery.§7.2 |
 | A26 | First governed workflow first (delivery.U08) | Knowledge kernel and Control-M RAG first (S1) | Owner decision |
+| A27 | Unconditional hybrid win for M3 (chat.M031 hybrid) | Passing baseline ships unless hybrid's seeded 95 % paired-bootstrap top-1 gain interval is strictly positive; held-out matchable top-1 ≥ 90 % is the absolute gate | OA10 approved by the owner, 2026-09-28: dated amendment to D5. The original top-3 ≥ 90 % bar is retained as history, not current acceptance (§21) |
+| A28 | Four-client hook administration in S3 (product.GD2, GD4, GD5) | Four-client MCP and static hook maps stay S3; C20 live Copilot plus other hooks are S4, retaining C20's 4 h | Owner v4 amendment 2026-09-30 supersedes the 2026-09-28 Copilot-only exception. Trusted event/identity adapters need S4 qualification; no reduction of MCP scope |
+| A29 | Neo4j-first S2, structural nodes, vector linking and global algorithms in the first graph | Rule-only pilot and full graph both read G25-qualified LadybugDB through G27/G28; SQLite holds claim authority/evidence checks, not graph queries. Source-referenced claims and bounded whole proofs; later selected Neo4j and named algorithm deferrals | Owner D1–D5 and 11:25/11:30 ruling, 2026-09-28, ADR-0021 amendment; fewer services and one graph engine from the pilot onward. G01 reconciles design only; G24 supplies delivery evidence. |
 
 ## 16. Dropped
 
@@ -462,7 +465,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | --- | --- | --- |
 | Sonar code-quality integration | The organization removed Sonar and every mirror or tier notion | Owner |
 | Artifactory or JFrog registry configuration | Same | Owner |
-| SurrealDB, HelixDB, CozoDB, Oxigraph as graph stores | Neo4j chosen; RDF and Datalog not required; licences and maturity caveats | Owner (rag.N020) |
+| SurrealDB, HelixDB, CozoDB, Oxigraph as graph stores | Historical Neo4j choice, now embedded-first S2 (ADR-0021); RDF and Datalog not required; licences and maturity caveats | Owner (rag.N020, D1) |
 | Graphiti's Python runtime | Principles kept (bitemporal facts), runtime not reused | NP rule |
 | Embedded provider engines (Headroom, Context Mode, OpenViking, Archify renderer) | Outcomes reimplemented; no framework code reuse | Owner (NP) |
 | The three frozen provider exclusions (no-op, demonstration, idle launcher) | Nothing to deliver | Provider review overlays |
@@ -480,10 +483,10 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | Where `ctm-collection` lives: the organization allows only public repositories (`visibility-is-frozen`, CodeQL required on every default branch), so ADR-0009's private repository cannot be created in it | S0 | A private repository on the maintainer's account; the organization's settings unchanged |
 | The SDK and CLI pair to pin | S4 | The latest release at S4 start, qualified by U04's suite |
 | Operational bindings: endpoints, accounts, data scopes, exclusion registries, budgets | S1 (import), S6 (live) | Supplied by the owner per source |
-| Publisher identities, trust roots, key rotation procedure | S3 | Manifests release workflow identity; documented rotation |
+| Publisher identities, trust roots, key rotation procedure | S3 C09 records OA4 bindings/evidence; missing evidence blocks C28 | D2 decided: pinned gh, separate catalog/runtime publishers, five-minute refresh and ≤24-hour offline validity. With real `cli/cli` v2.98.0 public bundles, `gh 2.98.0` offline verification accepts the deployment workflow signer and rejects a changed signer; fixture outputs/digests are in `tests/fixtures/catalog/trust/`. One unauthenticated REST list request returned both bundles. Online `gh` lookup still exits 4 without credentials, so OA4 must supply the checksum-pinned standalone gh and confirm the proposed fine-grained token (public repositories, read-only, no permissions; untested). Measure online lookup calls and least-scope binding against 60 REST requests/hour unauthenticated and 5,000/hour authenticated; the five-minute budget is `12 × requests per refresh × active laptops per root`. Exact OA4 identities, online call count and live rotation evidence block C28, not implementation; not an open D1–D5 product choice |
 | Product decisions D01, D03–D05, D07–D08, D10–D11 | S7 phases | [04 §12](04-intelligence-backend.md#12-decisions-still-open) |
 | egui/eframe as the workbench toolkit | I4 start | egui/eframe |
-| Neo4j versus the LadybugDB spike on laptops | S2 exit | Neo4j unless the spike wins |
+| S2 suite size, local precision reviewer and recorded private receipts | Before private execution/freeze in G05/G07/G08/G20/G23 | Suite/reviewer confirmation remains pending. U2's scopes and I1's development-only 8B trigger were approved at 12:53; receipt existence/digests still require verification. Engine direction is decided; G25 qualification remains pending. |
 | Qdrant server versus Qdrant Edge on laptops | Before laptop rollout | Server (ADR-0003) |
 
 ## 18. Source limits
@@ -786,3 +789,213 @@ row must name its later slice.
 | §15 | `A22` | Whole: near-duplicate grouping built in S1 | T023 | `73faa04` | `crates/maestro-knowledge/src/prepare/tests/near.rs` | None |
 | §15 | `A26` | Whole: knowledge kernel and Control-M RAG first | All | Every S1 commit | `crates/maestro-knowledge/tests/it/synthetic_gate`, `crates/maestro-knowledge/src/eval/tests/ladder.rs` | None |
 | §17 | `Operational bindings: endpoints, accounts, data scopes, exclusion registries, budgets` | Part: supplied as machine configuration for import | T003, T019 | Private: the corpus mapping (ADR-0009), `e634ff8`, `7d1ff9a` | `crates/maestro-knowledge/tests/it/corpus_contract.rs`, `crates/maestro-knowledge/tests/it/import_contract` | Live bindings: S6 |
+
+## 21. S3 contract inventory (C00, not delivery evidence)
+
+The [S3 inventory](../../specs/003-catalog/traceability.json) records the 85
+included exact row keys in the [S3 spec](../../specs/003-catalog/spec.md#traceability),
+including combined keys verbatim, and six reasoned S5-only exclusions.
+Every included row names its S3 portion, implementation tasks and remaining work
+by slice. All rows are **planned**, not delivered;
+C28 supplies integrated evidence. This frozen inventory, with its exact keys,
+S3 and remaining portions and exclusions, is approved by the owner, 2026-09-28
+(C00 inventory approval). This does not approve S1's separate T039 inventory or waive any M3 exit.
+
+The runnable check is
+`crates/maestro-conventions/tests/catalog_traceability/`. It compares the
+frozen exact keys against this document and the S3 table. Completeness is
+also derived from source tables: every row whose Where/Where now column links
+`03-agent-orchestration.md#1…` or `06-roadmap.md#s3-catalog--m3`, or whose
+Status/Slice now column names S3, must be included or explicitly excluded with
+a reason. The broad `#1` prefix catches §10 too; its six S5-only rows have
+explicit exclusions, not silent omissions. Checks reject missing, duplicate or
+extra rows, absent portions, unknown/empty tasks and unnamed or lost remaining
+slices. Negative fixtures mutate both JSON and spec rows; successful checks
+prove consistency and candidate coverage, not owner approval or runtime delivery.
+
+| Contract | Disposition and evidence still required |
+| --- | --- |
+| D1 authoring boundary | C02 small reviewed-source content and C08 owner loop precede M3 as authoring convenience only. Source digests/authoring locks cannot become attested installs; workflows stay inert and normal install/update keeps verification. No M3 criterion is removed |
+| D2–D4 decided inputs | Pinned gh with separate publishers, ≤5-minute refresh and ≤24-hour offline validity; synthetic public data with exact approval for private use; installed parsers plus the approved measured libraries. OA1/OA2/OA4/OA5/OA6 supply external operations and qualification evidence, not new D1–D5 choices |
+| D5 routing | C23 freezes 100+ reviewed CORE synthetic/public cases: ≥20 tuning, ≥80 held-out, ≥60 held-out matchable, ten eligible synthetic workflows and a digest-pinned compiled bundle/eligibility fixture. OA10 approved by the owner, 2026-09-28: held-out matchable top-1 ≥ 90 % is the absolute gate, measuring first-selection correctness. This dated amendment to D5 replaces its original top-3 ≥ 90 % bar, retained as history, not current acceptance. Exact closure completeness is 100 %. Report both top-1/top-3, negative cohorts, unnecessary context, distractors and latency. S3 D5 uses the 95 % paired top-1 bootstrap (seed 42, S1's 2,000 resamples); C26 exposes that seam without changing S1 results. Hybrid needs a strictly positive gain interval, else ship the passing baseline and retain the comparison. Real executable workflows remain incompatible until S4 |
+| Parallel start, 2026-09-28 08:12 | S2/S3 start while S1 finishes. Integrated T034/T035 and T038 live evidence gate C08/C28; M1 release gates M3 exit, not C00 or independent fixture work |
+| Static versus runtime | C22a/C22b target all twelve 03 §2.3 rules, with the cost obligation below still open. Local authoring eligibility is a reviewed declaration plus checked area ownership over the full closure, never proof of completed protected review. C22b corrects C22a's unwired admission terminology without weakening closure/maturity guards. C15 protected publication and signed-release admission alone assure actual protected review. Show each compiled member's maturity/owner in lock and preview/explain. Fully declared unqualified profiles may establish static independence satisfiability, not observed independent execution. S4 raises executable admission to qualified and owns real fresh sessions, accounting, broker, sandbox and acceptance; projectable is not route-eligible |
+| Workflow cost — M3 gate | C22b may land the three shared tokens/wall/tool-call dimensions; `cost` and `cost_units` must refuse as **unsupported in Phase 1**. The full cost target remains a design/implementation obligation: **cost budget dimension: define unit, range, default and the pricing source before the M3 exit**. C28 preflight and acceptance require its recorded decision and implementation evidence. Unsupported-input refusal neither closes it nor proves all budget dimensions delivered. Do not invent currency, pricing, zero cost or an integer-max ceiling |
+| Hook scope | Owner v4 amendment: S3 keeps four-client local MCP, real Cedar fixtures and ten-point host mapping evidence only. C20 live Copilot normalization/allow/deny/error-to-deny and 4 h move to S4 with the other trusted host adapters. Missing hooks are unprotected; static fixtures never prove live enforcement |
+| Impact ownership | C12 scoped kernel records are authority. S3 C27a owns catalog edge schema, read/write adapters and snapshot bindings over S2 G27's public typed-edge port after G25 qualification; C27 traverses that separate rebuildable projection. No fabricated evidence-span claims, similarity edges or implicit in-memory fallback. Missing S2 evidence blocks impact/M3 |
+| Migration allocation | C00 reserves no number. The supervisor rechecks every landed/reserved number on main, S1/S2/S3 and deployment-modes at each landing, then allocates the next free one above them. Never a fixed/gapped block or a rewrite of an applied migration; dated observations belong in the S3 plan, not this rule |
+
+C22b's required `authoring_check_does_not_claim_remote_review` must pass synthetic
+reviewed/owned source through the real checker, assert authoring-only output
+with no remote-review, verified-install or qualification receipt, and prove it
+cannot enter verified installation. Pair missing-owner and
+placeholder/authored/retired closure refusals. Profile filenames, role names and
+authored session IDs cannot establish independence; compare checked canonical
+configuration/provider identities and retain S4's fresh-session obligation.
+Static policy coverage also proves no future permit: a forbid-covered action
+can compile while real Cedar denies its runtime request with zero executor
+calls. These are required checks, not results or a claim that C22b has run.
+
+Architecture [03](03-agent-orchestration.md) and
+[06 S3](06-roadmap.md#s3-catalog--m3) carry the same boundaries. C00 performs
+no host installation, account access, repository creation, release, trust
+rotation or private-data operation. Missing live evidence remains missing.
+
+## 22. Owner amendments, 2026-09-28 11:25–12:05
+
+The [S3 amendment coverage](../../specs/003-catalog/spec.md#exact-requirement-coverage-after-v4)
+refines existing source rows, not a new source-key inventory. C00's 85 included
+keys, six exclusions and planned statuses remain unchanged; no new JSON row or
+inventory-test exemption is needed. The supplemental FR/task map must become
+part of C28's evidence for these existing rows, never an untracked M3 promise.
+
+| Amendment | Existing source rows and planned responsibility |
+| --- | --- |
+| Workspace config and polished init | `owner.m001.cli`, `owner.m001.load`, `chat.M019 bootstrap, M023 step 13`: C05a/C05b/C05g/C05j implement strict preferences, owner/home/trust-bounded discovery, free flags > workspace > user > defaults, successful root-only writes and plain/script parity. C05f/C05k add the approved branded renderer after the first owner loop |
+| Conversation versus artifacts | `owner.m001.load`, `chat.M036 classes, M039 policy`, `delivery.C08 explicit instructions and skills with provenance`: C05c/C05l/C05d/C05e use the bounded canonical BCP 47 subset, question-language fallback and evaluation isolation. Interface en/fr/es, English fallback, tone only for generated prose. MCP --workspace or user preferences, path-free source; native files contain fixed English rules only. C05j/C06/C07 prove byte invariance |
+| Verified startup updates | `chat.M006 release`, `chat.M027 TUF`, `delivery.C17 signed releases, freshness, revocation, transparency`, `owner.m024`: C16c–C16g add off/daily discovery, user-only catalog auto with narrowing ceilings, widening/hook consent, invariant receipts and trusted catalog rollback. Runtime propose-only; MCP never applies or carries release-note instructions; no mid-task activation |
+| User-approved workspace path trust | `owner.m001.guardrails`, `owner.m032`, `chat.M036 classes, M039 policy`, `chat.M006 destructive`: C05h/C05i/C05j and transferred C20/S4 use kernel-only canonical trust records, explicit add/list/remove with exact confirm-path for CI, root/HOME refusal and unchanged edited preferences. Shared policy denies outside writes and secret reads/escapes; C20/S4 denies Copilot agent-shell trust commands; all host containment stays S4; internal paths never become tool grants |
+| Modular delivery | The same rows above: `WorkspacePreferences`, `WorkspaceTrust`, `UpdateSource`, pure instruction construction and `ClientPreferencesDelivery` are small typed ports. New clients/sources add adapters without editing callers; no adapter can weaken mandatory controls or imply a plugin runtime |
+
+### Named remaining obligations
+
+- **S4 session-preferences launch-adapter obligation** (remaining runtime
+  portion of `delivery.C08 explicit instructions and skills with provenance`):
+  consume C05e's shared fragment in every actual launch, resume and delegation.
+  Test adapter payloads on both providers with each tone and a non-interface
+  language; preserve selected tag and English artifact/log rules, reject
+  model-supplied preference replacement. Fail on missing/stale fragments at
+  launch/resume/delegation and observe conversation versus English artifact/log
+  effects. Native adapter input is the value-free
+  `native_preferences_instructions()`; no selected values enter native files.
+  `catalog_client_preferences` tests exact MCP payloads for four fixtures;
+  `settings::tests::instructions` tests canonical construction and refusals.
+  C08 owns host evidence; S3 fixtures are not host obedience. The
+  [handoff](../../specs/003-catalog/research/session-preferences.md) names the
+  remaining payload/effect acceptance. S3 tests construction/delivery only.
+- **S4 workspace-trust hook obligation** (remaining portion of
+  `product.GD2, GD4, GD5` and the existing hook deferral): transferred C20
+  Copilot (4 h), Pi, Codex and Claude Code must use qualified trusted event/identity adapters with the same path
+  policy. Test actual outside-write, secret-read, symlink-escape and agent-shell
+  trust administration, including correct --confirm-path arguments, with allowed
+  neighbours and zero executor calls on denial. Pi, Codex and Claude Code each
+  require normalized trusted-event payload receipts, observed effects and
+  adapter-error-to-deny tests; unsupported hooks remain unprotected.
+  S4 also uses the shared update idle lease around tasks/sessions. No S3
+  instruction or preference setting is runtime containment evidence.
+- **Notify-only update checks for owner-managed components (Qdrant, router runtime,
+  host clients, models)** (remaining owner-managed lifecycle follow-up, not an
+  S3 exit): only propose after each has an approved source; never apply/download.
+  S3 discovers released Maestro and installed catalogs with pinned closures,
+  but applies only catalog updates; Cargo and pinned `gh` stay outside.
+- **Runtime auto-apply with the installer** (remaining runtime portion of
+  `owner.m024` and release-lifecycle rows): define installation layout, platform
+  startup handoff, idle exclusion, retained binaries/state, durable receipts and
+  trust-checked rollback. S3 C16e/C16g only proposes verified releases with an
+  exact approved install command; no automatic runtime switch or rollback.
+- **Roots-based workspace detection, once a client-qualified channel exists**
+  (remaining client portion of `product.GD2, GD4, GD5`): roots arrive after MCP
+  initialization, with no standard instructions-changed notification. S3 C05e
+  uses --workspace or user preferences only, not per-client notification schemes.
+
+These obligations also appear in [06](06-roadmap.md). On 2026-09-28, OA9
+approved ratatui + crossterm under ADR-0020; C05f measurements and C05k visual
+acceptance before C28 remain required. OA2 approved tests of already-installed
+Copilot CLI, Pi, Claude Code and Codex in isolated temporary homes; C01 records
+exact installed pins. No installs/upgrades, real owner configuration or enterprise
+policy changes; broader scope needs fresh OA2 approval. Plain C08 does not wait
+for TUI evidence; the tag grammar needs no parser dependency. None of these
+approvals or dispositions claims that tasks or live checks have run.
+
+## 23. Manifest v4, owner approval 2026-09-30
+
+[ADR-0022](../adr/0022-manifest-layout-v4-and-language-neutral-extensions.md),
+[S3 D13–D15](../../specs/003-catalog/plan.md#d13-manifest-v4-source-contract)
+and the [exact requirement map](../../specs/003-catalog/tasks.md#requirements-coverage)
+replace the earlier layout, single-owner and live-hook dispositions. The 85
+source keys and six exclusions remain frozen; no architecture row is invented
+for a new FR. traceability.json adds exact FR/task, MD01–MD16 and G01–G13 links,
+all planned, not delivered. There are 68 FR and 25 SC after the amendment.
+
+Mandatory standards/common, framework core and selected teams/languages compose
+by explicit closures, not overwrite precedence. Ten personas and eight language
+profiles ship in Phase 1; knowledge-only projection stays thin. Delegated
+maintainers cannot self-approve ownership; trusted CI verifies identities and
+base-owner exact-head approval. Schemas/indexes/CODEOWNERS are generated from
+one checked registry. Standard imports remain read-only until Phase 2/ST1's
+single-authority switch. No copied non-Rust gate or automatic private grant.
+
+The minimal amendment is 149 h Phase 1 and 121 h Phase 2, beginning immediately
+after M3. G07–G11 guides/guard evidence cost 12 h in Phase 1; G12 context limits
+cost 6 h in Phase 2, per the supervisor's correction. C29 audits 395 legacy
+inputs before M3 with explicit deferred recovery. C20's 4 h transfers to S4.
+Independent package releases, scaffolder, generic evals, extensions and named
+gap kits retain their Phase 2 milestones. Any-language extensions run out of
+process: MCP actions, separate durable engine events, no launch during S3
+check/compile/install. Standards/pins/signing/trust/owned-removal and existing
+M3 quality controls are not deferred. S6's restricted private collection mount,
+seven later language-gate projects and post-M1 live model/router work remain
+separate; no private content was read or published by this amendment.
+
+The owner at 20:45 made manifests the sole home for URL policy/decision/
+promotion/expiry/migration JSON. `delivery.§2.2` now maps source-owned rules,
+core-derived published schemas and signed-release plus recorded owner/maintainer
+review; collections carry only strict JSON declarations and exact references.
+C66 rises 3→4 h, giving the 149/121 h totals above; C52a/b/C68 and C41/C43 add
+0 h. FR-S3-068/SC-S3-025 carry this new contract without another architecture
+key. S6 alone supplies the runtime `PolicySource`/`ResourceSource` catalog
+adapter; its task/hours are assigned separately. C66's N07 `IdentityMigration`
+type synchronization is pending landing, not delivered evidence or permission
+to use the under-review commit. Private source rules use admitted private
+packages (C69); C42 stays restricted and core stores no real per-site rules.
+
+## 24. S2 design reconciliation
+
+G01 reconciles these exact architecture rows with the approved
+[S2 spec](../../specs/002-knowledge-graph/spec.md), not with delivered graph
+behavior. The [requirement map](../../specs/002-knowledge-graph/tasks.md#requirement-coverage)
+is checked against every task's Acceptance line by
+`crates/maestro-knowledge/tests/it/graph_fixture.rs`. G24 must replace planned
+ownership with integrated commit/test/receipt evidence or blockers for every
+FR-S2/SC-S2 requirement; G01 neither completes M1 nor declares the pilot M2.
+The [manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff)
+is frozen from S3 `30b702b` D13/D14 and C44/C46/C47a/C48. It retains
+`graph.engine`, registered backend `type = "ladybug"`, one S1 defaults slot
+and complete non-resource locks. G01 checks documents/synthetic fixtures only;
+G26, E07a, E08b, G28 and G22 still own their consumer/release deltas.
+
+| Architecture rows | Planned S2 portion / task owners | Deferred or evidence still required |
+| --- | --- | --- |
+| Architecture README diagram/layer L8/technology matrix, 01 entity vectors, 04 B6/D02 | Embedded-first stack, entity vectors deferred and ADR-0021 graph amendment; G01, G25, G24 | The S2 spec governs older architecture wording; engine qualification and release evidence remain pending. |
+| `owner.n012`, `owner.n020`, `rag.N023 roles`, `rag.N023 access`, `rag.N023 editions` | Embedded-first projection and minimal application-ID typed-edge seam; G25, G26–G28, G11 | Qualification pending; G24 finalizes ADR-0021. Deployment-modes D07 later wraps the seam for selected Neo4j; no runtime fallback. |
+| `rag.N016 claims`, `rag.N052 layers`, `rag.N011 mining` | Verified immutable claims and original source references; one `DEFAULTS_TO` table first, G31 adds the closed entity-claim vocabulary; G01–G05, G09, G19, G31 | G01's synthetic fixture is not production claim/extraction/CLI or private pilot evidence; no structural/literal nodes. |
+| `rag.N016 resolution` | Exact spelling/name/kind/collection identity, reviewed reversible aliases and contradictions; G10 | Fuzzy/vector linking deferred. |
+| `rag.N052 publication`, `rag.N016, N052 authority` | Kernel claim/profile attachment, immutable pins, one loader and durable foreground effects; G09, G27, G28, G21. E07a/E08b/G28 bind C47a's frozen settings/lock without replay on changed inputs. | Graph files never authority; process safety and ordered deletion/rebuild/restore equality pending G25, G30, G22. C48's actual qualified declarations precede G22, which feeds C49a with E11/G28. |
+| `rag.N038 identity dedup`, `rag.N038 RRF`, `rag.N038 budgets`, `rag.N038 context dedup`, `rag.N038 EvidenceBundle` | Question-only R4, no echo vote, complete `/2` proofs through fusion and budgets; G11–G14 | S1 `/1` unchanged; general release-delta deduplication and calibration stay outside S2. |
+| `rag.N038 answer`, `rag.N038 degradation`, `rag.N016 permissions`, `rag.N016 tools` | Per-hop eligibility/current grants, explicit coverage/unavailable, four CLI/MCP reads, guarded local ≤4B answers; G11, G15, G16 | Real-client smoke and whole-proof transport evidence pending; HTTP/research loops remain S4. |
+| `rag.N023 variants`, `rag.N011 evaluation`, `owner.n057` | Construction/proof/answer scores, frozen private suite and same-run three-rung comparison; G06–G08, G20, G23; G32/G33/G34 supply local review, owner page and drafting | D3 gates stay fixed. D7's 220-question graph suite and U2/I1 are approved; recorded receipts and reviewer protocol still gate execution. |
+| `rag.N016 methods` | Bounded local/path traversal only; G11 | Leiden, PageRank/PPR, node similarity, global/DRIFT search, community summaries, incremental graph algorithms and dense-seeded expansion deferred until measured gain and a later plan. |
+| `core native`, `product.NP` | Linux/Windows/macOS and supported cross-Clippy gates; G25, G22 | A dated CI plan may permit implementation, never M2 acceptance; no platform deferral until after S4. |
+
+**G01 evidence boundary:** one new synthetic table/rule-oracle pair at
+`tests/fixtures/synthetic/graph/defaults.{md,json}`, with digest, UTF-8,
+canonical row and literal-default checks. The dispatch source inspection at
+`821851a` confirms S1 search/ask, backup/restore, scope and generation seams
+([plan Starting point](../../specs/002-knowledge-graph/plan.md#starting-point));
+it is not a new native or live-client receipt. The manifest delta rechecks input
+seams at `ba89e925874883bcc0ee5248c7455c8612457808`, preserves both frozen
+fixture digests and extends
+`graph_fixture` with approved D14 bounds, registry/lock and retired-resource
+checks. Static checks are not C46/C47a wiring or C48 qualification evidence.
+G01 assigns no migration number, encoded setting value or qualified pin.
+Outstanding owner identities/protections retain S3 **OA1**; unspecified C46
+migration/C47a wire details are implementation inputs, not invented approvals.
+
+**Private boundary:** U2's 12:53 approval fixes the pilot at one 9.0.22 parameter
+table chosen by a local deterministic script, digests frozen before text reads
+for extraction/review; acceptance uses the whole published `ctm` generation,
+local-only. `PRIVATE/graph/receipts/pilot-inputs.json` and separate
+`acceptance-inputs.json` still need recorded scope/target/expiry/evidence,
+generation, inventory, digests and window policy. No S1 receipt applies.
+G32/G33/G34 keep capture/review/pages/drafts local with sanitized output and
+errors. No vendor source, quote, rule pack or receipt body is copied here.

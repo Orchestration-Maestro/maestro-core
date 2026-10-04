@@ -1,0 +1,113 @@
+[
+  [
+    "maestro-source-descriptors/1",
+    "d5c16926bdd336139829d71d709c9c15d28ffc596fbe1efef5442325370075c7",
+    "entity",
+    "Alpha\nCommand\nAlpha is a command.",
+    [
+      {
+        "block_id": "block-dc9b87b064ec3ffb23efdc0ce925a099c8161ff3b0e62826489592cc2074a23e",
+        "quote_digest": "34177b98c7997d525c00496b73d6a835f828e4a0ace936b9cfacc93872275525",
+        "revision_id": "rev-9eba64e48bcd7d22cd9077540b644be4613e1637c462a41307fccf7faf87d9de",
+        "span": [
+          0,
+          19
+        ]
+      }
+    ],
+    {
+      "collection_id": "graph",
+      "generation_id": 7,
+      "version": null
+    },
+    "6ee0eb490ff832101cf82a3d387c35f29e4230be786978f7acf9e811febf6723",
+    "f7fbd5853d11940e045abc7c4d7b8e3253947bcde21b8cd8555d71c6f02fd912",
+    {
+      "conditions": {},
+      "version": {
+        "known": false
+      },
+      "world": {
+        "known": false
+      }
+    },
+    true
+  ],
+  [
+    "maestro-source-descriptors/1",
+    "dd1b3c312cf7d816130354452e9629ce39355b0c534129dd26a08cd9a4502ede",
+    "claim",
+    "Alpha\nCommand\nAlpha is a command.\nREQUIRES\nBeta\nComponent\nBeta is a component.",
+    [
+      {
+        "block_id": "block-dc9b87b064ec3ffb23efdc0ce925a099c8161ff3b0e62826489592cc2074a23e",
+        "quote_digest": "34177b98c7997d525c00496b73d6a835f828e4a0ace936b9cfacc93872275525",
+        "revision_id": "rev-9eba64e48bcd7d22cd9077540b644be4613e1637c462a41307fccf7faf87d9de",
+        "span": [
+          0,
+          19
+        ]
+      },
+      {
+        "block_id": "block-b11970769ee7a14e04fba67892a2f513d47266771b4855699acf653a0f7ffd11",
+        "quote_digest": "80d2a4557ad9f96b2cd09611622c3e8b5e53a24dbc5af6ddd67a355b75a42f03",
+        "revision_id": "rev-9eba64e48bcd7d22cd9077540b644be4613e1637c462a41307fccf7faf87d9de",
+        "span": [
+          37,
+          57
+        ]
+      }
+    ],
+    {
+      "collection_id": "graph",
+      "generation_id": 7,
+      "version": null
+    },
+    "6ee0eb490ff832101cf82a3d387c35f29e4230be786978f7acf9e811febf6723",
+    "f7fbd5853d11940e045abc7c4d7b8e3253947bcde21b8cd8555d71c6f02fd912",
+    {
+      "conditions": {},
+      "version": {
+        "known": false
+      },
+      "world": {
+        "known": false
+      }
+    },
+    true
+  ],
+  [
+    "maestro-source-descriptors/1",
+    "9dad7d3c60690eb52f1f1944134592751d29e05cbd2edd8d6169c1155f59a6a6",
+    "entity",
+    "Beta\nComponent\nBeta is a component.",
+    [
+      {
+        "block_id": "block-b11970769ee7a14e04fba67892a2f513d47266771b4855699acf653a0f7ffd11",
+        "quote_digest": "80d2a4557ad9f96b2cd09611622c3e8b5e53a24dbc5af6ddd67a355b75a42f03",
+        "revision_id": "rev-9eba64e48bcd7d22cd9077540b644be4613e1637c462a41307fccf7faf87d9de",
+        "span": [
+          37,
+          57
+        ]
+      }
+    ],
+    {
+      "collection_id": "graph",
+      "generation_id": 7,
+      "version": null
+    },
+    "6ee0eb490ff832101cf82a3d387c35f29e4230be786978f7acf9e811febf6723",
+    "f7fbd5853d11940e045abc7c4d7b8e3253947bcde21b8cd8555d71c6f02fd912",
+    {
+      "conditions": {},
+      "version": {
+        "known": false
+      },
+      "world": {
+        "known": false
+      }
+    },
+    true
+  ]
+]

@@ -8,6 +8,7 @@ use toml::de::DeTable;
 /// A choice of `values`.
 fn choice(values: &'static [&'static str]) -> SettingKind {
     SettingKind::Choice {
+        ordered: false,
         values: values.iter().map(|value| Cow::Borrowed(*value)).collect(),
         reserved: Cow::Borrowed(&[]),
     }
@@ -40,6 +41,7 @@ fn parse_text_reads_whole_numbers_and_names_what_it_expects() {
         min: 1,
         max: 50,
         off: false,
+        power_of_two: false,
     };
     assert_eq!(from_text(&integer, "50"), Ok(Value::Integer(50)));
     assert_eq!(from_text(&integer, "1"), Ok(Value::Integer(1)));
@@ -59,6 +61,7 @@ fn parse_text_reads_whole_numbers_and_names_what_it_expects() {
         min: 1,
         max: 30_000,
         off: true,
+        power_of_two: false,
     };
     assert_eq!(from_text(&optional, "off"), Ok(Value::Off));
     assert_eq!(
@@ -167,6 +170,7 @@ fn parse_text_reads_choices_languages_and_names() {
 #[test]
 fn a_reserved_choice_value_is_refused_with_its_reason_wherever_it_is_read() {
     let compute = SettingKind::Choice {
+        ordered: false,
         values: Cow::Borrowed(&[Cow::Borrowed("off"), Cow::Borrowed("gpu")]),
         reserved: Cow::Borrowed(&[ReservedValue {
             value: Cow::Borrowed("cpu"),
@@ -197,6 +201,7 @@ fn parse_toml_reads_numbers_from_their_toml_types_only() {
         min: 1,
         max: 120,
         off: true,
+        power_of_two: false,
     };
     assert_eq!(from_toml(&integer, "30"), Ok(Value::Integer(30)));
     assert_eq!(from_toml(&integer, "0x1e"), Ok(Value::Integer(30)));
@@ -276,6 +281,7 @@ fn values_write_back_as_the_toml_and_text_they_are_read_from() {
                 min: 0,
                 max: 10,
                 off: true,
+                power_of_two: false,
             },
             Value::Integer(7),
             "7",
@@ -286,6 +292,7 @@ fn values_write_back_as_the_toml_and_text_they_are_read_from() {
                 min: 0,
                 max: 10,
                 off: true,
+                power_of_two: false,
             },
             Value::Off,
             "\"off\"",
@@ -355,4 +362,29 @@ fn values_render_as_json_for_machine_output() {
         serde_json::json!(["a"])
     );
     assert_eq!(Value::Off.to_json(), serde_json::json!("off"));
+}
+
+#[test]
+fn integer_power_of_two_checks_text_and_toml_without_affecting_other_integers() {
+    let kind = SettingKind::Integer {
+        min: -8,
+        max: 64,
+        off: false,
+        power_of_two: true,
+    };
+    for integer in [1, 2, 16, 64] {
+        assert_eq!(
+            from_text(&kind, &integer.to_string()).unwrap(),
+            Value::Integer(integer)
+        );
+        assert_eq!(
+            from_toml(&kind, &integer.to_string()).unwrap(),
+            Value::Integer(integer)
+        );
+    }
+    for integer in [-8, -1, 0, 3, 17, 65] {
+        assert!(from_text(&kind, &integer.to_string()).is_err());
+        assert!(from_toml(&kind, &integer.to_string()).is_err());
+    }
+    assert!(kind.expectation().contains("power of two"));
 }

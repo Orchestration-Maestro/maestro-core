@@ -22,9 +22,11 @@
 //! `build_info` and `template_digest` the SHA-256 of the chat template, both
 //! as the model's server reports them through `/props`; an embedder alone
 //! records `dimensions`. `output_tokens` is null for a model that generates
-//! nothing, and each suite result names the digest of its report. New
-//! candidates use v2 immutable identities; evaluations and selections are
-//! separate records and never change a card digest.
+//! nothing, and each suite result names the digest of its report. The
+//! extractor role exists in `maestro-model-card/2` alone, so a v1 card
+//! naming it is refused. New candidates use v2 immutable identities;
+//! evaluations and selections are separate records and never change a card
+//! digest.
 
 pub use super::card_types::{CardError, CardFields, Limits, Role, RouterEntry, SuiteResult};
 use super::card_v2::{CARD_SCHEMA_V2, Capability, CardIdentity, CardV2Json, TextFormat};
@@ -62,6 +64,21 @@ impl ModelCard {
         Ok(card)
     }
 
+    /// Builds the canonical v2 model card without writing an artifact.
+    ///
+    /// # Errors
+    ///
+    /// [`CardError::Invalid`] when identity fields conflict or contain invalid data.
+    pub fn from_identity(identity: &CardIdentity) -> Result<Self, CardError> {
+        identity.validate()?;
+        let json = serde_json::to_vec(&CardV2Json {
+            schema: CARD_SCHEMA_V2.to_owned(),
+            identity: identity.clone(),
+        })
+        .map_err(invalid)?;
+        Self::from_json(&json)
+    }
+
     /// Records the full immutable model/runtime identity as v2.
     ///
     /// # Errors
@@ -69,14 +86,8 @@ impl ModelCard {
     /// [`CardError::Invalid`] when identity fields conflict or contain invalid data, and
     /// [`CardError::Store`] when the artifact cannot be stored.
     pub fn record_v2(store: &Store, identity: &CardIdentity) -> Result<Self, CardError> {
-        identity.validate()?;
-        let json = serde_json::to_vec(&CardV2Json {
-            schema: CARD_SCHEMA_V2.to_owned(),
-            identity: identity.clone(),
-        })
-        .map_err(invalid)?;
-        let card = Self::from_json(&json)?;
-        store.put(&json).map_err(CardError::Store)?;
+        let card = Self::from_identity(identity)?;
+        store.put(&card.card_json()?).map_err(CardError::Store)?;
         Ok(card)
     }
 
@@ -274,6 +285,9 @@ impl CardJson {
         }
         match (self.role, self.dimensions) {
             (Role::Embedder, None) => return Err(invalid("an embedder's card records dimensions")),
+            (Role::Extractor, _) => {
+                return Err(invalid("an extractor's card is maestro-model-card/2 only"));
+            }
             (Role::Reranker | Role::Answerer, Some(_)) => {
                 return Err(invalid(format_args!(
                     "a {}'s card records no dimensions",

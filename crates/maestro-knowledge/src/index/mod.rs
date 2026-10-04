@@ -72,10 +72,11 @@ mod sparse;
 mod tests;
 mod verify;
 
-pub(crate) use dense::embedding_profile;
 pub use dense::{Failure, Refusal};
+pub(crate) use dense::{check as check_dense, embed as embed_dense, embedding_profile};
 pub use error::{Error, Unverified};
 pub(crate) use names::{alias_name, collection_name};
+pub(crate) use point::point_id;
 pub use progress::{Progress, Report};
 pub use projection::{Projection, ProjectionWithBatchSize};
 pub use projection_port::{

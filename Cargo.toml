@@ -10,6 +10,12 @@ license = "MIT"
 publish = false
 
 [workspace.dependencies]
+# Real evaluator and validator, measured in C09; optional features stay off.
+cedar-policy = { version = "=4.13.0", default-features = false }
+jsonschema = { version = "0.58", default-features = false }
+# C09 measured inert archive writer, without xattr or filesystem metadata.
+tar = { version = "=0.4.46", default-features = false }
+windows-sys = { version = "=0.61.2", default-features = false }
 # The command line's grammar, derived: clap_derive 4.6 builds on syn 3, as the
 # workspace does. No colour, no suggestions: fewer crates to vet.
 clap = { version = "4.6.7", default-features = false, features = [
@@ -20,11 +26,21 @@ clap = { version = "4.6.7", default-features = false, features = [
   "usage",
 ] }
 maestro-canonicalization = { path = "crates/maestro-canonicalization", version = "0.1.0" }
+maestro-catalog = { path = "crates/maestro-catalog", version = "0.1.0" }
+maestro-filesystem = { path = "crates/maestro-filesystem", version = "0.1.0" }
 maestro-kernel = { path = "crates/maestro-kernel", version = "0.1.0" }
 maestro-knowledge = { path = "crates/maestro-knowledge", version = "0.1.0" }
 maestro-settings = { path = "crates/maestro-settings", version = "0.1.0" }
 maestro-test-clock = { path = "crates/maestro-test-clock", version = "0.1.0" }
 maestro-test-scratch = { path = "crates/maestro-test-scratch", version = "0.1.0" }
+# S2: the embedded LadybugDB graph engine from the organization's fork (ADR-0021):
+# crates.io lbug 0.20.4 with the extension installer, and so OpenSSL, made
+# optional (LadybugDB/ladybug#777, #796, unmerged), rooted filesystem
+# operations, and one CMake build reused across Cargo fingerprints; its README
+# says how to move to a new version. A direct git dependency, not a
+# [patch.crates-io]: cargo-semver-checks builds each crate in a placeholder
+# project that ignores [patch], and would build crates.io lbug instead.
+lbug = { git = "https://github.com/Orchestration-Maestro/lbug", rev = "f91b5bba0ceb19ec80a9993d70ae83b245918cfc", version = "=0.20.4", default-features = false }
 pulldown-cmark = { version = "=0.13.4", default-features = false }
 # Qdrant's official client, over gRPC (ADR-0003, ADR-0020): no snapshot
 # downloads, so no second reqwest; serde for JSON payloads.
@@ -40,10 +56,12 @@ rusqlite = { version = "0.40.2", default-features = false, features = [
   "bundled",
   "hooks",
 ] }
-rustix = { version = "=1.1.5", features = ["fs"] }
+rustix = { version = "=1.1.5", features = ["fs", "process"] }
 schemars = "1.2.2"
+semver = "=1.0.28"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# Cedar core requires preserve_order; make every package test use the same map semantics.
+serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml_ng = "0.10"
 # SHA-1 for name-based UUIDs alone (UUIDv5), beside sha2 on digest 0.11.
 sha1 = { version = "0.11.0", default-features = false }
@@ -106,7 +124,7 @@ rust.unexpected_cfgs = "deny"
 clippy.multiple_crate_versions = "allow"
 clippy.similar_names = "allow"
 # end of the generated lints; add the repository's own below, never remove one
-rust.unsafe_code = "forbid"
+rust.unsafe_code = "deny"
 clippy.missing_docs_in_private_items = "deny"
 clippy.too_many_lines = "deny"
 clippy.too_many_arguments = "deny"

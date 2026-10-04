@@ -31,6 +31,7 @@ pub(super) fn run(
         return refusal(output, ASK_ERROR, error);
     }
     if explain {
+        eprintln!("explain: language {}", scoped.data.language_check.name());
         eprintln!(
             "explain: prompt {}",
             settings.prompt.presentation().identity()
@@ -160,13 +161,14 @@ mod tests {
     use super::{answer_text, explanation};
     use maestro_kernel::evidence::RouteStatus;
     use maestro_knowledge::answer::{
-        Answer, AnswerCitation, AnswerModel, AnswerRefusal, RefusalCode, Rejection,
+        Answer, AnswerCitation, AnswerModel, AnswerRefusal, LanguageCheck, RefusalCode, Rejection,
     };
     use std::collections::BTreeMap;
 
     #[test]
     fn answer_text_lists_each_citation_or_prints_only_the_refusal() {
         let mut answer = Answer {
+            language_check: LanguageCheck::Unchecked,
             schema: "maestro-answer/1".to_owned(),
             collection: "docs".to_owned(),
             generation: 1,

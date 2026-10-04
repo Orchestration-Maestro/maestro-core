@@ -2,10 +2,14 @@
 //! collections the local principal reads with their published generation;
 //! it answers whatever is down, and creates nothing.
 
-use super::{machine::checked, support::Home};
+use super::{
+    machine::{checked, checked_with, nothing_at},
+    support::Home,
+};
 use maestro_kernel::generation::NewGeneration;
 use rusqlite::Connection;
 use serde_json::{Value, json};
+use std::fs;
 
 /// The names of the services `document` reports, and whether each is
 /// ready.
@@ -37,10 +41,11 @@ fn status_summarizes_the_services_and_the_collections_the_local_principal_reads(
     assert_eq!(document["schema"], "maestro-cli/status/1");
     let services = services(&document);
     let names: Vec<&str> = services.iter().map(|(name, _)| *name).collect();
-    assert_eq!(names, ["kernel", "qdrant", "router"]);
+    assert_eq!(names, ["kernel", "graph", "qdrant", "router"]);
     assert_eq!(services[0], ("kernel", true));
+    assert_eq!(services[1], ("graph", true));
     assert_eq!(
-        services[2],
+        services[3],
         ("router", false),
         "nothing answers where it looks"
     );
@@ -117,4 +122,29 @@ fn status_names_the_published_generation_of_a_collection() {
         )),
         "{text}"
     );
+}
+
+#[test]
+fn status_keeps_repair_independence_when_graph_settings_are_invalid() {
+    let home = Home::bare();
+    let router = nothing_at();
+    let baseline = checked_with(&home, &router, &["status", "--json"]).json();
+    fs::write(
+        home.config().join("preferences.toml"),
+        "schema = 'maestro-preferences/1'\ngraph.engine = 'unknown'\n",
+    )
+    .unwrap();
+    let ended = checked_with(&home, &router, &["status", "--json"]);
+    assert_eq!(ended.code, Some(0), "{ended:?}");
+    let document = ended.json();
+    assert_eq!(document["schema"], baseline["schema"]);
+    assert_eq!(document["collections"], baseline["collections"]);
+    for index in [0, 2, 3] {
+        assert_eq!(document["services"][index], baseline["services"][index]);
+    }
+    let graph = &document["services"][1];
+    assert_eq!(graph["name"], "graph");
+    assert_eq!(graph["ready"], false);
+    assert!(graph["detail"].as_str().unwrap().contains("graph.engine"));
+    assert!(!home.data().join("kernel.sqlite3").exists());
 }

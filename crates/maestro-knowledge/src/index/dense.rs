@@ -32,7 +32,7 @@ pub(crate) fn embedding_profile(card: &ModelCard) -> String {
 /// room among its reasons; [`Failure::TimedOut`] when it gives no answer
 /// within `deadline`; and [`Failure::Refused`] when a vector breaks a check:
 /// the whole batch is refused.
-pub(super) async fn embed<P: ModelPort>(
+pub(crate) async fn embed<P: ModelPort>(
     port: &P,
     card: &ModelCard,
     inputs: &[String],
@@ -53,7 +53,7 @@ pub(super) async fn embed<P: ModelPort>(
 
 /// Refuses `vectors` unless there is one for each of `inputs` inputs, each of
 /// `dimensions` values, every value finite, and not every value zero.
-fn check(vectors: &[Vec<f32>], inputs: usize, dimensions: usize) -> Result<(), Refusal> {
+pub(crate) fn check(vectors: &[Vec<f32>], inputs: usize, dimensions: usize) -> Result<(), Refusal> {
     if vectors.len() != inputs {
         return Err(Refusal::Count {
             inputs,

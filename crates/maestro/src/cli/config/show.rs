@@ -1,9 +1,10 @@
-//! `config get`, `config list` and `config explain`: a session's effective
-//! settings, each with the layer that set it.
+//! `config get`, `config list` and `config explain`: effective values,
+//! declared classes, restrictive layers and any ignored widening requests.
 
 use super::super::output::Output;
 use crate::{failure::Failure, settings::Session};
-use maestro_settings::{ResolvedSetting, SettingDescriptor, Source, Value};
+use maestro_catalog::settings::{ResolvedSettings, ResolvedValue};
+use maestro_settings::{SettingDescriptor, Value};
 use serde_json::{Value as Json, json};
 use std::{fmt::Write as _, path::Path, process::ExitCode};
 
@@ -17,49 +18,60 @@ pub(in crate::cli) fn get(
     session: &Session,
     key: &str,
 ) -> Result<ExitCode, Failure> {
-    let resolved = session.resolved();
-    let setting = resolved.get(key).ok_or_else(|| unknown(key))?;
+    let descriptor = session.registry.get(key).ok_or_else(|| unknown(key))?;
+    let result = session.catalog_resolved();
+    let setting = result
+        .get(key)
+        .ok_or_else(|| Failure::failed("registry descriptor has no resolution"))?;
+    let setting = setting
+        .as_ref()
+        .map_err(|error| Failure::refused(&error.message))?;
+    let diagnostics = diagnostics_for(&result, key);
     let document = json!({
         "schema": "maestro-cli/config-get/1",
         "key": key,
-        "value": setting.value.to_json(),
-        "source": source_json(&setting.source),
+        "value": setting.value().to_json(),
+        "source": source_json(session, setting.source()),
+        "class": descriptor.class.name(),
+        "diagnostics": diagnostics,
     });
-    output.result(&document, &setting.value.to_string())?;
+    output.json_result(&document, &setting.value().to_string())?;
     Ok(ExitCode::SUCCESS)
 }
 
-/// Prints every setting with its effective value and the layer that set it.
+/// Prints every setting with its effective value, class, source and diagnostics.
 ///
 /// # Errors
 ///
 /// [`Failure::Failed`] when stdout cannot be written to.
 pub(in crate::cli) fn list(output: Output, session: &Session) -> Result<ExitCode, Failure> {
-    let resolved = session.resolved();
+    let resolved = session.catalog_resolved();
     let mut text = String::new();
     let mut settings = Vec::new();
-    for setting in resolved.iter() {
-        // Writing to a String cannot fail.
+    for descriptor in session.registry.descriptors() {
+        let setting = resolved
+            .get(&descriptor.key)
+            .ok_or_else(|| Failure::failed("registry descriptor has no resolution"))?
+            .as_ref()
+            .map_err(|error| Failure::refused(&error.message))?;
+        let diagnostics = diagnostics_for(&resolved, &descriptor.key);
         let _written = writeln!(
             text,
-            "{} = {}  ({})",
-            setting.descriptor.key,
-            setting.value.to_toml(),
-            layer_name(&setting.source)
+            "{} = {}  ({}; class {}){}",
+            descriptor.key,
+            setting.value().to_toml(),
+            setting.source(),
+            descriptor.class.name(),
+            diagnostic_suffix(&diagnostics),
         );
-        settings.push(json!({
-            "key": setting.descriptor.key,
-            "value": setting.value.to_json(),
-            "source": source_json(&setting.source),
-        }));
+        settings.push(setting_json(session, descriptor, setting, &diagnostics));
     }
     let document = json!({"schema": "maestro-cli/config-list/1", "settings": settings});
-    output.result(&document, text.trim_end())?;
+    output.json_result(&document, text.trim_end())?;
     Ok(ExitCode::SUCCESS)
 }
 
-/// Explains `key`, or every setting without one, after the files the
-/// session read.
+/// Explains `key`, or every setting, after the files the session read.
 ///
 /// # Errors
 ///
@@ -69,24 +81,30 @@ pub(in crate::cli) fn explain(
     session: &Session,
     key: Option<&str>,
 ) -> Result<ExitCode, Failure> {
-    let resolved = session.resolved();
-    let selected: Vec<&ResolvedSetting<'_>> = match key {
-        Some(key) => vec![resolved.get(key).ok_or_else(|| unknown(key))?],
-        None => resolved.iter().collect(),
+    let resolved = session.catalog_resolved();
+    let selected: Vec<&SettingDescriptor> = match key {
+        Some(key) => vec![session.registry.get(key).ok_or_else(|| unknown(key))?],
+        None => session.registry.descriptors().collect(),
     };
     let mut text = files_text(session);
     let mut settings = Vec::with_capacity(selected.len());
-    for setting in selected {
+    for descriptor in selected {
+        let setting = resolved
+            .get(&descriptor.key)
+            .ok_or_else(|| Failure::failed("registry descriptor has no resolution"))?
+            .as_ref()
+            .map_err(|error| Failure::refused(&error.message))?;
+        let diagnostics = diagnostics_for(&resolved, &descriptor.key);
         text.push('\n');
-        text.push_str(&setting_text(setting));
-        settings.push(setting_json(setting));
+        text.push_str(&setting_text(descriptor, setting, &diagnostics));
+        settings.push(setting_json(session, descriptor, setting, &diagnostics));
     }
     let document = json!({
         "schema": "maestro-cli/config-explain/1",
         "files": files_json(session),
         "settings": settings,
     });
-    output.result(&document, text.trim_end())?;
+    output.json_result(&document, text.trim_end())?;
     Ok(ExitCode::SUCCESS)
 }
 
@@ -97,71 +115,102 @@ pub(super) fn unknown(key: &str) -> Failure {
     ))
 }
 
-/// The short name of the layer of `source`.
-fn layer_name(source: &Source) -> &'static str {
+/// Diagnostics for one effective setting.
+fn diagnostics_for(resolved: &ResolvedSettings, key: &str) -> Vec<String> {
+    resolved
+        .diagnostics()
+        .iter()
+        .filter(|diagnostic| diagnostic.key == key)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect()
+}
+
+/// Layer provenance with the file path when the value came from a file.
+fn source_json(session: &Session, source: &str) -> Json {
     match source {
-        Source::Default => "default",
-        Source::File { layer, .. } => layer.name(),
-        Source::Flag => "--set",
+        "user" => json!({"layer": "user", "path": session.files.user}),
+        "workspace" => json!({"layer": "project", "path": session.files.project}),
+        "flag" => json!({"layer": "--set"}),
+        layer => json!({"layer": layer}),
     }
 }
 
-/// `source` as JSON: its layer, and a file's path.
-fn source_json(source: &Source) -> Json {
-    match source {
-        Source::File { layer, path } => json!({"layer": layer.name(), "path": path}),
-        Source::Default | Source::Flag => json!({"layer": layer_name(source)}),
+/// A short human-readable suffix for ignored requests.
+fn diagnostic_suffix(diagnostics: &[String]) -> String {
+    if diagnostics.is_empty() {
+        String::new()
+    } else {
+        format!("; diagnostic: {}", diagnostics.join(", "))
     }
 }
 
 /// The explanation of one setting, for people.
-fn setting_text(setting: &ResolvedSetting<'_>) -> String {
-    let descriptor = setting.descriptor;
+fn setting_text(
+    descriptor: &SettingDescriptor,
+    setting: &ResolvedValue,
+    diagnostics: &[String],
+) -> String {
     let mut text = format!(
-        "{} = {}\n  set by: {}\n",
+        "{} = {}\n  set by: {}\n  class: {}\n",
         descriptor.key,
-        setting.value.to_toml(),
-        setting.source
+        setting.value().to_toml(),
+        setting.source(),
+        descriptor.class.name(),
     );
-    for (source, value) in &setting.overridden {
-        // Writing to a String cannot fail.
-        let _written = writeln!(text, "  overrides: {source} ({})", value.to_toml());
+    for (source, value) in setting.overridden() {
+        let _written = writeln!(
+            text,
+            "  overridden: {} ({})",
+            source.name(),
+            value.to_toml()
+        );
+    }
+    for diagnostic in diagnostics {
+        let _written = writeln!(text, "  diagnostic: {diagnostic}");
     }
     let _written = writeln!(
         text,
-        "  accepts: {}; default {}; class {}\n  {}",
+        "  accepts: {}; default {}; {}",
         descriptor.kind.expectation(),
         descriptor.default,
-        descriptor.class.name(),
         descriptor.description
     );
     text
 }
 
 /// The explanation of one setting, as JSON.
-fn setting_json(setting: &ResolvedSetting<'_>) -> Json {
-    let descriptor: &SettingDescriptor = setting.descriptor;
+fn setting_json(
+    session: &Session,
+    descriptor: &SettingDescriptor,
+    setting: &ResolvedValue,
+    diagnostics: &[String],
+) -> Json {
     let overridden: Vec<Json> = setting
-        .overridden
+        .overridden()
         .iter()
-        .map(|(source, value)| json!({"source": source_json(source), "value": value.to_json()}))
+        .map(|(source, value)| {
+            json!({
+                "source": source_json(session, source.name()),
+                "value": value.to_json(),
+            })
+        })
         .collect();
     json!({
         "key": descriptor.key,
-        "value": setting.value.to_json(),
-        "source": source_json(&setting.source),
+        "value": setting.value().to_json(),
+        "source": source_json(session, setting.source()),
         "overridden": overridden,
         "kind": descriptor.kind,
         "default": descriptor.default,
-        "class": descriptor.class,
+        "class": descriptor.class.name(),
         "description": descriptor.description,
+        "diagnostics": diagnostics,
     })
 }
 
 /// The files the session read, for people.
 fn files_text(session: &Session) -> String {
     let mut text = format!("user file: {}\n", presence(&session.files.user));
-    // Writing to a String cannot fail.
     let _written = if let Some(path) = &session.files.project {
         writeln!(text, "project file: {}", presence(path))
     } else {
@@ -193,6 +242,11 @@ fn files_json(session: &Session) -> Json {
     })
 }
 
+/// The value of a setting as `config set` takes it, for a message.
+pub(super) fn shown(value: Option<&Value>) -> String {
+    value.map_or_else(|| "unset".to_owned(), Value::to_toml)
+}
+
 /// `path` and whether it exists.
 fn presence(path: &Path) -> String {
     if path.is_file() {
@@ -202,7 +256,19 @@ fn presence(path: &Path) -> String {
     }
 }
 
-/// The value of a setting as `config set` takes it, for a message.
-pub(super) fn shown(value: Option<&Value>) -> String {
-    value.map_or_else(|| "unset".to_owned(), Value::to_toml)
+#[cfg(test)]
+mod tests {
+    use super::diagnostic_suffix;
+
+    #[test]
+    fn config_list_suffix_explains_each_ignored_request() {
+        assert_eq!(diagnostic_suffix(&[]), "");
+        assert_eq!(
+            diagnostic_suffix(&[
+                "ignored widening".to_owned(),
+                "restricted by standard".to_owned()
+            ]),
+            "; diagnostic: ignored widening, restricted by standard"
+        );
+    }
 }

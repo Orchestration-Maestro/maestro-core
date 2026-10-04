@@ -226,7 +226,7 @@ pub(super) fn card_for_role(database: &Database, scratch: &Scratch, role: Role) 
         identity.formats.document = Capability::NotApplicable;
         identity.formats.query = Capability::NotApplicable;
     }
-    if role == Role::Answerer {
+    if matches!(role, Role::Answerer | Role::Extractor) {
         identity.invocation.sampling = Sampling::Configured(SamplingParameters {
             temperature: 0.1,
             top_p: 0.9,
@@ -240,6 +240,10 @@ pub(super) fn card_for_role(database: &Database, scratch: &Scratch, role: Role) 
         });
         identity.invocation.reasoning = Capability::Unsupported;
         identity.invocation.limits.output_tokens = NonZeroU32::new(128);
+    }
+    if role == Role::Extractor {
+        let template = database.put(b"{{ messages }}", "text/plain").unwrap();
+        identity.formats.template = Template::Digest(template);
     }
     ModelCard::record_v2(&scratch.store(), &identity).unwrap()
 }

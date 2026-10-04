@@ -1,0 +1,9 @@
+# S2 G25: lbug's build script otherwise downloads an unpinned, unchecked
+# prebuilt liblbug (and a helper script from LadybugDB's main branch) at build
+# time. Build the pinned bundled C++ sources instead, everywhere, and build
+# them once per target directory and profile: the patched crate reuses one
+# CMake build whatever features, flags or packages Cargo builds it for
+# (coverage, mutation runs), since its git source never changes in place.
+[env]
+LBUG_BUILD_FROM_SOURCE = "1"
+LBUG_REUSE_CMAKE_BUILD = "1"

@@ -9,7 +9,11 @@ The first qualified environment is the maintainer's workstation: Linux x64 under
 WSL2 (kernel 6.18, systemd enabled, Landlock available) with an RTX 5090
 (32 GB VRAM) serving local models through `maestro-model-router`. Every claim about
 another platform (native Linux laptops, macOS, Windows) needs its own
-qualification run; nothing is inferred from this one.
+qualification run; nothing is inferred from this one. ADR-0018's Linux,
+Windows and macOS build/test gates apply now, not after S4. For S2, G25 must
+qualify the native embedded runtime and both local cross-Clippy recipes. Linux
+evidence plus a supervisor-approved dated Windows/macOS CI plan permits
+implementation only; actual three-OS process/build/test evidence gates M2.
 
 Two execution profiles are qualified separately and never mixed silently:
 
@@ -31,13 +35,32 @@ write authority. Core installation and execution work with **Python absent**
 | `maestro daemon` (systemd user unit) | `maestro` release | S4 | No (runs, capture) |
 | Model router (`maestro-model-router`) | its release + model cards | S1 | No |
 | Qdrant 1.19 (binary + systemd user unit) | release checksum | S1 | No |
-| Neo4j 2026.x Community (tarball or image by digest) | checksum / digest | S2 | Yes: the graph route reports `unavailable` without it |
+| External Neo4j | Later adapter qualification and release pin | Separate deployment-modes work, not S2 | User-selected; never an automatic fallback |
 | Copilot CLI (for the SDK) | toolbelt pin | S4 | Only for the `copilot` provider |
 | OpenTelemetry backend | — | Future, not S1 | No: S1 has no OTLP exporter or backend |
 
-`maestro setup` previews, then applies, the directories, kernel database, units,
-MCP registrations (Pi, Copilot) and catalog install; `maestro doctor` checks
-every dependency and prints a remediation for each failure.
+S2 instead plans **LadybugDB through `lbug` in process**, not a service. G25
+supplies its exact pin, minimum features, bundled native runtime and safe
+reader/writer file ownership; G26 packages it without a graph port, Docker,
+JVM or first-use download. Graph `none` is disabled with zero calls; a selected
+missing/stale/locked/rebuilding graph is unavailable, with passage retrieval
+continuing and unsupported graph conclusions refused. No SQL or Neo4j fallback.
+The [manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff)
+keeps `graph.engine` distinct from core backend `type = "ladybug"`. C46/G26
+reuse the registry-backed settings and exact D14 bounds; masked invalid inputs,
+inactive bad tables and locked attempts refuse. Rooted handles and reader/writer
+modes stay locked with no manifest filesystem path. Checkpoint-on-close true
+uses actual supported checkpoint/close/reopen behavior, not an invented setter.
+Uncompiled selection refuses before native calls while repair remains usable.
+C47a's frozen settings/lock flow through E07a/E08b/G28; C48's actual qualified
+declarations feed G22's release/drill. These deltas remain planned, not delivered.
+
+`maestro setup` previews owned changes; read-only `maestro doctor` diagnoses
+permissions, locks, missing files and corruption without mutating graphs or
+fetching assets. G26 must measure installation/open/reopen, binary size, RSS
+and disk and document reader-safe cleanup/rebuild. These are planned S2
+obligations, not a qualification receipt. Catalog and later client setup retain
+their own slices; S2 smoke targets Pi and Claude Code, Copilot only if approved.
 
 ## 3. Model selection
 
@@ -52,7 +75,7 @@ first candidates available.
 | Embedder | Recall@10, MRR@10, nDCG@10 on `ctm-retrieval` and `synthetic-retrieval`; cross-lingual subset | Servable locally; FR/EN; context ≥ chunk maximum; licence allows internal use |
 | Reranker | Gain over the fused order on the same suites; p95 latency for 30 pairs | < 800 ms p95 on the reference workstation |
 | Answerer | Faithfulness, citation precision/recall, command exactness (100 %), refusal accuracy | JSON Schema adherence ≥ 99 % |
-| Extractor (S2) | Relation precision (sampled, human-checked), evidence-quote validity rate | Throughput fits the extraction budget |
+| Extractor (S2) | Relation precision ≥95% over every accepted held-out claim, all quotes/spans exact; independent-model review and owner rulings on flags (protocol pending confirmation) | Qwen3-4B candidate first, distinct qualified role, bounded offline windows and `Room::Free`; answerer stays at most 4B |
 | Judge | Agreement with human labels (≥ 0.8 accuracy, κ ≥ 0.6 on ≥ 50 items) | Different model family from the systems it judges |
 | Agent roles (S4) | Workflow scenario success, contract first-pass acceptance, policy violations, time and cost per accepted result | Available on the chosen provider route |
 
@@ -100,7 +123,20 @@ and refusal metrics as any candidate, and are never chosen for the label.
    llama.cpp build and server flags, backend, offload, memory, concurrency and
    cache settings, measured hardware limits, suite results and date. Two
    quantizations or two templates of one model are two cards; an alias or a
-   `/v1/models` answer never proves which weights run.
+   `/v1/models` answer never proves which weights run. Under ADR-0011, the winner
+   arrives as an **owner-approved manifest change** in owner-relative
+   `llm/models/<role>/` (seed: `core/llm/models/<role>/`), carrying the exact
+   kernel v2 identity, a role matching the path and approved public evidence
+   references. The
+   manifest declares; the kernel retains immutable cards, evaluations and
+   selections. Explicit catalog registration requires all evidence already local;
+   each machine qualifies its own backend/runtime/hardware-bound card. A returned
+   answer carries its registry card ID, resolving to an immutable card; the kernel
+   stores no answers. Installation/update never implicitly registers or selects
+   a model. S1's current latest-registration lookup can change a later same-entry
+   ask, and re-registering an earlier card does not restore it; the named post-M1
+   explicit-selection fix owns that gap. Agent-session profiles stay separate
+   ([S3 D12](../../specs/003-catalog/plan.md#d12-kind-extensibility-and-model-cards)).
 6. Re-run when a candidate appears, a build changes or quarterly.
 
 **Provider qualification** precedes any agent role: a full tool round trip
@@ -237,11 +273,11 @@ security and evidence quality. No developer ranking or covert monitoring.
 
 | Element | Design |
 | --- | --- |
-| Runner | `maestro eval run <suite> [--profile …]` writes a report artifact (JSON + Markdown) and a journal event |
+| Runner | Existing `maestro eval ladder --manifest` retains run/comparison reports; S2 adds `eval graph check --manifest` for validation, not a second runner |
 | Suite format | JSONL items `{id, inputs, expected, tags}` + a scorer list; suites live with their content (public in `maestro-core`/`maestro-manifests`, private in `ctm-collection`) |
 | Scorers | Deterministic first (IDs, exact match, command exactness, schema adherence); judge scorers only where needed, with a qualified judge |
 | Statistics | Per-item results, bootstrap confidence intervals, paired comparisons between variants, three repeats for stochastic components, all attempts kept |
-| Gates | Public synthetic suites gate pull requests in CI; private suites run on the workstation (`just eval`) and their reports are attached to pull requests that touch retrieval, prompts or models |
+| Gates | Public synthetic suites gate pull requests; S2 private suites run on named isolated scratch restores with private Qdrant bindings. Public evidence cites receipt references only; private report bodies never enter a pull request. |
 | Benchmarks | Engine: `llama-bench` per model card. Provider: time to first token and tokens per second under the router's concurrency. Workflow: time to accepted result and cost per accepted task, failures included (zero accepted tasks is not zero cost) |
 
 Suites by slice: retrieval, identifiers and answers (S1); graph (S2); catalog
@@ -330,7 +366,7 @@ release controls.
 | Restore | `maestro restore`, then projection rebuild; a restore drill is part of the S1 exit and repeats before each release |
 | Retention | Per-scope retention policies; artifacts under a legal or audit hold are pinned |
 | Deletion | Tombstone in the kernel → projections rebuilt without the item → unreferenced artifacts collected; the journal keeps the fact of deletion, not the content |
-| Migrations | Forward-only, versioned, preceded by an automatic backup, tested on copies of real stores |
+| Migrations | Forward-only, versioned; S2 allocates the next free number at integration, none in G01. Private runs restore a named digest-checked backup into isolated scratch. Only the owner authorizes live upgrade after backup and binary/client update; old S1 refuses an S2 database with `UnknownMigration`. |
 
 ## 8. CI/CD
 

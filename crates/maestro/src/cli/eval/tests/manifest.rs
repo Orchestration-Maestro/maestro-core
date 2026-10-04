@@ -1,7 +1,7 @@
 //! The manifest: what it holds, where its paths lead, and each refusal.
 
 use super::{
-    super::{command, manifest::Manifest},
+    super::{command, graph_output::Code, manifest::Manifest},
     support::{RERANKER, rung, rung_json},
 };
 use crate::{cli::output::Output, failure::Failure};
@@ -276,6 +276,8 @@ fn an_output_directory_that_holds_files_is_refused() {
     fs::remove_dir_all(root).unwrap();
 }
 
+/// The command's public boundary names the refusal by its code alone: the
+/// reason, which [`Manifest::read`] gives, may name a private path.
 #[test]
 fn the_ladder_command_refuses_a_manifest_it_cannot_read_before_any_search() {
     let scratch = scratch_directory().unwrap();
@@ -285,7 +287,7 @@ fn the_ladder_command_refuses_a_manifest_it_cannot_read_before_any_search() {
     fs::remove_dir(&scratch).unwrap();
     assert!(matches!(
         refused,
-        Err(Failure::Refused(reason)) if reason.contains("cannot read the manifest")
+        Err(Failure::Refused(reason)) if reason == Code::Manifest.name()
     ));
 }
 

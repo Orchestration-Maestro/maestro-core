@@ -7,15 +7,32 @@
 
 use super::knowledge::KnowledgeSettings;
 use crate::failure::Failure;
-use maestro_kernel::paths::{self, Environment};
+use maestro_catalog::{
+    limits::Limits,
+    settings::{self, ResolvedSettings, WorkspacePreferences},
+};
 use maestro_settings::{
-    Discovery, FileLayers, Flag, LayerSource as _, Layers, Registry, Resolved,
-    discover_project_file, parse_flags, resolve,
+    Discovery, FileLayers, Flag, Layers, Registry, Resolved, parse_flags, resolve,
 };
-use std::{
-    env,
-    path::{Path, PathBuf},
-};
+use std::{fmt, path::Path};
+
+/// Nonfatal activation diagnostics retained independently of preference display.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum GraphActivationError {
+    /// An existing verified lock selects the uncompiled native graph base.
+    EngineMissing,
+    /// A named trust, ownership, schema or settings refusal.
+    Refused(String),
+}
+impl fmt::Display for GraphActivationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EngineMissing => formatter
+                .write_str("graph.engine = ladybug, but this maestro was built without the engine"),
+            Self::Refused(message) => formatter.write_str(message),
+        }
+    }
+}
 
 /// One session's settings.
 #[derive(Debug)]
@@ -30,91 +47,78 @@ pub(crate) struct Session {
     pub(crate) layers: Layers,
     /// The explicit `--set` flags.
     pub(crate) flags: Vec<Flag>,
+    /// Complete authoring-lock identity from read-only catalog admission.
+    pub(crate) frozen_lock: Option<String>,
+    /// A nonfatal health activation refusal; runtime sessions never carry one.
+    pub(crate) graph_activation_error: Option<GraphActivationError>,
 }
 
 impl Session {
-    /// The command line's session: the user file, the project file found
-    /// from the working directory, and `flags`.
+    /// Resolve the injected source once with its discovery metadata and flags.
     ///
     /// # Errors
     ///
-    /// [`Failure::Refused`] naming a file or flag that is refused, and
-    /// [`Failure::Failed`] when the configuration directory cannot be found.
-    pub(crate) fn for_cli(flags: &[String]) -> Result<Self, Failure> {
-        let start = env::current_dir().ok();
-        Self::at(
-            &config_dir()?,
-            start.as_deref(),
-            env::home_dir().as_deref(),
-            flags,
-        )
-    }
-
-    /// The MCP server's session: the user file, the project file found from
-    /// `workspace` when one is given, and `flags`.
-    ///
-    /// # Errors
-    ///
-    /// As [`Session::for_cli`], and [`Failure::Refused`] for a workspace
-    /// whose project file cannot be read, outside home among others.
-    pub(crate) fn for_mcp(workspace: Option<&Path>, flags: &[String]) -> Result<Self, Failure> {
-        Self::for_mcp_at(&config_dir()?, workspace, env::home_dir().as_deref(), flags)
-    }
-
-    /// [`Session::for_mcp`] with the directories given.
-    pub(crate) fn for_mcp_at(
+    /// [`Failure::Refused`] naming a refused preference file or flag.
+    pub(crate) fn from_preferences(
         config_dir: &Path,
-        workspace: Option<&Path>,
-        home: Option<&Path>,
+        source: &dyn WorkspacePreferences,
+        discovery: Discovery,
         flags: &[String],
     ) -> Result<Self, Failure> {
-        let session = Self::at(config_dir, workspace, home, flags)?;
-        if let (Some(workspace), Some(note)) = (workspace, &session.discovery.note) {
-            return Err(Failure::refused(format!(
-                "--workspace {}: {note}",
-                workspace.display()
-            )));
+        let registry = source.registry().map_err(Failure::refused)?;
+        let layers = source
+            .layers(&registry, &Limits::PRODUCTION)
+            .map_err(Failure::refused)?;
+        if let Some(note) = &discovery.note {
+            eprintln!("{note}");
         }
-        Ok(session)
-    }
-
-    /// The session of the user file in `config_dir`, the project file found
-    /// from `start` within `home` (none without a start), and `flags`.
-    ///
-    /// # Errors
-    ///
-    /// [`Failure::Refused`] naming a file or flag that is refused.
-    pub(crate) fn at(
-        config_dir: &Path,
-        start: Option<&Path>,
-        home: Option<&Path>,
-        flags: &[String],
-    ) -> Result<Self, Failure> {
-        let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
-        let discovery = start.map_or_else(
-            || Discovery {
-                note: Some("no working directory to start from".to_owned()),
-                ..Discovery::default()
-            },
-            |start| discover_project_file(start, home),
-        );
+        for skipped in &discovery.skipped {
+            eprintln!("{skipped}");
+        }
         let files = FileLayers::new(config_dir, discovery.file.clone());
         let flags = parse_flags(&registry, flags).map_err(|error| Failure::refused_by(&error))?;
-        let layers = files
-            .layers(&registry)
-            .map_err(|error| Failure::refused_by(&error))?;
         Ok(Self {
             registry,
             files,
             discovery,
             layers,
             flags,
+            frozen_lock: source.frozen_lock().map(str::to_owned),
+            graph_activation_error: None,
         })
+    }
+
+    /// Path-free, immutable initialization provenance for model-visible MCP instructions.
+    ///
+    /// # Errors
+    /// [`Failure::Failed`] for a missing or invalid registered presentation setting.
+    pub(crate) fn mcp_context(&self) -> Result<String, Failure> {
+        let fragment = settings::conversation_instructions(&self.catalog_resolved())
+            .map_err(Failure::failed)?;
+        let origin = if self.discovery.file.is_some() {
+            "workspace-selected (explicit --workspace)"
+        } else if self.discovery.note.is_some() {
+            "user/default fallback; explicit workspace outside home or unavailable"
+        } else if self.layers.user.is_some() {
+            "user preferences; no workspace file selected"
+        } else {
+            "built-in defaults; no workspace file selected"
+        };
+        Ok(format!(
+            "{fragment} Preferences: {origin}. Workspace overrides require --workspace. \
+            Preferences are fixed for this session; restart for edits; \
+            tool arguments cannot replace them."
+        ))
     }
 
     /// Every setting's effective value, with the layer that set it.
     pub(crate) fn resolved(&self) -> Resolved<'_> {
         resolve(&self.registry, &self.layers, &self.flags)
+    }
+
+    /// Applies catalog restrictions to S1's already parsed values and provenance.
+    pub(crate) fn catalog_resolved(&self) -> ResolvedSettings {
+        settings::resolve(&self.registry, &self.resolved())
     }
 
     /// The knowledge operations' settings.
@@ -125,14 +129,99 @@ impl Session {
     /// another kind than its consumer reads, which the registry's tests
     /// rule out. Invalid user combinations are [`Failure::Refused`].
     pub(crate) fn knowledge(&self) -> Result<KnowledgeSettings, Failure> {
-        let settings =
+        let mut settings =
             KnowledgeSettings::from_resolved(&self.resolved()).map_err(Failure::failed)?;
+        if let Some(output_tokens) = self
+            .catalog_resolved()
+            .integer("ask.output_tokens")
+            .and_then(|value| u32::try_from(value).ok())
+        {
+            settings.ask_budget.output_tokens = Some(output_tokens);
+        }
         settings.evidence.validate().map_err(Failure::refused)?;
         Ok(settings)
     }
 }
 
-/// The kernel's configuration directory, which holds the user file.
-fn config_dir() -> Result<PathBuf, Failure> {
-    paths::config_dir(&Environment::current()).map_err(|error| Failure::failed_by(&error))
+impl WorkspacePreferences for Session {
+    fn frozen_lock(&self) -> Option<&str> {
+        self.frozen_lock.as_deref()
+    }
+
+    fn registry(&self) -> Result<Registry, String> {
+        Ok(self.registry.clone())
+    }
+
+    fn layers(&self, _registry: &Registry, _limits: &Limits) -> Result<Layers, String> {
+        Ok(self.layers.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn graph_activation_diagnostics_preserve_the_reason() {
+        assert_eq!(
+            GraphActivationError::EngineMissing.to_string(),
+            "graph.engine = ladybug, but this maestro was built without the engine"
+        );
+        assert_eq!(
+            GraphActivationError::Refused("untrusted lock".into()).to_string(),
+            "untrusted lock"
+        );
+    }
+
+    /// Storage-free snapshot whose registry can exercise internal invariants.
+    fn source(registry: Registry) -> Session {
+        Session {
+            registry,
+            files: FileLayers::new(Path::new("config"), None),
+            discovery: Discovery::default(),
+            layers: Layers::default(),
+            flags: Vec::new(),
+            frozen_lock: None,
+            graph_activation_error: None,
+        }
+    }
+
+    #[test]
+    fn session_workspace_preferences_returns_the_frozen_file_layers() {
+        let mut session = source(Registry::built_in().unwrap());
+        let layer = maestro_settings::Layer::parse(
+            &session.registry,
+            "schema = 'maestro-preferences/1'\ntone = 'brief'\n",
+        )
+        .unwrap();
+        session.layers.user = Some((Path::new("user.toml").to_path_buf(), layer.clone()));
+        session.layers.project = Some((Path::new("project.toml").to_path_buf(), layer));
+        let returned = session
+            .layers(&session.registry, &Limits::PRODUCTION)
+            .unwrap();
+        assert_eq!(returned.user, session.layers.user);
+        assert_eq!(returned.project, session.layers.project);
+    }
+
+    #[test]
+    fn catalog_client_preferences_missing_registered_language_is_failed() {
+        let session = source(Registry::new(&[]).unwrap());
+        assert!(matches!(session.mcp_context(), Err(Failure::Failed(key)) if key == "language"));
+    }
+
+    #[test]
+    fn catalog_client_preferences_freezes_values_even_when_source_changes() {
+        let mut port = source(Registry::built_in().unwrap());
+        let session = Session::from_preferences(
+            Path::new("config"),
+            &port,
+            Discovery::default(),
+            &["language=JA".to_owned(), "tone=detailed".to_owned()],
+        )
+        .unwrap();
+        let before = session.mcp_context().unwrap();
+        port.registry = Registry::new(&[]).unwrap();
+        assert_eq!(session.mcp_context().unwrap(), before);
+        assert!(before.starts_with("Conversation language: \"ja\"; tone: \"detailed\"."));
+    }
 }
