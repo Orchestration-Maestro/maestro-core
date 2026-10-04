@@ -12,23 +12,52 @@ use maestro_kernel::{
 };
 use std::collections::BTreeMap;
 
-/// Both row families derived from the same frozen claim membership and resolution.
+/// Verified frozen inputs; construct through `read` under current kernel authority.
+/// Rows and pins cannot be authored or changed by projection consumers.
 #[derive(Debug)]
 pub struct ProjectionSnapshot {
     /// Frozen projection scope, including for an empty claim set.
-    pub scope: ProjectionScope,
+    #[cfg_attr(
+        all(not(feature = "engine"), not(test)),
+        expect(
+            dead_code,
+            reason = "opaque pins are consumed by the feature-enabled loader"
+        )
+    )]
+    pub(crate) scope: ProjectionScope,
     /// Exact ordered membership, with review states frozen by the resolution pin.
-    pub claim_set: ClaimSetRecord,
+    pub(crate) claim_set: ClaimSetRecord,
     /// Caller-selected resolution identity, never a latest-snapshot lookup.
-    pub resolution_id: Digest,
+    #[cfg_attr(
+        all(not(feature = "engine"), not(test)),
+        expect(
+            dead_code,
+            reason = "opaque pins are consumed by the feature-enabled loader"
+        )
+    )]
+    pub(crate) resolution_id: Digest,
     /// Recorded version of the resolver that produced the endpoints.
-    pub resolver_version: String,
+    #[cfg_attr(
+        all(not(feature = "engine"), not(test)),
+        expect(
+            dead_code,
+            reason = "opaque pins are consumed by the feature-enabled loader"
+        )
+    )]
+    pub(crate) resolver_version: String,
     /// Frozen attributed decisions, including supersession and alias history.
-    pub history: Vec<ReviewRecord>,
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "opaque snapshot retains pinned resolution history"
+        )
+    )]
+    pub(crate) history: Vec<ReviewRecord>,
     /// Entity-valued claims, including rejected and superseded membership.
-    pub edges: Vec<ProjectionEdge>,
+    pub(crate) edges: Vec<ProjectionEdge>,
     /// Literal-valued subject records, never literal nodes or edges.
-    pub facts: Vec<EntityFact>,
+    pub(crate) facts: Vec<EntityFact>,
 }
 
 impl ProjectionSnapshot {

@@ -30,6 +30,9 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+#[cfg(all(feature = "engine", unix))]
+use std::path::Path;
+
 /// Kernel/artifact scratch fixture, constructed through public write APIs.
 pub(crate) struct Authority {
     /// Sole source of claims and original bytes.
@@ -48,6 +51,12 @@ pub(crate) struct Authority {
 struct Directory(PathBuf);
 
 impl Authority {
+    /// Held kernel scratch path for re-executed crate-internal process tests.
+    #[cfg(all(feature = "engine", unix))]
+    pub(crate) fn directory(&self) -> &Path {
+        &self.path.0
+    }
+
     /// Populate a real attached generation and admitted synthetic claims.
     pub(crate) fn new() -> Self {
         Self::with_chunks(true, true)

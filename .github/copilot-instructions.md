@@ -894,7 +894,8 @@ in place.
 │   │   │   ├── 0017_unit_graphs.sql                                         # File: 0017 unit graphs
 │   │   │   ├── 0018_retrieval_representations.sql                           # File: 0018 retrieval representations
 │   │   │   ├── 0019_graph_projection.sql                                    # File: 0019 graph projection
-│   │   │   └── 0030_graph_input_pins.sql                                    # File: 0030 graph input pins
+│   │   │   ├── 0030_graph_input_pins.sql                                    # File: 0030 graph input pins
+│   │   │   └── 0031_graph_projection_builds.sql                             # File: 0031 graph projection builds
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -974,9 +975,15 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Tests of claims: admitting a verified set or nothing, reading it back
 │   │   │   │   │   ├── mutation_contracts.rs                                # Build identities and supersession endpoint contracts
 │   │   │   │   │   ├── projection.rs                                        # Rust source: projection
+│   │   │   │   │   ├── projection_active_guards.rs                          # Active heads select complete receipts, never reserved or historical storage
+│   │   │   │   │   ├── projection_build_guards.rs                           # Raw SQL must not bypass frozen build authority or retained receipts
+│   │   │   │   │   ├── projection_build_schema.rs                           # Standalone 0031 qualification; runtime registration waits for build-bound ports
+│   │   │   │   │   ├── projection_build_upgrade.rs                          # 0031 imports retained authority without creating pins, jobs or search events
 │   │   │   │   │   ├── projection_guards.rs                                 # SQL and scope boundaries for durable projection input pins
 │   │   │   │   │   ├── projection_lease.rs                                  # Exact caller-clock project expiry, fencing, scope and renewal checks
 │   │   │   │   │   ├── projection_pins.rs                                   # Durable pin decoding, resolution authority and append-only migration proofs
+│   │   │   │   │   ├── projection_reservation.rs                            # Standalone 0031 typed reservation proofs; runtime registration stays off
+│   │   │   │   │   ├── projection_schema_support.rs                         # Synthetic pre-0031 authority and raw SQL helpers, never a runtime insertion API
 │   │   │   │   │   ├── resolution.rs                                        # Immutable sourced resolution snapshots and current-grant checks
 │   │   │   │   │   ├── resolution_guards.rs                                 # Frozen reviews, request coverage and rowid replacement regressions
 │   │   │   │   │   ├── schema.rs                                            # What the schema refuses whoever writes: replacing, changing or deleting
@@ -993,6 +1000,7 @@ in place.
 │   │   │   │   ├── projection.rs                                            # Kernel-controlled verification receipts for immutable graph projections
 │   │   │   │   ├── projection_binding.rs                                    # Shared immutable projection input vocabulary and safe repair text
 │   │   │   │   ├── projection_inputs.rs                                     # Scoped authoritative preflight for explicitly pinned projection resolutions
+│   │   │   │   ├── projection_reservation.rs                                # Inert 0031 reservation authority, compiled only by standalone schema proofs
 │   │   │   │   ├── quote.rs                                                 # Verifying a claim's support from the authority: the revision is one the
 │   │   │   │   ├── read.rs                                                  # Reading a claim set: whole, or not at all when the caller's scopes do not
 │   │   │   │   ├── resolve.rs                                               # Immutable source-backed identity review snapshots over frozen claim sets
@@ -1377,6 +1385,12 @@ in place.
 │   │   │   │   │   │   ├── input_guard_tests.rs                             # Producer preflight forwards all durable pins before reserving native storage
 │   │   │   │   │   │   ├── input_pins.rs                                    # Native build stamps and comparison with independently persisted readiness pins
 │   │   │   │   │   │   ├── input_pins_tests.rs                              # Cold native opens bind durable stamps, not just live process registry entries
+│   │   │   │   │   │   ├── loader.rs                                        # One bounded loader over the existing lease-bound producer and writer
+│   │   │   │   │   │   ├── loader_guard_tests.rs                            # Refusal matrix for the one native checkpointed loader
+│   │   │   │   │   │   ├── loader_isolated_tests.rs                         # Independent loader admission, successor and publication guard proofs
+│   │   │   │   │   │   ├── loader_process_tests.rs                          # Real deaths at mandatory commit/readiness boundaries, synchronized through pipes
+│   │   │   │   │   │   ├── loader_publication_tests.rs                      # Refusal matrix for the one native checkpointed loader
+│   │   │   │   │   │   ├── loader_tests.rs                                  # Real native loader recovery and immutable-record refusals
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── native_pin_tests.rs                              # Strict native decoding must retain corruption, never classify malformed pins as drift
 │   │   │   │   │   │   ├── open.rs                                          # The native adapter's single rooted construction boundary
@@ -1401,6 +1415,7 @@ in place.
 │   │   │   │   │   │   ├── writer/                                          # Writer
 │   │   │   │   │   │   │   └── extra.rs                                     # Additional validation cases for the generic projection writer
 │   │   │   │   │   │   ├── binding.rs                                       # Admission comparisons independent of native files or a warm handle registry
+│   │   │   │   │   │   ├── checkpoint.rs                                    # Immutable loader record contracts (also run without the native engine)
 │   │   │   │   │   │   ├── cleanup.rs                                       # Cleanup policy: authorization first, immutable receipts retained, no engine required
 │   │   │   │   │   │   ├── cleanup_boundaries.rs                            # Valid neighbours for cleanup state, authority and leaf-boundary refusals
 │   │   │   │   │   │   ├── cleanup_process.rs                               # Independent processes synchronize over pipes, never sleeps
@@ -1417,6 +1432,7 @@ in place.
 │   │   │   │   │   ├── binding.rs                                           # Durable input identity comparison shared by producer, reader and health
 │   │   │   │   │   ├── build.rs                                             # Backend-neutral authoritative build inputs and successful publication result
 │   │   │   │   │   ├── cancellation.rs                                      # Explicit read cancellation without a timeout, polling interval or detached native handle
+│   │   │   │   │   ├── checkpoint.rs                                        # Immutable loader journal, held separately from native sidecars
 │   │   │   │   │   ├── cleanup.rs                                           # Reader-safe, single-receipt cleanup; native engine code is never opened here
 │   │   │   │   │   ├── configuration.rs                                     # Engine-only adapter inputs with redacted root and opaque lock diagnostics
 │   │   │   │   │   ├── content.rs                                           # Frozen application-ID encodings for projection content and receipt names

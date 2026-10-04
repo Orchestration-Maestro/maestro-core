@@ -60,6 +60,24 @@ impl<'a> ProjectionFactory<'a> {
             .map(|session| ProjectionProducer { session })
     }
 
+    /// Explicitly reopen a loader-owned unpublished build under the current fenced lease.
+    /// No reader pin or published file is changed.
+    ///
+    /// # Errors
+    /// Refuses absent/disabled engines, stale leases, published or unrelated builds,
+    /// malformed immutable records, changed pins and unsafe roots; names rebuild repair.
+    pub fn resume<'k>(
+        &self,
+        kernel: &'k Database,
+        scopes: &ScopeSet,
+        build: ProjectionBuild,
+        clock: &'k dyn Fn() -> SystemTime,
+    ) -> Result<ProjectionProducer<'k>, ProjectionError> {
+        self.enabled()?;
+        Session::resume(&self.configuration, kernel, scopes, build, clock)
+            .map(|session| ProjectionProducer { session })
+    }
+
     /// Take shared access before looking up the exact kernel readiness receipt.
     ///
     /// # Errors

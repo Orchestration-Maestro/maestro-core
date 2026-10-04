@@ -28,6 +28,8 @@ mod error;
 mod projection;
 mod projection_binding;
 mod projection_inputs;
+#[cfg(test)]
+mod projection_reservation;
 mod quote;
 mod read;
 mod resolve;

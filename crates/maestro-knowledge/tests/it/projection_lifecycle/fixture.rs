@@ -59,6 +59,15 @@ pub(super) fn factory(path: &Path) -> ProjectionFactory<'static> {
 
 impl Fixture {
     pub(super) fn new() -> Self {
+        Self::with_edges(false)
+    }
+
+    /// Both authoritative families exercise the opaque snapshot loader consumer.
+    pub(super) fn mixed() -> Self {
+        Self::with_edges(true)
+    }
+
+    fn with_edges(mixed: bool) -> Self {
         let directory = Scratch(scratch_directory().unwrap());
         let kernel = Database::open_in(&directory.0).unwrap();
         kernel
@@ -71,6 +80,7 @@ impl Fixture {
             .unwrap();
         let scopes = kernel.visible("lifecycle").unwrap();
         let claim = source(&kernel);
+        let claims = mixed_claims(&claim, mixed);
         let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000);
         let timing = LeaseTiming {
             now,
@@ -81,7 +91,7 @@ impl Fixture {
             provenance: claim.provenance.clone(),
             sources: vec![claim.supports[0].revision_id.clone()],
             budget: Budget {
-                max_claims: 1,
+                max_claims: claims.len(),
                 max_rejections: 0,
             },
         };
@@ -99,7 +109,7 @@ impl Fixture {
                 timing,
                 &Batch {
                     ordinal: 0,
-                    claims: vec![claim],
+                    claims,
                     rejections: vec![],
                 },
             )
@@ -320,4 +330,16 @@ pub(super) fn frozen_resolution(database: &Database, scopes: &ScopeSet, set: &Di
         )
         .unwrap()
         .id
+}
+
+/// Preserve the existing literal-only fixtures; add one real entity edge for the loader.
+fn mixed_claims(claim: &Claim, mixed: bool) -> Vec<Claim> {
+    let mut claims = vec![claim.clone()];
+    if mixed {
+        let mut edge = claim.clone();
+        edge.predicate = Predicate::Requires;
+        edge.object = Object::Entity(edge.subject.clone());
+        claims.push(edge);
+    }
+    claims
 }
