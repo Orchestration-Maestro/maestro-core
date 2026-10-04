@@ -179,6 +179,7 @@ fn authority_build() -> (Authority, ProjectionBuild, SystemTime) {
         .unwrap()
         .id;
     let build = ProjectionBuild {
+        build_id: 1,
         scope,
         claim_set_id: set,
         resolution_id: resolution,

@@ -222,6 +222,7 @@ fn frozen_resolution(database: &Database, scopes: &ScopeSet, set: &Digest) -> Di
 /// Historical disposable content identity, shared by cleanup and health fixtures.
 fn cleanup_identity(generation: i64, set: Digest, name: String) -> ProjectionReceiptIdentity {
     ProjectionReceiptIdentity {
+        build_id: generation,
         collection_id: "synthetic-graph".into(),
         generation_id: generation,
         claim_set_id: set,

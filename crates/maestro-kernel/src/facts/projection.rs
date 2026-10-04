@@ -49,6 +49,7 @@ pub(super) type ProjectionPins = (Digest, String, Digest, Digest);
 /// Decode common fields before classifying the format or validating pins.
 pub(super) fn decode_identity(
     generation_id: i64,
+    build_id: i64,
     row: ProjectionReceiptRow,
 ) -> Result<(ProjectionReceiptIdentity, Option<ProjectionPins>), Error> {
     let (
@@ -66,6 +67,7 @@ pub(super) fn decode_identity(
         lock,
     ) = row;
     if generation_id <= 0
+        || build_id <= 0
         || !file_name
             .as_bytes()
             .first()
@@ -77,6 +79,7 @@ pub(super) fn decode_identity(
         return Err(Error::Conflict("invalid projection file identity".into()));
     }
     let identity = ProjectionReceiptIdentity {
+        build_id,
         collection_id,
         generation_id,
         file_name,
@@ -130,7 +133,7 @@ fn decode_receipt(
     generation_id: i64,
     row: ProjectionReceiptRow,
 ) -> Result<ProjectionReceipt, Error> {
-    let (identity, pins) = decode_identity(generation_id, row)?;
+    let (identity, pins) = decode_identity(generation_id, generation_id, row)?;
     let (resolution_id, resolver_version, settings_identity, frozen_lock) =
         pins.ok_or(Error::ProjectionInputMismatch(InputMismatchKind::Format))?;
     Ok(ProjectionReceipt {
@@ -254,7 +257,7 @@ impl Database {
         generation: i64,
     ) -> Result<Option<ProjectionReceiptIdentity>, Error> {
         self.projection_receipt_row(scopes, generation)?
-            .map(|row| decode_identity(generation, row).map(|(identity, _)| identity))
+            .map(|row| decode_identity(generation, generation, row).map(|(identity, _)| identity))
             .transpose()
     }
 

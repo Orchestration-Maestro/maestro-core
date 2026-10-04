@@ -64,7 +64,7 @@ fn receipt(fixture: &Fixture) -> ProjectionReceipt {
     let set = Digest::of(b"set");
     let name = content::basename(&scope(), &set).unwrap();
     fs::rename(fixture.path.join("rows.lbdb"), fixture.path.join(&name)).unwrap();
-    receipt_from_verification(&scope(), set, name, &verification, &contract::pins()).unwrap()
+    receipt_from_verification((&scope(), 1), set, name, &verification, &contract::pins()).unwrap()
 }
 
 fn files(fixture: &Fixture, inventory: &Inventory) -> Vec<super::probe::ProbeFile> {

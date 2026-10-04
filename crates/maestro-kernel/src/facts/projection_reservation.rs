@@ -1,5 +1,5 @@
-//! Inert 0031 reservation authority, compiled only by standalone schema proofs.
-//! Activate with the complete producer/native cutover, never independently.
+//! Immutable 0031 reservation authority; runtime migration activation is coupled
+//! to the complete producer/native cutover.
 use super::{
     error::Error, projection_binding::EXACT_RESOLVER_VERSION, projection_inputs::validate_inputs,
     projection_records,
@@ -16,28 +16,29 @@ use ulid::Ulid;
 
 /// Exact frozen inputs; runtime builds always use native format /3.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct Request {
+pub struct Request {
     /// Owning collection.
-    pub(super) collection_id: String,
+    pub collection_id: String,
     /// Attached generation.
-    pub(super) generation_id: i64,
+    pub generation_id: i64,
     /// Immutable claim set.
-    pub(super) claim_set_id: Digest,
+    pub claim_set_id: Digest,
     /// Covering resolution.
-    pub(super) resolution_id: Digest,
+    pub resolution_id: Digest,
     /// Supported resolver identity.
-    pub(super) resolver_version: String,
+    pub resolver_version: String,
     /// Admitted settings identity.
-    pub(super) settings_identity: Digest,
+    pub settings_identity: Digest,
     /// Complete frozen lock identity.
-    pub(super) frozen_lock: Digest,
+    pub frozen_lock: Digest,
     /// Compare-and-swap predecessor, absent only for initial publication.
-    pub(super) expected_active_build_id: Option<i64>,
+    pub expected_active_build_id: Option<i64>,
 }
 
 impl Request {
     /// One canonical encoding for job submission and lease validation.
-    pub(super) fn inputs(&self) -> Value {
+    #[must_use]
+    pub fn inputs(&self) -> Value {
         json!({"schema": "graph-project/2", "generation": self.generation_id,
             "claim_set": self.claim_set_id.as_str(), "resolution": self.resolution_id.as_str(),
             "resolver": self.resolver_version, "settings": self.settings_identity.as_str(),
@@ -48,13 +49,13 @@ impl Request {
 
 /// A reserved identity, not a second job state machine.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct Reservation {
+pub struct Reservation {
     /// Never-recycled native build identity.
-    pub(super) build_id: i64,
+    pub build_id: i64,
     /// Exact project attempt.
-    pub(super) job: Ulid,
+    pub job: Ulid,
     /// Persisted inputs.
-    pub(super) request: Request,
+    pub request: Request,
 }
 
 /// Reserve or replay under the current lease, without resetting progress.

@@ -271,7 +271,7 @@ impl OpenGraph for ProbeOpen {
             },
         )?;
         let mapped = receipt_from_verification(
-            &self.file.scope,
+            (&self.file.scope, self.file.receipt.identity.build_id),
             self.file.receipt.identity.claim_set_id.clone(),
             self.file.receipt.identity.file_name.clone(),
             &verification,

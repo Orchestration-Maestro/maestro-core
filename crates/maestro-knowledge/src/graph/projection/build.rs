@@ -5,6 +5,8 @@ use maestro_kernel::{artifact::Digest, facts::ProjectionReceipt, job::Lease};
 /// Exact authoritative build identities and the matching kernel project lease.
 #[derive(Debug, Clone)]
 pub struct ProjectionBuild {
+    /// Kernel-reserved immutable native build identity.
+    pub build_id: i64,
     /// Pinned collection and generation.
     pub scope: ProjectionScope,
     /// Attached authoritative claim set.

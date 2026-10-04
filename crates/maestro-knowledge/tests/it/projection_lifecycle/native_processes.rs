@@ -304,6 +304,7 @@ fn child_build(kernel: &Database, scopes: &ScopeSet, scope: &ProjectionScope) ->
         .claim_set_id;
     let resolution = frozen_resolution(kernel, scopes, &set);
     ProjectionBuild {
+        build_id: 1,
         scope: scope.clone(),
         claim_set_id: set,
         resolution_id: resolution,

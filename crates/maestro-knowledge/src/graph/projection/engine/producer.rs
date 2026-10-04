@@ -300,7 +300,7 @@ impl<'a> Session<'a> {
         let file_name = content::basename(&self.build.scope, &self.build.claim_set_id)
             .map_err(ProjectionError::Backend)?;
         let receipt = receipt_from_verification(
-            &self.build.scope,
+            (&self.build.scope, self.build.build_id),
             self.build.claim_set_id.clone(),
             file_name,
             expected,
@@ -419,7 +419,7 @@ mod tests {
         let staging = root.reserve_child("private-staging").unwrap();
         let name = content::basename(&fixture.build.scope, &fixture.build.claim_set_id).unwrap();
         let receipt = receipt_from_verification(
-            &fixture.build.scope,
+            (&fixture.build.scope, fixture.build.build_id),
             fixture.build.claim_set_id.clone(),
             name.clone(),
             &BuildVerification::expected(&fixture.edges, &[]).unwrap(),

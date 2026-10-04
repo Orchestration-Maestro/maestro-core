@@ -88,6 +88,7 @@ pub(in crate::cli::graph) fn cleanup_fixture() -> (Fixture, i64, String) {
             &fixture.kernel.scopes,
             &ProjectionReceipt {
                 identity: ProjectionReceiptIdentity {
+                    build_id: generation,
                     collection_id: "graph-test".into(),
                     generation_id: generation,
                     claim_set_id: set,

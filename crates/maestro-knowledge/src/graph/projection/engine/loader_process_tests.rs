@@ -62,6 +62,7 @@ fn loader_boundary_child() {
         .lease
         .unwrap();
     let build = ProjectionBuild {
+        build_id: 1,
         scope: scope.clone(),
         lease,
         claim_set_id: serde_json::from_value(env::var("MAESTRO_LOADER_SET").unwrap().into())

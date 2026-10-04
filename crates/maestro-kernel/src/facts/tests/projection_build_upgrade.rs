@@ -1,5 +1,9 @@
 //! 0031 imports retained authority without creating pins, jobs or search events.
 use super::projection_schema_support::Fixture;
+use crate::{
+    facts::{Error, InputMismatchKind},
+    scope::ScopeSet,
+};
 use rusqlite::types::Value;
 
 /// Preserve complete rows, not a selected subset of the search lifecycle.
@@ -111,6 +115,22 @@ fn projection_build_upgrade_never_fabricates_pins_for_a_legacy_replacement() {
         )
         .unwrap();
     fixture.migrate();
+    let scopes = ScopeSet::default_workspace();
+    let legacy = fixture
+        .database
+        .projection_build_receipt_identity(&scopes, fixture.generation(), fixture.generation())
+        .unwrap()
+        .unwrap();
+    assert_eq!(legacy.build_id, fixture.generation());
+    assert_eq!(legacy.schema_version, "maestro-typed-edges/1");
+    assert!(matches!(
+        fixture.database.projection_build_receipt(
+            &scopes,
+            fixture.generation(),
+            fixture.generation()
+        ),
+        Err(Error::ProjectionInputMismatch(InputMismatchKind::Format))
+    ));
     let build = fixture.reserve(Some(fixture.generation()));
     fixture.insert_receipt(build, "replacement.db").unwrap();
     fixture.advance(build).unwrap();

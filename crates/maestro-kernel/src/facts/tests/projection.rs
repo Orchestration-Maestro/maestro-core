@@ -102,6 +102,7 @@ pub(super) fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
         .id;
     let receipt = ProjectionReceipt {
         identity: ProjectionReceiptIdentity {
+            build_id: generation,
             collection_id: "graph".to_owned(),
             generation_id: generation,
             claim_set_id: attachment.claim_set_id,

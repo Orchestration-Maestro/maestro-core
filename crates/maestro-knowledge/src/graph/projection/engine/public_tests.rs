@@ -73,7 +73,7 @@ pub(super) fn publish(fixture: &Fixture) {
     }
     super::open::tests::private_windows_fixture(&fixture.native.path);
     let receipt = receipt_from_verification(
-        &fixture.build.scope,
+        (&fixture.build.scope, fixture.build.build_id),
         fixture.build.claim_set_id.clone(),
         name,
         &expected(fixture),

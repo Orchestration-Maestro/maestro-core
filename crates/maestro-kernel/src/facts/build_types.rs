@@ -82,6 +82,8 @@ impl BuildRecord {
 /// Strictly decoded immutable file identity, including retained legacy receipts.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectionReceiptIdentity {
+    /// Never-recycled immutable projection build identity.
+    pub build_id: i64,
     /// Collection whose generation is projected.
     pub collection_id: String,
     /// Exact immutable generation pin.

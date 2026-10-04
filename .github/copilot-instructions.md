@@ -1001,6 +1001,7 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # The knowledge graph's authority (specs/002-knowledge-graph, FR-S2-002 and
 │   │   │   │   ├── projection.rs                                            # Kernel-controlled verification receipts for immutable graph projections
 │   │   │   │   ├── projection_binding.rs                                    # Shared immutable projection input vocabulary and safe repair text
+│   │   │   │   ├── projection_build_api.rs                                  # Scoped admission and lookup of immutable projection build reservations
 │   │   │   │   ├── projection_inputs.rs                                     # Scoped authoritative preflight for explicitly pinned projection resolutions
 │   │   │   │   ├── projection_publication.rs                                # Transactional receipt and head publication for reserved 0031 builds
 │   │   │   │   ├── projection_records.rs                                    # One strict scoped decoder for immutable 0031 build receipts

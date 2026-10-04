@@ -58,8 +58,8 @@ pub(super) fn by_build(
         )
         .optional()?;
     row.map(|(row, collection)| {
-        let (identity, pins) = decode_identity(generation, row)?;
-        if build <= 0 || identity.collection_id != collection {
+        let (identity, pins) = decode_identity(generation, build, row)?;
+        if identity.collection_id != collection {
             return Err(Error::Conflict("invalid projection build identity".into()));
         }
         Ok(Record { identity, pins })

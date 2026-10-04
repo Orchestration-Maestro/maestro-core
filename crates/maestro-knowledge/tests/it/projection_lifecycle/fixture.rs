@@ -154,6 +154,7 @@ impl Fixture {
             kernel,
             now,
             build: ProjectionBuild {
+                build_id: 1,
                 scope,
                 claim_set_id: set.id,
                 resolution_id: resolution,

@@ -27,12 +27,11 @@ mod build_types;
 mod error;
 mod projection;
 mod projection_binding;
+mod projection_build_api;
 mod projection_inputs;
 #[cfg(test)]
 mod projection_publication;
-#[cfg(test)]
 mod projection_records;
-#[cfg(test)]
 mod projection_reservation;
 mod quote;
 mod read;
@@ -63,4 +62,8 @@ pub use resolve::{
 
 pub use projection_binding::{
     EXACT_RESOLVER_VERSION, InputMismatchKind, PROJECTION_REBUILD_REPAIR,
+};
+
+pub use projection_reservation::{
+    Request as ProjectionBuildRequest, Reservation as ProjectionReservation,
 };

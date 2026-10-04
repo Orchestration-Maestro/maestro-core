@@ -58,7 +58,7 @@ impl Reader {
         let rows = reader.rows()?;
         input_pins::compare(&rows.pins, &binding::receipt_pins(receipt))?;
         let mapped = receipt_from_verification(
-            scope,
+            (scope, receipt.identity.build_id),
             receipt.identity.claim_set_id.clone(),
             receipt.identity.file_name.clone(),
             &rows.verification().map_err(ProjectionError::Backend)?,

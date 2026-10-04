@@ -114,6 +114,7 @@ impl Fixture {
             authority,
             native,
             build: ProjectionBuild {
+                build_id: 1,
                 scope,
                 claim_set_id: set,
                 resolution_id: resolution,

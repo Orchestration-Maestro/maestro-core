@@ -91,6 +91,7 @@ impl Fixture {
             .id;
         let receipt = ProjectionReceipt {
             identity: ProjectionReceiptIdentity {
+                build_id: generation,
                 collection_id: "cleanup".into(),
                 generation_id: generation,
                 claim_set_id: set,

@@ -104,7 +104,8 @@ fn native_receipt_opens_only_matching_physical_file_and_content() {
     let name = content::basename(&scope, &set).unwrap();
     backend.publish_unpublished(&scope, &name).unwrap();
     let receipt =
-        receipt_from_verification(&scope, set, name.clone(), &build, &contract::pins()).unwrap();
+        receipt_from_verification((&scope, 1), set, name.clone(), &build, &contract::pins())
+            .unwrap();
     let reader = backend.open_published(&scope, &receipt).unwrap();
     assert_eq!(
         reader.edges_adjacent(edge.family, &edge.target).unwrap(),
@@ -257,7 +258,7 @@ fn windows_native_immutable_fixture_runs_shared_ordered_pinned_reader_contract()
     super::open::tests::private_windows_fixture(&fixture.path);
     let backend = backend(&fixture);
     let receipt = receipt_from_verification(
-        &scope,
+        (&scope, 1),
         set,
         name.clone(),
         &contract.expected,

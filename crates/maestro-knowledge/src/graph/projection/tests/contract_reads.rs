@@ -1,6 +1,6 @@
 //! Ordered application-ID reads and exact scope/family pin contract for every backend.
 
-use super::contract::{BackendContract, Ready};
+use super::contract::{self, BackendContract, Ready};
 use crate::graph::projection::{
     ProjectionError, ProjectionScope, TypedEdgeProjection,
     writer::{ProjectionBackend, ProjectionReader},
@@ -8,7 +8,6 @@ use crate::graph::projection::{
 use maestro_kernel::{artifact::Digest, facts::ProjectionReceipt};
 #[cfg(not(windows))]
 use {
-    super::contract,
     crate::graph::projection::{
         EdgeFamily, content,
         writer::{ProjectionWriter, receipt_from_verification},
@@ -42,9 +41,14 @@ pub(in crate::graph::projection) fn pinned_generations<B: ProjectionBackend>(
             .write_batch(scopes, slice::from_ref(&edge), slice::from_ref(&fact))
             .unwrap();
         writer.verify_and_publish(&fixture.expected, &set).unwrap();
-        let receipt =
-            receipt_from_verification(&edge.scope, set, name, &fixture.expected, &contract::pins())
-                .unwrap();
+        let receipt = receipt_from_verification(
+            (&edge.scope, 1),
+            set,
+            name,
+            &fixture.expected,
+            &contract::pins(),
+        )
+        .unwrap();
         readers.push((
             ProjectionReader::open(backend, &Ready(receipt), scopes, edge.scope.clone()).unwrap(),
             edge,
@@ -201,4 +205,24 @@ fn assert_edges(
                 .is_err()
         );
     }
+}
+
+#[test]
+fn receipt_mapping_preserves_explicit_build_identity() {
+    use crate::graph::projection::writer::{BuildVerification, receipt_from_verification};
+    let scope = ProjectionScope {
+        collection_id: "c".into(),
+        generation_id: 7,
+    };
+    let verification = BuildVerification::expected(&[], &[]).unwrap();
+    let receipt = receipt_from_verification(
+        (&scope, 37),
+        Digest::of(b"set"),
+        "candidate.lbdb".into(),
+        &verification,
+        &contract::pins(),
+    )
+    .unwrap();
+    assert_eq!(receipt.identity.build_id, 37);
+    assert_eq!(receipt.identity.generation_id, 7);
 }

@@ -348,7 +348,7 @@ impl ProjectionReader {
             .map_err(ProjectionError::Backend)?;
         let verified = reader.verification().map_err(ProjectionError::Backend)?;
         let mapped = receipt_from_verification(
-            &scope,
+            (&scope, receipt.identity.build_id),
             receipt.identity.claim_set_id.clone(),
             receipt.identity.file_name.clone(),
             &verified,
@@ -363,12 +363,13 @@ impl ProjectionReader {
 
 /// Convert verified backend counts into the kernel receipt in one tested mapping.
 pub(crate) fn receipt_from_verification(
-    scope: &ProjectionScope,
+    target: (&ProjectionScope, i64),
     claim_set_id: Digest,
     file_name: String,
     build: &BuildVerification,
     pins: &[String; 4],
 ) -> Result<ProjectionReceipt, ProjectionError> {
+    let (scope, build_id) = target;
     super::binding::validate(pins).map_err(ProjectionError::Backend)?;
     if build.schema != SCHEMA_VERSION
         || REQUIRED_INDEXES
@@ -384,6 +385,7 @@ pub(crate) fn receipt_from_verification(
         .unwrap_or(0);
     Ok(ProjectionReceipt {
         identity: ProjectionReceiptIdentity {
+            build_id,
             collection_id: scope.collection_id.clone(),
             generation_id: scope.generation_id,
             claim_set_id,

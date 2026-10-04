@@ -395,6 +395,7 @@ fn receipt(
 ) -> ProjectionReceipt {
     ProjectionReceipt {
         identity: ProjectionReceiptIdentity {
+            build_id: 1,
             collection_id: scope.collection_id.clone(),
             generation_id: scope.generation_id,
             claim_set_id: claim_set_id.clone(),
