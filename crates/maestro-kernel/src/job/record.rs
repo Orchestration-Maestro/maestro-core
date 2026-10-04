@@ -80,6 +80,15 @@ pub struct Job {
     pub outcome: Option<Value>,
 }
 
+/// Atomic fresh-attempt submission result; a found job is never changed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Submitted {
+    /// A new queued attempt was recorded.
+    Created(Job),
+    /// A queued, running or succeeded job already has this key.
+    Found(Job),
+}
+
 /// The lease of a running job: who works on it, and until when.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Lease {
@@ -119,11 +128,26 @@ impl Database {
     /// database cannot record the job or its event, or holds a job it cannot
     /// read back. Nothing is then recorded.
     pub fn submit_job(&self, new: &NewJob<'_>, now: SystemTime) -> Result<Job, Error> {
+        self.submit_new_job(new, now)
+            .map(|submitted| match submitted {
+                Submitted::Created(job) | Submitted::Found(job) => job,
+            })
+    }
+
+    /// Creates a fresh attempt atomically, or returns the existing job of
+    /// the key without taking its lease, recording events or changing it.
+    /// Failed and cancelled attempts allow a new attempt.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::ResourceHeld`] if another key holds the resource, and
+    /// [`Error::Store`] if the transaction cannot be recorded.
+    pub fn submit_new_job(&self, new: &NewJob<'_>, now: SystemTime) -> Result<Submitted, Error> {
         let key = idempotency_key(new);
         self.write(|transaction| {
             let live = "idempotency_key = ?1 AND state IN ('queued', 'running', 'succeeded')";
             if let Some(job) = first(transaction, live, key.as_str())? {
-                return Ok(job);
+                return Ok(Submitted::Found(job));
             }
             free(transaction, new.resource)?;
             let last = "idempotency_key = ?1 ORDER BY attempt DESC LIMIT 1";
@@ -153,7 +177,7 @@ impl Database {
             };
             let created = moved_into(JobState::Queued);
             record_on_stream(transaction, job.id, &job.scope, created, &data)?;
-            Ok(job)
+            Ok(Submitted::Created(job))
         })
     }
 

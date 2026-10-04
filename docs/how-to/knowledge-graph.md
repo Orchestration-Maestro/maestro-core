@@ -173,7 +173,8 @@ need a separate recovery design; G28 does not close that recovery gap.
 
 ### Resume an interrupted loader job
 
-The command prints its project job ID on stderr. After an interrupted process,
+The command prints its project job ID first on stdout in human mode, or on
+stderr with `--json`. After an interrupted process,
 repeat with that exact job and the original frozen inputs:
 
 ```sh

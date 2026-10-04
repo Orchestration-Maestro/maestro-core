@@ -17,6 +17,8 @@ use super::{
     wait::{self, Follower, POLL, Printing},
 };
 use crate::{failure::Failure, kernel::Kernel};
+#[cfg(feature = "engine")]
+use maestro_kernel::job::Submitted;
 use maestro_kernel::{
     job::{self, Job, JobState, Lease, NewJob},
     store::Database,
@@ -24,6 +26,18 @@ use maestro_kernel::{
 use serde_json::{Value, json};
 use std::{process::ExitCode, thread, time::SystemTime};
 use ulid::Ulid;
+
+/// Submission choice; existing foreground callers always reuse their key.
+pub(super) enum Policy {
+    /// Preserve the existing retry/supersede behavior.
+    Reuse,
+    /// Never take over or supersede a pre-existing attempt.
+    #[cfg(feature = "engine")]
+    FreshOnly,
+    /// Take exactly this already validated job, without submission.
+    #[cfg(feature = "engine")]
+    Named(Ulid),
+}
 
 /// How many looks at a job another process holds pass between two tries of
 /// its lease: about a second, at one look every [`POLL`].
@@ -67,17 +81,61 @@ pub(super) fn run_to_end(
     timing: Timing,
     work: impl FnOnce(&Holder<'_>) -> (JobState, Value),
 ) -> Result<Job, Failure> {
-    let job = submit(&kernel.database, new)?;
+    run_selected(kernel, output, (new, Policy::Reuse), timing, work).map(|(job, _)| job)
+}
+
+/// Run the private submission policy; the boolean distinguishes a fresh
+/// execution from an already succeeded attempt requiring receipt validation.
+pub(super) fn run_selected(
+    kernel: &Kernel,
+    output: Output,
+    request: (&NewJob<'_>, Policy),
+    timing: Timing,
+    work: impl FnOnce(&Holder<'_>) -> (JobState, Value),
+) -> Result<(Job, bool), Failure> {
+    let (new, policy) = request;
+    let (job, fresh) = match policy {
+        Policy::Reuse => (submit(&kernel.database, new)?, true),
+        #[cfg(feature = "engine")]
+        Policy::Named(id) => (
+            kernel
+                .database
+                .job(&kernel.scopes, id)
+                .map_err(|error| Failure::refused_by(&error))?
+                .ok_or_else(|| Failure::refused("unknown or unauthorized resume job"))?,
+            true,
+        ),
+        #[cfg(feature = "engine")]
+        Policy::FreshOnly => match kernel.database.submit_new_job(new, SystemTime::now()) {
+            Ok(Submitted::Created(job)) => (job, true),
+            Ok(Submitted::Found(job)) if job.state == JobState::Succeeded => (job, false),
+            Ok(Submitted::Found(job)) => {
+                return Err(Failure::refused(format!(
+                    "an unfinished build exists; repeat with --resume {}",
+                    job.id
+                )));
+            }
+            Err(error @ job::Error::ResourceHeld { .. }) => {
+                return Err(Failure::refused_by(&error));
+            }
+            Err(error) => return Err(Failure::failed_by(&error)),
+        },
+    };
+
     output.job(job.id)?;
+    if !fresh {
+        return Ok((job, false));
+    }
     let mut follower = Follower::new(kernel, output, job.id);
     loop {
         if let Some(lease) = take(&kernel.database, job.id, timing)? {
             return Holder::run(&kernel.database, lease, timing, work)
+                .map(|job| (job, true))
                 .map_err(|error| Failure::failed_by(&error));
         }
         for _ in 0..LOOKS_PER_TRY {
             if let Some(ended) = follower.look()? {
-                return Ok(ended);
+                return Ok((ended, true));
             }
             thread::sleep(POLL);
         }

@@ -383,6 +383,7 @@ in place.
 │   │   │       ├── graph_operations_selection.rs                            # Review regressions for lock-only graph selection and preference precedence
 │   │   │       ├── graph_rebuild.rs                                         # First publication, explicit recovery and honest immutable-receipt repair refusals
 │   │   │       ├── graph_rebuild_fixture.rs                                 # Public kernel build/attachment and real admitted-lock inputs for CLI rebuild
+│   │   │       ├── graph_rebuild_safety.rs                                  # Read-only preflight, explicit recovery and human output ordering
 │   │   │       ├── graph_resume.rs                                          # Durable CLI resume and separate attachment, using real authority and rule artifacts
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
@@ -1010,6 +1011,7 @@ in place.
 │   │   │   │   │   ├── changes.rs                                           # Changes: each change of a job recorded on its stream of the journal, with
 │   │   │   │   │   ├── child.rs                                             # Not a test of its own: the first process of the resume test, which works
 │   │   │   │   │   ├── errors.rs                                            # Refusals: what each one says, and a stored job the kernel cannot read
+│   │   │   │   │   ├── fresh.rs                                             # Fresh-only attempts never mutate or take over a job found by its key
 │   │   │   │   │   ├── leases.rs                                            # Leases: one holder at a time, taken over once expired, renewed by
 │   │   │   │   │   ├── mod.rs                                               # Tests of jobs: their keys and attempts, their leases and states, their
 │   │   │   │   │   ├── progress.rs                                          # Progress: recorded on the job's stream of the journal in the write that

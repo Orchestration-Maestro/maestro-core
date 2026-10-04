@@ -6,6 +6,7 @@
 mod changes;
 mod child;
 mod errors;
+mod fresh;
 mod leases;
 mod progress;
 mod resources;
