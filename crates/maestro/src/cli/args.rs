@@ -370,6 +370,12 @@ pub(super) enum GraphCommand {
         #[command(flatten)]
         arguments: super::graph::build::Arguments,
     },
+    /// Load a frozen attached claim set, or explicitly resume its interrupted projection.
+    Rebuild {
+        /// Generation, frozen resolution and optional loader job.
+        #[command(flatten)]
+        arguments: super::graph::rebuild::Arguments,
+    },
     /// Preview removal of one Retired or Failed generation's receipt-named graph file.
     Cleanup {
         /// Selected generation; unknown and unauthorized selections refuse identically.

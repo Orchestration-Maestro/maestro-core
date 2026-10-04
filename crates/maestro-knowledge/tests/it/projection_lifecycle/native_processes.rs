@@ -3,9 +3,11 @@
 use super::fixture::{Fixture, factory, frozen_resolution, settings};
 use maestro_filesystem::{ControlFile, LockMode, OwnedRoot, SystemFileLock};
 use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
+use maestro_kernel::scope::ScopeSet;
 use maestro_kernel::{artifact::Digest, job::LeaseTiming, store::Database};
 use maestro_knowledge::graph::projection::{
-    BuildVerification, EntityFact, ProjectionBuild, ProjectionScope, TypedEdgeProjection,
+    BuildVerification, EntityFact, ProjectionBuild, ProjectionProducer, ProjectionScope,
+    ProjectionSnapshot, TypedEdgeProjection,
 };
 use std::{
     env, fs,
@@ -126,31 +128,32 @@ fn lifecycle_process_child_owns_native_handle() {
         acknowledge("REFUSED");
         return;
     }
-    let job_id = env::var("MAESTRO_LIFECYCLE_JOB").unwrap().parse().unwrap();
-    let lease = kernel.job(&scopes, job_id).unwrap().unwrap().lease.unwrap();
-    let set = kernel
-        .graph_attachment(&scopes, scope.generation_id)
-        .unwrap()
-        .unwrap()
-        .claim_set_id;
-    let resolution = frozen_resolution(&kernel, &scopes, &set);
-    let build = ProjectionBuild {
-        scope: scope.clone(),
-        claim_set_id: set.clone(),
-        resolution_id: resolution,
-        resolver_version: EXACT_RESOLVER_VERSION.into(),
-        settings_identity: settings().identity(),
-        frozen_lock: settings().frozen_lock().clone(),
-        lease,
-    };
+    let build = child_build(&kernel, &scopes, &scope);
+    let set = build.claim_set_id.clone();
     let now = SystemTime::UNIX_EPOCH
         + Duration::from_secs(env::var("MAESTRO_LIFECYCLE_NOW").unwrap().parse().unwrap());
     let clock = || now;
-    let producer = factory.producer(&kernel, &scopes, build, &clock);
+    let producer = if mode == "resume-loader" {
+        factory.resume(&kernel, &scopes, build.clone(), &clock)
+    } else {
+        factory.producer(&kernel, &scopes, build.clone(), &clock)
+    };
     let Ok(mut producer) = producer else {
         acknowledge("REFUSED");
         return;
     };
+    if mode == "loader" || mode == "resume-loader" {
+        let snapshot = ProjectionSnapshot::read(
+            &kernel,
+            &scopes,
+            "lifecycle",
+            (&build.claim_set_id, &build.resolution_id),
+            &scope,
+        )
+        .unwrap();
+        loader_process(producer, &snapshot);
+        return;
+    }
     let claim = kernel
         .claim_set(&scopes, &set)
         .unwrap()
@@ -224,9 +227,9 @@ fn lifecycle_process_writer_reader_contention_second_writer_and_valid_reopen() {
 }
 
 #[test]
-fn lifecycle_process_death_preserves_staging_then_new_lease_can_publish_and_read() {
-    let mut fixture = Fixture::new();
-    let mut writer = Process::spawn(&fixture, "writer");
+fn lifecycle_process_death_preserves_loader_then_explicit_resume_can_publish_and_read() {
+    let mut fixture = Fixture::mixed();
+    let mut writer = Process::spawn(&fixture, "loader");
     assert_eq!(writer.signal(), "HELD");
     writer.kill();
     let orphans: Vec<_> = fs::read_dir(fixture.graph())
@@ -249,22 +252,64 @@ fn lifecycle_process_death_preserves_staging_then_new_lease_can_publish_and_read
             timing.term,
         )
         .unwrap();
-    let mut successor = Process::spawn(&fixture, "writer");
+    let mut successor = Process::spawn(&fixture, "resume-loader");
     assert_eq!(successor.signal(), "HELD");
     successor.release("publish");
     assert_eq!(successor.signal(), "PUBLISHED");
     successor.success();
     assert!(orphans[0].is_dir());
-    let mut reader = Process::spawn(&fixture, "reader");
-    assert_eq!(reader.signal(), "HELD");
-    reader.kill();
-    let root = OwnedRoot::open(&fixture.graph(), false).unwrap();
-    root.open_control(ControlFile::Access)
+    let scopes = fixture.kernel.visible("lifecycle").unwrap();
+    let receipt = fixture
+        .kernel
+        .projection_ready(&scopes, fixture.build.scope.generation_id)
         .unwrap()
-        .lock_with(&SystemFileLock, LockMode::Exclusive, false)
         .unwrap();
-    let mut reopened = Process::spawn(&fixture, "reader");
-    assert_eq!(reopened.signal(), "HELD");
-    reopened.release("exit");
-    reopened.success();
+    assert_eq!(receipt.identity.entity_fact_count, 1);
+    assert_eq!(receipt.identity.knowledge_edge_count, 1);
+    assert!(!orphans[0].join("loader").exists());
+    let factory = factory(&fixture.graph());
+    let reader = factory
+        .reader(&fixture.kernel, &scopes, fixture.build.scope.clone())
+        .unwrap();
+    assert!(
+        factory
+            .resume(&fixture.kernel, &scopes, fixture.build.clone(), &|| fixture
+                .now)
+            .is_err()
+    );
+    drop(reader);
+}
+
+/// A real child retains the native writer until the parent acknowledges publish or kills it.
+fn loader_process(mut producer: ProjectionProducer<'_>, snapshot: &ProjectionSnapshot) {
+    producer.load(snapshot).unwrap();
+    let expected = producer.verify().unwrap();
+    acknowledge("HELD");
+    let mut command = String::new();
+    io::stdin().read_line(&mut command).unwrap();
+    if command.trim() == "publish" {
+        producer.publish(&expected).unwrap();
+        acknowledge("PUBLISHED");
+    }
+}
+
+/// Reconstruct only the exact child job's admitted authoritative input pins.
+fn child_build(kernel: &Database, scopes: &ScopeSet, scope: &ProjectionScope) -> ProjectionBuild {
+    let job_id = env::var("MAESTRO_LIFECYCLE_JOB").unwrap().parse().unwrap();
+    let lease = kernel.job(scopes, job_id).unwrap().unwrap().lease.unwrap();
+    let set = kernel
+        .graph_attachment(scopes, scope.generation_id)
+        .unwrap()
+        .unwrap()
+        .claim_set_id;
+    let resolution = frozen_resolution(kernel, scopes, &set);
+    ProjectionBuild {
+        scope: scope.clone(),
+        claim_set_id: set,
+        resolution_id: resolution,
+        resolver_version: EXACT_RESOLVER_VERSION.into(),
+        settings_identity: settings().identity(),
+        frozen_lock: settings().frozen_lock().clone(),
+        lease,
+    }
 }

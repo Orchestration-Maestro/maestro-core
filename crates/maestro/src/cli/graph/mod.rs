@@ -7,5 +7,10 @@ mod extract_output;
 mod extractor;
 mod failure;
 mod job;
+pub(super) mod rebuild;
+#[cfg(feature = "engine")]
+mod rebuild_descriptors;
+#[cfg(feature = "engine")]
+mod rebuild_work;
 #[cfg(test)]
 mod tests;

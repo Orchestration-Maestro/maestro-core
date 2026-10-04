@@ -130,7 +130,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             let settings = session.knowledge()?;
             modelled(output, command, &settings, Kernel::open)
         }
-        Noun::Knowledge(command) => knowledge(&Kernel::open()?, output, command),
+        Noun::Knowledge(command) => knowledge(&Kernel::open()?, output, command, &session),
         Noun::Mcp { .. } => {
             let settings = session.knowledge()?;
             let (model_port, qdrant) = search::ports()?;
@@ -375,10 +375,14 @@ fn knowledge(
     kernel: &Kernel,
     output: Output,
     command: &KnowledgeCommand,
+    session: &Session,
 ) -> Result<ExitCode, Failure> {
     match command {
         KnowledgeCommand::Collection(CollectionCommand::Add { declaration }) => {
             collection::add(kernel, output, declaration)
+        }
+        KnowledgeCommand::Graph(GraphCommand::Rebuild { arguments }) => {
+            graph::rebuild::run(kernel, output, session, arguments)
         }
         KnowledgeCommand::Graph(GraphCommand::Build { arguments }) => {
             graph::build::run(kernel, output, arguments)

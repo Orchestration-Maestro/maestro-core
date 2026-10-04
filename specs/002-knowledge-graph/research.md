@@ -5,6 +5,60 @@ embedded LadybugDB graph engine, against the six-row adoption bar of
 [plan.md](plan.md) A1. This file holds the verdict, the measurements behind it
 and the rulings that followed. ADR-0021 records the resulting design.
 
+## G28d checkpointed CLI loader measurement
+
+On 2026-10-03, the real `maestro knowledge graph rebuild` command built a
+synthetic, attached Verified generation with four literal facts, zero entity
+edges, a recorded frozen resolution and a real admitted authoring lock. The
+command used G28c's sole loader with unchanged `BATCH_ROWS = 64`; it made no
+model or network call and did not change the published search generation.
+
+Reproduce with the engine-enabled CLI integration test:
+
+```sh
+capped cargo nextest run -p maestro --features engine \
+  -E 'test(graph_rebuild_first_build)' --success-output immediate
+```
+
+The retained post-rebase run on G28c `15aef6b9` exited 0 (one test passed),
+printing:
+
+```text
+G28D_REBUILD_US=499566 PEAK_LOGICAL_BYTES=201620 PEAK_ALLOCATED_BYTES=212992 FINAL_LOGICAL_BYTES=192512 FINAL_ALLOCATED_BYTES=192512
+```
+
+Rebuild wall time was **0.499566 s**, including process startup, session/authority
+admission, load, verification and receipt publication, but excluding fixture
+setup, extraction and compilation. Peak sampled graph-file allocation was
+**212,992 bytes (208 KiB)**; peak sampled file lengths were **201,620 bytes**.
+After publication, both were **192,512 bytes (188 KiB)**. The sampler covered
+all regular files below the owned graph root, including native staging,
+sidecars, loader records and permanent guards, every 1 ms; Unix `st_blocks *
+512` measured allocation separately from file lengths. Directory metadata,
+SQLite/artifacts, compiler output and RAM/engine buffer allocation are excluded.
+Brief peaks between samples can be missed; this is sampled disk evidence,
+not a proven maximum.
+
+The host was Linux under WSL, with test scratch on `/dev/shm`, one native
+thread, a 16 MiB buffer pool and 64 MiB database-size admission. Other lanes
+shared the CPU; no quiet/latency qualification is claimed. A prior post-rebase
+run recorded 1.279159 s, 201,662 peak logical bytes and 217,088 peak allocated
+bytes. The final run followed source-rule fixes (sampling now waits on a
+channel timeout, not `thread::sleep`); it was not a performance-tuning rerun.
+Earlier pre-rebase runs recorded 0.404377 s and 0.403401 s. All observations
+remain diagnostic smoke evidence; no quiet-machine or best-of result is claimed.
+Four facts cannot characterize scale or show that 64-row batches are slow;
+no batch change, new limit, ceiling or extrapolation is justified. G11 owns
+the later explicit scale benchmark. Existing G28c native tests separately cover
+both families and multi-batch interrupted recovery.
+
+The CLI currently builds only a generation without a readiness receipt, resumes
+a live interrupted loader job, or reports an unchanged valid receipt ready.
+It preserves old readers and refuses missing/corrupt published files, changed
+input pins and legacy receipts before writes. In-place published-generation
+repair and automatic failed/cancelled staging discard require the separately
+queued recovery design; this measurement does not claim those gaps are closed.
+
 ## Native cache repin (f91b5bb)
 
 The fork pin is now `f91b5bba0ceb19ec80a9993d70ae83b245918cfc`, the merge of

@@ -47,6 +47,9 @@ files = [
   "crates/maestro-knowledge/src/graph/projection/engine/probe.rs",
   "crates/maestro/src/cli/health/graph_native.rs",
   "crates/maestro-knowledge/src/graph/projection/probe.rs",
+  "crates/maestro/src/cli/graph/rebuild.rs",
+  "crates/maestro/src/cli/graph/rebuild_work.rs",
+  "crates/maestro/src/cli/graph/rebuild_descriptors.rs",
 ]
 
 [native-cache]

@@ -56,6 +56,7 @@ jobs:
           # Keep the legacy spike evidence names for the now-rooted proofs.
           cargo test -p maestro-knowledge --features engine --locked --lib --timings graph::projection -- --nocapture 2>&1 | tee evidence/projection.txt evidence/spike.txt
           cargo test -p maestro --features engine --locked graph_operations 2>&1 | tee evidence/graph-operations.txt
+          cargo test -p maestro --features engine --locked graph_rebuild 2>&1 | tee evidence/graph-rebuild.txt
           cargo test -p maestro-knowledge --features engine --locked --lib --no-run --message-format=json > evidence/spike-build.jsonl
       - name: Inspect native TLS linkage
         shell: bash

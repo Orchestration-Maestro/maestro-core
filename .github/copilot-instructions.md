@@ -127,7 +127,10 @@ in place.
 │   │   │   │   │   │   │   └── support.rs                                   # Rust source: support
 │   │   │   │   │   │   ├── cleanup_support.rs                               # Synthetic cleanup authority under the same private CLI apply boundary
 │   │   │   │   │   │   ├── extractor_selection.rs                           # Registered extractor selection and policy file-size boundaries
-│   │   │   │   │   │   └── mod.rs                                           # How knowledge graph build classifies the kernel's refusals of a claim
+│   │   │   │   │   │   ├── mod.rs                                           # How knowledge graph build classifies the kernel's refusals of a claim
+│   │   │   │   │   │   ├── rebuild.rs                                       # The shared repair text is an executable command, not an invented namespace
+│   │   │   │   │   │   ├── rebuild_descriptors.rs                           # Optional G35 orchestration uses real frozen documents and replaceable projection doubles
+│   │   │   │   │   │   └── rebuild_support.rs                               # Real authority/artifact setup for optional G35 rebuild composition
 │   │   │   │   │   ├── attach.rs                                            # Attachment is separate leased work; completed extraction is never repeated
 │   │   │   │   │   ├── build.rs                                             # knowledge graph build: a collection's claims built with one strict
 │   │   │   │   │   ├── cleanup.rs                                           # Cleanup only a selected authorized receipt file; the knowledge layer owns deletion policy
@@ -135,7 +138,10 @@ in place.
 │   │   │   │   │   ├── extractor.rs                                         # Selects the explicit table-rule or registered model extractor and its sources
 │   │   │   │   │   ├── failure.rs                                           # Shared classification of graph authority failures
 │   │   │   │   │   ├── job.rs                                               # Foreground graph builds: extraction outside the fence lock, atomic receipts inside it
-│   │   │   │   │   └── mod.rs                                               # knowledge graph: the commands over a collection's knowledge graph
+│   │   │   │   │   ├── mod.rs                                               # knowledge graph: the commands over a collection's knowledge graph
+│   │   │   │   │   ├── rebuild.rs                                           # One frozen-input projection build; published-generation repair stays explicit
+│   │   │   │   │   ├── rebuild_descriptors.rs                               # Optional G35 composition; canonical source data and frozen profiles remain authoritative
+│   │   │   │   │   └── rebuild_work.rs                                      # Existing foreground lease protocol feeding only the opaque checkpointed loader
 │   │   │   │   ├── health/                                                  # maestro doctor and status: the checks of the kernel, the search service, the router and each role's card
 │   │   │   │   │   ├── tests/                                               # Unit tests of the checks: the kernel's files, the services, the cards, what doctor must not touch
 │   │   │   │   │   │   ├── doctor.rs                                        # Doctor's verdict: a check that cannot run yet, as each role's model card
@@ -375,6 +381,9 @@ in place.
 │   │   │       ├── graph_extract.rs                                         # Model graph extraction is an explicit, mutually exclusive build mode
 │   │   │       ├── graph_operations.rs                                      # G26: setup, status and doctor account for the local embedded graph
 │   │   │       ├── graph_operations_selection.rs                            # Review regressions for lock-only graph selection and preference precedence
+│   │   │       ├── graph_rebuild.rs                                         # First publication, explicit recovery and honest immutable-receipt repair refusals
+│   │   │       ├── graph_rebuild_fixture.rs                                 # Public kernel build/attachment and real admitted-lock inputs for CLI rebuild
+│   │   │       ├── graph_rebuild_safety.rs                                  # Read-only preflight, explicit recovery and human output ordering
 │   │   │       ├── graph_resume.rs                                          # Durable CLI resume and separate attachment, using real authority and rule artifacts
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
@@ -1002,6 +1011,7 @@ in place.
 │   │   │   │   │   ├── changes.rs                                           # Changes: each change of a job recorded on its stream of the journal, with
 │   │   │   │   │   ├── child.rs                                             # Not a test of its own: the first process of the resume test, which works
 │   │   │   │   │   ├── errors.rs                                            # Refusals: what each one says, and a stored job the kernel cannot read
+│   │   │   │   │   ├── fresh.rs                                             # Fresh-only attempts never mutate or take over a job found by its key
 │   │   │   │   │   ├── leases.rs                                            # Leases: one holder at a time, taken over once expired, renewed by
 │   │   │   │   │   ├── mod.rs                                               # Tests of jobs: their keys and attempts, their leases and states, their
 │   │   │   │   │   ├── progress.rs                                          # Progress: recorded on the job's stream of the journal in the write that
@@ -1325,6 +1335,12 @@ in place.
 │   │   │   │   │   │   ├── input_guard_tests.rs                             # Producer preflight forwards all durable pins before reserving native storage
 │   │   │   │   │   │   ├── input_pins.rs                                    # Native build stamps and comparison with independently persisted readiness pins
 │   │   │   │   │   │   ├── input_pins_tests.rs                              # Cold native opens bind durable stamps, not just live process registry entries
+│   │   │   │   │   │   ├── loader.rs                                        # One bounded loader over the existing lease-bound producer and writer
+│   │   │   │   │   │   ├── loader_guard_tests.rs                            # Refusal matrix for the one native checkpointed loader
+│   │   │   │   │   │   ├── loader_isolated_tests.rs                         # Independent loader admission, successor and publication guard proofs
+│   │   │   │   │   │   ├── loader_process_tests.rs                          # Real deaths at mandatory commit/readiness boundaries, synchronized through pipes
+│   │   │   │   │   │   ├── loader_publication_tests.rs                      # Refusal matrix for the one native checkpointed loader
+│   │   │   │   │   │   ├── loader_tests.rs                                  # Real native loader recovery and immutable-record refusals
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── native_pin_tests.rs                              # Strict native decoding must retain corruption, never classify malformed pins as drift
 │   │   │   │   │   │   ├── open.rs                                          # The native adapter's single rooted construction boundary
@@ -1349,6 +1365,7 @@ in place.
 │   │   │   │   │   │   ├── writer/                                          # Writer
 │   │   │   │   │   │   │   └── extra.rs                                     # Additional validation cases for the generic projection writer
 │   │   │   │   │   │   ├── binding.rs                                       # Admission comparisons independent of native files or a warm handle registry
+│   │   │   │   │   │   ├── checkpoint.rs                                    # Immutable loader record contracts (also run without the native engine)
 │   │   │   │   │   │   ├── cleanup.rs                                       # Cleanup policy: authorization first, immutable receipts retained, no engine required
 │   │   │   │   │   │   ├── cleanup_boundaries.rs                            # Valid neighbours for cleanup state, authority and leaf-boundary refusals
 │   │   │   │   │   │   ├── cleanup_process.rs                               # Independent processes synchronize over pipes, never sleeps
@@ -1365,6 +1382,7 @@ in place.
 │   │   │   │   │   ├── binding.rs                                           # Durable input identity comparison shared by producer, reader and health
 │   │   │   │   │   ├── build.rs                                             # Backend-neutral authoritative build inputs and successful publication result
 │   │   │   │   │   ├── cancellation.rs                                      # Explicit read cancellation without a timeout, polling interval or detached native handle
+│   │   │   │   │   ├── checkpoint.rs                                        # Immutable loader journal, held separately from native sidecars
 │   │   │   │   │   ├── cleanup.rs                                           # Reader-safe, single-receipt cleanup; native engine code is never opened here
 │   │   │   │   │   ├── configuration.rs                                     # Engine-only adapter inputs with redacted root and opaque lock diagnostics
 │   │   │   │   │   ├── content.rs                                           # Frozen application-ID encodings for projection content and receipt names
