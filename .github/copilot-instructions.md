@@ -894,7 +894,8 @@ in place.
 │   │   │   ├── 0017_unit_graphs.sql                                         # File: 0017 unit graphs
 │   │   │   ├── 0018_retrieval_representations.sql                           # File: 0018 retrieval representations
 │   │   │   ├── 0019_graph_projection.sql                                    # File: 0019 graph projection
-│   │   │   └── 0030_graph_input_pins.sql                                    # File: 0030 graph input pins
+│   │   │   ├── 0030_graph_input_pins.sql                                    # File: 0030 graph input pins
+│   │   │   └── 0031_graph_projection_builds.sql                             # File: 0031 graph projection builds
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -974,9 +975,14 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Tests of claims: admitting a verified set or nothing, reading it back
 │   │   │   │   │   ├── mutation_contracts.rs                                # Build identities and supersession endpoint contracts
 │   │   │   │   │   ├── projection.rs                                        # Rust source: projection
+│   │   │   │   │   ├── projection_active_guards.rs                          # Active heads select complete receipts, never reserved or historical storage
+│   │   │   │   │   ├── projection_build_guards.rs                           # Raw SQL must not bypass frozen build authority or retained receipts
+│   │   │   │   │   ├── projection_build_schema.rs                           # Standalone 0031 qualification; runtime registration waits for build-bound ports
+│   │   │   │   │   ├── projection_build_upgrade.rs                          # 0031 imports retained authority without creating pins, jobs or search events
 │   │   │   │   │   ├── projection_guards.rs                                 # SQL and scope boundaries for durable projection input pins
 │   │   │   │   │   ├── projection_lease.rs                                  # Exact caller-clock project expiry, fencing, scope and renewal checks
 │   │   │   │   │   ├── projection_pins.rs                                   # Durable pin decoding, resolution authority and append-only migration proofs
+│   │   │   │   │   ├── projection_schema_support.rs                         # Synthetic pre-0031 authority and raw SQL helpers, never a runtime insertion API
 │   │   │   │   │   ├── resolution.rs                                        # Immutable sourced resolution snapshots and current-grant checks
 │   │   │   │   │   ├── resolution_guards.rs                                 # Frozen reviews, request coverage and rowid replacement regressions
 │   │   │   │   │   ├── schema.rs                                            # What the schema refuses whoever writes: replacing, changing or deleting

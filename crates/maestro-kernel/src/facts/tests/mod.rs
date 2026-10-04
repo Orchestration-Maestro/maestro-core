@@ -20,3 +20,9 @@ mod resolution;
 mod resolution_guards;
 
 mod mutation_contracts;
+
+mod projection_active_guards;
+mod projection_build_guards;
+mod projection_build_schema;
+mod projection_build_upgrade;
+mod projection_schema_support;
