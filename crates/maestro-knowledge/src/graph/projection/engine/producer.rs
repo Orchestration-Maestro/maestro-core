@@ -126,7 +126,7 @@ impl<'a> Session<'a> {
         } else {
             None
         };
-        let file_name = content::basename(&build.scope, &build.claim_set_id)
+        let file_name = content::build_basename(&build.scope, &build.claim_set_id, build.build_id)
             .map_err(ProjectionError::Backend)?;
         if resume {
             staging
@@ -162,7 +162,7 @@ impl<'a> Session<'a> {
             staged_root,
             final_root,
             file_name,
-            (native(&factory.settings), pins),
+            (native(&factory.settings), pins, build.build_id),
             install,
         );
         if resume {
@@ -205,24 +205,22 @@ impl<'a> Session<'a> {
                 FactError::ProjectionInputMismatch(kind) => ProjectionError::InputMismatch(kind),
                 error => ProjectionError::Backend(error.to_string()),
             })?;
-        let root = open_root(&factory.path)?;
-        let access = Access::acquire(&root, factory.locks)?;
-        access.serialize_writer(factory.locks)?;
         kernel
             .validate_projection_lease(
                 scopes,
-                (&build.scope.collection_id, build.scope.generation_id),
+                (&build.scope.collection_id, build.build_id),
                 &build.lease,
                 clock(),
             )
             .map_err(|error| ProjectionError::Backend(error.to_string()))?;
-        if kernel
-            .projection_ready(scopes, build.scope.generation_id)
+        let reserved = kernel
+            .projection_build(scopes, build.build_id)
             .map_err(|error| ProjectionError::Backend(error.to_string()))?
-            .is_some()
-        {
-            return Err(ProjectionError::NotReady);
-        }
+            .ok_or(ProjectionError::NotReady)?;
+        input_pins::reserved(build, &reserved)?;
+        let root = open_root(&factory.path)?;
+        let access = Access::acquire(&root, factory.locks)?;
+        access.serialize_writer(factory.locks)?;
         // Windows rooted writes refuse before reservation; no new orphan is created.
         super::schema::writable(cfg!(windows)).map_err(ProjectionError::Backend)?;
         Ok((root, access))
@@ -297,8 +295,12 @@ impl<'a> Session<'a> {
             journal.manifest.verify_final(expected)?;
             journal.revalidate()?;
         }
-        let file_name = content::basename(&self.build.scope, &self.build.claim_set_id)
-            .map_err(ProjectionError::Backend)?;
+        let file_name = content::build_basename(
+            &self.build.scope,
+            &self.build.claim_set_id,
+            self.build.build_id,
+        )
+        .map_err(ProjectionError::Backend)?;
         let receipt = receipt_from_verification(
             (&self.build.scope, self.build.build_id),
             self.build.claim_set_id.clone(),
@@ -308,7 +310,7 @@ impl<'a> Session<'a> {
         )?;
         self.backend.publication_mut().receipt = Some(receipt.clone());
         ProjectionWriter::resume(&mut self.backend, self.build.scope.clone())
-            .verify_and_publish(expected, &self.build.claim_set_id)?;
+            .verify_and_publish(expected, (&self.build.claim_set_id, self.build.build_id))?;
         after_ready();
         let staging = self.staging_path()?;
         if let Some(journal) = self.journal.as_mut() {
@@ -344,10 +346,7 @@ impl<'a> Session<'a> {
         self.kernel
             .validate_projection_lease(
                 &self.scopes,
-                (
-                    &self.build.scope.collection_id,
-                    self.build.scope.generation_id,
-                ),
+                (&self.build.scope.collection_id, self.build.build_id),
                 &self.build.lease,
                 (self.clock)(),
             )
@@ -417,7 +416,12 @@ mod tests {
         let fixture = Fixture::new();
         let root = open_root(&fixture.native.path).unwrap();
         let staging = root.reserve_child("private-staging").unwrap();
-        let name = content::basename(&fixture.build.scope, &fixture.build.claim_set_id).unwrap();
+        let name = content::build_basename(
+            &fixture.build.scope,
+            &fixture.build.claim_set_id,
+            fixture.build.build_id,
+        )
+        .unwrap();
         let receipt = receipt_from_verification(
             (&fixture.build.scope, fixture.build.build_id),
             fixture.build.claim_set_id.clone(),

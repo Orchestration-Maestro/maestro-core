@@ -49,7 +49,7 @@ pub(in crate::graph::projection) fn fixture<'a>(
         edges,
         facts,
         expected: BuildVerification {
-            schema: "maestro-typed-edges/2".to_owned(),
+            schema: "maestro-typed-edges/3".to_owned(),
             family_counts,
             fact_count: facts.len(),
             content_digest: content::digest(edges, facts).unwrap(),
@@ -326,7 +326,7 @@ fn verify_and_publish<B: ProjectionBackend>(
         .unwrap();
     final_edges.push(later_edge.clone());
     assert_eq!(
-        writer.verify_and_publish(&after_first_addition, claim_set_id),
+        writer.verify_and_publish(&after_first_addition, (claim_set_id, 1)),
         Err(ProjectionError::NotReady),
         "publication re-verifies content written after the previous verification"
     );
@@ -338,7 +338,9 @@ fn verify_and_publish<B: ProjectionBackend>(
     );
     let latest = writer.backend.verify_unpublished(contract.scope).unwrap();
     assert_eq!(
-        writer.verify_and_publish(&latest, claim_set_id).unwrap(),
+        writer
+            .verify_and_publish(&latest, (claim_set_id, 1))
+            .unwrap(),
         latest
     );
     assert_eq!(
@@ -399,7 +401,7 @@ fn receipt(
             collection_id: scope.collection_id.clone(),
             generation_id: scope.generation_id,
             claim_set_id: claim_set_id.clone(),
-            file_name: content::basename(scope, claim_set_id).unwrap(),
+            file_name: content::build_basename(scope, claim_set_id, 1).unwrap(),
             schema_version: build.schema.clone(),
             knowledge_edge_count: build
                 .family_counts

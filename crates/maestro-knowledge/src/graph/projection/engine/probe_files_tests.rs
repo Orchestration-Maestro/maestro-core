@@ -50,7 +50,7 @@ fn receipt(fixture: &Fixture) -> ProjectionReceipt {
         let database = fixture.writer();
         let connection = Connection::new(&database).unwrap();
         #[cfg(not(windows))]
-        schema::create(&connection, &scope(), &contract::pins()).unwrap();
+        schema::create(&connection, &scope(), &contract::pins(), 1).unwrap();
         #[cfg(windows)]
         schema::tests::install_reader_fixture(&connection, &scope(), &contract::pins());
         connection.query("CHECKPOINT").unwrap();
@@ -62,7 +62,7 @@ fn receipt(fixture: &Fixture) -> ProjectionReceipt {
         .verification()
         .unwrap();
     let set = Digest::of(b"set");
-    let name = content::basename(&scope(), &set).unwrap();
+    let name = content::build_basename(&scope(), &set, 1).unwrap();
     fs::rename(fixture.path.join("rows.lbdb"), fixture.path.join(&name)).unwrap();
     receipt_from_verification((&scope(), 1), set, name, &verification, &contract::pins()).unwrap()
 }

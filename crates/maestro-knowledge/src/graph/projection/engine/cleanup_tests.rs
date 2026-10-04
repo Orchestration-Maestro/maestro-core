@@ -37,7 +37,7 @@ pub(in crate::graph::projection) fn install(
         RootDirectory::open(path).unwrap(),
         RootDirectory::open(path).unwrap(),
         "cleanup-staging.lbdb".into(),
-        (config(), pins),
+        (config(), pins, 1),
         Install(path.to_path_buf()),
     );
     backend.create_unpublished(scope).unwrap();

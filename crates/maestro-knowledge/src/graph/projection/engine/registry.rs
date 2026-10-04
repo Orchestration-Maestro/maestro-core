@@ -350,7 +350,7 @@ mod read_tests {
             let database = fixture.writer();
             let connection = Connection::new(&database).unwrap();
             #[cfg(not(windows))]
-            schema::create(&connection, &scope, &contract::pins()).unwrap();
+            schema::create(&connection, &scope, &contract::pins(), 1).unwrap();
             #[cfg(windows)]
             schema::tests::install_reader_fixture(&connection, &scope, &contract::pins());
             #[cfg(windows)]

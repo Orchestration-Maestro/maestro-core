@@ -15,8 +15,8 @@ use maestro_kernel::facts::ProjectionReceipt;
 use maestro_kernel::{
     artifact::Digest,
     facts::{
-        EXACT_RESOLVER_VERSION, Error as FactError, InventoryState, ProjectionInventory,
-        ResolutionInput,
+        EXACT_RESOLVER_VERSION, Error as FactError, InventoryState, ProjectionBuildRequest,
+        ProjectionInventory, ProjectionReservation, ResolutionInput,
     },
 };
 #[cfg(unix)]
@@ -278,4 +278,44 @@ fn change_stamp(fixture: &Fixture, receipt: &ProjectionReceipt, field: &str, val
             .unwrap();
     }
     connection.query("CHECKPOINT").unwrap();
+}
+
+#[test]
+fn supplied_build_matches_every_reserved_field_before_native_io() {
+    let fixture = Fixture::new();
+    let build = &fixture.build;
+    let reserved = ProjectionReservation {
+        build_id: build.build_id,
+        job: build.lease.job,
+        request: ProjectionBuildRequest {
+            collection_id: build.scope.collection_id.clone(),
+            generation_id: build.scope.generation_id,
+            claim_set_id: build.claim_set_id.clone(),
+            resolution_id: build.resolution_id.clone(),
+            resolver_version: build.resolver_version.clone(),
+            settings_identity: build.settings_identity.clone(),
+            frozen_lock: build.frozen_lock.clone(),
+            expected_active_build_id: None,
+        },
+    };
+    super::input_pins::reserved(build, &reserved).unwrap();
+    for field in 0..9 {
+        let mut changed = build.clone();
+        let other = Digest::of(b"foreign");
+        match field {
+            0 => changed.build_id += 1,
+            1 => changed.lease.job = "00000000000000000000000000".parse().unwrap(),
+            2 => changed.scope.collection_id = "foreign".into(),
+            3 => changed.scope.generation_id += 1,
+            4 => changed.claim_set_id = other,
+            5 => changed.resolution_id = other,
+            6 => changed.resolver_version = "other/1".into(),
+            7 => changed.settings_identity = other,
+            _ => changed.frozen_lock = other,
+        }
+        assert!(
+            super::input_pins::reserved(&changed, &reserved).is_err(),
+            "field {field}"
+        );
+    }
 }

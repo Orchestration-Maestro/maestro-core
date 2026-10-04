@@ -4,7 +4,6 @@ use super::schema::{self, FACT_VERSION};
 use crate::graph::projection::{
     content,
     port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionError, ProjectionScope},
-    schema::SCHEMA_VERSION,
     writer::BuildVerification,
 };
 use lbug::{Connection, LogicalType, Value};
@@ -13,7 +12,7 @@ use maestro_kernel::{
     evidence::Span,
     facts::{
         Claim, ClaimRecord, EntityKind, EntityName, Literal, LiteralKind, Object, Predicate,
-        Provenance, ReviewState, Support, Validity,
+        ProjectionReceiptIdentity, Provenance, ReviewState, Support, Validity,
     },
 };
 use std::{
@@ -31,8 +30,18 @@ pub(super) struct Rows {
     indexes: BTreeSet<String>,
     /// Strict durable input pins read from the native stamp.
     pub(super) pins: [String; 4],
+    /// Actual durable native format.
+    pub(super) version: String,
+    /// Actual durable /3 build stamp, absent on retained /2.
+    pub(super) build: Option<i64>,
 }
 impl Rows {
+    /// Compare native identity separately from the unchanged canonical content contract.
+    pub(super) fn matches_stamp(&self, identity: &ProjectionReceiptIdentity) -> bool {
+        self.version == identity.schema_version
+            && (self.version != "maestro-typed-edges/3" || self.build == Some(identity.build_id))
+    }
+
     /// Derive counts and digest only from the validated durable rows.
     pub(super) fn verification(&self) -> Result<BuildVerification, String> {
         let mut family_counts = BTreeMap::new();
@@ -40,7 +49,7 @@ impl Rows {
             *family_counts.entry(edge.family).or_default() += 1;
         }
         Ok(BuildVerification {
-            schema: SCHEMA_VERSION.into(),
+            schema: self.version.clone(),
             family_counts,
             fact_count: self.facts.len(),
             content_digest: content::digest(&self.edges, &self.facts)?,
@@ -54,7 +63,7 @@ pub(super) fn read(
     connection: &Connection<'_>,
     scope: &ProjectionScope,
 ) -> Result<Rows, ProjectionError> {
-    let (indexes, pins) = schema::verify(connection, scope)?;
+    let (indexes, stamp) = schema::verify(connection, scope)?;
     let mut edges = Vec::new();
     for row in connection
         .query(
@@ -107,7 +116,9 @@ pub(super) fn read(
         edges,
         facts,
         indexes,
-        pins,
+        pins: stamp.pins,
+        version: stamp.version,
+        build: stamp.build,
     })
 }
 

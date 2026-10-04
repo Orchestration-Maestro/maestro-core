@@ -45,8 +45,7 @@ impl Reader {
         scope: &ProjectionScope,
         receipt: &ProjectionReceipt,
     ) -> Result<Self, ProjectionError> {
-        if content::basename(scope, &receipt.identity.claim_set_id)
-            .map_err(ProjectionError::Backend)?
+        if content::receipt_basename(scope, &receipt.identity).map_err(ProjectionError::Backend)?
             != receipt.identity.file_name
         {
             return Err(ProjectionError::Backend(
@@ -56,6 +55,11 @@ impl Reader {
         let reader = Self::open(root, &receipt.identity.file_name, config, scope)
             .map_err(ProjectionError::Backend)?;
         let rows = reader.rows()?;
+        if !rows.matches_stamp(&receipt.identity) {
+            return Err(ProjectionError::Backend(
+                "native projection build stamp conflicts with receipt".into(),
+            ));
+        }
         input_pins::compare(&rows.pins, &binding::receipt_pins(receipt))?;
         let mapped = receipt_from_verification(
             (scope, receipt.identity.build_id),
@@ -150,7 +154,7 @@ mod tests {
             let database = fixture.writer();
             let connection = Connection::new(&database).unwrap();
             #[cfg(not(windows))]
-            schema::create(&connection, &scope(), &contract::pins()).unwrap();
+            schema::create(&connection, &scope(), &contract::pins(), 1).unwrap();
             #[cfg(windows)]
             install_reader_fixture(&connection, &scope(), &contract::pins());
             connection.query("CHECKPOINT").unwrap();
@@ -169,5 +173,43 @@ mod tests {
         assert_eq!(reader.verification().unwrap().fact_count, 0);
         drop(reader);
         assert_eq!(fs::read(fixture.path.join("rows.lbdb")).unwrap(), before);
+    }
+}
+
+#[cfg(all(test, not(windows)))]
+mod build_stamp_tests {
+    use super::*;
+    use crate::graph::projection::engine::{
+        schema,
+        tests::{Fixture, config, scope},
+    };
+
+    #[test]
+    fn native_reader_wrong_build_stamp_is_content_conflict_not_input_mismatch() {
+        let fixture = Fixture::new();
+        let set = Digest::of(b"set");
+        let name = content::build_basename(&scope(), &set, 17).unwrap();
+        {
+            let database = open(&fixture.root, &name, config()).unwrap();
+            schema::create(
+                &Connection::new(&database).unwrap(),
+                &scope(),
+                &contract::pins(),
+                18,
+            )
+            .unwrap();
+        }
+        let receipt = receipt_from_verification(
+            (&scope(), 17),
+            set,
+            name,
+            &BuildVerification::expected(&[], &[]).unwrap(),
+            &contract::pins(),
+        )
+        .unwrap();
+        assert!(matches!(
+            Reader::published(&fixture.root, config(), &scope(), &receipt),
+            Err(ProjectionError::Backend(_))
+        ));
     }
 }

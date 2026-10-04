@@ -65,7 +65,7 @@ impl ProjectionBackendReader for FakeReader {
             *family_counts.entry(edge.family).or_insert(0) += 1;
         }
         Ok(BuildVerification {
-            schema: "maestro-typed-edges/2".to_owned(),
+            schema: "maestro-typed-edges/3".to_owned(),
             family_counts,
             fact_count: self.fact_count,
             content_digest: self.digest.clone(),
@@ -116,7 +116,7 @@ fn ready(scope: &ProjectionScope, build: &BuildVerification) -> Ready {
             collection_id: scope.collection_id.clone(),
             generation_id: scope.generation_id,
             claim_set_id: claim_set_id.clone(),
-            file_name: content::basename(scope, &claim_set_id).unwrap(),
+            file_name: content::build_basename(scope, &claim_set_id, 1).unwrap(),
             schema_version: build.schema.clone(),
             knowledge_edge_count: build
                 .family_counts
@@ -222,7 +222,7 @@ impl ProjectionBackend for Fake {
             schema: self
                 .schema
                 .clone()
-                .unwrap_or_else(|| "maestro-typed-edges/2".to_owned()),
+                .unwrap_or_else(|| "maestro-typed-edges/3".to_owned()),
             family_counts,
             fact_count: *self.fact_counts.get(&scope.generation_id).unwrap_or(&0),
             content_digest: content::digest(
@@ -349,7 +349,7 @@ fn catalog_edges_round_trip_only_in_their_family_pin_and_scope() {
         .unwrap();
     let build = writer.backend.verify_unpublished(&scope).unwrap();
     writer
-        .verify_and_publish(&build, &Digest::of(b"set"))
+        .verify_and_publish(&build, (&Digest::of(b"set"), 1))
         .unwrap();
     drop(writer);
     let latest = backend.verify_unpublished(&scope).unwrap();

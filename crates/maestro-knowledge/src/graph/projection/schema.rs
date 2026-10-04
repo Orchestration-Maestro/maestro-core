@@ -13,13 +13,14 @@
 //! fields in recorded order. Review is unreviewed/accepted/rejected/flagged.
 //! Rows sort by encoded bytes; the SHA-256 input is the
 //! `maestro-projection-content/2` tag, u64 big-endian row count, then rows.
-//! Receipt names hash length-delimited fields: the `maestro-projection-name/1` tag,
-//! collection, decimal generation, and claim-set ID; the
+//! New receipt names hash length-delimited fields: the `maestro-projection-name/2`
+//! tag, collection, decimal generation, claim-set ID, and decimal build ID.
+//! Retained names use name/1 without a build field; the
 //! basename is `g` plus 64 lowercase hex digits plus `.lbdb`. Fixed-width
 //! dot-free stems cannot be prefixes or native companion stems of each other.
 
 /// Projection schema and required indexes for the typed-edge records.
-pub(super) const SCHEMA_VERSION: &str = "maestro-typed-edges/2";
+pub(super) const SCHEMA_VERSION: &str = "maestro-typed-edges/3";
 
 /// Logical access paths an adapter proves from its durable catalog before publication.
 /// Native edges use entity primary keys plus typed adjacency; facts use the entity

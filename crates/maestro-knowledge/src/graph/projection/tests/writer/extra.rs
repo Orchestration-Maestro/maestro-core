@@ -68,7 +68,7 @@ fn schema_and_required_indexes_are_checked_independently_of_expected_values() {
         let expected = writer.backend.verify_unpublished(&scope).unwrap();
         assert!(
             writer
-                .verify_and_publish(&expected, &Digest::of(b"set"))
+                .verify_and_publish(&expected, (&Digest::of(b"set"), 1))
                 .is_err()
         );
     }
@@ -134,7 +134,7 @@ fn an_unverified_count_or_index_set_never_becomes_ready() {
     };
     assert!(
         writer
-            .verify_and_publish(&wrong, &Digest::of(b"set"))
+            .verify_and_publish(&wrong, (&Digest::of(b"set"), 1))
             .is_err()
     );
     drop(writer);

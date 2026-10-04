@@ -232,7 +232,7 @@ impl<'a, B: ProjectionBackend> ProjectionWriter<'a, B> {
     pub(crate) fn verify_and_publish(
         &mut self,
         expected: &BuildVerification,
-        claim_set_id: &Digest,
+        target: (&Digest, i64),
     ) -> Result<BuildVerification, ProjectionError> {
         let found = self
             .backend
@@ -246,7 +246,7 @@ impl<'a, B: ProjectionBackend> ProjectionWriter<'a, B> {
         {
             return Err(ProjectionError::NotReady);
         }
-        let file_name = super::content::basename(&self.scope, claim_set_id)
+        let file_name = super::content::build_basename(&self.scope, target.0, target.1)
             .map_err(ProjectionError::Backend)?;
         self.backend
             .publish_unpublished(&self.scope, &file_name)
@@ -334,11 +334,14 @@ impl ProjectionReader {
             .ok_or(ProjectionError::NotReady)?;
         if receipt.identity.collection_id != scope.collection_id
             || receipt.identity.generation_id != scope.generation_id
-            || receipt.identity.schema_version != SCHEMA_VERSION
+            || !matches!(
+                receipt.identity.schema_version.as_str(),
+                "maestro-typed-edges/2" | "maestro-typed-edges/3"
+            )
         {
             return Err(ProjectionError::NotReady);
         }
-        if super::content::basename(&scope, &receipt.identity.claim_set_id)
+        if super::content::receipt_basename(&scope, &receipt.identity)
             != Ok(receipt.identity.file_name.clone())
         {
             return Err(ProjectionError::NotReady);
@@ -371,10 +374,12 @@ pub(crate) fn receipt_from_verification(
 ) -> Result<ProjectionReceipt, ProjectionError> {
     let (scope, build_id) = target;
     super::binding::validate(pins).map_err(ProjectionError::Backend)?;
-    if build.schema != SCHEMA_VERSION
-        || REQUIRED_INDEXES
-            .iter()
-            .any(|name| !build.indexes.contains(*name))
+    if !matches!(
+        build.schema.as_str(),
+        "maestro-typed-edges/2" | "maestro-typed-edges/3"
+    ) || REQUIRED_INDEXES
+        .iter()
+        .any(|name| !build.indexes.contains(*name))
     {
         return Err(ProjectionError::NotReady);
     }

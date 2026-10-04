@@ -35,12 +35,14 @@ pub(in crate::graph::projection) fn pinned_generations<B: ProjectionBackend>(
             slice::from_ref(&fact),
         );
         let set = Digest::of(format!("set-{generation}").as_bytes());
-        let name = content::basename(&edge.scope, &set).unwrap();
+        let name = content::build_basename(&edge.scope, &set, 1).unwrap();
         let mut writer = ProjectionWriter::create(backend, edge.scope.clone()).unwrap();
         writer
             .write_batch(scopes, slice::from_ref(&edge), slice::from_ref(&fact))
             .unwrap();
-        writer.verify_and_publish(&fixture.expected, &set).unwrap();
+        writer
+            .verify_and_publish(&fixture.expected, (&set, 1))
+            .unwrap();
         let receipt = receipt_from_verification(
             (&edge.scope, 1),
             set,

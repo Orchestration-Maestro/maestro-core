@@ -33,6 +33,8 @@ pub(in crate::graph::projection) struct Backend<P: Publication> {
     scope: Option<ProjectionScope>,
     /// Required frozen inputs for schema creation and close/reopen verification.
     pins: [String; 4],
+    /// Reserved build, checked separately from canonical content.
+    build: i64,
     /// At most one writable handle, dropped before every read-only verification.
     database: Option<Database>,
     /// Poison state survives native close/reopen.
@@ -52,7 +54,7 @@ impl<P: Publication> Backend<P> {
         root: RootDirectory,
         final_root: RootDirectory,
         staging: String,
-        configuration: (SystemConfig, [String; 4]),
+        configuration: (SystemConfig, [String; 4], i64),
         publication: P,
     ) -> Self {
         Self {
@@ -62,6 +64,7 @@ impl<P: Publication> Backend<P> {
             config: configuration.0,
             publication,
             pins: configuration.1,
+            build: configuration.2,
             scope: None,
             database: None,
             transactions: Transactions::default(),
@@ -127,6 +130,7 @@ impl<P: Publication> ProjectionBackend for Backend<P> {
             &Connection::new(&database).map_err(|error| error.to_string())?,
             scope,
             &self.pins,
+            self.build,
         )?;
         self.database = Some(database);
         Ok(())
@@ -161,6 +165,9 @@ impl<P: Publication> ProjectionBackend for Backend<P> {
         let verified = Reader::open(&self.root, &self.staging, self.config.clone(), scope)
             .and_then(|reader| {
                 let rows = reader.rows().map_err(|error| error.to_string())?;
+                if rows.build != Some(self.build) || rows.version != "maestro-typed-edges/3" {
+                    return Err("native reserved build stamp differs".into());
+                }
                 if rows.pins != self.pins {
                     return Err(format!(
                         "native build input pins differ; {PROJECTION_REBUILD_REPAIR}"

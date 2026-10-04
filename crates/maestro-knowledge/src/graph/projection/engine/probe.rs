@@ -180,8 +180,7 @@ fn validate_receipt(
     };
     if receipt.identity.collection_id != scope.collection_id
         || receipt.identity.generation_id != scope.generation_id
-        || content::basename(&scope, &receipt.identity.claim_set_id)
-            .map_err(|_| ProbeError::Stale)?
+        || content::receipt_basename(&scope, &receipt.identity).map_err(|_| ProbeError::Stale)?
             != receipt.identity.file_name
     {
         return Err(ProbeError::Stale);
@@ -263,6 +262,9 @@ impl OpenGraph for ProbeOpen {
             ProjectionError::InputMismatch(kind) => ProbeError::InputMismatch(kind),
             error => ProbeError::Corrupt(error.to_string()),
         })?;
+        if !rows.matches_stamp(&self.file.receipt.identity) {
+            return Err(ProbeError::Stale);
+        }
         let verification = rows.verification().map_err(ProbeError::Corrupt)?;
         input_pins::compare(&rows.pins, &binding::receipt_pins(&self.file.receipt)).map_err(
             |error| match error {

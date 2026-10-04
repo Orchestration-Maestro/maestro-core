@@ -237,7 +237,7 @@ pub(super) mod tests {
         let fixture = Fixture::new();
         let database = fixture.writer();
         let connection = Connection::new(&database).unwrap();
-        schema::create(&connection, &scope(), &contract::pins()).unwrap();
+        schema::create(&connection, &scope(), &contract::pins(), 1).unwrap();
         let mut tx = Transactions::default();
         // No transaction is active, so the real native ROLLBACK must fail.
         assert!(
@@ -257,7 +257,7 @@ pub(super) mod tests {
         {
             let database = fixture.writer();
             let connection = Connection::new(&database).unwrap();
-            schema::create(&connection, &scope(), &contract::pins()).unwrap();
+            schema::create(&connection, &scope(), &contract::pins(), 1).unwrap();
             tx.write_batch(&connection, &scope(), &[edge()], &[full_fact()])
                 .unwrap();
             let baseline = rows::read(&connection, &scope())
@@ -353,7 +353,7 @@ pub(super) mod tests {
         tx.inject_batch_failure().unwrap();
         assert_eq!(tx.mutations_before_failure(), 0);
         assert_eq!(
-            schema::create(&connection, &scope, &contract::pins()).unwrap_err(),
+            schema::create(&connection, &scope, &contract::pins(), 1).unwrap_err(),
             "native graph writes are unavailable on Windows; open a published graph read-only"
         );
         assert_eq!(

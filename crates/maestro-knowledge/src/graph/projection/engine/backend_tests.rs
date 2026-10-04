@@ -36,7 +36,7 @@ fn backend(fixture: &Fixture) -> Backend<Install> {
         RootDirectory::open(&fixture.path).unwrap(),
         RootDirectory::open(&fixture.path).unwrap(),
         "staging.lbdb".into(),
-        (config(), contract::pins()),
+        (config(), contract::pins(), 1),
         Install(fixture.path.clone()),
     )
 }
@@ -71,7 +71,7 @@ fn shared_contract(rollback: bool) {
     } else {
         contract::run_verified(&mut backend, &contract);
     }
-    let file_name = content::basename(&scope, &Digest::of(b"set")).unwrap();
+    let file_name = content::build_basename(&scope, &Digest::of(b"set"), 1).unwrap();
     assert!(fixture.path.join(file_name).is_file());
     assert!(!fixture.path.join("staging.lbdb").exists());
 }
@@ -101,7 +101,7 @@ fn native_receipt_opens_only_matching_physical_file_and_content() {
         .unwrap();
     let build = backend.verify_unpublished(&scope).unwrap();
     let set = Digest::of(b"set");
-    let name = content::basename(&scope, &set).unwrap();
+    let name = content::build_basename(&scope, &set, 1).unwrap();
     backend.publish_unpublished(&scope, &name).unwrap();
     let receipt =
         receipt_from_verification((&scope, 1), set, name.clone(), &build, &contract::pins())
@@ -166,7 +166,7 @@ fn poison_survives_verification_reopen_and_refuses_verify_publish_and_write() {
     backend.verify_unpublished(&scope).unwrap();
     backend.poison_for_test().unwrap();
     let before = fs::read(fixture.path.join("staging.lbdb")).unwrap();
-    let name = content::basename(&scope, &Digest::of(b"set")).unwrap();
+    let name = content::build_basename(&scope, &Digest::of(b"set"), 1).unwrap();
     for error in [
         backend.verify_unpublished(&scope).unwrap_err(),
         backend.publish_unpublished(&scope, &name).unwrap_err(),
@@ -186,7 +186,7 @@ fn backend_refuses_wrong_scope_unverified_or_stale_publication_and_recreation() 
     let scope = scope();
     let mut other = scope.clone();
     other.generation_id += 1;
-    let name = content::basename(&scope, &Digest::of(b"set")).unwrap();
+    let name = content::build_basename(&scope, &Digest::of(b"set"), 1).unwrap();
     assert!(backend.verify_unpublished(&scope).is_err());
     assert!(backend.write_batch(&scope, &[], &[]).is_err());
     assert!(backend.publish_unpublished(&scope, &name).is_err());
@@ -213,7 +213,7 @@ fn publication_failure_never_overwrites_or_reopens_a_writer() {
     let fixture = Fixture::new();
     let mut backend = backend(&fixture);
     let scope = scope();
-    let name = content::basename(&scope, &Digest::of(b"set")).unwrap();
+    let name = content::build_basename(&scope, &Digest::of(b"set"), 1).unwrap();
     fs::write(fixture.path.join(&name), b"existing file").unwrap();
     backend.create_unpublished(&scope).unwrap();
     backend.verify_unpublished(&scope).unwrap();
@@ -251,7 +251,7 @@ fn windows_native_immutable_fixture_runs_shared_ordered_pinned_reader_contract()
         connection.query("CHECKPOINT").unwrap();
     }
     let set = Digest::of(b"set");
-    let name = content::basename(&scope, &set).unwrap();
+    let name = content::build_basename(&scope, &set, 1).unwrap();
     Install(fixture.path.clone())
         .install("rows.lbdb", &name)
         .unwrap();
@@ -291,7 +291,7 @@ fn native_shared_readers_keep_old_generation_after_later_publication() {
         RootDirectory::open(&fixture.path).unwrap(),
         RootDirectory::open(&fixture.path).unwrap(),
         "next-staging.lbdb".into(),
-        (config(), contract::pins()),
+        (config(), contract::pins(), 1),
         Install(fixture.path.clone()),
     );
     contract_reads::pinned_generations(&mut first, &mut second, &scopes);
@@ -307,7 +307,7 @@ fn native_publication_refuses_other_collection_at_same_generation() {
     let baseline = backend.verify_unpublished(&scope).unwrap();
     let mut other = scope.clone();
     other.collection_id = "other".into();
-    let name = content::basename(&other, &Digest::of(b"set")).unwrap();
+    let name = content::build_basename(&other, &Digest::of(b"set"), 1).unwrap();
     assert_eq!(
         backend.publish_unpublished(&other, &name).unwrap_err(),
         "native projection has no writable session for this scope"
@@ -315,7 +315,7 @@ fn native_publication_refuses_other_collection_at_same_generation() {
     assert!(!fixture.path.join(&name).exists());
     assert!(fixture.path.join("staging.lbdb").is_file());
     assert_eq!(backend.verify_unpublished(&scope).unwrap(), baseline);
-    let name = content::basename(&scope, &Digest::of(b"set")).unwrap();
+    let name = content::build_basename(&scope, &Digest::of(b"set"), 1).unwrap();
     backend.publish_unpublished(&scope, &name).unwrap();
     assert!(fixture.path.join(name).is_file());
     assert!(!fixture.path.join("staging.lbdb").exists());
@@ -331,7 +331,7 @@ fn native_usable_refuses_poisoned_matching_and_unpoisoned_mismatched_scopes() {
     backend.verify_unpublished(&scope).unwrap();
     let mut other = scope.clone();
     other.generation_id += 1;
-    let name = content::basename(&other, &Digest::of(b"set")).unwrap();
+    let name = content::build_basename(&other, &Digest::of(b"set"), 1).unwrap();
     assert_eq!(
         backend.publish_unpublished(&other, &name).unwrap_err(),
         "native projection has no writable session for this scope"
@@ -339,7 +339,7 @@ fn native_usable_refuses_poisoned_matching_and_unpoisoned_mismatched_scopes() {
     assert!(!fixture.path.join(name).exists());
     backend.verify_unpublished(&scope).unwrap();
     backend.poison_for_test().unwrap();
-    let name = content::basename(&scope, &Digest::of(b"set")).unwrap();
+    let name = content::build_basename(&scope, &Digest::of(b"set"), 1).unwrap();
     assert_eq!(
         backend.publish_unpublished(&scope, &name).unwrap_err(),
         "native projection session is poisoned after rollback failure"
@@ -367,7 +367,7 @@ fn reopened_build_refuses_changed_expected_pins_and_matching_pins_verify() {
         RootDirectory::open(&fixture.path).unwrap(),
         RootDirectory::open(&fixture.path).unwrap(),
         "staging.lbdb".into(),
-        (config(), pins.clone()),
+        (config(), pins.clone(), 1),
         NoInstall,
     );
     backend.create_unpublished(&scope()).unwrap();
@@ -384,4 +384,28 @@ fn reopened_build_refuses_changed_expected_pins_and_matching_pins_verify() {
     backend
         .verify_unpublished(&scope())
         .expect("matching inputs verify after independent reopen");
+}
+
+#[cfg(not(windows))]
+#[test]
+fn native_backend_resume_refuses_another_reserved_build_stamp() {
+    let fixture = Fixture::new();
+    {
+        let database = fixture.writer();
+        super::schema::create(
+            &lbug::Connection::new(&database).unwrap(),
+            &scope(),
+            &contract::pins(),
+            17,
+        )
+        .unwrap();
+    }
+    let mut backend = Backend::new(
+        RootDirectory::open(&fixture.path).unwrap(),
+        RootDirectory::open(&fixture.path).unwrap(),
+        "rows.lbdb".into(),
+        (config(), contract::pins(), 18),
+        Install(fixture.path.clone()),
+    );
+    assert!(backend.resume(&scope()).is_err());
 }

@@ -20,7 +20,7 @@ fn native_catalog_refuses_schema_scope_and_each_access_path_mismatch() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope(), &contract::pins()).unwrap();
+    schema::create(&connection, &scope(), &contract::pins(), 1).unwrap();
     assert_eq!(schema::verify(&connection, &scope()).unwrap().0.len(), 2);
     for queries in [
         vec![
@@ -64,7 +64,7 @@ fn native_catalog_refuses_schema_scope_and_each_access_path_mismatch() {
         connection.query("ROLLBACK").unwrap();
         assert_eq!(schema::verify(&connection, &scope()).unwrap().0.len(), 2);
     }
-    assert!(schema::create(&connection, &scope(), &contract::pins()).is_err());
+    assert!(schema::create(&connection, &scope(), &contract::pins(), 1).is_err());
     assert_eq!(schema::verify(&connection, &scope()).unwrap().0.len(), 2);
 }
 
@@ -73,7 +73,7 @@ fn native_rows_refuse_duplicate_malformed_and_misattached_durable_content() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope(), &contract::pins()).unwrap();
+    schema::create(&connection, &scope(), &contract::pins(), 1).unwrap();
     let mut tx = Transactions::default();
     tx.write_batch(&connection, &scope(), &[edge()], &[full_fact()])
         .unwrap();
@@ -143,7 +143,7 @@ fn native_batch_shape_refusals_have_valid_neighbours_and_no_partial_rows() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope(), &contract::pins()).unwrap();
+    schema::create(&connection, &scope(), &contract::pins(), 1).unwrap();
     let mut tx = Transactions::default();
     tx.write_batch(&connection, &scope(), &[edge()], &[full_fact()])
         .unwrap();
@@ -266,7 +266,7 @@ fn native_misattached_fact_refusal_is_independent_of_duplicate_ids() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope(), &contract::pins()).unwrap();
+    schema::create(&connection, &scope(), &contract::pins(), 1).unwrap();
     let mut fact = full_fact();
     // Both subjects remain referenced by the edge after the sole fact moves.
     fact.subject = edge().source;
@@ -301,7 +301,7 @@ fn native_rows_refuse_null_fact_list_elements() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope(), &contract::pins()).unwrap();
+    schema::create(&connection, &scope(), &contract::pins(), 1).unwrap();
     Transactions::default()
         .write_batch(&connection, &scope(), &[edge()], &[full_fact()])
         .unwrap();
@@ -331,7 +331,7 @@ fn fact_encoder_rejects_reversed_support_spans() {
     let fixture = Fixture::new();
     let database = fixture.writer();
     let connection = Connection::new(&database).unwrap();
-    schema::create(&connection, &scope(), &contract::pins()).unwrap();
+    schema::create(&connection, &scope(), &contract::pins(), 1).unwrap();
     let mut tx = Transactions::default();
     tx.write_batch(&connection, &scope(), &[edge()], &[full_fact()])
         .unwrap();
@@ -361,4 +361,62 @@ fn fact_encoder_rejects_reversed_support_spans() {
             baseline
         );
     }
+}
+
+#[test]
+fn native_build_stamp_observes_version_and_strict_positive_int64() {
+    let fixture = Fixture::new();
+    let database = fixture.writer();
+    let connection = Connection::new(&database).unwrap();
+    assert!(schema::create(&connection, &scope(), &contract::pins(), 0).is_err());
+    assert!(schema::create(&connection, &scope(), &contract::pins(), -1).is_err());
+    schema::create(&connection, &scope(), &contract::pins(), 17).unwrap();
+    let observed = rows::read(&connection, &scope()).unwrap();
+    assert_eq!(observed.version, "maestro-typed-edges/3");
+    assert_eq!(observed.build, Some(17));
+    assert_eq!(
+        observed.verification().unwrap().schema,
+        "maestro-typed-edges/3"
+    );
+    for value in ["0", "-1", "NULL"] {
+        connection
+            .query(&format!("MATCH (p:Projection) SET p.build = {value}"))
+            .unwrap();
+        assert!(rows::read(&connection, &scope()).is_err(), "{value}");
+    }
+}
+
+#[test]
+fn native_version_two_read_never_queries_or_fabricates_build_stamp() {
+    let fixture = Fixture::new();
+    let database = fixture.writer();
+    let connection = Connection::new(&database).unwrap();
+    schema::create(&connection, &scope(), &contract::pins(), 17).unwrap();
+    connection
+        .query(
+            "MATCH (p:Projection) CREATE (:Projection {schema: 'maestro-typed-edges/2',
+             collection: p.collection, generation: p.generation, resolution: p.resolution,
+             resolver: p.resolver, settings: p.settings, lock: p.lock}) DELETE p",
+        )
+        .unwrap();
+    connection
+        .query("ALTER TABLE Projection DROP build")
+        .unwrap();
+    let observed = rows::read(&connection, &scope()).unwrap();
+    assert_eq!(observed.version, "maestro-typed-edges/2");
+    assert_eq!(observed.build, None);
+    assert_eq!(
+        observed.verification().unwrap().schema,
+        "maestro-typed-edges/2"
+    );
+    connection
+        .query(
+            "MATCH (p:Projection) CREATE (:Projection {schema: 'maestro-typed-edges/1',
+             collection: p.collection, generation: p.generation}) DELETE p",
+        )
+        .unwrap();
+    assert!(matches!(
+        rows::read(&connection, &scope()),
+        Err(ProjectionError::InputMismatch(_))
+    ));
 }

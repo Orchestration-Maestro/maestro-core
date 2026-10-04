@@ -13,7 +13,7 @@ pub(super) const FACT_VERSION: &[u8] = b"maestro-projection-fact/1\0";
 /// Fixed schema statements: no application data is interpolated.
 const DDL: [&str; 3] = [
     "CREATE NODE TABLE Projection(schema STRING, collection STRING,
-        generation INT64, resolution STRING, resolver STRING, settings STRING,
+        generation INT64, build INT64, resolution STRING, resolver STRING, settings STRING,
         lock STRING, PRIMARY KEY(schema))",
     "CREATE NODE TABLE Entity(id STRING, facts BLOB[], PRIMARY KEY(id))",
     "CREATE REL TABLE Edge(FROM Entity TO Entity, id STRING, family STRING,
@@ -25,12 +25,13 @@ pub(super) fn create(
     connection: &Connection<'_>,
     scope: &ProjectionScope,
     pins: &[String; 4],
+    build: i64,
 ) -> Result<(), String> {
     writable(cfg!(windows))?;
     connection
         .query("BEGIN TRANSACTION")
         .map_err(|error| error.to_string())?;
-    let result = install(connection, scope, pins);
+    let result = install(connection, scope, pins, build);
     match result {
         Ok(()) => connection
             .query("COMMIT")
@@ -61,15 +62,19 @@ fn install(
     connection: &Connection<'_>,
     scope: &ProjectionScope,
     pins: &[String; 4],
+    build: i64,
 ) -> Result<(), String> {
     binding::validate(pins)?;
+    if build <= 0 {
+        return Err("invalid native build identity".into());
+    }
     for ddl in DDL {
         connection.query(ddl).map_err(|error| error.to_string())?;
     }
     let mut statement = connection
         .prepare(
             "CREATE (:Projection {schema: $schema, collection: $collection,
-            generation: $generation, resolution: $resolution, resolver: $resolver,
+            generation: $generation, build: $build, resolution: $resolution, resolver: $resolver,
             settings: $settings, lock: $lock})",
         )
         .map_err(|error| error.to_string())?;
@@ -80,6 +85,7 @@ fn install(
                 ("schema", Value::String(SCHEMA_VERSION.into())),
                 ("collection", Value::String(scope.collection_id.clone())),
                 ("generation", Value::Int64(scope.generation_id)),
+                ("build", Value::Int64(build)),
                 ("resolution", text(&pins[0])),
                 ("resolver", text(&pins[1])),
                 ("settings", text(&pins[2])),
@@ -94,8 +100,8 @@ fn install(
 pub(super) fn verify(
     connection: &Connection<'_>,
     scope: &ProjectionScope,
-) -> Result<(BTreeSet<String>, [String; 4]), ProjectionError> {
-    let pins = read_pins(connection, scope)?;
+) -> Result<(BTreeSet<String>, Stamp), ProjectionError> {
+    let stamp = read_pins(connection, scope)?;
     let tables: Vec<_> = connection
         .query("CALL show_tables() RETURN name, type ORDER BY name")
         .map_err(|error| ProjectionError::Backend(error.to_string()))?
@@ -120,18 +126,24 @@ pub(super) fn verify(
         ],
     )
     .map_err(ProjectionError::Backend)?;
+    let mut properties = vec![
+        ("schema", "STRING", Value::Bool(true)),
+        ("collection", "STRING", Value::Bool(false)),
+        ("generation", "INT64", Value::Bool(false)),
+    ];
+    if stamp.build.is_some() {
+        properties.push(("build", "INT64", Value::Bool(false)));
+    }
+    properties.extend([
+        ("resolution", "STRING", Value::Bool(false)),
+        ("resolver", "STRING", Value::Bool(false)),
+        ("settings", "STRING", Value::Bool(false)),
+        ("lock", "STRING", Value::Bool(false)),
+    ]);
     check_properties(
         connection,
         "CALL table_info('Projection') RETURN name, type, `primary key`",
-        &[
-            ("schema", "STRING", Value::Bool(true)),
-            ("collection", "STRING", Value::Bool(false)),
-            ("generation", "INT64", Value::Bool(false)),
-            ("resolution", "STRING", Value::Bool(false)),
-            ("resolver", "STRING", Value::Bool(false)),
-            ("settings", "STRING", Value::Bool(false)),
-            ("lock", "STRING", Value::Bool(false)),
-        ],
+        &properties,
     )
     .map_err(ProjectionError::Backend)?;
     check_properties(
@@ -161,15 +173,25 @@ pub(super) fn verify(
             .iter()
             .map(|name| (*name).to_owned())
             .collect(),
-        pins,
+        stamp,
     ))
+}
+
+/// Version and build identity observed independently from canonical content.
+pub(super) struct Stamp {
+    /// Actual durable format, never the current compile-time constant.
+    pub(super) version: String,
+    /// Present only on /3; /2 remains read-only compatible without invented stamps.
+    pub(super) build: Option<i64>,
+    /// Strict durable resolution, resolver, settings and lock.
+    pub(super) pins: [String; 4],
 }
 
 /// Read the version before querying new columns, so old stamps get the rebuild repair.
 fn read_pins(
     connection: &Connection<'_>,
     scope: &ProjectionScope,
-) -> Result<[String; 4], ProjectionError> {
+) -> Result<Stamp, ProjectionError> {
     use maestro_kernel::facts::PROJECTION_REBUILD_REPAIR;
     let stamps: Vec<_> = connection
         .query("MATCH (p:Projection) RETURN p.schema, p.collection, p.generation")
@@ -184,17 +206,54 @@ fn read_pins(
     {
         return Err(ProjectionError::InputMismatch(InputMismatchKind::Format));
     }
-    if stamps
-        != vec![vec![
-            text(SCHEMA_VERSION),
-            text(&scope.collection_id),
-            Value::Int64(scope.generation_id),
-        ]]
+    let [row] = stamps.as_slice() else {
+        return Err(ProjectionError::Backend(
+            "missing or duplicate native stamp".into(),
+        ));
+    };
+    let [
+        Value::String(version),
+        Value::String(collection),
+        Value::Int64(generation),
+    ] = row.as_slice()
+    else {
+        return Err(ProjectionError::Backend(
+            "malformed native scope stamp".into(),
+        ));
+    };
+    if !matches!(
+        version.as_str(),
+        "maestro-typed-edges/2" | "maestro-typed-edges/3"
+    ) || collection != &scope.collection_id
+        || *generation != scope.generation_id
     {
         return Err(ProjectionError::Backend(format!(
             "native projection schema or scope stamp differs; {PROJECTION_REBUILD_REPAIR}"
         )));
     }
+    let build = if version == "maestro-typed-edges/3" {
+        let rows: Vec<_> = connection
+            .query("MATCH (p:Projection) RETURN p.build")
+            .map_err(|error| ProjectionError::Backend(error.to_string()))?
+            .collect();
+        match rows.as_slice() {
+            [row] => match row.as_slice() {
+                [Value::Int64(build)] if *build > 0 => Some(*build),
+                _ => {
+                    return Err(ProjectionError::Backend(
+                        "malformed native build stamp".into(),
+                    ));
+                }
+            },
+            _ => {
+                return Err(ProjectionError::Backend(
+                    "missing or duplicate native build stamp".into(),
+                ));
+            }
+        }
+    } else {
+        None
+    };
     let rows: Vec<_> = connection
         .query("MATCH (p:Projection) RETURN p.resolution, p.resolver, p.settings, p.lock")
         .map_err(|error| {
@@ -226,7 +285,11 @@ fn read_pins(
         lock.clone(),
     ];
     binding::validate(&pins).map_err(ProjectionError::Backend)?;
-    Ok(pins)
+    Ok(Stamp {
+        version: version.clone(),
+        build,
+        pins,
+    })
 }
 
 /// Compare exact property order, types, keys and adjacency storage direction.
@@ -275,6 +338,6 @@ pub(super) mod tests {
         scope: &ProjectionScope,
         pins: &[String; 4],
     ) {
-        install(connection, scope, pins).unwrap();
+        install(connection, scope, pins, 1).unwrap();
     }
 }

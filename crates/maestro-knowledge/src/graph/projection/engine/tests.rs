@@ -167,7 +167,7 @@ fn native_bound_full_rows_survive_close_and_catalog_verification() {
         let conn = Connection::new(&db).unwrap();
         #[cfg(not(windows))]
         {
-            schema::create(&conn, &scope(), &contract::pins()).unwrap();
+            schema::create(&conn, &scope(), &contract::pins(), 1).unwrap();
             let mut tx = Transactions::default();
             for fact in &expected_facts {
                 tx.write_batch(&conn, &scope(), &[], slice::from_ref(fact))
@@ -224,7 +224,7 @@ mod writes {
         {
             let db = fixture.writer();
             let conn = Connection::new(&db).unwrap();
-            schema::create(&conn, &scope(), &contract::pins()).unwrap();
+            schema::create(&conn, &scope(), &contract::pins(), 1).unwrap();
             tx.inject_batch_failure().unwrap();
             tx.write_batch(&conn, &scope(), &[], &[]).unwrap();
             assert!(
@@ -289,7 +289,7 @@ mod writes {
         let fixture = Fixture::new();
         let db = fixture.writer();
         let conn = Connection::new(&db).unwrap();
-        schema::create(&conn, &scope(), &contract::pins()).unwrap();
+        schema::create(&conn, &scope(), &contract::pins(), 1).unwrap();
         let mut tx = Transactions::default();
         tx.write_batch(&conn, &scope(), &[edge()], &[full_fact()])
             .unwrap();
@@ -344,7 +344,7 @@ fn empty_native_rows_have_independently_frozen_digest_and_zero_counts() {
         let database = fixture.writer();
         let connection = Connection::new(&database).unwrap();
         #[cfg(not(windows))]
-        schema::create(&connection, &scope(), &contract::pins()).unwrap();
+        schema::create(&connection, &scope(), &contract::pins(), 1).unwrap();
         #[cfg(windows)]
         install_reader_fixture(&connection, &scope(), &contract::pins());
         connection.query("CHECKPOINT").unwrap();
@@ -355,7 +355,7 @@ fn empty_native_rows_have_independently_frozen_digest_and_zero_counts() {
         .unwrap()
         .verification()
         .unwrap();
-    assert_eq!(found.schema, "maestro-typed-edges/2");
+    assert_eq!(found.schema, "maestro-typed-edges/3");
     assert_eq!(
         found.content_digest.as_str(),
         "a3b2abe4237b84ac08917ce65e45f14ec2b9df6cd0426c18d27225c53e742a35"

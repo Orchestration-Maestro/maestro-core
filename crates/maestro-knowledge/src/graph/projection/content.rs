@@ -8,7 +8,7 @@ use super::port::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope};
 use maestro_filesystem::is_receipt_basename;
 use maestro_kernel::{
     artifact::Digest,
-    facts::{Object, ReviewState, Validity},
+    facts::{Object, ProjectionReceiptIdentity, ReviewState, Validity},
 };
 
 /// Version domain separating canonical projection content from other hashes.
@@ -152,6 +152,37 @@ pub(super) fn basename(scope: &ProjectionScope, claim_set_id: &Digest) -> Result
     Ok(format!("g{}.lbdb", Digest::of(&identity).as_str()))
 }
 
+/// Name a new immutable build independently of its predecessor and retry attempts.
+pub(super) fn build_basename(
+    scope: &ProjectionScope,
+    claim_set_id: &Digest,
+    build_id: i64,
+) -> Result<String, String> {
+    if build_id <= 0 {
+        return Err("projection build identity must be positive".into());
+    }
+    let identity = encode_fields(&[
+        "maestro-projection-name/2",
+        &scope.collection_id,
+        &scope.generation_id.to_string(),
+        claim_set_id.as_str(),
+        &build_id.to_string(),
+    ])?;
+    Ok(format!("g{}.lbdb", Digest::of(&identity).as_str()))
+}
+
+/// Select the exact name contract of a retained or newly produced receipt.
+pub(super) fn receipt_basename(
+    scope: &ProjectionScope,
+    receipt: &ProjectionReceiptIdentity,
+) -> Result<String, String> {
+    match receipt.schema_version.as_str() {
+        "maestro-typed-edges/1" | "maestro-typed-edges/2" => basename(scope, &receipt.claim_set_id),
+        "maestro-typed-edges/3" => build_basename(scope, &receipt.claim_set_id, receipt.build_id),
+        _ => Err("unsupported projection name format".into()),
+    }
+}
+
 /// Whether a receipt name is canonical and safe from companion-name aliasing.
 pub(super) fn is_canonical_basename(name: &str) -> bool {
     is_receipt_basename(name)
@@ -237,6 +268,37 @@ pub(super) mod tests {
             subject: Digest::of(b"subject"),
             scope,
         }
+    }
+
+    #[test]
+    fn build_basename_encoding_binds_positive_build_identity() {
+        let scope = ProjectionScope {
+            collection_id: "graph".into(),
+            generation_id: 7,
+        };
+        let set = Digest::of(b"set");
+        assert_eq!(
+            build_basename(&scope, &set, 11).unwrap(),
+            "g8ed0af475323d77cef55e16cb55a2a26c4831514084b31164db3bd01cec739b4.lbdb"
+        );
+        assert_ne!(
+            build_basename(&scope, &set, 11).unwrap(),
+            build_basename(&scope, &set, 12).unwrap()
+        );
+        assert!(build_basename(&scope, &set, 0).is_err());
+        assert!(build_basename(&scope, &set, -1).is_err());
+        assert_eq!(
+            build_basename(
+                &ProjectionScope {
+                    collection_id: "é/graph".into(),
+                    generation_id: 42
+                },
+                &set,
+                99
+            )
+            .unwrap(),
+            "g3ef7eb6950f63b70e8d41e4e18c1c8a27abfc3607dab611778a1faf38aeebd92.lbdb"
+        );
     }
 
     #[test]
