@@ -12,6 +12,8 @@ mod adapter;
 mod binding;
 mod build;
 mod cancellation;
+#[cfg(any(feature = "engine", test))]
+mod checkpoint;
 pub mod cleanup;
 #[cfg(feature = "engine")]
 mod configuration;
