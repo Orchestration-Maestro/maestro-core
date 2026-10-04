@@ -275,8 +275,17 @@ impl<'a> Session<'a> {
 
     /// Consume this writer even on failure; never blindly reopen a closed/partial install.
     pub(in crate::graph::projection) fn publish(
+        self,
+        expected: &BuildVerification,
+    ) -> Result<PublishedProjection, ProjectionError> {
+        self.publish_with(expected, || {})
+    }
+
+    /// Mandatory private boundary after readiness and before any cleanup.
+    pub(super) fn publish_with(
         mut self,
         expected: &BuildVerification,
+        after_ready: impl FnOnce(),
     ) -> Result<PublishedProjection, ProjectionError> {
         self.validate_lease()?;
         if !self.loader_validated {
@@ -286,11 +295,7 @@ impl<'a> Session<'a> {
         }
         if let Some(journal) = self.journal.as_ref() {
             journal.manifest.verify_final(expected)?;
-            if journal.ordinals()? != journal.manifest.count()? {
-                return Err(checkpoint::refusal(
-                    "loader checkpoints incomplete before publication",
-                ));
-            }
+            journal.revalidate()?;
         }
         let file_name = content::basename(&self.build.scope, &self.build.claim_set_id)
             .map_err(ProjectionError::Backend)?;
@@ -304,15 +309,14 @@ impl<'a> Session<'a> {
         self.backend.publication_mut().receipt = Some(receipt.clone());
         ProjectionWriter::resume(&mut self.backend, self.build.scope.clone())
             .verify_and_publish(expected, &self.build.claim_set_id)?;
+        after_ready();
         let staging = self.staging_path()?;
         if let Some(journal) = self.journal.as_mut() {
-            journal
-                .cleanup(&staging, self.settings.max_db_size)
-                .map_err(|error| {
-                    ProjectionError::Backend(format!(
-                        "projection is published; loader cleanup failed: {error:?}"
-                    ))
-                })?;
+            journal.cleanup(&staging).map_err(|error| {
+                ProjectionError::Backend(format!(
+                    "projection is published; loader cleanup failed: {error:?}"
+                ))
+            })?;
         }
         Ok(PublishedProjection {
             receipt,

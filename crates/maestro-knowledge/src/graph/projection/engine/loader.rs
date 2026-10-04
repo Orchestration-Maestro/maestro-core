@@ -11,6 +11,15 @@ impl Session<'_> {
         &mut self,
         snapshot: &ProjectionSnapshot,
     ) -> Result<(), ProjectionError> {
+        self.load_with(snapshot, || {})
+    }
+
+    /// Mandatory private boundary after native commit and before verification/checkpoint.
+    pub(super) fn load_with(
+        &mut self,
+        snapshot: &ProjectionSnapshot,
+        mut after_commit: impl FnMut(),
+    ) -> Result<(), ProjectionError> {
         let expected_manifest = Manifest::expected(&self.build, snapshot)?;
         // Verification checks the live lease before creating even the manifest.
         let durable = self.verify()?;
@@ -29,6 +38,7 @@ impl Session<'_> {
             .journal
             .as_ref()
             .ok_or_else(|| checkpoint::refusal("missing manifest"))?;
+        journal.expect(snapshot)?;
         let count = journal.manifest.count()?;
         let mut completed = journal.ordinals()?;
         for ordinal in 1..=completed {
@@ -60,6 +70,7 @@ impl Session<'_> {
                     .ok_or_else(|| checkpoint::refusal("fact batch outside snapshot"))?,
                 None,
             )?;
+            after_commit();
             if self.verify()? != checkpoint::prefix(snapshot, ordinal)? {
                 return Err(checkpoint::refusal("batch durable verification differs"));
             }

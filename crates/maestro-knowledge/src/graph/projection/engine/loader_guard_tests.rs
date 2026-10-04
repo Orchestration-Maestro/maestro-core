@@ -291,11 +291,24 @@ fn loader_resume_refuses_each_changed_manifest_build_pin_and_expired_or_foreign_
     drop(producer);
     let manifest_path = staging(&fixture).join("loader/manifest.json");
     let original = fs::read(&manifest_path).unwrap();
-    for key in ["scope", "claim_set", "pins", "job"] {
+    for key in [
+        "scope",
+        "generation",
+        "claim_set",
+        "pins0",
+        "pins1",
+        "pins2",
+        "pins3",
+        "job",
+    ] {
         let mut value: serde_json::Value = serde_json::from_slice(&original).unwrap();
         match key {
             "scope" => value[key][0] = "foreign".into(),
-            "pins" => value[key][2] = Digest::of(b"changed settings").as_str().into(),
+            "generation" => value["scope"][1] = (fixture.build.scope.generation_id + 1).into(),
+            "pins0" | "pins1" | "pins2" | "pins3" => {
+                let slot: usize = key.trim_start_matches("pins").parse().unwrap();
+                value["pins"][slot] = "changed pin".into();
+            }
             "claim_set" => value[key] = Digest::of(b"changed claim set").as_str().into(),
             _ => value[key] = "foreign-job".into(),
         }
@@ -314,13 +327,14 @@ fn loader_resume_refuses_each_changed_manifest_build_pin_and_expired_or_foreign_
         );
         fs::write(&manifest_path, &original).unwrap();
     }
-    for index in 0..4 {
+    for index in 0..5 {
         let mut changed = fixture.build.clone();
         match index {
             0 => changed.settings_identity = Digest::of(b"changed settings"),
             1 => changed.frozen_lock = Digest::of(b"changed lock"),
             2 => changed.resolution_id = Digest::of(b"changed resolution"),
-            _ => changed.lease.holder = "foreign".into(),
+            3 => changed.lease.holder = "foreign".into(),
+            _ => changed.lease.number += 1,
         }
         assert!(
             fixture

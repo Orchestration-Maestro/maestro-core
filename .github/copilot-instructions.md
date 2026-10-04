@@ -1327,6 +1327,9 @@ in place.
 │   │   │   │   │   │   ├── input_pins_tests.rs                              # Cold native opens bind durable stamps, not just live process registry entries
 │   │   │   │   │   │   ├── loader.rs                                        # One bounded loader over the existing lease-bound producer and writer
 │   │   │   │   │   │   ├── loader_guard_tests.rs                            # Refusal matrix for the one native checkpointed loader
+│   │   │   │   │   │   ├── loader_isolated_tests.rs                         # Independent loader admission, successor and publication guard proofs
+│   │   │   │   │   │   ├── loader_process_tests.rs                          # Real deaths at mandatory commit/readiness boundaries, synchronized through pipes
+│   │   │   │   │   │   ├── loader_publication_tests.rs                      # Refusal matrix for the one native checkpointed loader
 │   │   │   │   │   │   ├── loader_tests.rs                                  # Real native loader recovery and immutable-record refusals
 │   │   │   │   │   │   ├── mod.rs                                           # Native projection operations; only feature-enabled builds compile this door
 │   │   │   │   │   │   ├── native_pin_tests.rs                              # Strict native decoding must retain corruption, never classify malformed pins as drift
