@@ -33,6 +33,8 @@ mod graph_eval;
 mod graph_extract;
 mod graph_operations;
 mod graph_operations_selection;
+mod graph_rebuild;
+mod graph_rebuild_fixture;
 mod graph_resume;
 mod import_jobs;
 mod job_waits;
