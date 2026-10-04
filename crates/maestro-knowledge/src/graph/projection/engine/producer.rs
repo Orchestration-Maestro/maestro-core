@@ -38,6 +38,8 @@ pub(in crate::graph::projection) struct Session<'a> {
     settings: EngineSettings,
     /// Exact authoritative identities and lease.
     pub(super) build: ProjectionBuild,
+    /// Immutable persisted predecessor; live authority is never inferred from this pin.
+    pub(super) predecessor: Option<i64>,
     /// Current caller authority used for validation and kernel writes.
     scopes: ScopeSet,
     /// Caller-owned kernel, never opened by the native backend.
@@ -102,7 +104,7 @@ impl<'a> Session<'a> {
         clock: &'a dyn Fn() -> SystemTime,
     ) -> Result<Self, ProjectionError> {
         let (build, resume) = request;
-        let (root, access) = Self::admit(factory, kernel, scopes, &build, clock)?;
+        let (root, access, predecessor) = Self::admit(factory, kernel, scopes, &build, clock)?;
         let pins = input_pins::build_pins(&build);
         let reservation = format!(".build-{}", build.lease.job);
         let staging = if resume {
@@ -121,6 +123,7 @@ impl<'a> Session<'a> {
             Some(Journal::open(
                 &staging.resolved_path().map_err(checkpoint::refusal)?,
                 &build,
+                predecessor,
                 factory.settings.max_db_size,
             )?)
         } else {
@@ -176,6 +179,7 @@ impl<'a> Session<'a> {
             loader_validated: !resume,
             settings: factory.settings.clone(),
             build,
+            predecessor,
             scopes: scopes.clone(),
             kernel,
             clock,
@@ -190,7 +194,7 @@ impl<'a> Session<'a> {
         scopes: &ScopeSet,
         build: &ProjectionBuild,
         clock: &dyn Fn() -> SystemTime,
-    ) -> Result<(OwnedRoot, Access), ProjectionError> {
+    ) -> Result<(OwnedRoot, Access, Option<i64>), ProjectionError> {
         check_read_scope(scopes, &build.scope, &build.scope)?;
         let pins = input_pins::build_pins(build);
         binding::admitted(&pins, &factory.settings)?;
@@ -223,7 +227,7 @@ impl<'a> Session<'a> {
         access.serialize_writer(factory.locks)?;
         // Windows rooted writes refuse before reservation; no new orphan is created.
         super::schema::writable(cfg!(windows)).map_err(ProjectionError::Backend)?;
-        Ok((root, access))
+        Ok((root, access, reserved.request.expected_active_build_id))
     }
 
     /// Validated held staging location for the journal capability.
@@ -342,7 +346,7 @@ impl<'a> Session<'a> {
     }
 
     /// Fence writes/verification using the same kernel lease check as publication.
-    fn validate_lease(&self) -> Result<(), ProjectionError> {
+    pub(super) fn validate_lease(&self) -> Result<(), ProjectionError> {
         self.kernel
             .validate_projection_lease(
                 &self.scopes,

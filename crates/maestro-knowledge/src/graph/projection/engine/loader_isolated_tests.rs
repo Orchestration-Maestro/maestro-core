@@ -27,7 +27,7 @@ fn loader_incorrect_uncertain_successor_refuses_without_completion_writes() {
         .unwrap();
     Journal::create(
         &staging(&fixture),
-        Manifest::expected(&fixture.build, &snapshot).unwrap(),
+        Manifest::expected(&fixture.build, &snapshot, None).unwrap(),
     )
     .unwrap();
     let mut edges = snapshot.edges[..64].to_vec();
@@ -79,10 +79,11 @@ fn loader_publication_independently_requires_last_checkpoint_and_manifest_digest
         } else {
             // Native and authoritative counts are unchanged; only the held manifest differs.
             let original = super::loader_tests::snapshot(&fixture);
-            producer.session.journal =
-                Some(Journal::open(&staging(&fixture), &fixture.build, 64 * 1024 * 1024).unwrap());
+            producer.session.journal = Some(
+                Journal::open(&staging(&fixture), &fixture.build, None, 64 * 1024 * 1024).unwrap(),
+            );
             let journal = producer.session.journal.as_mut().unwrap();
-            journal.manifest = Manifest::expected(&fixture.build, &original).unwrap();
+            journal.manifest = Manifest::expected(&fixture.build, &original, None).unwrap();
             fs::write(
                 staging(&fixture).join("loader/manifest.json"),
                 serde_json::to_vec(&journal.manifest).unwrap(),

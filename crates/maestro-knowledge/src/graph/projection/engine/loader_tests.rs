@@ -328,7 +328,7 @@ fn loader_uncertain_committed_batch_is_rechecked_not_rewritten_after_takeover() 
     // Exact crash window: immutable manifest, native batch committed, no checkpoint yet.
     Journal::create(
         &staging(&fixture),
-        Manifest::expected(&fixture.build, &snapshot).unwrap(),
+        Manifest::expected(&fixture.build, &snapshot, None).unwrap(),
     )
     .unwrap();
     producer.write_batch(&snapshot.edges[..64], &[]).unwrap();

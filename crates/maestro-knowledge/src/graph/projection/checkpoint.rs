@@ -23,7 +23,7 @@ use std::{cell::RefCell, collections::BTreeMap, fmt::Display, io::Write as _, pa
 /// Pi has no graph-batch equivalent.
 pub(super) const BATCH_ROWS: usize = 64;
 /// Versioned immutable record format.
-const VERSION: &str = "graph-loader/1";
+const VERSION: &str = "graph-loader/2";
 
 /// Count is derived, never configured; the fixed-width ordinal cannot overflow.
 pub(super) fn batch_count(rows: usize) -> Result<u32, ProjectionError> {
@@ -36,6 +36,12 @@ pub(super) fn batch_count(rows: usize) -> Result<u32, ProjectionError> {
 pub(super) struct Manifest {
     /// Persisted schema.
     schema: String,
+    /// Exact reserved build, immutable predecessor and native stamp format.
+    build_id: i64,
+    /// Head identity against which the build was reserved.
+    expected_active_build_id: Option<i64>,
+    /// Native stamp version expected by this loader.
+    native_schema: String,
     /// Owning kernel job; lease holder/number may change after fenced takeover.
     job: String,
     /// Exact collection/generation.
@@ -55,6 +61,7 @@ impl Manifest {
     pub(super) fn expected(
         build: &ProjectionBuild,
         snapshot: &ProjectionSnapshot,
+        predecessor: Option<i64>,
     ) -> Result<Self, ProjectionError> {
         if snapshot.scope != build.scope {
             return Err(ProjectionError::InputMismatch(
@@ -86,6 +93,9 @@ impl Manifest {
         let expected = BuildVerification::expected(&snapshot.edges, &snapshot.facts)?;
         Ok(Self {
             schema: VERSION.into(),
+            build_id: build.build_id,
+            expected_active_build_id: predecessor,
+            native_schema: super::schema::SCHEMA_VERSION.into(),
             job: build.lease.job.to_string(),
             scope: (build.scope.collection_id.clone(), build.scope.generation_id),
             claim_set: build.claim_set_id.clone(),
@@ -96,8 +106,15 @@ impl Manifest {
     }
 
     /// Validate ownership and every durable input before constructing a fresh backend.
-    pub(super) fn validate(&self, build: &ProjectionBuild) -> Result<(), ProjectionError> {
+    pub(super) fn validate(
+        &self,
+        build: &ProjectionBuild,
+        predecessor: Option<i64>,
+    ) -> Result<(), ProjectionError> {
         if self.schema != VERSION
+            || self.build_id != build.build_id
+            || self.expected_active_build_id != predecessor
+            || self.native_schema != super::schema::SCHEMA_VERSION
             || self.job != build.lease.job.to_string()
             || self.scope != (build.scope.collection_id.clone(), build.scope.generation_id)
             || self.claim_set != build.claim_set_id
@@ -207,6 +224,7 @@ impl Journal {
     pub(super) fn open(
         staging: &Path,
         build: &ProjectionBuild,
+        predecessor: Option<i64>,
         max_bytes: u64,
     ) -> Result<Self, ProjectionError> {
         let directory = Directory::open_canonical(staging)
@@ -217,7 +235,7 @@ impl Journal {
             .read_regular_bounded("manifest.json", max_bytes)
             .map_err(refusal)?;
         let manifest: Manifest = serde_json::from_slice(&bytes).map_err(refusal)?;
-        manifest.validate(build)?;
+        manifest.validate(build, predecessor)?;
         let journal = Self {
             directory,
             manifest,

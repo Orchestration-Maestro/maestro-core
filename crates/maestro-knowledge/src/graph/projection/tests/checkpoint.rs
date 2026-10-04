@@ -29,7 +29,8 @@ fn fixture() -> (PathBuf, ProjectionSnapshot, Manifest) {
         facts: vec![fact],
     };
     let manifest = serde_json::from_value(json!({
-        "schema": "graph-loader/1", "job": "job", "scope": ["c", 1],
+        "schema": "graph-loader/2", "build_id": 42, "expected_active_build_id": null,
+        "native_schema": "maestro-typed-edges/3", "job": "job", "scope": ["c", 1],
         "claim_set": rows.claim_set.id, "pins": ["resolution", "resolver/1", "settings", "lock"],
         "counts": [0, 1], "digest": prefix(&rows, 1).unwrap().content_digest,
     }))
@@ -74,5 +75,41 @@ fn checkpoint_publication_is_immutable_and_unknown_or_changed_files_refuse() {
     fs::write(path.join("loader/0000000002.json"), &bytes).unwrap();
     assert!(journal.ordinals().is_err());
     drop(journal);
+    fs::remove_dir_all(path).unwrap();
+}
+
+#[test]
+fn checkpoint_build_bound_manifest_writes_two_and_preserves_legacy_refusal() {
+    use crate::graph::projection::ProjectionBuild;
+    use maestro_kernel::job::Lease;
+    let (path, rows, _) = fixture();
+    let build = ProjectionBuild {
+        build_id: 42,
+        scope: rows.scope.clone(),
+        claim_set_id: rows.claim_set.id.clone(),
+        resolution_id: rows.resolution_id.clone(),
+        resolver_version: rows.resolver_version.clone(),
+        settings_identity: Digest::of(b"settings"),
+        frozen_lock: Digest::of(b"lock"),
+        lease: Lease {
+            job: "01ARZ3NDEKTSV4RRFFQ69G5FAV".parse().unwrap(),
+            holder: "holder".into(),
+            number: 1,
+            heartbeat: "unused".into(),
+            expires: "unused".into(),
+        },
+    };
+    let manifest = Manifest::expected(&build, &rows, Some(17)).unwrap();
+    let mut value = serde_json::to_value(&manifest).unwrap();
+    assert_eq!(value["schema"], "graph-loader/2");
+    assert_eq!(value["build_id"], 42);
+    assert_eq!(value["native_schema"], "maestro-typed-edges/3");
+    assert_eq!(value["expected_active_build_id"], 17);
+    value["schema"] = json!("graph-loader/1");
+    let legacy = serde_json::to_vec(&value).unwrap();
+    fs::create_dir(path.join("loader")).unwrap();
+    fs::write(path.join("loader/manifest.json"), &legacy).unwrap();
+    assert!(Journal::open(&path, &build, Some(17), 1024 * 1024).is_err());
+    assert_eq!(fs::read(path.join("loader/manifest.json")).unwrap(), legacy);
     fs::remove_dir_all(path).unwrap();
 }

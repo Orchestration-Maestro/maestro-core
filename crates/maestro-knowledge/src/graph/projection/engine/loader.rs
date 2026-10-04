@@ -20,7 +20,7 @@ impl Session<'_> {
         snapshot: &ProjectionSnapshot,
         mut after_commit: impl FnMut(),
     ) -> Result<(), ProjectionError> {
-        let expected_manifest = Manifest::expected(&self.build, snapshot)?;
+        let expected_manifest = Manifest::expected(&self.build, snapshot, self.predecessor)?;
         // Verification checks the live lease before creating even the manifest.
         let durable = self.verify()?;
         if self.journal.is_none() {
@@ -52,6 +52,7 @@ impl Session<'_> {
                 ));
             }
             completed += 1;
+            self.validate_lease()?;
             journal.record(snapshot, completed)?;
         }
         self.loader_validated = true;
@@ -74,6 +75,7 @@ impl Session<'_> {
             if self.verify()? != checkpoint::prefix(snapshot, ordinal)? {
                 return Err(checkpoint::refusal("batch durable verification differs"));
             }
+            self.validate_lease()?;
             self.journal
                 .as_ref()
                 .ok_or_else(|| checkpoint::refusal("missing manifest"))?

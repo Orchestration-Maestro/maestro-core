@@ -161,7 +161,7 @@ fn loader_changed_snapshot_pins_and_unrelated_build_refuse_without_writes() {
     fs::remove_dir(staging(&fixture).join("loader")).ok();
     let journal = Journal::create(
         &staging(&fixture),
-        Manifest::expected(&fixture.build, &rows).unwrap(),
+        Manifest::expected(&fixture.build, &rows, None).unwrap(),
     )
     .unwrap();
     drop(journal);
@@ -251,7 +251,7 @@ fn loader_disk_full_after_commit_preserves_uncertain_batch_for_explicit_resume()
         .unwrap();
     let mut journal = Journal::create(
         &staging(&fixture),
-        Manifest::expected(&fixture.build, &snapshot).unwrap(),
+        Manifest::expected(&fixture.build, &snapshot, None).unwrap(),
     )
     .unwrap();
     journal.fail_record = true;

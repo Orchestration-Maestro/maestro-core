@@ -1387,6 +1387,7 @@ in place.
 │   │   │   │   │   │   ├── cleanup_tests.rs                                 # Native files/read-only handles for the feature-independent cleanup process suite
 │   │   │   │   │   │   ├── codec_tests.rs                                   # Synthetic canonical fact-vector and malformed-byte checks
 │   │   │   │   │   │   ├── config.rs                                        # The single native translation of caller-owned frozen graph settings
+│   │   │   │   │   │   ├── cutover_resume_tests.rs                          # Reserved loader /2 recovery; legacy runtime fixtures remain step 4 work
 │   │   │   │   │   │   ├── holder_fence_tests.rs                            # Holder credentials refuse before reservation, without changing authoritative state
 │   │   │   │   │   │   ├── input_guard_tests.rs                             # Producer preflight forwards all durable pins before reserving native storage
 │   │   │   │   │   │   ├── input_pins.rs                                    # Native build stamps and comparison with independently persisted readiness pins
@@ -1433,7 +1434,8 @@ in place.
 │   │   │   │   │   │   ├── lifecycle.rs                                     # Public lifecycle refusals paired with valid neighboring configurations
 │   │   │   │   │   │   ├── mod.rs                                           # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── port.rs                                          # Rust source: port
-│   │   │   │   │   │   └── projection_writer.rs                             # Backend-neutral projection writer and reader contract tests
+│   │   │   │   │   │   ├── projection_writer.rs                             # Backend-neutral projection writer and reader contract tests
+│   │   │   │   │   │   └── reserved.rs                                      # Shared cutover fixtures: apply unregistered 0031 once, then reserve through
 │   │   │   │   │   ├── access.rs                                            # Permanent root-wide access and writer guards; no fallback lock domain
 │   │   │   │   │   ├── binding.rs                                           # Durable input identity comparison shared by producer, reader and health
 │   │   │   │   │   ├── build.rs                                             # Backend-neutral authoritative build inputs and successful publication result

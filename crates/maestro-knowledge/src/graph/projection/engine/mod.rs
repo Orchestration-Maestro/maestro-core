@@ -66,3 +66,6 @@ mod public_tests;
 mod holder_fence_tests;
 #[cfg(test)]
 mod public_guard_tests;
+
+#[cfg(all(test, unix))]
+mod cutover_resume_tests;
