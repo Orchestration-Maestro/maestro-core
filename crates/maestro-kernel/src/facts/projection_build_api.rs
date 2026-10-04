@@ -1,6 +1,6 @@
 //! Scoped admission and lookup of immutable projection build reservations.
 use super::{
-    Error, InputMismatchKind, ProjectionBuildRequest, ProjectionReceipt, ProjectionReceiptIdentity,
+    Error, ProjectionBuildRequest, ProjectionReceipt, ProjectionReceiptIdentity,
     ProjectionReservation, projection_records, projection_reservation,
 };
 use crate::{job::Lease, scope::ScopeSet, store::Database};
@@ -74,18 +74,7 @@ impl Database {
         build: i64,
     ) -> Result<Option<ProjectionReceipt>, Error> {
         projection_records::by_build(&self.reader()?, scopes, generation, build)?
-            .map(|record| {
-                let (resolution_id, resolver_version, settings_identity, frozen_lock) = record
-                    .pins
-                    .ok_or(Error::ProjectionInputMismatch(InputMismatchKind::Format))?;
-                Ok(ProjectionReceipt {
-                    identity: record.identity,
-                    resolution_id,
-                    resolver_version,
-                    settings_identity,
-                    frozen_lock,
-                })
-            })
+            .map(projection_records::Record::receipt)
             .transpose()
     }
 }

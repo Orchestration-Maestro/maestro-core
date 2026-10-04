@@ -1,6 +1,6 @@
 //! Synthetic pre-0031 authority and raw SQL helpers, never a runtime insertion API.
 use super::{
-    projection::{attached, projection_lease},
+    projection::legacy_attached as attached,
     support::{Scratch, timing},
 };
 use crate::{
@@ -22,11 +22,33 @@ pub(super) struct Fixture {
 
 impl Fixture {
     pub(super) fn new(published: bool) -> Self {
-        let (scratch, database, scopes, receipt) = attached();
+        let (scratch, database, _scopes, receipt) = attached();
         if published {
-            let lease = projection_lease(&database, receipt.identity.generation_id);
-            database
-                .record_projection_ready(&scopes, &receipt, &lease, timing(5).now)
+            let row = &receipt;
+            scratch
+                .outside()
+                .execute(
+                    "INSERT INTO graph_projection_receipts
+                 (generation_id, collection_id, claim_set_id, file_name, schema_version,
+                  knowledge_edge_count, catalog_dependency_edge_count, entity_fact_count,
+                  content_digest, resolution_id, resolver_version, settings_identity, frozen_lock)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                    params![
+                        row.identity.generation_id,
+                        row.identity.collection_id,
+                        row.identity.claim_set_id.as_str(),
+                        row.identity.file_name,
+                        row.identity.schema_version,
+                        i64::try_from(row.identity.knowledge_edge_count).unwrap(),
+                        i64::try_from(row.identity.catalog_dependency_edge_count).unwrap(),
+                        i64::try_from(row.identity.entity_fact_count).unwrap(),
+                        row.identity.content_digest.as_str(),
+                        row.resolution_id.as_str(),
+                        row.resolver_version,
+                        row.settings_identity.as_str(),
+                        row.frozen_lock.as_str()
+                    ],
+                )
                 .unwrap();
         }
         let connection = scratch.outside();

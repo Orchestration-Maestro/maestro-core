@@ -7,8 +7,7 @@ use crate::{
     artifact::Digest,
     document::Collection,
     facts::{
-        Batch, Error, PROJECTION_REBUILD_REPAIR, ProjectionReceipt, Rejection,
-        projection_inventory_in,
+        Batch, Error, ProjectionBuildRequest, ProjectionReceipt, Rejection, projection_inventory_in,
     },
     generation::NewGeneration,
     job::{self, JobState},
@@ -21,7 +20,7 @@ use crate::{
 use serde_json::json;
 use std::{collections::BTreeMap, thread};
 
-pub(super) fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
+pub(super) fn legacy_attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
     let scratch = Scratch::new();
     let database = scratch.open();
     let all = ScopeSet::default_workspace();
@@ -121,9 +120,42 @@ pub(super) fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
     (scratch, database, all, receipt)
 }
 
+/// Runtime fixtures apply the unregistered migration explicitly, never a legacy API.
+pub(super) fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
+    let (scratch, database, scopes, mut receipt) = legacy_attached();
+    scratch
+        .outside()
+        .execute_batch(include_str!(
+            "../../../migrations/0031_graph_projection_builds.sql"
+        ))
+        .unwrap();
+    receipt.identity.schema_version = "maestro-typed-edges/3".into();
+    (scratch, database, scopes, receipt)
+}
+
 pub(super) fn projection_lease(database: &Database, generation: i64) -> job::Lease {
     let scope: Scope = "workspace/default/collection/graph".parse().unwrap();
-    let inputs = json!({"generation": generation});
+    let connection = database.reader().unwrap();
+    let (set, resolution): (String, String) = connection
+        .query_row(
+            "SELECT a.claim_set_id, r.id FROM graph_attachments a JOIN graph_resolutions r
+         ON EXISTS (SELECT 1 FROM json_each(r.body, '$.sets') s WHERE s.value = a.claim_set_id)
+         WHERE a.generation_id = ?1 ORDER BY r.recorded_at, r.id LIMIT 1",
+            [generation],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    let request = ProjectionBuildRequest {
+        collection_id: "graph".into(),
+        generation_id: generation,
+        claim_set_id: Digest::parse(&set).unwrap(),
+        resolution_id: Digest::parse(&resolution).unwrap(),
+        resolver_version: EXACT_RESOLVER_VERSION.into(),
+        settings_identity: Digest::of(b"settings"),
+        frozen_lock: Digest::of(b"frozen-lock"),
+        expected_active_build_id: None,
+    };
+    let inputs = request.inputs();
     let job = database
         .submit_job(
             &job::NewJob {
@@ -135,11 +167,20 @@ pub(super) fn projection_lease(database: &Database, generation: i64) -> job::Lea
             timing(4).now,
         )
         .unwrap();
-    job.lease.unwrap_or_else(|| {
+    let lease = job.lease.unwrap_or_else(|| {
         database
             .take_job(job.id, "projector", timing(4).now, timing(4).term)
             .unwrap()
-    })
+    });
+    database
+        .begin_projection_build(
+            &ScopeSet::default_workspace(),
+            &request,
+            &lease,
+            timing(4).now,
+        )
+        .unwrap();
+    lease
 }
 
 #[test]
@@ -193,7 +234,7 @@ fn a_projection_receipt_is_once_only_and_scoped_to_its_generation() {
         .unwrap();
     assert!(matches!(
         database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
-        Err(Error::Conflict(_))
+        Err(Error::Unauthorized)
     ));
     let denied = granted(
         &database,
@@ -315,8 +356,8 @@ fn projection_inventory_preserves_typed_receipt_decode_errors() {
         .execute(
             "UPDATE graph_projection_receipts SET content_digest =
              'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'
-             WHERE generation_id = ?1",
-            [receipt.identity.generation_id],
+             WHERE build_id = ?1",
+            [receipt.identity.build_id],
         )
         .unwrap();
     assert!(matches!(
@@ -387,7 +428,7 @@ fn concurrent_readiness_recorders_have_one_winner() {
     assert_ne!(first.is_ok(), second.is_ok());
     assert!(matches!(
         first.err().or_else(|| second.err()),
-        Some(Error::Conflict(_))
+        Some(Error::Unauthorized)
     ));
 }
 
@@ -426,49 +467,6 @@ fn a_building_generation_cannot_record_projection_readiness() {
         database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
         Err(Error::Unauthorized)
     ));
-}
-
-#[test]
-fn projection_readiness_rejects_a_nonpositive_generation() {
-    let (_scratch, database, all, mut receipt) = attached();
-    let lease = projection_lease(&database, receipt.identity.generation_id);
-    receipt.identity.generation_id = 0;
-    assert!(matches!(
-        database.record_projection_ready(&all, &receipt, &lease, timing(5).now),
-        Err(Error::Conflict(_))
-    ));
-}
-
-#[test]
-fn projection_readiness_rejects_a_path_instead_of_a_owned_filename() {
-    let (_scratch, database, all, mut receipt) = attached();
-    let lease = projection_lease(&database, receipt.identity.generation_id);
-    for name in [
-        "../outside.db",
-        "safe/outside.db",
-        ".leading.db",
-        "",
-        "space name.db",
-    ] {
-        receipt.identity.file_name = name.to_owned();
-        let error = database
-            .record_projection_ready(&all, &receipt, &lease, timing(5).now)
-            .unwrap_err();
-        let Error::Conflict(detail) = error else {
-            panic!("{name}: {error}");
-        };
-        assert_eq!(
-            detail,
-            format!("invalid projection receipt identity; {PROJECTION_REBUILD_REPAIR}"),
-            "{name}"
-        );
-    }
-    assert_eq!(
-        database
-            .projection_ready(&all, receipt.identity.generation_id)
-            .unwrap(),
-        None
-    );
 }
 
 #[test]

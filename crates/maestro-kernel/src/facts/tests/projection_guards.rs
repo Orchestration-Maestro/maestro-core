@@ -1,6 +1,6 @@
 //! SQL and scope boundaries for durable projection input pins.
 use super::{
-    projection::attached,
+    projection::legacy_attached as attached,
     support::{granted, label, on},
 };
 use crate::{

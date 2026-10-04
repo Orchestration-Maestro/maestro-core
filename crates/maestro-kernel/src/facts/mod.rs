@@ -29,7 +29,6 @@ mod projection;
 mod projection_binding;
 mod projection_build_api;
 mod projection_inputs;
-#[cfg(test)]
 mod projection_publication;
 mod projection_records;
 mod projection_reservation;

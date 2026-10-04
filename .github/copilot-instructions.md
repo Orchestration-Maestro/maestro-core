@@ -976,6 +976,7 @@ in place.
 │   │   │   │   │   ├── mutation_contracts.rs                                # Build identities and supersession endpoint contracts
 │   │   │   │   │   ├── projection.rs                                        # Rust source: projection
 │   │   │   │   │   ├── projection_active_guards.rs                          # Active heads select complete receipts, never reserved or historical storage
+│   │   │   │   │   ├── projection_active_reads.rs                           # Active head selection is shared by runtime readiness, identity and health
 │   │   │   │   │   ├── projection_build_guards.rs                           # Raw SQL must not bypass frozen build authority or retained receipts
 │   │   │   │   │   ├── projection_build_schema.rs                           # Standalone 0031 qualification; runtime registration waits for build-bound ports
 │   │   │   │   │   ├── projection_build_upgrade.rs                          # 0031 imports retained authority without creating pins, jobs or search events

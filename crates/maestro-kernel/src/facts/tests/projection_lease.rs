@@ -152,7 +152,7 @@ fn projection_readiness_expiry_without_takeover_refuses_and_valid_neighbor_succe
 #[test]
 fn projection_lease_preflight_checks_scope_kind_generation_cancellation_and_authoritative_renewal()
 {
-    let (_scratch, database, all, receipt) = attached();
+    let (_scratch, database, all, mut receipt) = attached();
     let lease = projection_lease(&database, receipt.identity.generation_id);
     let target = (
         receipt.identity.collection_id.as_str(),
@@ -212,6 +212,11 @@ fn projection_lease_preflight_checks_scope_kind_generation_cancellation_and_auth
             .is_err()
     );
     let lease = projection_lease(&database, receipt.identity.generation_id);
+    receipt.identity.build_id = database
+        .projection_build_for_job(&all, lease.job)
+        .unwrap()
+        .unwrap()
+        .build_id;
     let mut renewed = lease.clone();
     database
         .heartbeat(&mut renewed, timing(63).now, timing(63).term)

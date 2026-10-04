@@ -1,6 +1,6 @@
 //! Durable pin decoding, resolution authority and append-only migration proofs.
 use super::{
-    projection::{attached, projection_lease},
+    projection::{attached, legacy_attached, projection_lease},
     support::{execute, timing},
 };
 use crate::facts::{ClaimSet, Error};
@@ -11,7 +11,7 @@ use crate::{
     scope::ScopeSet,
     store::Database,
 };
-use rusqlite::params;
+use rusqlite::{Connection, params};
 
 #[test]
 fn receipt_missing_unknown_or_malformed_pin_refuses_with_rebuild() {
@@ -34,12 +34,13 @@ fn receipt_missing_unknown_or_malformed_pin_refuses_with_rebuild() {
         outside
             .execute_batch(
                 "DROP TRIGGER graph_projection_receipts_never_changed;
+            DROP TRIGGER graph_projection_builds_never_changed;
             PRAGMA ignore_check_constraints=ON; PRAGMA foreign_keys=OFF;",
             )
             .unwrap();
         outside
             .execute(
-                &format!("UPDATE graph_projection_receipts SET {column} = ?1"),
+                &format!("UPDATE graph_projection_builds SET {column} = ?1"),
                 [value],
             )
             .unwrap();
@@ -146,7 +147,7 @@ fn readiness_resolution_must_exist_cover_set_and_match_resolver() {
 
 #[test]
 fn legacy_projection_migration_preserves_rows_triggers_and_refuses_silent_upgrade() {
-    let (scratch, database, scopes, receipt) = attached();
+    let (scratch, database, scopes, receipt) = legacy_attached();
     let outside = scratch.outside();
     outside
         .execute_batch(
@@ -177,10 +178,18 @@ fn legacy_projection_migration_preserves_rows_triggers_and_refuses_silent_upgrad
     drop(outside);
     drop(database);
     let migrated = Database::open_in(&scratch.0).unwrap();
+    scratch
+        .outside()
+        .execute_batch(include_str!(
+            "../../../migrations/0031_graph_projection_builds.sql"
+        ))
+        .unwrap();
     let outside = scratch.outside();
     let stored: (String, Option<String>, String) = outside
         .query_row(
-            "SELECT schema_version, resolution_id, content_digest FROM graph_projection_receipts",
+            "SELECT b.schema_version, b.resolution_id, r.content_digest
+             FROM graph_projection_receipts r
+             JOIN graph_projection_builds b USING(build_id)",
             [],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
@@ -201,6 +210,11 @@ fn legacy_projection_migration_preserves_rows_triggers_and_refuses_silent_upgrad
             .to_string()
             .contains("maestro knowledge graph rebuild")
     );
+    assert_legacy_retention(&outside);
+}
+
+/// Retained SQL guards and keys survive legacy import.
+fn assert_legacy_retention(outside: &Connection) {
     assert!(
         outside
             .execute(
@@ -277,12 +291,13 @@ fn old_projection_receipt_refuses_with_rebuild_repair() {
         .unwrap();
     execute(
         &database,
-        "DROP TRIGGER graph_projection_receipts_never_changed",
+        "DROP TRIGGER graph_projection_builds_never_changed",
     )
     .unwrap();
+    execute(&database, "PRAGMA ignore_check_constraints=ON").unwrap();
     execute(
         &database,
-        "UPDATE graph_projection_receipts SET schema_version = 'maestro-typed-edges/1',
+        "UPDATE graph_projection_builds SET schema_version = 'maestro-typed-edges/1',
         resolution_id = NULL, resolver_version = NULL,
         settings_identity = NULL, frozen_lock = NULL",
     )
@@ -358,8 +373,9 @@ fn legacy_receipt_corruption_keeps_conflict_category() {
         outside
             .execute_batch(
                 "DROP TRIGGER graph_projection_receipts_never_changed;
+            DROP TRIGGER graph_projection_builds_never_changed;
             PRAGMA ignore_check_constraints=ON; PRAGMA foreign_keys=OFF;
-            UPDATE graph_projection_receipts SET schema_version = 'maestro-typed-edges/1',
+            UPDATE graph_projection_builds SET schema_version = 'maestro-typed-edges/1',
             resolution_id = NULL, resolver_version = NULL,
             settings_identity = NULL, frozen_lock = NULL;",
             )
@@ -377,7 +393,12 @@ fn legacy_receipt_corruption_keeps_conflict_category() {
         assert_eq!(legacy, expected);
         outside
             .execute_batch(&format!(
-                "UPDATE graph_projection_receipts SET {assignment}"
+                "UPDATE {} SET {assignment}",
+                if assignment.starts_with("content_digest") || assignment.contains("count") {
+                    "graph_projection_receipts"
+                } else {
+                    "graph_projection_builds"
+                }
             ))
             .unwrap();
         assert!(

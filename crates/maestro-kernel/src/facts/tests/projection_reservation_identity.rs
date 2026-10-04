@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     facts::{
-        Error, projection::decode_identity, projection_publication, projection_records,
+        Error, projection_publication, projection_records, projection_records::decode_identity,
         projection_reservation as authority,
     },
     job::NewJob,
@@ -133,16 +133,11 @@ fn projection_reservation_receipt_decoder_keeps_exact_build_identity() {
     let mut receipt = fixture.receipt.clone();
     receipt.identity.schema_version = "maestro-typed-edges/3".into();
     receipt.identity.file_name = "new.lbdb".into();
+    receipt.identity.build_id = reserved.build_id;
     fixture
         .database
         .write::<_, Error>(|tx| {
-            projection_publication::publish(
-                tx,
-                &scopes,
-                (reserved.build_id, &receipt),
-                &lease,
-                timing(7).now,
-            )?;
+            projection_publication::publish(tx, &scopes, &receipt, &lease, timing(7).now)?;
             let record =
                 projection_records::by_build(tx, &scopes, fixture.generation(), reserved.build_id)?
                     .unwrap();

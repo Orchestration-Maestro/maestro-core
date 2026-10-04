@@ -13,11 +13,11 @@ use std::time::SystemTime;
 pub(super) fn publish(
     transaction: &Transaction<'_>,
     scopes: &ScopeSet,
-    output: (i64, &ProjectionReceipt),
+    receipt: &ProjectionReceipt,
     lease: &Lease,
     now: SystemTime,
 ) -> Result<(), Error> {
-    let (build, receipt) = output;
+    let build = receipt.identity.build_id;
     let reserved = projection_reservation::validate(transaction, scopes, build, lease, now)?;
     validate_output(transaction, scopes, &reserved.request, receipt)?;
     let identity = &receipt.identity;
@@ -56,6 +56,24 @@ pub(super) fn publish(
     Ok(())
 }
 
+/// Recheck live reserved authority and all output inputs without recording readiness.
+pub(super) fn validate(
+    transaction: &Transaction<'_>,
+    scopes: &ScopeSet,
+    receipt: &ProjectionReceipt,
+    lease: &Lease,
+    now: SystemTime,
+) -> Result<(), Error> {
+    let reserved = projection_reservation::validate(
+        transaction,
+        scopes,
+        receipt.identity.build_id,
+        lease,
+        now,
+    )?;
+    validate_output(transaction, scopes, &reserved.request, receipt)
+}
+
 /// Verify every supplied input and pinned predecessor content before insertion.
 fn validate_output(
     transaction: &Transaction<'_>,
@@ -75,6 +93,35 @@ fn validate_output(
     {
         return Err(Error::Conflict(
             "projection output differs from reserved inputs".into(),
+        ));
+    }
+    if !identity
+        .file_name
+        .as_bytes()
+        .first()
+        .is_some_and(u8::is_ascii_alphanumeric)
+        || !identity
+            .file_name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+    {
+        return Err(Error::Conflict(format!(
+            "invalid projection receipt identity; {}",
+            super::projection_binding::PROJECTION_REBUILD_REPAIR
+        )));
+    }
+    let (edges, facts): (i64, i64) = transaction.query_row(
+        "SELECT count(CASE WHEN c.object_kind IS NOT NULL THEN 1 END),
+                count(CASE WHEN c.object_type IS NOT NULL THEN 1 END)
+         FROM claim_set_members m JOIN claims c ON c.id = m.claim_id WHERE m.claim_set_id = ?1",
+        [request.claim_set_id.as_str()],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    if usize::try_from(edges).ok() != Some(identity.knowledge_edge_count)
+        || usize::try_from(facts).ok() != Some(identity.entity_fact_count)
+    {
+        return Err(Error::Conflict(
+            "projection receipt differs from its authoritative claim set".into(),
         ));
     }
     if let Some(previous) = request.expected_active_build_id {

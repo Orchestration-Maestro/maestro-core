@@ -30,11 +30,12 @@ fn publish(
     output: &ProjectionReceipt,
     lease: &Lease,
 ) -> Result<(), Error> {
+    let _ = build;
     database.write(|tx| {
         publication::publish(
             tx,
             &ScopeSet::default_workspace(),
-            (build, output),
+            output,
             lease,
             timing(7).now,
         )
@@ -59,6 +60,9 @@ fn projection_publication_two_live_builds_race_one_predecessor() {
         receipt(&fixture, "first.lbdb"),
         receipt(&fixture, "second.lbdb"),
     ];
+    for index in 0..2 {
+        receipts[index].identity.build_id = builds[index].build_id;
+    }
     receipts[1].settings_identity = second.settings_identity;
     let unchanged = [
         "generations",
@@ -180,12 +184,13 @@ fn projection_publication_zero_row_head_change_rolls_back_output() {
              BEGIN SELECT RAISE(IGNORE); END;"
             ))
             .unwrap();
-        let output = receipt(&fixture, "candidate.lbdb");
+        let mut output = receipt(&fixture, "candidate.lbdb");
+        output.identity.build_id = build.build_id;
         let result = fixture.database.write::<_, Error>(|tx| {
             publication::publish(
                 tx,
                 &ScopeSet::default_workspace(),
-                (build.build_id, &output),
+                &output,
                 &lease,
                 timing(7).now,
             )
@@ -212,7 +217,7 @@ fn projection_publication_zero_row_head_change_rolls_back_output() {
                 publication::publish(
                     tx,
                     &ScopeSet::default_workspace(),
-                    (build.build_id, &output),
+                    &output,
                     &lease,
                     timing(7).now,
                 )
@@ -232,6 +237,7 @@ fn projection_publication_refuses_every_changed_output_pin_and_content() {
     let build = begin(&fixture, &request, &lease).unwrap();
     for field in 0..12 {
         let mut output = receipt(&fixture, "candidate.lbdb");
+        output.identity.build_id = build.build_id;
         let other = Digest::of(b"not the reserved input");
         match field {
             0 => output.identity.collection_id = "other".into(),
@@ -254,7 +260,7 @@ fn projection_publication_refuses_every_changed_output_pin_and_content() {
                     .write::<_, Error>(|tx| publication::publish(
                         tx,
                         &ScopeSet::default_workspace(),
-                        (build.build_id, &output),
+                        &output,
                         &lease,
                         timing(7).now,
                     )),
@@ -293,18 +299,13 @@ fn projection_publication_rechecks_live_authority_after_reservation() {
         }
         // Changing only output cannot conceal stale build authority.
         output.identity.file_name = format!("{boundary}.lbdb");
+        output.identity.build_id = target;
         let before = fixture.count("graph_projection_receipts");
         let head = fixture.head();
         assert!(
             fixture
                 .database
-                .write::<_, Error>(|tx| publication::publish(
-                    tx,
-                    &scopes,
-                    (target, &output),
-                    &lease,
-                    now,
-                ))
+                .write::<_, Error>(|tx| publication::publish(tx, &scopes, &output, &lease, now,))
                 .is_err(),
             "{boundary}"
         );
@@ -339,4 +340,17 @@ fn projection_publication_predecessor_file_identity_is_strict() {
             "{name}"
         );
     }
+}
+
+#[test]
+fn projection_publication_refuses_output_build_from_another_attempt() {
+    let fixture = Fixture::new(false);
+    fixture.migrate();
+    let request = request(&fixture, None);
+    let lease = lease(&fixture, &request);
+    let build = begin(&fixture, &request, &lease).unwrap();
+    let mut output = receipt(&fixture, "candidate.lbdb");
+    output.identity.build_id = i64::MAX;
+    assert!(publish(&fixture.database, build.build_id, &output, &lease).is_err());
+    assert_eq!(fixture.count("graph_projection_receipts"), 0);
 }
