@@ -1,0 +1,23 @@
+{
+  "schema": "maestro-collection/2",
+  "id": "garden",
+  "title": "Garden notes",
+  "visibility": "public",
+  "profiles": {
+    "extraction": "technical-html/1",
+    "chunking": "structural-500-700/1",
+    "embedding": "embed:winner",
+    "sparse": "bm25-en-fr/1"
+  },
+  "quality": {
+    "ledger": "quality/ledger.jsonl"
+  },
+  "sources": [],
+  "evals": {
+    "suite": "evals/garden"
+  },
+  "source_policy": {
+    "id": "policy",
+    "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

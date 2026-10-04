@@ -126,10 +126,7 @@ impl Database {
         revision: &Revision,
         disposition: &Disposition,
     ) -> Result<Recorded, Error> {
-        self.write(|transaction| {
-            revision::record(transaction, revision)?;
-            record(transaction, disposition)
-        })
+        self.write(|transaction| record_with_disposition(transaction, revision, Some(disposition)))
     }
 
     /// The disposition of the revision `revision_id`, if it has one and
@@ -159,6 +156,19 @@ impl Database {
             )
             .optional()?;
         Ok(disposition)
+    }
+}
+
+/// Shared revision/disposition composition for callers already inside the kernel write.
+pub(crate) fn record_with_disposition(
+    transaction: &Transaction<'_>,
+    revision: &Revision,
+    disposition: Option<&Disposition>,
+) -> Result<Recorded, Error> {
+    let recorded = revision::record(transaction, revision)?;
+    match disposition {
+        Some(disposition) => record(transaction, disposition),
+        None => Ok(recorded),
     }
 }
 

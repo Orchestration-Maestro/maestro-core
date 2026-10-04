@@ -42,3 +42,6 @@ mod shape;
 pub mod suite;
 
 pub use relative_path::RelativePath;
+
+/// Shared bounded JSON decoding for strict configuration contracts.
+pub mod strict_json;

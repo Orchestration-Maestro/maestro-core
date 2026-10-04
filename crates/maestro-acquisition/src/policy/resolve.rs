@@ -1,0 +1,401 @@
+//! One strict validator for local files and immutable catalog resources.
+use super::{
+    acquisition::{AcquisitionProfile, Transport},
+    checks, decision,
+    decisions::{Decision, Decisions, Promotion, Promotions},
+    identity::{FetchIdentity, IdentityMigration},
+    resource::Resource,
+    schema::SourcePolicy,
+    source::{Discovery, Source},
+};
+use crate::{
+    ports::{
+        AdmissionStatus, CheckedPolicy, ImmutableResource, Principal, ResourceSource, read_resource,
+    },
+    refusal::Refusal,
+    transport::address::{AddressResource, AddressTable},
+};
+use maestro_knowledge::collection::PolicyReference as Ref;
+use maestro_knowledge::{
+    collection::{Declaration, Schema},
+    strict_json,
+};
+use serde::de::DeserializeOwned;
+use std::collections::{BTreeMap, BTreeSet};
+
+/// Decode a bounded strict source-policy document, then validate its local shape.
+///
+/// # Errors
+/// Duplicate/unknown keys, wrong object shapes, over-limit input or invalid fields.
+pub fn parse_policy(text: &str) -> Result<SourcePolicy, Refusal> {
+    let policy = parse_resource(text.as_bytes())?;
+    checks::policy(&policy)?;
+    Ok(policy)
+}
+
+/// Decode any of the plan's typed resources with the same defensive limits.
+///
+/// # Errors
+/// Non-object, duplicate, unknown, missing, malformed or over-limit fields refuse.
+pub fn parse_resource<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, Refusal> {
+    strict_json::parse(bytes).map_err(|_| Refusal::Invalid)
+}
+
+/// Resolve all exact references through a single validator; never start effects.
+///
+/// # Errors
+/// Import-only links, missing resources, changed digests, unreviewed evidence,
+/// unsupported capabilities, inaccessible scopes and contradictions refuse.
+pub fn validate(
+    source: &dyn ResourceSource,
+    collection: &Declaration,
+    principal: &Principal<'_>,
+) -> Result<CheckedPolicy, Refusal> {
+    if collection.schema != Schema::V2 {
+        return Err(Refusal::ImportOnly);
+    }
+    let reference = collection
+        .source_policy
+        .as_ref()
+        .ok_or(Refusal::ImportOnly)?;
+    let mut closure = Closure {
+        source,
+        principal,
+        resources: BTreeMap::new(),
+    };
+    let immutable = closure.read(reference)?;
+    let policy: SourcePolicy = parse_resource(&immutable.bytes)?;
+    closure.resource(&policy.resource, collection)?;
+    if policy.resource.id != reference.id {
+        return Err(Refusal::Invalid);
+    }
+    checks::policy(&policy)?;
+    for required in [
+        &policy.profiles,
+        &policy.retention_rule,
+        &policy.qualification,
+        &policy.adaptation.matrix,
+        &policy.adaptation.thresholds,
+        &policy.adaptation.baseline,
+    ] {
+        closure.read(required)?;
+    }
+    let address_table = read_addresses(&mut closure, &policy.address_table, collection)?;
+    let extraction = closure.read(&policy.profiles)?;
+    let profiles = read_profiles(&mut closure, &policy, collection)?;
+    let registries = read_registries(&mut closure, &policy, collection)?;
+    let mut promotions = BTreeMap::new();
+    let mut identity_migrations = BTreeMap::new();
+    for source in &policy.sources {
+        if !policy
+            .acquisition_profiles
+            .contains(&source.acquisition_profile)
+        {
+            return Err(Refusal::Digest);
+        }
+        let profile = profiles
+            .get(&source.acquisition_profile.id)
+            .ok_or(Refusal::Missing)?;
+        checks::profile(
+            profile,
+            source
+                .limits
+                .elapsed_ms
+                .get()
+                .min(policy.aggregate_limits.elapsed_ms.get()),
+        )?;
+        for reference in &source.selected_profiles {
+            if !extraction.admission.references.contains(reference) {
+                return Err(Refusal::Digest);
+            }
+            closure.read(reference)?;
+        }
+        for reference in &source.decisions {
+            if !policy.registries.contains(reference) {
+                return Err(Refusal::Missing);
+            }
+        }
+        for discovery in &source.discovery {
+            if let Discovery::Api { mapping } = discovery {
+                closure.read(mapping)?;
+            }
+        }
+        promotions.insert(
+            source.id.clone(),
+            check_promotions(&mut closure, source, collection)?,
+        );
+        if let Some(reference) = source.connector.as_ref().or(source.wiki_mapping.as_ref()) {
+            closure.read(reference)?;
+            // N43/N47 own connector/wiki execution: evidence cannot enable it.
+            return Err(Refusal::Unsupported);
+        }
+        if let Some(reference) = &source.robots.r#override {
+            closure.read(reference)?;
+        }
+        if let Some(reference) = &source.identity.migration {
+            let migration =
+                read_migration(&mut closure, reference, collection, source, &registries)?;
+            identity_migrations.insert(reference.id.clone(), migration);
+        }
+    }
+    validate_decisions(&registries, &policy)?;
+    Ok(CheckedPolicy {
+        references: closure.references(),
+        reference: reference.clone(),
+        address_table,
+        policy,
+        acquisition_profiles: profiles,
+        decisions: registries,
+        promotions,
+        identity_migrations,
+    })
+}
+
+/// Resolve reviewed deny-only address data through the same immutable closure.
+fn read_addresses(
+    closure: &mut Closure<'_>,
+    reference: &Ref,
+    collection: &Declaration,
+) -> Result<AddressTable, Refusal> {
+    let immutable = closure.read(reference)?;
+    let resource = AddressResource::parse(&immutable.bytes)?;
+    closure.resource(&resource.resource, collection)?;
+    if resource.resource.id != reference.id {
+        return Err(Refusal::Invalid);
+    }
+    resource.compile()
+}
+
+/// Migration resolution retains mappings without applying or widening them.
+fn read_migration(
+    closure: &mut Closure<'_>,
+    reference: &Ref,
+    collection: &Declaration,
+    source: &Source,
+    registries: &[Decisions],
+) -> Result<IdentityMigration, Refusal> {
+    let immutable = closure.read(reference)?;
+    let migration: IdentityMigration = parse_resource(&immutable.bytes)?;
+    closure.resource(&migration.resource, collection)?;
+    if migration.resource.id != reference.id {
+        return Err(Refusal::Invalid);
+    }
+    migration.validate(source)?;
+    for entry in &migration.entries {
+        let identity = FetchIdentity::parse(source, &entry.new)?;
+        decision::check_target(source, &identity, registries)?;
+    }
+    Ok(migration)
+}
+
+/// One request's immutable closure; each logical ID resolves at most once.
+struct Closure<'a> {
+    /// Injected read-only source, never a connector host.
+    source: &'a dyn ResourceSource,
+    /// Current principal and platform supplied outside configuration.
+    principal: &'a Principal<'a>,
+    /// Cached exact references, refusing a second digest under the same ID.
+    resources: BTreeMap<String, ImmutableResource>,
+}
+impl Closure<'_> {
+    /// The verified cache owns one resource per ID; `BTreeMap` fixes the order.
+    fn references(&self) -> Vec<Ref> {
+        self.resources
+            .values()
+            .map(|resource| resource.reference.clone())
+            .collect()
+    }
+    /// Read and validate the exact immutable bytes and external admission summary.
+    fn read(&mut self, reference: &Ref) -> Result<ImmutableResource, Refusal> {
+        read_resource(
+            self.source,
+            self.principal,
+            &mut self.resources,
+            reference,
+            &|resource| {
+                if resource.admission.status != AdmissionStatus::Reviewed
+                    || resource.admission.platform != self.principal.platform
+                {
+                    return Err(Refusal::Unqualified);
+                }
+                Ok(())
+            },
+        )
+    }
+    /// Common typed resource fields and owner evidence.
+    fn resource<S>(
+        &mut self,
+        resource: &Resource<S>,
+        collection: &Declaration,
+    ) -> Result<(), Refusal> {
+        checks::resource(resource, collection, self.principal)?;
+        self.read(&resource.owner_ref)?;
+        Ok(())
+    }
+}
+
+/// Read every required exclusion registry, including immutable evidence closure.
+fn read_registries(
+    closure: &mut Closure<'_>,
+    policy: &SourcePolicy,
+    collection: &Declaration,
+) -> Result<Vec<Decisions>, Refusal> {
+    let mut registries = Vec::new();
+    let mut ids = BTreeSet::new();
+    for reference in &policy.registries {
+        let immutable = closure.read(reference)?;
+        let registry: Decisions = parse_resource(&immutable.bytes)?;
+        closure.resource(&registry.resource, collection)?;
+        if registry.resource.id != reference.id {
+            return Err(Refusal::Invalid);
+        }
+        closure.read(&registry.qualification)?;
+        for decision in &registry.entries {
+            if !ids.insert(decision.id.clone()) || decision.evidence.is_empty() {
+                return Err(Refusal::Invalid);
+            }
+            closure.read(&decision.authority)?;
+            for evidence in &decision.evidence {
+                closure.read(evidence)?;
+            }
+            if let Some(reference) = &decision.reversal {
+                closure.read(reference)?;
+            }
+        }
+        registries.push(registry);
+    }
+    Ok(registries)
+}
+
+/// Contradictory dispositions never acquire implicit ordering or precedence.
+fn validate_decisions(registries: &[Decisions], policy: &SourcePolicy) -> Result<(), Refusal> {
+    let mut entries = Vec::new();
+    for registry in registries {
+        for decision in &registry.entries {
+            let source = policy
+                .sources
+                .iter()
+                .find(|source| source.id == decision.selector.source_id)
+                .ok_or(Refusal::Invalid)?;
+            checks::selector(&decision.selector, source)?;
+            check_conflicts(&entries, decision)?;
+            entries.push(decision);
+        }
+    }
+    Ok(())
+}
+
+/// Resolve installed profile members without choosing a default transport.
+fn read_profiles(
+    closure: &mut Closure<'_>,
+    policy: &SourcePolicy,
+    collection: &Declaration,
+) -> Result<BTreeMap<String, AcquisitionProfile>, Refusal> {
+    let mut profiles = BTreeMap::new();
+    for reference in &policy.acquisition_profiles {
+        let immutable = closure.read(reference)?;
+        let profile: AcquisitionProfile = parse_resource(&immutable.bytes)?;
+        closure.resource(&profile.resource, collection)?;
+        if profile.resource.id != reference.id {
+            return Err(Refusal::Invalid);
+        }
+        checks::profile(&profile, policy.aggregate_limits.elapsed_ms.get())?;
+        let adapter = closure.read(&profile.adapter)?;
+        closure.read(&profile.qualification)?;
+        let transport = match profile.transport {
+            Transport::Http => "http",
+            Transport::BrowserRequest => "browser_request",
+            Transport::BrowserRender => "browser_render",
+        };
+        if !adapter
+            .admission
+            .capabilities
+            .iter()
+            .any(|capability| capability == transport)
+            || !profile
+                .required_capabilities
+                .iter()
+                .all(|capability| adapter.admission.capabilities.contains(capability))
+        {
+            return Err(Refusal::Unsupported);
+        }
+        profiles.insert(reference.id.clone(), profile);
+    }
+    Ok(profiles)
+}
+
+/// Promotions retain their own evidence and never override fetch denial.
+fn check_promotions(
+    closure: &mut Closure<'_>,
+    source: &Source,
+    collection: &Declaration,
+) -> Result<Vec<Promotion>, Refusal> {
+    let mut entries = Vec::new();
+    for reference in &source.promotions {
+        let immutable = closure.read(reference)?;
+        let promotions: Promotions = parse_resource(&immutable.bytes)?;
+        closure.resource(&promotions.resource, collection)?;
+        if promotions.resource.id != reference.id {
+            return Err(Refusal::Invalid);
+        }
+        closure.read(&promotions.qualification)?;
+        checks::unique(promotions.entries.iter().map(|entry| entry.id.as_str()))?;
+        for entry in &promotions.entries {
+            checks::selector(&entry.selector, source)?;
+            if entry.evidence.is_empty() {
+                return Err(Refusal::Invalid);
+            }
+            closure.read(&entry.authority)?;
+            for evidence in &entry.evidence {
+                closure.read(evidence)?;
+            }
+            if let Some(reference) = &entry.reversal {
+                closure.read(reference)?;
+            }
+        }
+        entries.extend(promotions.entries);
+    }
+    checks::unique(entries.iter().map(|entry| entry.id.as_str()))?;
+    Ok(entries)
+}
+
+/// Refuse incompatible dispositions over the same declarative selector.
+pub(crate) fn check_conflicts(entries: &[&Decision], decision: &Decision) -> Result<(), Refusal> {
+    // ponytail: quadratic comparisons under the 20,000-item parser ceiling;
+    // index by source/selector if reviewed registries grow enough to need it.
+    for previous in entries {
+        if checks::overlap(&previous.selector, &decision.selector)
+            && previous.action != decision.action
+        {
+            return Err(Refusal::Invalid);
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Closure;
+    use crate::{DirectFiles, Principal};
+    use maestro_kernel::store::Database;
+    use maestro_test_scratch::scratch_directory;
+    use std::{collections::BTreeMap, env};
+    #[test]
+    fn n57_empty_closure_cache_has_no_reference_members() {
+        let root = scratch_directory().unwrap();
+        let database = Database::open_in(&root).unwrap();
+        let scopes = database.visible("synthetic-reader").unwrap();
+        let principal = Principal {
+            id: "synthetic-reader",
+            platform: env::consts::OS,
+            scopes: &scopes,
+        };
+        let source = DirectFiles::new(BTreeMap::new());
+        let closure = Closure {
+            source: &source,
+            principal: &principal,
+            resources: BTreeMap::new(),
+        };
+        assert!(closure.references().is_empty());
+    }
+}

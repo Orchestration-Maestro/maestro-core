@@ -150,7 +150,7 @@ fn sources_with_distinct_ids_parse_in_their_order() {
 #[test]
 fn a_value_the_contract_does_not_name_is_refused() {
     for (pointer, value) in [
-        ("/schema", "maestro-collection/2"),
+        ("/schema", "maestro-collection/3"),
         ("/schema", "maestro-corpus/1"),
         ("/visibility", "internal"),
         ("/sources/0/kind", "crawl"),

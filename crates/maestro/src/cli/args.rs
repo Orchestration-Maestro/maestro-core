@@ -1,6 +1,7 @@
 //! The command line's grammar, noun then verb (plan D12), as clap derives it
 //! from these types, whose comments are the help it prints.
 
+use crate::acquisition::{authority::AuthorityCommand, cli::Acquire};
 use clap::{Args, Parser, Subcommand};
 use maestro_kernel::evidence::RequestBudget;
 use std::path::PathBuf;
@@ -27,6 +28,9 @@ pub(super) struct Arguments {
 /// What a command works on, or the machine it sets up and checks.
 #[derive(Debug, Subcommand)]
 pub(super) enum Noun {
+    /// Owner-only local acquisition grants and identity-separation setup.
+    #[command(subcommand)]
+    Authority(AuthorityCommand),
     /// Collections, their imports and their status.
     #[command(subcommand)]
     Knowledge(KnowledgeCommand),
@@ -160,6 +164,9 @@ const _: () = assert!(RequestBudget::MAX_EVIDENCE_BUDGET == 24_000);
     reason = "the public search-budget flag uses the shared maestro-evidence name k"
 )]
 pub(super) enum KnowledgeCommand {
+    /// Preview, manually capture and inspect public acquisition.
+    #[command(subcommand)]
+    Acquire(Acquire),
     /// Collections and their declarations.
     #[command(subcommand)]
     Collection(CollectionCommand),

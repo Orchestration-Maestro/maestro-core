@@ -4,6 +4,7 @@
 use super::support::{ABC, EMPTY, Scratch, pins, stored};
 use crate::{
     artifact::Digest,
+    scope::Right,
     store::{
         Database, Error,
         database::{configured, link_into_place, link_new_file},
@@ -124,7 +125,7 @@ fn a_reader_sees_only_commits_and_cannot_write() {
                 [ABC],
             )?;
             assert_eq!(
-                count(&database.reader()?),
+                count(&*database.reader()?),
                 0,
                 "a write in progress is not seen"
             );
@@ -135,6 +136,17 @@ fn a_reader_sees_only_commits_and_cannot_write() {
     assert_eq!(count(&reader), 1);
     assert!(reader.execute("DELETE FROM artifacts", []).is_err());
     assert_eq!(count(&reader), 1, "a reader cannot write");
+    database
+        .put(b"later committed synthetic artifact", "text/plain")
+        .unwrap();
+    assert_eq!(
+        count(&reader),
+        2,
+        "same read unit retained a stale snapshot after a write"
+    );
+    drop(reader);
+    assert_eq!(count(&database.reader().unwrap()), 2);
+    assert_eq!(database.reader_opens(), 1);
 }
 
 #[test]
@@ -297,4 +309,21 @@ fn a_file_that_is_not_a_database_is_refused_by_sqlite() {
         reason.is_some_and(|reason| reason.contains("not a database")),
         "{error:?}"
     );
+}
+
+#[test]
+fn n14_read_only_open_refuses_writes_and_never_creates_storage() {
+    let scratch = Scratch::new();
+    assert!(Database::open_read_only(&scratch.0).is_err());
+    assert!(!scratch.database().exists());
+    drop(scratch.open());
+    let database = Database::open_read_only(&scratch.0).unwrap();
+    assert!(database.quick_check().unwrap().is_empty());
+    let scope = "workspace/default/collection/garden".parse().unwrap();
+    assert!(
+        database
+            .grant("reader", &scope, Right::Read, "owner")
+            .is_err()
+    );
+    assert!(database.visible("reader").unwrap().is_empty());
 }

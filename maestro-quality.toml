@@ -60,6 +60,12 @@ path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
 item = "open_nofollow"
 reason = "the artifact check's link-free open, one function on each platform"
 
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/job/mod.rs"
+item = "NewJob"
+reason = "the public job submission contract serves higher-level crates; acquisition is its sole in-crate caller"
+
 # The journal's filter, which jobs alone use outside the journal for now, to
 # read a job's last step: the lane that adds a second reader of a stream, the
 # binary's job wait (T022) among them, removes it when the rule reports it
@@ -117,14 +123,6 @@ rule = "ARC-005"
 path = "crates/maestro-kernel/src/scope/mod.rs"
 item = "InvalidName"
 reason = "the scope module owns the public name rule: maestro-knowledge's parser and the kernel's record writers apply it"
-
-# The scope module writes each source path in one place; kernel hold events
-# and maestro-knowledge's import build it too, which the rule does not count.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-kernel/src/scope/mod.rs"
-item = "source_path"
-reason = "the scope module writes every source's scope path: the kernel's hold events and maestro-knowledge's import build it"
 
 # Search reads reuse the generation and chunk records as their public pinned
 # identifiers; creating parallel projection-specific record types would split
@@ -247,6 +245,9 @@ path = "crates/maestro-knowledge/src/lexical/mod.rs"
 item = "Passage"
 reason = "the analyzer's public passage weights: the index weighs a generation's passages through them, and the analyzer's contract tests call them from outside the crate's sources"
 
+# N17 (ADR-0020): landlock 0.4.7, seccompiler 0.5.0 and nix 0.31.3 add six
+# single-version packages, with no native links or new DEP-001 duplicate family.
+# No dependency exception is needed for this measured containment closure.
 # The second versions qdrant-client 1.19 forces (ADR-0020), each removed when
 # the crates that hold it move to the version maestro-core uses: syn 2 for the
 # procedural macros of its gRPC stack, base64 0.22 for tonic, and getrandom 0.2
@@ -296,6 +297,15 @@ reason = "the MCP module owns bounded transport and server startup; the CLI disp
 # schedul, stems its golden test pins; flate, of flate2, the compression crate
 # qdrant-client's tonic brings, which supply-chain/config.toml exempts; nd,
 # the ordinal ending of 2nd that the intent guard reads as a quantity.
+# N11 resources is the shared reservation subsystem, not a capture-only ledger.
+# N40 depends on N11 and measures aggregate publication budgets; its caller is
+# the next in-crate consumer. Remove when that caller lands.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-acquisition/src/lifecycle/mod.rs"
+item = "resources"
+reason = "N11's public resource subsystem is shared by capture and N40 publication"
+
 [typos]
 words = [
   "Exemple",
@@ -339,3 +349,40 @@ rule = "TST-001"
 path = "crates/maestro-test-clock/src/stopped.rs"
 item = "work_is_constructed_on_the_stopped_clock"
 reason = "proves paused Tokio time ignores real time; the assertion is equality on paused time, so it is deterministic whatever the sleep length; 20 ms"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-acquisition/src/extraction/mod.rs"
+item = "registry"
+reason = "the existing public resolve/select port stays extraction-owned; N57 is its first production consumer"
+
+# dom_query uses foldhash 0.2; the older analyzer's hashbrown still requires 0.1.
+[[exception]]
+rule = "DEP-001"
+path = "foldhash@0.1.5"
+reason = "dom_query 0.28.0 brings foldhash 0.2, while whatlang 0.18.0's hashbrown 0.15.5 requires 0.1.5 (ADR-0020); remove when whatlang's hashbrown moves to foldhash 0.2"
+
+# Public S1 types have cross-crate consumers that ARC-005 does not count.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/document/mod.rs"
+item = "Disposition"
+reason = "an S1 public contract used across crates by maestro-knowledge; ARC-005 sees only in-crate uses, a known rust-gate limitation in post-m1-queue"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/document/mod.rs"
+item = "record_with_disposition"
+reason = "document owns the single S1 revision-plus-disposition composition; acquisition's link write reuses it so it cannot drift, and moving it to its one external caller would reverse the dependency"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/document/mod.rs"
+item = "Document"
+reason = "document owns the S1 identity contract consumed across crates; acquisition borrows it to register the document atomically, without reversing the dependency"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/document/mod.rs"
+item = "record_document_on"
+reason = "document owns idempotent identity registration; acquisition reuses it in the mapped revision write so refusal rolls back the document without a document-to-acquisition dependency"

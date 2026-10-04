@@ -58,6 +58,26 @@ pub(super) const MIGRATIONS: &[(&str, &str)] = &[
         "0018_retrieval_representations",
         include_str!("../../migrations/0018_retrieval_representations.sql"),
     ),
+    (
+        "0019_acquisition_frontier",
+        include_str!("../../migrations/0019_acquisition_frontier.sql"),
+    ),
+    (
+        "0020_acquisition_receipts",
+        include_str!("../../migrations/0020_acquisition_receipts.sql"),
+    ),
+    (
+        "0021_acquisition_captures",
+        include_str!("../../migrations/0021_acquisition_captures.sql"),
+    ),
+    (
+        "0022_acquisition_partitions",
+        include_str!("../../migrations/0022_acquisition_partitions.sql"),
+    ),
+    (
+        "0023_acquisition_revision_links",
+        include_str!("../../migrations/0023_acquisition_revision_links.sql"),
+    ),
 ];
 
 /// Applies to `connection` each of `migrations` it does not record yet, in

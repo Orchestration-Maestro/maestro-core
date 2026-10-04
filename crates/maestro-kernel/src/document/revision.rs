@@ -101,7 +101,7 @@ impl Database {
     ///
     /// [`Error::Store`] when the database cannot be read.
     pub fn revision(&self, scopes: &ScopeSet, id: &str) -> Result<Option<Revision>, Error> {
-        Ok(find(&self.reader()?, Some(scopes), id)?)
+        Ok(find(&*self.reader()?, Some(scopes), id)?)
     }
 
     /// Every revision of the collection `collection_id`, failed ones
@@ -117,7 +117,7 @@ impl Database {
         collection_id: &str,
     ) -> Result<Vec<Revision>, Error> {
         Ok(of_collection(
-            &self.reader()?,
+            &*self.reader()?,
             scopes,
             collection_id,
             Failed::Included,
@@ -137,7 +137,7 @@ impl Database {
         collection_id: &str,
     ) -> Result<Vec<Revision>, Error> {
         Ok(of_collection(
-            &self.reader()?,
+            &*self.reader()?,
             scopes,
             collection_id,
             Failed::Excluded,

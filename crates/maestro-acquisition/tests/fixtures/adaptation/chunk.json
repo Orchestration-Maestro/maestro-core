@@ -1,0 +1,11 @@
+{"schema":"maestro-s1-chunk-strategy/1","id":"chunk",
+"version":1,"collection_id":"garden","visibility":"public",
+"scope_tags":["workspace/default/collection/garden"],
+"owner_ref":{"id":"owner","digest":"0000000000000000000000000000000000000000000000000000000000000000"},
+"chunker_version":"mapped-structural-chunks/2",
+"preparation_profile":"canonical-context-parts/v1",
+"target_tokens":500,"hard_max_tokens":700,"model":{"id":"model",
+"digest":"9372c470eeadd5ecd9c3c74c2b3cb633f8e2f2fad799250a0f70d652b6b825e4"},
+"tokenizer_qualification":{"id":"tokenizer","digest":"5f97e3774c51edd1d63706c2ec3826c564a067794770cdab0f8c4797971cacf9"},
+"model_limits":{"context_tokens":4096,"output_tokens":null},
+"qualification":{"id":"qualification","digest":"1dbf39600b5761d58378447f494a50c8b9c01b559b6ef420720f99f4e45717c9"}}

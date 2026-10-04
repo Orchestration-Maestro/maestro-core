@@ -1,0 +1,515 @@
+//! RFC 9309 rules over N07's canonical fetch identity, without network effects.
+//!
+//! Maestro parses 2xx; 404/410 mean absent rules. Every other status, unreadable,
+//! invalid or oversized body denies. N09 admits redirects hop by hop. Cache TTL
+//! is policy-bound and capped at 24 hours; failures remain denied until refreshed
+//! by an admitted, paced request. No stale-on-error or automatic override exists.
+use crate::{
+    CheckedPolicy, Ref, Refusal,
+    policy::{identity::FetchIdentity, source::Robots},
+};
+use maestro_kernel::artifact::Digest;
+use std::{
+    fmt::{Debug, Write as _},
+    mem::take,
+    str::from_utf8,
+};
+
+/// Replaceable parser result: rules cannot dispatch or grant overrides.
+pub trait RobotsRules: Debug + Send + Sync {
+    /// Match a product token and canonical path plus meaningful query octets.
+    fn allowed(&self, agent: &str, identity: &FetchIdentity) -> bool;
+}
+/// Separately authenticated current override decision, never manifest authority.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OverrideDecision {
+    /// `OA4b` receipt for the exact requested source/origin/ref, currently valid.
+    Granted(Ref),
+    /// No current authority, including revoked or missing grants.
+    Denied,
+    /// Previously granted authority has expired.
+    Expired,
+}
+/// Exact read-only authority request; caller identity belongs to the adapter.
+#[derive(Debug)]
+pub struct OverrideRequest<'a> {
+    /// Exact source namespace, not inferred from a robots rule.
+    pub source_id: &'a str,
+    /// Exact canonical HTTPS origin, including nondefault port.
+    pub origin: &'a str,
+    /// Policy-pinned receipt; the adapter verifies owner/operator approval,
+    /// source/origin binding, revocation and `OA4b`'s at-most-24-hour expiry.
+    pub receipt: &'a Ref,
+    /// Current host time, in the adapter's agreed monotonic clock domain.
+    pub now_ms: u64,
+}
+/// Read-only consumer port; N05 binds owner-authenticated authority later.
+pub trait RobotsOverride: Debug {
+    /// Recheck current authority on every request, including resume/retry.
+    fn decide(&self, request: &OverrideRequest<'_>) -> OverrideDecision;
+}
+/// The only supplied adapter: no live overrides are granted by N10.
+#[derive(Debug)]
+pub struct DenyOverrides;
+impl RobotsOverride for DenyOverrides {
+    fn decide(&self, _request: &OverrideRequest<'_>) -> OverrideDecision {
+        OverrideDecision::Denied
+    }
+}
+/// A parsed RFC group, retaining equal-agent groups for merging at evaluation.
+#[derive(Debug, Default)]
+struct Group {
+    /// Case-insensitive product tokens, or the fallback wildcard.
+    agents: Vec<String>,
+    /// Nonempty path rules; empty Allow/Disallow never match.
+    rules: Vec<Rule>,
+    /// Even an empty directive ends the user-agent header section.
+    has_directive: bool,
+}
+/// One normalized path rule; longest match wins, Allow wins equal lengths.
+#[derive(Debug)]
+struct Rule {
+    /// Percent-normalized UTF-8 octets, with wildcard syntax preserved.
+    pattern: String,
+    /// Whether an equally specific match permits the request.
+    allow: bool,
+}
+/// Bounded dependency-free parser; no regex or recursive/backtracking matcher.
+#[derive(Debug)]
+pub struct Rfc9309 {
+    /// Groups in file order; matching groups are merged, not first-picked.
+    groups: Vec<Group>,
+}
+impl Rfc9309 {
+    /// Parse at most 500 KiB and the stricter policy byte ceiling.
+    /// Unknown records/comments are ignored; malformed recognized rules refuse.
+    ///
+    /// # Errors
+    /// Oversized, invalid UTF-8, product tokens or path escapes refuse.
+    pub fn parse(bytes: &[u8], max_bytes: u64) -> Result<Self, Refusal> {
+        if bytes.len() as u64 > max_bytes.min(512_000) {
+            return Err(Refusal::Invalid);
+        }
+        let text = from_utf8(bytes).map_err(|_| Refusal::Invalid)?;
+        let mut groups = Vec::new();
+        let mut group = Group::default();
+        for line in text.trim_start_matches('\u{feff}').split(['\r', '\n']) {
+            parse_line(line, &mut group, &mut groups)?;
+        }
+        groups.push(group);
+        Ok(Self { groups })
+    }
+}
+/// Consume one record; unknown extensions do not terminate a group.
+fn parse_line(line: &str, group: &mut Group, groups: &mut Vec<Group>) -> Result<(), Refusal> {
+    let line = line
+        .split('#')
+        .next()
+        .unwrap_or_default()
+        .trim_matches([' ', '\t']);
+    let Some((key, value)) = line.split_once(':') else {
+        return Ok(());
+    };
+    let value = value.trim_matches([' ', '\t']);
+    let key = key.trim_matches([' ', '\t']);
+    if key.eq_ignore_ascii_case("user-agent") {
+        if group.has_directive {
+            groups.push(take(group));
+        }
+        if value != "*" && !product_token(value) {
+            return Err(Refusal::Invalid);
+        }
+        group.agents.push(value.to_ascii_lowercase());
+        return Ok(());
+    }
+    if group.agents.is_empty() {
+        return Ok(());
+    }
+    let allow = key.eq_ignore_ascii_case("allow");
+    if !allow && !key.eq_ignore_ascii_case("disallow") {
+        return Ok(());
+    }
+    group.has_directive = true;
+    if value.is_empty() {
+        return Ok(());
+    }
+    if !value.starts_with('/') {
+        return Err(Refusal::Invalid);
+    }
+    group.rules.push(Rule {
+        pattern: normalize_pattern(value)?,
+        allow,
+    });
+    Ok(())
+}
+impl RobotsRules for Rfc9309 {
+    fn allowed(&self, agent: &str, identity: &FetchIdentity) -> bool {
+        if !product_token(agent) {
+            return false;
+        }
+        if identity.url().path() == "/robots.txt" {
+            return true;
+        }
+        let agent = agent.to_ascii_lowercase();
+        let specific = self
+            .groups
+            .iter()
+            .any(|group| group.agents.contains(&agent));
+        let selected = if specific { agent.as_str() } else { "*" };
+        let url = identity.url();
+        let mut path = url.path().to_owned();
+        if let Some(query) = url.query() {
+            path.push('?');
+            path.push_str(query);
+        }
+        let Ok(path) = normalize(&path) else {
+            return false;
+        };
+        self.groups
+            .iter()
+            .filter(|group| group.agents.iter().any(|agent| agent == selected))
+            .flat_map(|group| &group.rules)
+            .filter(|rule| wildcard_match(&rule.pattern, &path))
+            .max_by_key(|rule| (rule.pattern.len(), rule.allow))
+            .is_none_or(|rule| rule.allow)
+    }
+}
+/// RFC product tokens consist of letters, underscores and hyphens.
+fn product_token(token: &str) -> bool {
+    !token.is_empty()
+        && token
+            .bytes()
+            .all(|byte| byte.is_ascii_alphabetic() || byte == b'_' || byte == b'-')
+}
+/// Preserve raw rule stars and a final anchor separately from literal octets.
+fn normalize_pattern(text: &str) -> Result<String, Refusal> {
+    let (text, anchored) = text
+        .strip_suffix('$')
+        .map_or((text, false), |text| (text, true));
+    let segments = text
+        .split('*')
+        .map(normalize)
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut pattern = segments.join("*");
+    if anchored {
+        pattern.push('$');
+    }
+    Ok(pattern)
+}
+/// Normalize literal RFC octets: decode unreserved escapes, uppercase other
+/// escapes, encode non-ASCII UTF-8 and verbatim stars/dollars. No rule syntax.
+fn normalize(text: &str) -> Result<String, Refusal> {
+    let mut result = String::new();
+    let mut bytes = text.bytes();
+    while let Some(byte) = bytes.next() {
+        if byte == b'%' {
+            let high = bytes
+                .next()
+                .and_then(|byte| char::from(byte).to_digit(16))
+                .ok_or(Refusal::Invalid)?;
+            let low = bytes
+                .next()
+                .and_then(|byte| char::from(byte).to_digit(16))
+                .ok_or(Refusal::Invalid)?;
+            let decoded = u8::try_from(high * 16 + low).map_err(|_| Refusal::Invalid)?;
+            if decoded.is_ascii_alphanumeric() || b"-._~".contains(&decoded) {
+                result.push(char::from(decoded));
+            } else {
+                push_escape(&mut result, decoded);
+            }
+        } else if !byte.is_ascii() || byte == b'*' || byte == b'$' {
+            push_escape(&mut result, byte);
+        } else if byte.is_ascii_control() {
+            return Err(Refusal::Invalid);
+        } else {
+            result.push(char::from(byte));
+        }
+    }
+    Ok(result)
+}
+/// One byte to uppercase percent encoding, without formatting allocations.
+fn push_escape(result: &mut String, byte: u8) {
+    write!(result, "%{byte:02X}").unwrap_or_default();
+}
+/// Consume literal segments only forwards. An anchored final segment is fixed
+/// at the suffix first, so ambiguous stars never cause backtracking.
+fn wildcard_match(pattern: &str, path: &str) -> bool {
+    let (pattern, anchored) = pattern
+        .strip_suffix('$')
+        .map_or((pattern, false), |pattern| (pattern, true));
+    let mut segments = pattern.split('*');
+    let Some(first) = segments.next() else {
+        return true;
+    };
+    let Some(mut rest) = path.strip_prefix(first) else {
+        return false;
+    };
+    let mut remaining = segments.peekable();
+    if remaining.peek().is_none() {
+        return !anchored || rest.is_empty();
+    }
+    while let Some(segment) = remaining.next() {
+        if anchored && remaining.peek().is_none() {
+            return rest.ends_with(segment);
+        }
+        let Some(position) = rest.find(segment) else {
+            return false;
+        };
+        let Some(suffix) = rest.get(position + segment.len()..) else {
+            return false;
+        };
+        rest = suffix;
+    }
+    true
+}
+/// Unforgeable checked-policy/source pairing for constructing and checking rules.
+#[derive(Debug, Clone, Copy)]
+pub struct RobotsBinding<'a> {
+    /// Source robots settings borrowed only from the immutable checked policy.
+    policy: &'a Robots,
+    /// Original checked-policy digest, never supplied independently by a caller.
+    digest: &'a Digest,
+}
+impl<'a> RobotsBinding<'a> {
+    /// Select a declared source from an already checked immutable policy.
+    ///
+    /// # Errors
+    /// An undeclared source refuses; arbitrary settings cannot be paired to a digest.
+    pub fn new(checked: &'a CheckedPolicy, source_id: &str) -> Result<Self, Refusal> {
+        let source = checked
+            .policy()
+            .sources
+            .iter()
+            .find(|source| source.id == source_id)
+            .ok_or(Refusal::Access)?;
+        Ok(Self {
+            policy: &source.robots,
+            digest: &checked.reference().digest,
+        })
+    }
+}
+/// Origin/agent/digest-bound entry supplied only after N09's admitted fetch.
+/// Callers retain entries under that tuple; different digests can coexist.
+#[derive(Debug)]
+pub struct RobotsCache {
+    /// Canonical origin; a redirected response still belongs to the first origin.
+    origin: String,
+    /// Exact configured agent prevents stale reuse after an identity change.
+    agent: String,
+    /// Checked policy used for this entry; any digest change requires a refetch.
+    digest: Digest,
+    /// Trusted host observation time, not remote content time.
+    fetched_ms: u64,
+    /// Original policy TTL; later policies may only tighten this cached entry.
+    ttl_ms: u64,
+    /// Size checked again if policy tightens while the entry is cached.
+    bytes: u64,
+    /// None is an unreadable/invalid response, never absence of rules.
+    rules: Option<Box<dyn RobotsRules>>,
+}
+impl RobotsCache {
+    /// Exact store key; freshness and denial remain enforced by `check`.
+    pub(crate) fn matches(&self, identity: &FetchIdentity, binding: RobotsBinding<'_>) -> bool {
+        self.origin == identity.url().origin().ascii_serialization()
+            && self.agent == binding.policy.agent
+            && self.digest == *binding.digest
+    }
+    /// Replace only the same tuple; another policy digest must coexist.
+    pub(crate) fn same_key(&self, other: &Self) -> bool {
+        self.origin == other.origin && self.agent == other.agent && self.digest == other.digest
+    }
+
+    /// Retain an admitted final HTTP response. 404/410 mean no rules; every other
+    /// non-2xx response denies. Any supplied body over the effective cap denies.
+    ///
+    /// N09 must bound streaming reads before allocation to the stricter policy
+    /// cap or 500 KiB, discard 404/410 bodies unread, and admit every redirect
+    /// hop through URL and network controls. Follow at least five consecutive
+    /// redirects per RFC 9309 section 2.3.1.2; exhausted limits fail closed.
+    /// Pass the initial fetch identity: redirected rules bind to its origin.
+    /// This entry neither performs HTTP nor bypasses caller or pacing controls.
+    #[must_use]
+    pub fn response(
+        identity: &FetchIdentity,
+        binding: RobotsBinding<'_>,
+        status: u16,
+        body: &[u8],
+        now_ms: u64,
+    ) -> Self {
+        let policy = binding.policy;
+        if body.len() as u64 > policy.rules_max_bytes.get().min(512_000) {
+            return Self::unreadable(identity, binding, now_ms);
+        }
+        let rules = match status {
+            200..=299 => Rfc9309::parse(body, policy.rules_max_bytes.get()).ok(),
+            404 | 410 => Rfc9309::parse(b"", policy.rules_max_bytes.get()).ok(),
+            _ => None,
+        };
+        Self {
+            rules: rules.map(|rules| Box::new(rules) as Box<dyn RobotsRules>),
+            bytes: if status == 404 || status == 410 {
+                0
+            } else {
+                body.len() as u64
+            },
+            ..Self::unreadable(identity, binding, now_ms)
+        }
+    }
+    /// Substitute parsed rules from an admitted response under the same cache
+    /// gate. The adapter owns parsing; the caller supplies its actual input size.
+    /// This creates no authority and does not weaken origin/agent/TTL checks.
+    #[must_use]
+    pub fn parsed(
+        identity: &FetchIdentity,
+        binding: RobotsBinding<'_>,
+        rules: Box<dyn RobotsRules>,
+        bytes: u64,
+        now_ms: u64,
+    ) -> Self {
+        Self {
+            rules: if bytes <= binding.policy.rules_max_bytes.get().min(512_000) {
+                Some(rules)
+            } else {
+                None
+            },
+            bytes,
+            ..Self::unreadable(identity, binding, now_ms)
+        }
+    }
+    /// Missing, timeout or network-error evidence is always fail-closed.
+    #[must_use]
+    pub fn unreadable(identity: &FetchIdentity, binding: RobotsBinding<'_>, now_ms: u64) -> Self {
+        let policy = binding.policy;
+        Self {
+            origin: identity.url().origin().ascii_serialization(),
+            agent: policy.agent.clone(),
+            digest: binding.digest.clone(),
+            fetched_ms: now_ms,
+            ttl_ms: policy.cache_ttl_ms.get().min(86_400_000),
+            bytes: 0,
+            rules: None,
+        }
+    }
+    /// Enforce current source policy before every request. Overrides need the
+    /// exact current `OA4b` receipt, including expiry/revocation checks by the port.
+    ///
+    /// # Errors
+    /// Wrong origin/agent/digest, stale evidence, missing/expired override or denial.
+    pub fn check(
+        &self,
+        identity: &FetchIdentity,
+        binding: RobotsBinding<'_>,
+        now_ms: u64,
+        authority: &dyn RobotsOverride,
+    ) -> Result<(), Refusal> {
+        let policy = binding.policy;
+        let origin = identity.url().origin().ascii_serialization();
+        if self.origin != origin || self.agent != policy.agent || self.digest != *binding.digest {
+            return Err(Refusal::Access);
+        }
+        if identity.url().path() == "/robots.txt" {
+            return Ok(());
+        }
+        if let Some(receipt) = &policy.r#override {
+            let request = OverrideRequest {
+                source_id: identity.source_id(),
+                origin: &origin,
+                receipt,
+                now_ms,
+            };
+            return match authority.decide(&request) {
+                OverrideDecision::Granted(current) if current == *receipt => Ok(()),
+                _ => Err(Refusal::Access),
+            };
+        }
+        let age = now_ms.checked_sub(self.fetched_ms).ok_or(Refusal::Access)?;
+        if age >= self.ttl_ms.min(policy.cache_ttl_ms.get())
+            || self.bytes > policy.rules_max_bytes.get()
+        {
+            return Err(Refusal::Access);
+        }
+        if self
+            .rules
+            .as_ref()
+            .is_some_and(|rules| rules.allowed(&policy.agent, identity))
+        {
+            Ok(())
+        } else {
+            Err(Refusal::Access)
+        }
+    }
+}
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::{product_token, wildcard_match};
+    #[test]
+    fn s6t_robots_tokens_and_multiple_wildcards() {
+        for token in ["Maestro", "My_Bot", "My-Bot"] {
+            assert!(product_token(token));
+        }
+        assert!(!product_token("My1Bot"));
+        assert!(wildcard_match("/a*b*c", "/axybzc"));
+        assert!(!wildcard_match("/a*b*c", "/axby"));
+        assert!(!wildcard_match("/a*bc*cb", "/axbcb"));
+    }
+}
+
+#[cfg(test)]
+mod cache_mutation_tests {
+    use super::{DenyOverrides, Refusal, Rfc9309, RobotsBinding, RobotsCache};
+    use crate::{
+        policy::{identity::FetchIdentity, schema::SourcePolicy},
+        transport::robots_store::RobotsStore,
+    };
+    use maestro_kernel::artifact::Digest;
+    #[test]
+    fn s6t_robots_cache_byte_boundaries_and_absent_bodies() {
+        let policy: SourcePolicy =
+            serde_json::from_slice(include_bytes!("../../tests/fixtures/policy.json")).unwrap();
+        let source = policy.sources.first().unwrap();
+        let target = FetchIdentity::parse(source, "https://garden.example/docs/page").unwrap();
+        let digest = Digest::of(b"synthetic");
+        let body = b"User-agent: *\nAllow: /\n";
+        let mut robots = source.robots.clone();
+        robots.rules_max_bytes = (body.len() as u64).try_into().unwrap();
+        let bound = RobotsBinding {
+            policy: &robots,
+            digest: &digest,
+        };
+        let mut tighter = robots.clone();
+        tighter.rules_max_bytes = (body.len() as u64 - 1).try_into().unwrap();
+        let tight = RobotsBinding {
+            policy: &tighter,
+            digest: &digest,
+        };
+        let mut store = RobotsStore::new(2.try_into().unwrap());
+        assert!(store.is_empty());
+        for status in [200, 404, 410] {
+            let cache = RobotsCache::response(&target, bound, status, body, 0);
+            assert_eq!(cache.check(&target, bound, 0, &DenyOverrides), Ok(()));
+            assert_eq!(
+                cache.check(&target, tight, 0, &DenyOverrides),
+                if status == 200 {
+                    Err(Refusal::Access)
+                } else {
+                    Ok(())
+                }
+            );
+            store.insert(cache);
+            assert!(!store.is_empty());
+        }
+        let parsed = RobotsCache::parsed(
+            &target,
+            bound,
+            Box::new(Rfc9309::parse(body, body.len() as u64).unwrap()),
+            body.len() as u64,
+            0,
+        );
+        assert_eq!(parsed.check(&target, bound, 0, &DenyOverrides), Ok(()));
+        assert_eq!(
+            parsed.check(&target, tight, 0, &DenyOverrides),
+            Err(Refusal::Access)
+        );
+    }
+}

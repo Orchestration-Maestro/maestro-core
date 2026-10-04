@@ -4,6 +4,29 @@
 # back as missed and its exclusion is reviewed again (tasks.md, T019).
 test_tool = "nextest"
 exclude_re = [
+  # NONBLOCK and CLOEXEC are disjoint bits: OR and XOR set identical flags.
+  '^crates/maestro-acquisition/src/policy/authority_socket\.rs:127:31: replace \| with \^ in connect_bounded$',
+  # The literal HTTPS prefix and exact canonical authority still refuse the
+  # same scheme/userinfo inputs with None. Keep the explicit intent checks.
+  '^crates/maestro-acquisition/src/policy/shape\.rs:71:9: replace \|\| with && in checked_url$',
+  # The exact canonical authority independently refuses credentials with None.
+  '^crates/maestro-acquisition/src/policy/shape\.rs:72:9: replace \|\| with && in checked_url$',
+  # The shared UTC parser independently checks both field widths and returns
+  # the same Invalid refusal before calculating any retry delay.
+  '^crates/maestro-acquisition/src/policy/utc\.rs:112:13: replace \|\| with && in retry_after$',
+  # At epoch equality, checked_sub(0) and checked_add(0) both give UNIX_EPOCH.
+  '^crates/maestro-acquisition/src/policy/utc\.rs:31:16: replace < with <= in parse$',
+  # Cursor None replays the first batch; validate refuses terminal with next,
+  # so saved.next != batch.cursor refuses every append after a terminal batch.
+  '^crates/maestro-kernel/src/acquisition/partition_checkpoint\.rs:164:9: replace \|\| with && in previous$',
+  # Cursor None replays the first batch; validate refuses terminal with next,
+  # so saved.next != batch.cursor refuses every append after a terminal batch.
+  '^crates/maestro-kernel/src/acquisition/partition_checkpoint\.rs:165:9: replace \|\| with && in previous$',
+  # serde_json dispatches every JSON kind to a supported Node visit, never
+  # asking what this private visitor expected (as with ValueVisitor below).
+  '^crates/maestro-knowledge/src/strict_json\.rs:82:9: replace <impl Visitor<.de> for Node<._>>::expecting -> fmt::Result with Ok\(Default::default\(\)\)$',
+  # Value::default() is Value::Null, exactly the original visit_unit value.
+  '^crates/maestro-knowledge/src/strict_json\.rs:99:9: replace <impl Visitor<.de> for Node<._>>::visit_unit -> Result<Value, E> with Ok\(Default::default\(\)\)$',
   # `<=` only adds the empty range, which holds no content: the same findings.
   '^crates/maestro-canonicalization/src/validate/structure\.rs:155:19: replace < with <= in check_uncovered$',
   '^crates/maestro-canonicalization/src/validate/structure\.rs:165:14: replace < with <= in check_gap$',
@@ -17,10 +40,25 @@ exclude_re = [
   # A directory flush only shows after a power loss: the entries are visible
   # to every reader either way. It moved from artifact/store.rs when the
   # database began creating directories too.
-  '^crates/maestro-kernel/src/filesystem\.rs:66:5: replace sync_directory -> Result<\(\), E> with Ok\(\(\)\)$',
+  '^crates/maestro-kernel/src/filesystem\.rs:139:5: replace sync_directory -> Result<\(\), E> with Ok\(\(\)\)$',
   # serde_json reads every JSON value through this visitor, so it never asks
   # what the visitor expected.
   '^crates/maestro-knowledge/src/corpus\.rs:227:9: replace <impl Visitor<.de> for ValueVisitor>::expecting -> fmt::Result with Ok\(Default::default\(\)\)$',
   # The default `Value` is `Value::Null`, the value `visit_unit` returns.
   '^crates/maestro-knowledge/src/corpus\.rs:253:9: replace <impl Visitor<.de> for ValueVisitor>::visit_unit -> Result<Value, E> with Ok\(Default::default\(\)\)$',
+  # The single-candidate arm returns before this zero-or-many comparison.
+  '^crates/maestro-acquisition/src/extraction/registry\.rs:408:38: replace > with >= in select$',
+  # Shifted history and the incoming byte occupy disjoint bits.
+  '^crates/maestro-acquisition/src/transport/wire_quota\.rs:118:38: replace \| with \^ in HeaderGate::push$',
+  # RDONLY is zero; NOFOLLOW and NONBLOCK have disjoint bits.
+  '^crates/maestro/src/acquisition/authority_host\.rs:76:28: replace \| with \^ in protected_file$',
+  # RDONLY is zero; NOFOLLOW and NONBLOCK have disjoint bits.
+  '^crates/maestro/src/acquisition/authority_host\.rs:76:47: replace \| with \^ in protected_file$',
+  # Offline network is a no-op; revisit if Controls::network gains a refusal.
+  '^crates/maestro/src/acquisition/controls\.rs:177:9: replace <impl AdmissionControls for Readiness<\x27_>>::network -> Result<\(\), Refusal> with Ok\(\(\)\)$',
+  # Adding zero inventory overflow cannot overflow or change the total.
+  '^crates/maestro/src/acquisition/sync_discovery\.rs:111:33: replace > with >= in discovery$',
+  # Non-Linux cfg: inactive on Linux; elsewhere Report has no Default
+  # (native Windows E0277), so no build can run this replacement.
+  '^crates/maestro/src/acquisition/cli\.rs:223:5: replace configured -> Result<Report, Failure> with Ok\(Default::default\(\)\)$',
 ]

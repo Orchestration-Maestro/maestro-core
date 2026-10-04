@@ -147,8 +147,12 @@ impl ModelCard {
         .map_err(invalid)
     }
 
-    /// The card whose JSON is `json`.
-    pub(crate) fn from_json_bytes(json: &[u8]) -> Result<Self, CardError> {
+    /// Decode an immutable card from already bounded resource bytes.
+    /// The returned identity hashes the exact input, not reformatted JSON.
+    ///
+    /// # Errors
+    /// Invalid strict v1/v2 card fields or noncanonical v2 bytes refuse.
+    pub fn from_json_bytes(json: &[u8]) -> Result<Self, CardError> {
         Self::from_json(json)
     }
 

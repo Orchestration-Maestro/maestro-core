@@ -8,4 +8,6 @@ mod connections;
 mod garbage;
 mod graph_migrations;
 mod migrations;
+mod readers;
+mod statement_counts;
 mod support;

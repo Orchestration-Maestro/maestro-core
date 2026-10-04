@@ -19,7 +19,7 @@ that mapping before it starts.
 | **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init` with presets and language overlays, host projection, intent routing, policies | 10–13 days | S1 (S2 for impact queries) | **M3 "Catalog installable"** |
 | **S4 Orchestration runtime** | Workflow graphs, durable engine, daemon, Copilot SDK + llama.cpp sessions, Cedar broker, sandbox, contracts, interrupts, extension host and event stream, test kit | 18–24 days | S3 | **M4 "First governed workflow"** |
 | **S5 Capabilities + InnerSource** | Monitoring, Product Owner and Control-M orchestration-planning capabilities; scaffolder; scenario runner; a contributed capability | 10–15 days | S4 | **M5 "First contributed capability"** |
-| **S6 Native acquisition** | Frontier, fetchers, extraction, policy; private BMC connectors; Python retired source by source | 15–25 days | S1 | **M6 "Python retired"** |
+| **S6 Native acquisition** | Frontier, fetchers, extraction, adaptive manifest policy and private connectors; Rust producers replace Python family by family; crawl4ai render-only exception | 15–25 days | S1 delivery only; not M1 release or S3/S4 | **M6 "Python retired"** (producers) |
 | **S7 Intelligence backend** | I1 memory and continuity, I2 code intelligence, I3 governed knowledge, I4 workbench | I1 4–6 wk, I2 3–4 wk, I3 3–5 wk, I4 4–6 wk | S1–S4 | **M7 "Maestro remembers"** (I1) |
 | **S8 Provenance and reverse engineering** | Provenance register, analyzer extensions, behaviour contracts, the clean-room boundary | R1 1–2 wk, R2 2–3 wk, R3 2–3 wk, R4 1 wk | S1, S4, S7-I2 | **M8 "Cleared to reimplement"** |
 
@@ -176,17 +176,58 @@ without building the runtime.
 
 ### S6 Native acquisition → M6
 
-Frontier, HTTP and rendered fetchers (three transports), extraction with
-fidelity receipts and the extractor contract, the strict executable JSON source
-policy with its frozen exclusion registries, URL identity and decision order,
-run receipts; private connectors as extensions for vendor docs and wiki, KB and
-community, GitHub repositories, attachments and the distribution catalogue; the
-bounded protected preflight before any broad live run. Offline qualification
-(HTML fidelity, browser and session boundary, one extractor per media type,
-policy) needs no protected login. **Exit:** each source family matches the
-Python output on fixtures and a sampled live diff, including full, incremental,
-resume, withdrawal and repair cases, then is cut over after independent review;
-scheduled refresh runs natively; the Python producer for that family is retired.
+**Dependency: S1 delivery only, not M1 release or S3/S4 delivery.** The
+[S6 spec](../../specs/006-native-acquisition/spec.md),
+[plan](../../specs/006-native-acquisition/plan.md) and
+[tasks](../../specs/006-native-acquisition/tasks.md) define the enforcing work.
+N01 records the owner's 2026-09-30 amendments before code; ownership below is
+planned, not a claim of implementation, live authorization or qualification.
+
+| Deliverable | Required boundary and enforcing tasks |
+| --- | --- |
+| Local adapters now | Direct manifest-file policy, a qualified supervised subprocess connector using the shared extension protocol, and command-line/local timers invoking the same admitted sync operation (N03, N14, N42–N45). Small policy-source, registry, transport, connector and scheduling ports permit substitution/disablement without caller changes. Later S3 catalog and S4 host/scheduler adapters are N55, outside M6, with no second queue, general host or authority. An adapter without enforceable containment refuses; waiting for S4 is not a substitute. |
+| Rust acquisition and extraction | Kernel-owned frontier, admitted HTTP/browser transports, typed immutable captures and receipts, strict source policy, offline profile/fidelity qualification, declarative wiki mapping, bounded decoding and protected preflight (N04–N28, N43–N48). Spider stays the Rust crawler, extras/chrome/chromey off. Only unavoidable browser work uses **crawl4ai (Python, out of process)**, replacing Spider's chromey renderer. N02 records its named ADR-0020 artifact/role exception; N46 qualifies it. It owns no frontier, conversion, inference, embedding or publication; no other production browser fallback or Python producer/extractor/connector is permitted. |
+| Gated automatic adaptation | One extensible profile registry and manifest authority; evidence-backed proposals, closed five-class allow-list, all mandatory matrix gates, protected fields and whole-proposal refusal (N15, N29–N35). Among registry decisions, only new knowledge exclusions/asset-only entries may be machine-qualified; this is never human review or a `deny_fetch` change. Atomic baseline/active compare-and-swap, persistence/rate limits and first-run postcheck/rollback preserve the last qualified configuration/index. No suite, gold or baseline means held, not passed. |
+| Parallel harvesting | Sources/families share fenced frontier ownership, no duplicate equivalent in-flight fetches, aggregate origin/resource budgets, idempotent captures and isolated staging. Serialize S1 publication and reject/reconcile stale source-revision sets; search/ask retain verified generations and interactive priority (N04, N10–N12, N34, N37, N40). No second production writer at cutover. |
+
+The owner's same-day alias approval is source-evidenced discovery of term-alias
+candidates (N29): exact supporting spans, scope/ambiguity preserved, reviewable
+and reversible, no hand-written product list or silent merge. S2's reviewed
+`ALIAS_OF` identity seam is reused without an S2 delivery dependency. Candidate
+inference is neither approval nor a sixth automatic change class; query expansion
+is later S1 work. Samples and all derived reports remain in protected scoped
+storage; ordinary logs/notifiers contain only fixed status and access-checked
+opaque handles (N06, N29, N30, N34, N54).
+
+**Exit criteria (N49–N54):**
+
+1. Each approved family passes frozen source-grounded fixture comparison and a
+   separately authorized sampled live diff over full, incremental, resume,
+   withdrawal and repair. All twelve legacy defects have regression evidence;
+   known defects are independently adjudicated, not copied for parity. Required
+   media/platform qualification and Q1–Q5 evidence remain mandatory. Each family
+   and the final combined native generation pass retrieval qualification against
+   the frozen current S1 baseline; a changed baseline requires rerunning both arms.
+2. Independent review and explicit family retirement approval precede cutover;
+   exactly one production writer remains. Observe one scheduled native refresh
+   and a rollback exercise under current revocations/retention, retaining two
+   verified generations only as authorized. Missing private-comparison (OA4c),
+   retirement (OA4d), exact-source grants or qualification evidence holds the
+   affected action; policy/tool approval alone grants no access.
+3. Every approved migration family is cut over, with no production Python
+   producer, extractor or connector. The sole pinned, audited crawl4ai browser
+   adapter may remain in its render-only role without blocking M6; broader Python
+   roles or another browser fallback fail cutover regardless of output parity.
+   Native extraction keeps the unchanged Xberg/native docling.rs bake-off, tract
+   layout/OCR default, dynamic offline table-only ONNX Runtime and individually
+   licence-checked offline weights. Actual artifact/feature audits and qualified
+   results, not this roadmap, select the path (N02, N21, N46, N50, N53, N54).
+
+The approved OA2 named-origin policy is a separate N48 amendment with enforcing
+code; the current private-network prohibition remains until it lands, and each
+live origin still needs its own authenticated expiring grant. Synthetic/offline
+qualification needs no protected login; it does not replace the actual platform
+controls or later authorized live evidence. N55's pending adapters never block M6.
 
 ### S7 Intelligence backend → M7
 
@@ -229,7 +270,9 @@ registered before it starts, so R1 ships with that phase if S8 has not begun.
 - The desktop workbench before I4 (it is native Rust, ADR-0016; there is no web
   UI).
 - Streamable HTTP MCP transport and any remote access before S4 hardening.
-- macOS and Windows qualification (after S4 on Linux).
+- General orchestration-runtime macOS and Windows qualification (after S4 on
+  Linux); S6 independently qualifies its claimed parser/connector/browser controls
+  through N18, N19 and N46, without an S4 delivery prerequisite.
 - Multi-user or team-server deployment of the kernel, SSO, high availability
   and replication.
 - Learned sparse and late-interaction retrieval unless a bake-off selects them.

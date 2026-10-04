@@ -1,0 +1,5 @@
+{"expected_baseline":{"id":"baseline","digest":"8ba8496a2525ae171ffd104d632dede6ef418d9b95962a9d88e2fcdbc8d48d24"},
+"expected_active":{"id":"active","digest":"96879611650f80a81392a52e0db9b0237669087c4518e1c130e541a505e0eeef"},
+"changes":[],"candidate":"07bc9b9713c2e0bdebb406408f8762dfdce0454e269555dca183b79f5c75520f",
+"evidence":["00000000000000000000000001"],"report":"00000000000000000000000001",
+"rollback":{"id":"active","digest":"96879611650f80a81392a52e0db9b0237669087c4518e1c130e541a505e0eeef"}}
