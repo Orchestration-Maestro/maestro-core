@@ -1,8 +1,8 @@
 //! Synthetic kernel authority for feature-independent cleanup tests.
 use maestro_filesystem::{ControlFile, OwnedRoot};
 use maestro_kernel::facts::EXACT_RESOLVER_VERSION;
-use maestro_kernel::facts::ProjectionReceiptIdentity;
 use maestro_kernel::facts::ResolutionInput;
+use maestro_kernel::facts::{ProjectionBuildRequest, ProjectionReceiptIdentity};
 use maestro_kernel::{
     artifact::Digest,
     document::Collection,
@@ -89,14 +89,14 @@ impl Fixture {
             )
             .unwrap()
             .id;
-        let receipt = ProjectionReceipt {
+        let mut receipt = ProjectionReceipt {
             identity: ProjectionReceiptIdentity {
                 build_id: generation,
                 collection_id: "cleanup".into(),
                 generation_id: generation,
                 claim_set_id: set,
                 file_name,
-                schema_version: "maestro-typed-edges/2".into(),
+                schema_version: "maestro-typed-edges/3".into(),
                 knowledge_edge_count: 0,
                 catalog_dependency_edge_count: 0,
                 entity_fact_count: 0,
@@ -107,7 +107,7 @@ impl Fixture {
             settings_identity: Digest::of(b"settings"),
             frozen_lock: Digest::of(b"frozen-lock"),
         };
-        record_ready(&database, &scopes, &scope, &receipt);
+        record_ready(&database, &scopes, &mut receipt);
         let graph = path.join("graph");
         let root = OwnedRoot::open(&graph, true).unwrap();
         root.ensure_control(ControlFile::Access).unwrap();
@@ -142,8 +142,11 @@ impl Fixture {
         let connection = Connection::open(self.path.join("kernel.sqlite3")).unwrap();
         connection
             .execute_batch(
-                "DROP TABLE graph_projection_receipts;
-            DELETE FROM migrations WHERE name = '0030_graph_input_pins';",
+                "DROP TABLE graph_projection_active;
+            DROP TABLE graph_projection_receipts;
+            DROP TABLE graph_projection_builds;
+            DELETE FROM migrations WHERE name IN
+                ('0030_graph_input_pins', '0031_graph_projection_builds');",
             )
             .unwrap();
         connection
@@ -218,27 +221,27 @@ pub(super) fn timing() -> LeaseTiming {
 }
 
 /// Persist immutable readiness with the real scoped projection-job fence.
-fn record_ready(
-    database: &Database,
-    scopes: &ScopeSet,
-    scope: &Scope,
-    receipt: &ProjectionReceipt,
-) {
-    let inputs = json!({"generation": receipt.identity.generation_id});
-    let job = database
-        .submit_job(
-            &NewJob {
-                kind: "knowledge.graph.project",
-                inputs: &inputs,
-                scope,
-                resource: None,
-            },
-            SystemTime::now(),
-        )
-        .unwrap();
-    let lease = database
-        .take_job(job.id, "projector", SystemTime::now(), timing().term)
-        .unwrap();
+fn record_ready(database: &Database, scopes: &ScopeSet, receipt: &mut ProjectionReceipt) {
+    let scope = super::super::ProjectionScope {
+        collection_id: receipt.identity.collection_id.clone(),
+        generation_id: receipt.identity.generation_id,
+    };
+    let request = ProjectionBuildRequest {
+        collection_id: receipt.identity.collection_id.clone(),
+        generation_id: receipt.identity.generation_id,
+        claim_set_id: receipt.identity.claim_set_id.clone(),
+        resolution_id: receipt.resolution_id.clone(),
+        resolver_version: receipt.resolver_version.clone(),
+        settings_identity: receipt.settings_identity.clone(),
+        frozen_lock: receipt.frozen_lock.clone(),
+        expected_active_build_id: None,
+    };
+    let (build_id, lease) =
+        super::reserved::reserve_request((database, scopes), &request, SystemTime::now());
+    receipt.identity.build_id = build_id;
+    receipt.identity.file_name =
+        super::super::content::build_basename(&scope, &receipt.identity.claim_set_id, build_id)
+            .unwrap();
     database
         .record_projection_ready(scopes, receipt, &lease, SystemTime::now())
         .unwrap();

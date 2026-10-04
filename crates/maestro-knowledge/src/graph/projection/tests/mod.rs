@@ -17,5 +17,4 @@ mod cleanup_boundaries;
 mod cleanup_process;
 mod lifecycle;
 
-#[cfg(all(feature = "engine", unix))]
 pub(in crate::graph::projection) mod reserved;

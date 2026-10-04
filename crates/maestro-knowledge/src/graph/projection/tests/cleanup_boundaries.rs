@@ -346,11 +346,14 @@ fn cleanup_corrupt_collection_and_changed_readiness_refuse_without_unlink() {
         })
         .unwrap();
     connection
-        .execute("DROP TRIGGER graph_projection_receipts_never_changed", [])
+        .execute_batch(
+            "DROP TRIGGER graph_projection_receipts_never_changed;
+            DROP TRIGGER graph_projection_builds_never_changed",
+        )
         .unwrap();
     connection
         .execute(
-            "UPDATE graph_projection_receipts SET collection_id = 'corrupt'",
+            "UPDATE graph_projection_builds SET collection_id = 'corrupt'",
             [],
         )
         .unwrap();
@@ -358,11 +361,19 @@ fn cleanup_corrupt_collection_and_changed_readiness_refuse_without_unlink() {
         cleanup
             .apply(&fixture.database, "cleaner", &mut lease, timing())
             .unwrap_err(),
-        CleanupError::UnsafeFile
+        CleanupError::AuthorityUnavailable
     );
+    // The strict build decoder rejects corrupt authority before cleanup identity checks.
+    assert!(graph.join(&fixture.receipt.identity.file_name).exists());
     connection
         .execute(
-            "UPDATE graph_projection_receipts SET collection_id = 'cleanup', content_digest = ?1",
+            "UPDATE graph_projection_builds SET collection_id = 'cleanup'",
+            [],
+        )
+        .unwrap();
+    connection
+        .execute(
+            "UPDATE graph_projection_receipts SET content_digest = ?1",
             [Digest::of(b"changed").as_str()],
         )
         .unwrap();

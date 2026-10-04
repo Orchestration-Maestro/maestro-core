@@ -92,6 +92,10 @@ pub(super) const MIGRATIONS: &[(&str, &str)] = &[
         "0030_graph_input_pins",
         include_str!("../../migrations/0030_graph_input_pins.sql"),
     ),
+    (
+        "0031_graph_projection_builds",
+        include_str!("../../migrations/0031_graph_projection_builds.sql"),
+    ),
 ];
 
 /// Applies to `connection` each of `migrations` it does not record yet, in

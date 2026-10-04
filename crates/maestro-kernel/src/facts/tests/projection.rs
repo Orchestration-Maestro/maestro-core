@@ -22,7 +22,7 @@ use std::{collections::BTreeMap, thread};
 
 pub(super) fn legacy_attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
     let scratch = Scratch::new();
-    let database = scratch.open();
+    let database = scratch.open_before("0031_graph_projection_builds");
     let all = ScopeSet::default_workspace();
     let build_plan = plan(&["rev-a"], 10, 0);
     let mut build = build_job(&database, &build_plan, "builder");
@@ -120,15 +120,11 @@ pub(super) fn legacy_attached() -> (Scratch, Database, ScopeSet, ProjectionRecei
     (scratch, database, all, receipt)
 }
 
-/// Runtime fixtures apply the unregistered migration explicitly, never a legacy API.
+/// Runtime fixtures upgrade the explicit legacy authority through production migrations.
 pub(super) fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
     let (scratch, database, scopes, mut receipt) = legacy_attached();
-    scratch
-        .outside()
-        .execute_batch(include_str!(
-            "../../../migrations/0031_graph_projection_builds.sql"
-        ))
-        .unwrap();
+    drop(database);
+    let database = Database::open_in(&scratch.0).unwrap();
     receipt.identity.schema_version = "maestro-typed-edges/3".into();
     (scratch, database, scopes, receipt)
 }

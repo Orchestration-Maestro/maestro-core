@@ -178,12 +178,6 @@ fn legacy_projection_migration_preserves_rows_triggers_and_refuses_silent_upgrad
     drop(outside);
     drop(database);
     let migrated = Database::open_in(&scratch.0).unwrap();
-    scratch
-        .outside()
-        .execute_batch(include_str!(
-            "../../../migrations/0031_graph_projection_builds.sql"
-        ))
-        .unwrap();
     let outside = scratch.outside();
     let stored: (String, Option<String>, String) = outside
         .query_row(

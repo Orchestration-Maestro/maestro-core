@@ -436,7 +436,7 @@ fn cleanup_migrated_legacy_receipt_still_authorizes_removal() {
         assert_eq!(
             connection
                 .query_row(
-                    "SELECT count(*) FROM graph_projection_receipts
+                    "SELECT count(*) FROM graph_projection_builds
              WHERE resolution_id IS NULL AND resolver_version IS NULL
              AND settings_identity IS NULL AND frozen_lock IS NULL",
                     [],

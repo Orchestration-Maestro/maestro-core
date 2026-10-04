@@ -12,7 +12,6 @@ use std::{cell::Cell, fs};
 
 pub(super) fn fixture() -> Fixture {
     let mut fixture = Fixture::new();
-    reserved::migrate(fixture.authority.directory());
     reserve(&mut fixture, None);
     fixture
 }

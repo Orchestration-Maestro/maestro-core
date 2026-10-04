@@ -1,34 +1,21 @@
-//! Shared cutover fixtures: apply unregistered 0031 once, then reserve through
-//! typed admission. Step 4 callers must use these instead of raw build inserts.
+//! Private fixtures reserve through canonical typed admission, never raw build inserts.
+#[cfg(all(feature = "engine", unix))]
 use crate::graph::projection::ProjectionBuild;
 use maestro_kernel::{
     facts::ProjectionBuildRequest,
-    job::NewJob,
+    job::{Lease, NewJob},
     scope::{ScopeSet, collection_path},
     store::Database,
 };
-use rusqlite::Connection;
-use std::{
-    path::Path,
-    time::{Duration, SystemTime},
-};
+use std::time::{Duration, SystemTime};
 
-pub(in crate::graph::projection) fn migrate(directory: &Path) {
-    Connection::open(directory.join("kernel.sqlite3"))
-        .unwrap()
-        .execute_batch(include_str!(
-            "../../../../../maestro-kernel/migrations/0031_graph_projection_builds.sql"
-        ))
-        .unwrap();
-}
-
+#[cfg(all(feature = "engine", unix))]
 pub(in crate::graph::projection) fn reserve(
     authority: (&Database, &ScopeSet),
     build: &mut ProjectionBuild,
     predecessor: Option<i64>,
     now: SystemTime,
 ) {
-    let (database, scopes) = authority;
     let request = ProjectionBuildRequest {
         collection_id: build.scope.collection_id.clone(),
         generation_id: build.scope.generation_id,
@@ -39,8 +26,17 @@ pub(in crate::graph::projection) fn reserve(
         frozen_lock: build.frozen_lock.clone(),
         expected_active_build_id: predecessor,
     };
+    (build.build_id, build.lease) = reserve_request(authority, &request, now);
+}
+
+pub(super) fn reserve_request(
+    authority: (&Database, &ScopeSet),
+    request: &ProjectionBuildRequest,
+    now: SystemTime,
+) -> (i64, Lease) {
+    let (database, scopes) = authority;
     let inputs = request.inputs();
-    let scope = collection_path(&build.scope.collection_id).parse().unwrap();
+    let scope = collection_path(&request.collection_id).parse().unwrap();
     let job = database
         .submit_job(
             &NewJob {
@@ -52,11 +48,12 @@ pub(in crate::graph::projection) fn reserve(
             now,
         )
         .unwrap();
-    build.lease = database
+    let lease = database
         .take_job(job.id, "reserved-fixture", now, Duration::from_secs(60))
         .unwrap();
-    build.build_id = database
-        .begin_projection_build(scopes, &request, &build.lease, now)
+    let build_id = database
+        .begin_projection_build(scopes, request, &lease, now)
         .unwrap()
         .build_id;
+    (build_id, lease)
 }

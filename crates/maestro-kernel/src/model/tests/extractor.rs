@@ -174,7 +174,8 @@ fn the_extractor_upgrade_keeps_every_s1_record_digest_pin_and_selection() {
             "0017_unit_graphs",
             "0018_retrieval_representations",
             "0019_graph_projection",
-            "0030_graph_input_pins"
+            "0030_graph_input_pins",
+            "0031_graph_projection_builds"
         ]
     );
     let before = rows(&scratch.outside());
@@ -255,7 +256,8 @@ fn a_failing_extractor_upgrade_changes_nothing() {
             "0017_unit_graphs",
             "0018_retrieval_representations",
             "0019_graph_projection",
-            "0030_graph_input_pins"
+            "0030_graph_input_pins",
+            "0031_graph_projection_builds"
         ]
     );
 }

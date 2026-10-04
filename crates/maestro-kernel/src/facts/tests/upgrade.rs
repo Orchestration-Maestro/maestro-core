@@ -120,7 +120,8 @@ fn assert_refused_without_changes(mode: &str) {
             "0017_unit_graphs",
             "0018_retrieval_representations",
             "0019_graph_projection",
-            "0030_graph_input_pins"
+            "0030_graph_input_pins",
+            "0031_graph_projection_builds"
         ]
     );
 }
