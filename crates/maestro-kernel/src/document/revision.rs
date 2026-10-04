@@ -3,6 +3,7 @@
 //! its status's one move, to failed.
 
 use super::{collection::json, error::Error};
+use crate::json::canonical;
 use crate::{
     artifact::Digest,
     scope::ScopeSet,
@@ -223,7 +224,7 @@ fn insert(transaction: &Transaction<'_>, revision: &Revision) -> Result<Recorded
             revision.canonical_digest.as_str(),
             revision.status.as_str(),
             revision.captured_at,
-            Value::Object(revision.metadata.clone()).to_string(),
+            canonical(Value::Object(revision.metadata.clone())).to_string(),
         ],
     )?;
     artifacts::pin(transaction, &revision.original_digest)?;

@@ -4,8 +4,8 @@ use super::{
     prompt::{chat_request, prompt},
     types::{
         ANSWER_SCHEMA, Answer, AnswerCitation, AnswerContext, AnswerModel, AnswerPrompt,
-        AnswerRefusal, AskError, AskRequest, CHAT_DEADLINE, CLOSEST_LIMIT, PromptVersion,
-        RefusalCode, RegisteredAnswerer, Rejection, ResponseLanguage,
+        AnswerRefusal, AskError, AskRequest, CHAT_DEADLINE, CLOSEST_LIMIT, LanguageCheck,
+        PromptVersion, RefusalCode, RegisteredAnswerer, Rejection, ResponseLanguage,
     },
     validate::{Invalid, Reply, ValidReply, ValidationFailure, validate_reply},
 };
@@ -170,8 +170,7 @@ fn validate_request(request: &AskRequest) -> Result<(), AskError> {
 /// `lang` reports.
 #[derive(Debug, Clone)]
 struct Speaking {
-    /// The language of the host-owned texts: French for a French tag,
-    /// English for every other.
+    /// The host-owned text language: en/fr/es, with English fallback.
     texts: ResponseLanguage,
     /// The tag `lang` reports.
     tag: String,
@@ -180,13 +179,13 @@ struct Speaking {
 /// The explicit language `answer_prompt` presents, else the question's.
 fn speaking(request: &AskRequest, answer_prompt: &AnswerPrompt) -> Speaking {
     if let Some(tag) = &answer_prompt.presentation().language {
-        let french = tag.split('-').next() == Some(ResponseLanguage::French.code());
+        let texts = match tag.split('-').next() {
+            Some("fr") => ResponseLanguage::French,
+            Some("es") => ResponseLanguage::Spanish,
+            _ => ResponseLanguage::English,
+        };
         return Speaking {
-            texts: if french {
-                ResponseLanguage::French
-            } else {
-                ResponseLanguage::English
-            },
+            texts,
             tag: tag.clone(),
         };
     }
@@ -376,6 +375,7 @@ impl<'a> ResponseContext<'a> {
             routes: self.bundle.routes.clone(),
             delivered: self.bundle.passages.iter().map(Anchor::from).collect(),
             reply_cap: None,
+            language_check: LanguageCheck::Unchecked,
         }
     }
 
@@ -407,6 +407,7 @@ impl<'a> ResponseContext<'a> {
             routes: self.bundle.routes.clone(),
             delivered: self.bundle.passages.iter().map(Anchor::from).collect(),
             reply_cap: None,
+            language_check: LanguageCheck::Unchecked,
         })
     }
 }
@@ -474,6 +475,18 @@ fn refusal_message(code: RefusalCode, language: ResponseLanguage) -> &'static st
         (RefusalCode::AnswererUnavailable, ResponseLanguage::French) => {
             "Aucun modèle de réponse enregistré n’est disponible pour ce modèle."
         }
+        (RefusalCode::NotFound, ResponseLanguage::Spanish) => {
+            "Los pasajes disponibles no responden a la pregunta."
+        }
+        (RefusalCode::Unsupported, ResponseLanguage::Spanish) => {
+            "La respuesta no pudo verificarse con la evidencia disponible."
+        }
+        (RefusalCode::AnswererUnavailable, ResponseLanguage::Spanish) => {
+            "No hay un modelo de respuesta registrado disponible para el modelo solicitado."
+        }
+        (RefusalCode::NoEvidence, ResponseLanguage::Spanish) => {
+            "Ningún pasaje coincide con la pregunta."
+        }
         (RefusalCode::NoEvidence, ResponseLanguage::English) => "No passage matched the question.",
         (RefusalCode::NoEvidence, ResponseLanguage::French) => {
             "Aucun passage ne correspond à la question."
@@ -487,5 +500,6 @@ const fn below_threshold_message(language: ResponseLanguage) -> &'static str {
     match language {
         ResponseLanguage::English => "The best passage was below the relevance threshold.",
         ResponseLanguage::French => "Le meilleur passage est sous le seuil de pertinence.",
+        ResponseLanguage::Spanish => "El mejor pasaje está por debajo del umbral de relevancia.",
     }
 }

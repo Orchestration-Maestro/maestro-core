@@ -1,0 +1,20 @@
+{
+  "interface_fallback": "L’interface est en anglais ; la langue de conversation reste {language}.",
+  "init_untrusted": "l’espace de travail n’est pas approuvé ; {instruction}",
+  "init_trust_command": "exécutez : maestro trust add {path} --confirm-path {path}",
+  "init_trust_data": "chemin canonique (donnée) :\n{path}\nMettez ce chemin entre guillemets, avec les échappements adaptés à votre shell. Depuis ce dossier, exécutez maestro trust add .",
+  "init_confirm": "l’écriture des préférences seules nécessite une confirmation distincte : {failure} ; {instruction}",
+  "init_approve_prompt": "Approuver {path} ? [y/N] ",
+  "init_confirm_command": "relancez init avec --preferences-only --confirm-path {path}",
+  "init_confirm_data": "mettez le chemin canonique entre guillemets, avec les échappements adaptés à votre shell ; chemin (donnée) :\n{path}",
+  "init_preferences_written": "Préférences seules écrites ; aucune confiance accordée à l’espace de travail.",
+  "init_preferences_declined": "écriture des préférences seules refusée ; aucun fichier écrit",
+  "flow_workspace": "1/5 Espace de travail, confiance et preset",
+  "flow_language": "2/5 Langue",
+  "flow_tone": "3/5 Ton",
+  "flow_settings": "4/5 Tous les paramètres (espace de travail seulement)",
+  "flow_review": "5/5 Vérification",
+  "flow_editor_prompt": "Paramètre KEY=VALUE [Entrée vérifie ; back/cancel] : ",
+  "flow_apply_prompt": "Appliquer les changements vérifiés ? [yes/N ; back/cancel/preview] : ",
+  "flow_preview_prompt": "Aperçu seulement (--apply requis pour écrire). [Entrée quitte ; back/cancel/preview] : "
+}

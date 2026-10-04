@@ -1,0 +1,9 @@
+name = "base"
+description = "Synthetic starter"
+templates = ["common/base"]
+
+[metadata]
+schema = "maestro-source/2"
+maturity = "reviewed"
+rows = ["owner.catalog"]
+workflows = ["ctm-question"]

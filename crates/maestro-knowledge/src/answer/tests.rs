@@ -1,6 +1,6 @@
 use super::{
-    AnswerCitation, AnswerPrompt, AskBudget, AskError, AskRequest, PromptText, PromptVersion,
-    RefusalCode, RegisteredAnswerer, Rejection,
+    AnswerCitation, AnswerPrompt, AskBudget, AskError, AskRequest, LanguageCheck, PromptText,
+    PromptVersion, RefusalCode, RegisteredAnswerer, Rejection,
 };
 use super::{
     generate::{AnswerPlan, answer_bundle, answer_relevant},
@@ -364,6 +364,7 @@ async fn citations_are_host_resolved_without_a_language_check() {
     assert_eq!(port.calls.load(Ordering::Relaxed), 1);
     assert_eq!(answer.model.card_id.as_deref(), Some(answerer.id.as_str()));
     assert_eq!(answer.answer, "The service uses port 8080 by default. [1]");
+    assert_eq!(answer.language_check, LanguageCheck::Unchecked);
     assert_eq!(
         answer.citations,
         [AnswerCitation {
@@ -460,6 +461,8 @@ async fn i2_short_undetected_question_reaches_the_answerer() {
     )
     .await
     .expect("short question answer");
+    assert_eq!(answer.language_check, LanguageCheck::Unchecked);
+    assert_eq!(answer.lang, "en");
 
     assert_eq!(port.calls.load(Ordering::Relaxed), 1);
     assert!(answer.refusal.is_none());
@@ -488,3 +491,8 @@ mod threshold;
 
 #[path = "tests/parent_context.rs"]
 mod parent_context;
+
+#[test]
+fn unchecked_language_check_keeps_its_honest_diagnostic_name() {
+    assert_eq!(LanguageCheck::Unchecked.name(), "unchecked");
+}

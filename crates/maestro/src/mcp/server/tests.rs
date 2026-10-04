@@ -156,6 +156,17 @@ fn get_result_keeps_exact_source_data_in_structured_content() {
     let value: Value = serde_json::to_value(result).expect("structured result JSON");
     assert_eq!(value["isError"], false);
     assert_eq!(
+        value["content"][0]["text"],
+        concat!(
+            "{\"collection\":\"collection\",\"excerpt\":{\"chunk_id\":\"chunk\",",
+            "\"digest\":\"sha256:digest\",\"document_id\":\"document\",",
+            "\"revision_id\":\"revision\",",
+            "\"section_id\":\"section\",\"source_ref\":\"corpus-path:source.md\",",
+            "\"span\":[0,5],\"text\":\"exact\",\"title\":\"Source\",\"version\":\"1\"},",
+            "\"generation\":7,\"schema\":\"maestro-knowledge-get/1\"}",
+        )
+    );
+    assert_eq!(
         value["structuredContent"]["schema"],
         "maestro-knowledge-get/1"
     );

@@ -1,6 +1,7 @@
 //! The command line's grammar, noun then verb (plan D12), as clap derives it
 //! from these types, whose comments are the help it prints.
 
+use super::{catalog::index::View, policy::PolicyCommand, trust::TrustCommand};
 use clap::{Args, Parser, Subcommand};
 use maestro_kernel::evidence::RequestBudget;
 use std::path::PathBuf;
@@ -15,13 +16,35 @@ pub(super) struct Arguments {
     /// stderr.
     #[arg(long, global = true)]
     pub(super) json: bool,
+    /// Disable color; plain output also respects `NO_COLOR` and `TERM=dumb`.
+    #[arg(long = "no-color", global = true)]
+    _no_color: bool,
     /// Set a setting for this run only, over the project and user files;
     /// repeatable. `maestro config list` names every setting.
     #[arg(long = "set", global = true, value_name = "KEY=VALUE")]
     pub(super) set: Vec<String>,
+    /// Answer language for this session, as a supported BCP 47 tag.
+    #[arg(long, global = true)]
+    pub(super) language: Option<String>,
+    /// Answer tone for this session: brief, normal or detailed.
+    #[arg(long, global = true)]
+    pub(super) tone: Option<String>,
     /// What to work on.
     #[command(subcommand)]
     pub(super) noun: Noun,
+}
+
+impl Arguments {
+    /// Explicit flags only: no parser default can mask a stored preference.
+    pub(super) fn settings(&self) -> Vec<String> {
+        let mut flags = self.set.clone();
+        for (key, value) in [("language", &self.language), ("tone", &self.tone)] {
+            if let Some(value) = value {
+                flags.push(format!("{key}={value}"));
+            }
+        }
+        flags
+    }
 }
 
 /// What a command works on, or the machine it sets up and checks.
@@ -39,6 +62,44 @@ pub(super) enum Noun {
     /// Evaluations of a collection's search and answers.
     #[command(subcommand)]
     Eval(EvalCommand),
+    /// The catalog's authoring sources.
+    #[command(subcommand)]
+    Catalog(CatalogCommand),
+    /// Effect-free authoring policy checks and neighbour tests.
+    #[command(subcommand)]
+    Policy(PolicyCommand),
+    /// User-approved canonical workspace roots, stored only in the kernel journal.
+    #[command(subcommand)]
+    Trust(TrustCommand),
+    /// Preview a project bootstrap; only --apply writes files.
+    /// Use --set language=en, --set tone=brief, --set updates=off or a
+    /// documented `config list` key to draft preferences; trusted --apply persists them.
+    Init {
+        /// Reviewed authoring catalog directory.
+        #[arg(long, value_name = "DIR")]
+        catalog_dir: Option<PathBuf>,
+        /// Explicit preset name; repeat to compose inventories.
+        #[arg(long = "preset")]
+        presets: Vec<String>,
+        /// Sequential labelled prompts, without terminal control sequences.
+        #[arg(long, conflicts_with = "yes")]
+        plain: bool,
+        /// Accept explicit scripted choices, never trust or collisions.
+        #[arg(long)]
+        yes: bool,
+        /// Narrow updates to off or propose; Auto remains user-only.
+        #[arg(long)]
+        updates: Option<String>,
+        /// Apply the displayed digest-bound plan.
+        #[arg(long)]
+        apply: bool,
+        /// Decline trust and write only separately confirmed preferences.
+        #[arg(long, requires = "apply")]
+        preferences_only: bool,
+        /// Exact canonical root confirming only the preferences-only write.
+        #[arg(long, requires = "preferences_only", value_name = "DIR")]
+        confirm_path: Option<PathBuf>,
+    },
     /// Preview the search service Maestro needs, or install it with --yes.
     Setup {
         /// Take the steps the preview lists, rather than only print them.
@@ -60,8 +121,14 @@ pub(super) enum Noun {
     },
     /// Every configurable behaviour: the user file `preferences.toml`, the
     /// project file `.maestro/config.toml`, and `--set`.
-    #[command(subcommand)]
-    Config(ConfigCommand),
+    Config {
+        /// Editor layer, using the existing config set/unset selection.
+        #[command(flatten)]
+        target: Target,
+        /// Without a subcommand, open the every-setting editor.
+        #[command(subcommand)]
+        command: Option<ConfigCommand>,
+    },
     /// Back up the kernel to a new or empty directory.
     Backup {
         /// The directory to write.
@@ -354,6 +421,67 @@ pub(super) enum CollectionCommand {
     },
 }
 
+/// What to do with a catalog's authoring sources.
+#[derive(Debug, Subcommand)]
+pub(super) enum CatalogCommand {
+    /// Preview/apply owned native host files; shared JSON entries stay independently owned.
+    Project(super::catalog::project::Request),
+    /// Compile inert checked sources into a deterministic bundle.
+    Compile(super::catalog::compile::Arguments),
+    /// Check trusted CI identity/review evidence, with no network or credential handling.
+    Owners {
+        /// Require trusted identity checks; there is no offline approval bypass.
+        #[arg(long, required = true)]
+        check_identities: bool,
+        /// Exact proposed catalog checkout selected by trusted workflow code.
+        #[arg(long, value_name = "DIR")]
+        catalog_dir: PathBuf,
+        /// Exact base catalog checkout selected by trusted workflow code.
+        #[arg(long, value_name = "DIR")]
+        base_dir: PathBuf,
+        /// Trusted read-only lookup and effective review records, not PR metadata.
+        #[arg(long, value_name = "FILE")]
+        evidence: PathBuf,
+        /// Trusted repository binding, for example organization/manifests.
+        #[arg(long)]
+        repository: String,
+        /// Full base commit ID.
+        #[arg(long)]
+        base_revision: String,
+        /// Full proposed commit ID.
+        #[arg(long)]
+        head_revision: String,
+    },
+    /// Render public pinned navigation to stdout; --check compares both fixed views.
+    Index {
+        /// The public catalog's directory, without private overlays.
+        #[arg(long, value_name = "DIR")]
+        catalog_dir: PathBuf,
+        /// View to render; checking always covers index and by-type together.
+        #[arg(long, value_enum, default_value = "index")]
+        view: View,
+        /// Refuse missing, stale, extra or private rows without writing.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Render CODEOWNERS to stdout; redirect it to .github/CODEOWNERS to update.
+    /// --check compares the committed file without writing.
+    Codeowners {
+        /// The catalog's directory.
+        #[arg(long, value_name = "DIR")]
+        catalog_dir: PathBuf,
+        /// Refuse missing or differing rules without writing.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Check a catalog's sources strictly, running none of its content.
+    Check {
+        /// The catalog's directory.
+        #[arg(long, value_name = "DIR")]
+        catalog_dir: PathBuf,
+    },
+}
+
 /// Which evaluation to run.
 #[derive(Debug, Subcommand)]
 pub(super) enum EvalCommand {
@@ -379,7 +507,22 @@ pub(super) enum JobCommand {
 #[cfg(test)]
 mod tests {
     use super::{Arguments, KnowledgeCommand, Noun};
-    use clap::Parser as _;
+    use clap::{CommandFactory as _, Parser as _};
+
+    #[test]
+    fn catalog_init_help_describes_persisted_preferences() {
+        let mut command = Arguments::command();
+        let help = command
+            .find_subcommand_mut("init")
+            .unwrap()
+            .render_long_help()
+            .to_string();
+        assert!(
+            help.contains("draft preferences; trusted --apply persists them"),
+            "{help}"
+        );
+        assert!(!help.contains("preview only until C05j"), "{help}");
+    }
 
     #[test]
     fn knowledge_ask_parses_the_required_question_and_optional_bounds() {
@@ -457,20 +600,19 @@ mod tests {
     }
 
     #[test]
-    fn i3_knowledge_ask_does_not_accept_a_language_option() {
-        assert!(
-            Arguments::try_parse_from([
-                "maestro",
-                "knowledge",
-                "ask",
-                "--collection",
-                "docs",
-                "--question",
-                "How is the service configured?",
-                "--language",
-                "fr",
-            ])
-            .is_err()
-        );
+    fn knowledge_ask_accepts_the_explicit_global_language_option() {
+        let arguments = Arguments::try_parse_from([
+            "maestro",
+            "knowledge",
+            "ask",
+            "--collection",
+            "docs",
+            "--question",
+            "How is the service configured?",
+            "--language",
+            "fr",
+        ])
+        .unwrap();
+        assert_eq!(arguments.settings(), ["language=fr"]);
     }
 }

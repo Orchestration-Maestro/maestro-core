@@ -98,7 +98,7 @@ fn parse_refuses_a_missing_or_other_schema() {
 fn parse_names_each_unknown_key_with_its_table() {
     let schema = "schema = \"maestro-preferences/1\"\n";
     for (body, key) in [
-        ("updates = \"off\"\n", "updates"),
+        ("invented_setting = \"off\"\n", "invented_setting"),
         ("[access]\nread = []\n", "access"),
         ("[search]\nfoo = 1\n", "search.foo"),
         ("[search.rerank]\nfoo = 1\n", "search.rerank.foo"),
@@ -181,6 +181,7 @@ fn parse_refuses_a_locked_setting_in_any_file() {
         default: Cow::Borrowed("false"),
         description: Cow::Borrowed("Locked."),
         class: SettingClass::Locked,
+        standard_only: false,
     }];
     let registry = Registry::new(&descriptors).unwrap();
     assert_eq!(
@@ -206,5 +207,25 @@ fn parse_refuses_a_setting_a_quoted_dotted_key_and_a_table_both_set() {
     assert_eq!(
         refusal(table_then_quoted),
         "ask.k: the setting is set twice in the file"
+    );
+}
+
+#[test]
+fn preferences_array_depth_counts_every_container_at_the_inclusive_boundary() {
+    let registry = registry();
+    let text = "schema = 'maestro-preferences/1'\nsearch.section_prior.classes = ['conversion']\n";
+    assert!(Layer::parse_preferences(&registry, text, 4096, 4).is_ok());
+    assert_eq!(
+        Layer::parse_preferences(&registry, text, 4096, 3),
+        Err(crate::LayerError::DepthLimit(3))
+    );
+    assert_eq!(
+        Layer::parse_preferences(&registry, text, 4096, 1),
+        Err(crate::LayerError::DepthLimit(1))
+    );
+    let nested = "schema = 'maestro-preferences/1'\nunknown = [[[1]]]\n";
+    assert_eq!(
+        Layer::parse_preferences(&registry, nested, 4096, 2),
+        Err(crate::LayerError::DepthLimit(2))
     );
 }

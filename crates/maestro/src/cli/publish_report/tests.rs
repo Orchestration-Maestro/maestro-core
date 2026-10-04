@@ -408,3 +408,27 @@ fn report_propagates_qdrant_errors_after_a_matching_ready_search_projection() {
     );
     assert!(render(&ready, &unreachable_qdrant()).is_err());
 }
+
+#[test]
+fn publication_outcome_keeps_pre_cedar_bytes_in_json_and_text() {
+    let fixture = fixture(None, None);
+    let data = serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap();
+    let mut job = job(JobState::Failed, data);
+    job.id = Ulid::from(0_u128);
+    let document = text_document(&job, job.outcome.as_ref().unwrap(), None, false, false);
+    assert_eq!(
+        serde_json::to_string(&document).unwrap(),
+        concat!(
+            "{\"schema\":\"maestro-cli/knowledge-publish/1\",",
+            "\"job\":\"00000000000000000000000000\",\"kind\":\"knowledge.publish\",",
+            "\"attempt\":2,\"state\":\"failed\",\"outcome\":{\"a\":0,\"z\":{\"a\":1,\"z\":2}},",
+            "\"historical_generation\":null,\"current_generation\":null,",
+            "\"projection_ready\":false,\"resuming\":false}",
+        )
+    );
+    let text = publish_line(&job, &document, &fixture.inputs, &fixture.card);
+    assert_eq!(
+        text.split_once("; outcome ").unwrap().1,
+        r#"{"a":0,"z":{"a":1,"z":2}}"#
+    );
+}

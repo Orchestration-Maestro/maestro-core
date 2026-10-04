@@ -314,3 +314,29 @@ fn procedure_first_preserves_v2_citation_grammar_and_refusal_contract() {
     let v2_user = &prompt_of(PromptVersion::V2)[1].content;
     assert_eq!(messages[1].content, format!("{PROCEDURE_FIRST} {v2_user}"));
 }
+
+#[test]
+fn v1_and_v2_keep_pre_cedar_prompt_bytes() {
+    for version in [PromptVersion::V1, PromptVersion::V2] {
+        let messages = prompt_of(version);
+        let prefix = match version {
+            PromptVersion::V1 => concat!(
+                "Answer the question in full sentences, with passage markers such as ",
+                "[1] after the ",
+                "sentences they support.\nQuestion and evidence data (JSON):\n",
+            ),
+            _ => V2_USER,
+        };
+        assert_eq!(
+            messages[1].content,
+            format!(
+                "{prefix}{}",
+                concat!(
+                    "{\"passages\":[{\"n\":1,\"section_path\":[\"Commands\"],",
+                    "\"text\":\"Sources are listed.\",\"title\":\"Using the collection\"}],",
+                    "\"question\":\"How do I list the registered sources?\"}",
+                )
+            )
+        );
+    }
+}

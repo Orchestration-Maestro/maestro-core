@@ -10,6 +10,7 @@ use super::{
     },
     support::{FakeEngine, RERANKER, rung, suite},
 };
+use maestro_kernel::json::canonical;
 use maestro_knowledge::{
     answer::RefusalCode,
     eval::{AskOutcome, SearchOutcome},
@@ -38,7 +39,7 @@ pub(super) fn runs() -> Vec<RungRun> {
 
 /// `value` as JSON.
 pub(super) fn to_json(value: &impl serde::Serialize) -> Value {
-    serde_json::to_value(value).unwrap()
+    canonical(serde_json::to_value(value).unwrap())
 }
 
 #[test]

@@ -127,7 +127,9 @@ impl SettingKind {
             Self::Flag => text.parse().ok().map(Value::Flag),
             Self::Integer { .. } => text.parse().ok().and_then(|integer| self.integer(integer)),
             Self::Number { .. } => text.parse().ok().and_then(|number| self.number(number)),
-            Self::Choice { values, reserved } => {
+            Self::Choice {
+                values, reserved, ..
+            } => {
                 if let Some(reserved) = reserved.iter().find(|reserved| reserved.value == text) {
                     return Err(ValueError(reserved.reason.to_string()));
                 }
@@ -202,9 +204,15 @@ impl SettingKind {
     /// `integer` when it is in range.
     fn integer(&self, integer: i64) -> Option<Value> {
         match self {
-            Self::Integer { min, max, .. } => (*min..=*max)
-                .contains(&integer)
-                .then_some(Value::Integer(integer)),
+            Self::Integer {
+                min,
+                max,
+                power_of_two,
+                ..
+            } => {
+                let power = !power_of_two || u64::try_from(integer).is_ok_and(u64::is_power_of_two);
+                ((*min..=*max).contains(&integer) && power).then_some(Value::Integer(integer))
+            }
             _ => None,
         }
     }
@@ -242,8 +250,21 @@ impl SettingKind {
         let or_off = |off: bool| if off { ", or \"off\"" } else { "" };
         match self {
             Self::Flag => "true or false".to_owned(),
-            Self::Integer { min, max, off } => {
-                format!("a whole number from {min} to {max}{}", or_off(*off))
+            Self::Integer {
+                min,
+                max,
+                off,
+                power_of_two,
+            } => {
+                let constraint = if *power_of_two {
+                    ", a power of two"
+                } else {
+                    ""
+                };
+                format!(
+                    "a whole number from {min} to {max}{constraint}{}",
+                    or_off(*off)
+                )
             }
             Self::Number { min, max, off } => {
                 format!("a number from {min} to {max}{}", or_off(*off))

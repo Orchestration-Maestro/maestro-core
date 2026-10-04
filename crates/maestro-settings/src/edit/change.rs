@@ -10,7 +10,7 @@
 
 use super::document::{Document, Entry, Form};
 use crate::{
-    layer::{Layer, LayerError, SCHEMA},
+    layer::{Layer, LayerError, MAX_FILE_BYTES, MAX_FILE_DEPTH, SCHEMA},
     registry::{Registry, SCHEMA_KEY},
     value::Value,
 };
@@ -31,13 +31,23 @@ pub fn set_in_document(
     value: &Value,
 ) -> Result<String, EditError> {
     let text = text.map_or_else(|| format!("{SCHEMA_KEY} = {SCHEMA:?}\n"), str::to_owned);
-    let before = Layer::parse(registry, &text).map_err(EditError::Invalid)?;
+    let before = Layer::parse_preferences(registry, &text, MAX_FILE_BYTES as u64, MAX_FILE_DEPTH)
+        .map_err(EditError::Invalid)?;
     let unsafe_edit = || EditError::Unsafe(key.to_owned());
     let root = DeTable::parse(&text).map_err(|_| unsafe_edit())?;
     let document = Document::of(root.get_ref(), &text);
-    let edited = match document.entry(key) {
-        Some(entry) => splice(&text, entry.value.clone(), &value.to_toml()),
-        None => add(&text, &document, key, value).ok_or_else(unsafe_edit)?,
+    let existing = document
+        .entry(key)
+        .or_else(|| document.entry(&format!("overrides.{key}")));
+    let edited = if let Some(entry) = existing {
+        splice(&text, entry.value.clone(), &value.to_toml())
+    } else {
+        let path = if document.table("overrides").is_some() {
+            format!("overrides.{key}")
+        } else {
+            key.to_owned()
+        };
+        add(&text, &document, &path, value).ok_or_else(unsafe_edit)?
     };
     verify(registry, &edited, &before.with(key, Some(value)), key)?;
     Ok(edited)
@@ -55,14 +65,18 @@ pub fn unset_in_document(
     text: &str,
     key: &str,
 ) -> Result<Option<String>, EditError> {
-    let before = Layer::parse(registry, text).map_err(EditError::Invalid)?;
+    let before = Layer::parse_preferences(registry, text, MAX_FILE_BYTES as u64, MAX_FILE_DEPTH)
+        .map_err(EditError::Invalid)?;
     if before.get(key).is_none() {
         return Ok(None);
     }
     let unsafe_edit = || EditError::Unsafe(key.to_owned());
     let root = DeTable::parse(text).map_err(|_| unsafe_edit())?;
     let document = Document::of(root.get_ref(), text);
-    let entry = document.entry(key).ok_or_else(unsafe_edit)?;
+    let entry = document
+        .entry(key)
+        .or_else(|| document.entry(&format!("overrides.{key}")))
+        .ok_or_else(unsafe_edit)?;
     let lines = line_start(text, entry.key.start)..line_end(text, entry.value.end);
     let edited = splice(text, lines, "");
     verify(registry, &edited, &before.with(key, None), key)?;
@@ -71,7 +85,7 @@ pub fn unset_in_document(
 
 /// Refuses `edited` unless it parses as exactly `expected`.
 fn verify(registry: &Registry, edited: &str, expected: &Layer, key: &str) -> Result<(), EditError> {
-    match Layer::parse(registry, edited) {
+    match Layer::parse_preferences(registry, edited, MAX_FILE_BYTES as u64, MAX_FILE_DEPTH) {
         Ok(layer) if layer == *expected => Ok(()),
         _ => Err(EditError::Unsafe(key.to_owned())),
     }
@@ -114,7 +128,9 @@ fn add(text: &str, document: &Document, key: &str, value: &Value) -> Option<Stri
             Some(insert_line(text, after.max(start), &line))
         }
         Form::Dotted => {
-            let sibling = last_child(document, &table.path)?;
+            let Some(sibling) = last_child(document, &table.path) else {
+                return Some(append_table(text, &table.path, rest, value));
+            };
             let prefix = text.get(line_start(text, sibling.key.start)..sibling.key.start)?;
             let after = line_end(text, sibling.value.end);
             Some(insert_line(text, after, &format!("{prefix}{line}")))

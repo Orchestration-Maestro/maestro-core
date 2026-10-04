@@ -286,3 +286,22 @@ fn cli_resolves_dot_segments_and_reports_directories_and_unresolvable_assets() {
     assert_eq!(inventory["pic.svg/inner.svg"], "unchecked");
     assert_eq!(inventory["absent/inner.svg"], "missing");
 }
+
+#[test]
+fn cli_summary_keeps_pre_cedar_sorted_bytes() {
+    let fixture = Fixture::new();
+    fs::write(fixture.0.join("input.md"), "Body\n").unwrap();
+    let output = fixture.run(&[]);
+    let summary: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let path = summary["canonical_json"].to_string();
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        format!(
+            concat!(
+                "{{\"blocks\":1,\"canonical_json\":{},\"findings\":5,",
+                "\"validation_status\":\"valid_with_warnings\"}}\n"
+            ),
+            path
+        )
+    );
+}

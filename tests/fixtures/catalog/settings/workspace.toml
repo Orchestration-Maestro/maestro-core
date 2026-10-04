@@ -1,0 +1,8 @@
+schema = "maestro-preferences/1"
+language = "zh-Hant-TW"
+tone = "brief"
+updates = "propose"
+
+[overrides]
+model_profile = "balanced"
+routing_candidates = 2

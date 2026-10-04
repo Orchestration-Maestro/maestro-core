@@ -447,3 +447,18 @@ fn eligible_revisions_are_those_of_the_collection_alone() {
         Vec::new()
     );
 }
+
+#[test]
+fn revision_metadata_keeps_pre_cedar_persisted_bytes() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let mut revision = revision(&database, "synthetic", RevisionStatus::Valid);
+    revision.metadata = serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap();
+    database.record_revision(&revision).unwrap();
+    let text: String = database
+        .reader()
+        .unwrap()
+        .query_row("SELECT metadata_json FROM revisions", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(text, r#"{"a":0,"z":{"a":1,"z":2}}"#);
+}

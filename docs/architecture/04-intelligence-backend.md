@@ -255,8 +255,11 @@ feature list.
 The method these steps rely on — how a provider is studied without inheriting
 its code or its licence obligations — is [09](09-reverse-engineering.md).
 
-1. Register each provider in `maestro-manifests/mcp/` with an approved tool
-   allowlist and the policies that govern it; agents use them today.
+1. Register each provider in its owning capability's
+   `capabilities/<domain>/<capability>/mcp/<provider>.toml` in `maestro-manifests`,
+   with an approved tool allowlist and qualified policy IDs in declared `requires`.
+   Consuming agents declare `mcp:<capability>/<provider>` in their own `requires`;
+   registration alone never launches a server or authorizes a tool call.
 2. For each capability, build the eval suite first, from real questions. The
    behaviour contracts of [09 §7](09-reverse-engineering.md#7-behaviour-contracts)
    are how that suite is derived from the provider itself.

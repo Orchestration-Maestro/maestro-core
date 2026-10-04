@@ -9,6 +9,11 @@ foundation, qualification and delivery obligations maps to a slice in
 [08 §12](08-traceability.md#12-delivery-mapping); each slice's spec re-checks
 that mapping before it starts.
 
+**Exception (owner, 2026-09-28 08:12):** S2 and S3 start while S1 finishes;
+for them, unfinished S1 prerequisites gate the affected live checks and exits,
+not fixture work. This scoped exception is recorded in
+[ADR-0010](../adr/0010-spec-kit-and-executable-gates.md#amendment-2026-09-28).
+
 ## 1. Slices at a glance
 
 | Slice | Delivers | Estimate* | Depends on | Milestone |
@@ -16,7 +21,7 @@ that mapping before it starts.
 | **S0 Foundation** | Clean `maestro-core` (canonicalization only) under org gates; the repositories S1 needs published; Spec Kit | 4–6 days (measured scope) | — | — |
 | **S1 Knowledge kernel + hybrid RAG** | Kernel building blocks; Control-M collection imported, published and searchable through MCP; eval suites; first model bake-off | 12–15 days | S0 | **M1 "Ask Control-M"** |
 | **S2 Knowledge graph** | Fact store, extraction, entity resolution, Neo4j projection, graph route, graph evals | 10–15 days | S1 | **M2 "Relationships answered"** |
-| **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init` with presets and language overlays, host projection, intent routing, policies | 10–13 days | S1 (S2 for impact queries) | **M3 "Catalog installable"** |
+| **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init`, host projection, intent routing, policies and static graph checks | Phase 1 356–368 h; Phase 2 121 h; reserve and S6 separate ([plan](../../specs/003-catalog/plan.md#risks-and-estimates)) | S1 live evidence for C08/C28 and M1 release for M3 exit; S2 G25/G27 for impact | **M3 "Catalog installable"** |
 | **S4 Orchestration runtime** | Workflow graphs, durable engine, daemon, Copilot SDK + llama.cpp sessions, Cedar broker, sandbox, contracts, interrupts, extension host and event stream, test kit | 18–24 days | S3 | **M4 "First governed workflow"** |
 | **S5 Capabilities + InnerSource** | Monitoring, Product Owner and Control-M orchestration-planning capabilities; scaffolder; scenario runner; a contributed capability | 10–15 days | S4 | **M5 "First contributed capability"** |
 | **S6 Native acquisition** | Frontier, fetchers, extraction, policy; private BMC connectors; Python retired source by source | 15–25 days | S1 | **M6 "Python retired"** |
@@ -27,6 +32,10 @@ that mapping before it starts.
 for external approvals. Estimates are replaced by measured velocity after S1.
 
 ### Two schedules
+
+The 08:12 decision above supersedes only the S2/S3 implementation-start dates
+in these estimates. The evidence prerequisite remains for every other slice;
+the dates are not delivery commitments.
 
 | Week | Sequential (one writer) | Two tracks after S1 (knowledge ∥ agents) |
 | --- | --- | --- |
@@ -121,36 +130,125 @@ identical query results; the LadybugDB spike has a written verdict.
 
 ### S3 Catalog → M3
 
+D1–D5 are decided in the [S3 spec](../../specs/003-catalog/spec.md#clarifications).
+C00's [exact inventory](../../specs/003-catalog/traceability.json) is a planned
+disposition, approved by the owner, 2026-09-28 (C00 inventory approval), not
+delivery evidence.
+
+**D1 checkpoints:** C02 first supplies a small reviewed-source knowledge seed;
+C08 proves init → Copilot/Pi projection → knowledge search/get/ask → remove.
+They are authoring convenience, not verified installation or governed execution.
+`--catalog-dir` cannot mint an attested install or bypass install/update trust.
+Integrated T034/T035 and T038 live evidence gate C08 and C28; the M1 release
+gates M3 exit. C00 needs only the decided D1–D5 to start. No checkpoint removes
+an M3 exit criterion, and no S3 task executes a workflow graph.
+
 | Deliverable | Detail |
 | --- | --- |
 | `maestro-catalog` | Parse, check, compile, verify (attestation, freshness, revocation, version floor), install, update, project, route, resolve, search, impact, explain; settings classes and override resolution; project lock |
-| Bootstrap | `maestro init` with presets, base template and language overlays (Rust first; others as projects need them), preview, stop-on-collision apply, composed-output tests |
-| Catalog v1 content | Written from zero ([03 §1.8](03-agent-orchestration.md#18-writing-the-first-catalog)): the `feature-delivery` and `ctm-question` workflows, the Maestro orchestrator and the owner's roles they need (coder, tester, reviewer; builder as a step), and only the skills, instructions, contracts, Cedar policies (default deny, destructive operations, protected paths, egress, each with allowed and denied fixtures), model profiles (`fast`, `balanced`, `deep`) for both providers, MCP server descriptors and discovery cards those workflows use; every file's pull request names its 08 rows |
-| Release | Manifests CI: check, policy tests, attested bundle |
-| Hosts | Projection to Copilot and Pi (dry run, apply, remove); native `preToolUse` hook → `maestro policy check` |
-| Routing | Discovery cards as the `catalog` collection; `catalog_route`, `catalog_impact`; labelled intent suite |
-| Spike | Copilot's tolerance of `metadata:` in `.agent.md` (decides sidecar or frontmatter) |
-| Comparison pass (after M3) | The earlier catalog read once against the new one; each recovered item its own pull request citing it; the rest listed with the reason |
+| Bootstrap | Branded, keyboard/plain/no-color `maestro init` and the same every-setting editor on no-argument `maestro config`, generated from S1 descriptors with current value, allowed values, description and source; existing class/layer/authority restrictions. Strict workspace config, language/tone, user-approved folder trust, updates and overrides; scripted flags plus `--yes`, explicit apply, base/Rust composition and owned-file safety |
+| Session preferences and trust | Free flags > safely discovered workspace > user preferences > defaults; updates/budgets only narrow. Bounded canonical BCP 47 subset; question-language answers when unset, evaluation unchanged. en/fr/es interface, English fallback otherwise; English artifacts/logs. MCP --workspace or user-only snapshot, path-free source; static native English rules. Kernel-only path trust, immutable secret deny data |
+| Startup updates | Off or daily offline-safe verified discovery; default propose, user-only catalog auto before work, mandatory widening/hook consent, receipts and trusted catalog rollback. Runtime propose-only; MCP never applies, fixed ID/target/version notice only. Never update trusted roots |
+| Catalog v4 content | Global mandatory standards, eight root language profiles and ten core personas; core feature-delivery, team workload-question, exact card identities and separate session profiles. Owner-approved recovery with C29 pre-M3 provenance/defer audit; no placeholders or private content. Full non-Rust gates are later projects |
+| Kinds and model cards | C03 finite floats/structured tables and named hooks permit descriptor-only lifecycle extension. C03a adds exact kernel v2 model-card declarations; C02a supplies owner-approved winners before C28. C16h explicitly registers admitted installed cards with local evidence, reusing kernel authority and one lock-bound lookup. No implicit registration, new role, download or fake selection/qualification |
+| Release | Manifests CI: check, policy tests, bundle plus SPDX JSON SBOM of pinned components/digests, per-asset checksums, attestations and verification instructions (SEC-011) |
+| Hosts | Copilot/Pi owned projection and four-client local MCP remain S3. Ten-point subscription/host maps have explicit mapped/unsupported/unqualified states; C20 live Copilot hook moves to S4 with 4 h, alongside other trusted host qualification |
+| Static graph checks | C22a/C22b check all twelve [03 §2.3](03-agent-orchestration.md#23-compile-time-validation) rules; unsupported constructs are refused. Execution and live role qualification remain S4 |
+| Routing | Exact-ID/local lexical baseline, scoped discovery cards, conditional measured hybrid; C27a's separate catalog edge schema/adapters over S2 G27's public typed-edge port after G25 qualification, then C27 exact impact. No evidence-span claims or implicit closure fallback |
+| Spike | ADR-0005 retained; C03 uses integrated [C01 evidence](../../specs/003-catalog/research/hosts.md) (`0be954b`). Agent sidecars confirmed (Copilot 1.0.88 ignores agent metadata); skills use specification-backed `metadata`, not support inferred from the silent unknown-key control. A host warning reopens ADR-0005's sidecar decision |
+| Recovery audit before M3 | C29 assigns every one of 395 authorized legacy input files a provenance/disposition; named minimal-option deferrals remain Phase 2, not claimed shipped |
 
 **Exit criteria:** a tagged bundle is attested by manifests CI and verified by
-`maestro catalog install`, and a revoked or expired one is refused; an
-unclassified setting is rejected; `maestro init` previews and applies every
-language composition cleanly and stops on collisions; projection is idempotent
-and removes only owned files; routing beats the structured baseline and reaches
-top-3 accuracy ≥ 90 % on the intent suite (initial target); every policy rule
-has passing allow and deny tests.
+pinned `gh` through `maestro catalog install`; revoked, expired or replayed
+bundles are refused. D2 requires refresh within five minutes during use and
+offline expiry within 24 hours. An unclassified setting is rejected;
+`maestro init` previews and applies the base and base-plus-Rust compositions
+cleanly and stops on collisions. Projection is idempotent and removes only
+unchanged owned content. Every policy and static graph rule
+has passing allowed and denied neighbours. C28 requires M1 release, S2 impact,
+live native-load/MCP/release evidence, all Phase 1 standards/language/delegation/
+backend/checkpoint/gap proofs, and final three-platform CI. Static host maps
+never substitute for C20/S4 live effects or claim protection.
+
+**D5 routing exit — OA10 approved (owner, 2026-09-28):** the absolute bar is
+held-out matchable **top-1 ≥ 90 %**, requiring a correct first selection rather
+than shortlist inclusion. This is the owner's dated amendment to D5; its
+original **top-3 ≥ 90 %** bar is retained as history, not current acceptance.
+C23 freezes
+100+ independently reviewed CORE public/synthetic cases (at least 20 tuning,
+80 held-out, 60 held-out matchable), ten eligible synthetic workflow candidates
+and a digest-pinned compiled bundle/eligibility fixture. Required dependency
+completeness is 100 %. Report top-1/top-3, correct no-match, clarification, unnecessary
+context, distractors and latency separately. Under [S3 D5's protocol](../../specs/003-catalog/plan.md#d5-baseline-routing-and-measured-hybrid),
+hybrid ships only if its held-out top-1 difference has a strictly positive
+lower bound in the seeded 95 % paired-bootstrap interval; otherwise ship the
+passing baseline and retain the failed comparison. This explicitly replaces
+the older unconditional "routing beats the structured baseline" exit. A real M3 install
+returns `incompatible` (not qualified until S4) for executable workflows;
+synthetic success does not qualify a live role or model.
+
+**Shared migrations:** the supervisor allocates each next-free number at
+landing above every landed or reserved number on main, S1/S2/S3 integration
+branches and the deployment-modes track. C00 reserves no number or gapped block;
+later schema changes receive new numbers, never edits to applied migrations.
+
+The 11:25–12:05 owner amendments add S3 exit evidence for config discovery/
+precedence, conversational/artifact separation, four-client instruction delivery,
+menu accessibility/visual acceptance, trust-backed real file denials, and startup
+off/propose/catalog-auto/approval/rollback/offline cases. Plain init serves C08
+without TUI/OA9; branded visual acceptance is required before M3, not the first
+owner loop. The approved v4 minimal amendment is **149 h Phase 1 + 121 h
+Phase 2 = 270 h**, including the retained S2 7 h; **243 h above** the earlier
+approved 27 h, not stacked on it. Detailed gap rows place G01/G07–G11 (16 h)
+in Phase 1 and G12 context accounting (6 h) in Phase 2. Phase 2 begins right
+after M3: ST1 single-authority standards switch; A0 authoring; R1 recovery/kits;
+L1 independent/private releases; X1 extensions before S4; E1 generic package
+CI evals; A1 explain/context accounting. S3 executes no extension or hook.
+
+The owner's 20:45 URL-rule decision adds **C66 +1 h (3→4)** to the original
+148 h Phase 1 amendment, giving 149 h. Knowledge sources hold strict JSON rules,
+decisions/promotions/expiry and identity migrations; core-derived schemas are
+published with fixtures. C52a/b/C68 add 0 h; C41/C43 keep their S6 budgets and
+switch to collection JSON referencing those rules. S6 separately owns the
+catalog-backed `PolicySource`/`ResourceSource` adapter; N07's shared migration
+type must land and synchronize before C66 fixtures, not a live-adapter M3 gate.
+Private inventories use C69's admitted packages, never a widened C42 mount.
+
+Whole S3 [accounting](../../specs/003-catalog/tasks.md#critical-paths-and-effort)
+is **143 tasks / 477–489 h**: Phase 1 **108 tasks / 356–368 h**, Phase 2
+**35 tasks / 121 h**. Add the unchanged 16–24 h review/CI reserve separately;
+S6 C41–C43 remain 3 tasks / 6–10 h, never an M3 prerequisite. C20 transfers
+4 h to S4, not a project saving. C08 closure is 54 tasks / 178–190 h; internal
+longest paths remain C08 62–70 h, M3 79–86 h after gap recomputation.
+These count completed historical work and exclude external wait/serialization;
+they are not remaining-hour or calendar commitments. Seven later full
+non-Rust gate projects add 168–280 h outside this amendment. Existing signed
+catalogs, exact compatibility/pins, Cedar/local trust/owned removal and quality
+bars remain M3 requirements, never deferrals.
+
+Before C17, the supervisor synchronizes S1's landed registry/kernel APIs into S3.
+The 21:02 ruling makes S1 registry names canonical; C17 adds only missing catalog
+descriptors through the shared port, never a second settings-key list. C05g/C05k
+generate both editor entry points from that registry without per-setting screens.
+Model-card registration is local-evidence-only in M3; each machine qualifies its
+own card. Each answer returns a registry card ID resolving to an immutable card;
+the kernel stores no answers. S1's latest-registration answerer lookup and the
+fact that re-registering an earlier card does not restore it remain explicit
+known gaps until the post-M1 selection fix. C16h tests A, then B, then A → B;
+C18 explains the card an ask would use now. S2 G17 brings extractor before M3;
+query_expander still refuses through the kernel's unknown-role path.
 
 ### S4 Orchestration runtime → M4
 
 | Deliverable | Detail |
 | --- | --- |
-| Graph compiler | The twelve rules of [03 §2.3](03-agent-orchestration.md#23-compile-time-validation) |
+| Graph execution | Execute S3-validated graphs and enforce the twelve [03 §2.3](03-agent-orchestration.md#23-compile-time-validation) rules at runtime; static compilation belongs to S3 C22a/C22b |
 | Engine + daemon | Event-sourced state, scheduler, recovery with uncertain-effect handling, interrupts, budgets, cancellation; systemd user unit; Unix-socket JSON-RPC |
 | Sessions | Copilot SDK 1.0.14 with `copilot` and `llamacpp` providers, hooks, permission handler, `submit_result`, context assembler |
 | Broker + sandbox | Cedar decisions on normalized arguments, approvals, Landlock + seccomp + network namespace + cgroups, worktrees |
 | Acceptance | Contracts, semantic validators, evidence cross-check, bounded repair |
 | Surface | `maestro run …` CLI; MCP run tools as long-running tasks; local HTTP API with server-sent events; schedules; OTel spans for runs |
-| Extensions | Extension host, Maestro Extension Protocol, process extensions, outbound webhooks, public event catalogue with schema compatibility tests, a reference `echo` extension ([07](07-extensibility.md)) |
+| Extensions | Any-language out-of-process extension host (Maestro code stays Rust), MCP actions plus durable versioned engine events/cursors, outbound webhooks, public event catalogue with schema compatibility tests, a reference `echo` extension ([07](07-extensibility.md)) |
 | Qualification | Provider qualification on both routes (direct endpoint, then SDK), the first model cards and the qualification registry, the test kit and released scenario runner with strict replay rules |
 
 **Exit criteria:** `feature-delivery` completes on the maestro-release-canary repository
@@ -160,6 +258,53 @@ every denial test proves its stimulus reached the real guard; sandbox escape
 tests fail closed; an extension is activated, receives events, survives a
 restart without loss and is deactivated without restarting the daemon; L1–L4
 suites in CI, L5 recorded as qualification cards.
+
+**S4 session-preferences launch-adapter obligation:** consume S3 C05e's English
+instruction fragment in every launched, resumed and delegated agent. Acceptance
+inspects actual adapter instruction payloads on both provider routes for all
+three tones and a language without built-in interface strings, retaining the
+selected tag and English code/commit/name/identifier/log/documentation rule.
+Inspect the exact launch/resume/delegation payload, fail on missing or stale
+fragments and model-supplied replacements, and observe generated conversation
+versus English artifacts/logs. Native adapters take only
+`native_preferences_instructions()` from the shared settings module: follow the
+current MCP session and retain the fixed English rule, never persist values.
+C05e's four-client stdio fixtures prove construction and delivery only; C08
+supplies host evidence. See the [handoff](../../specs/003-catalog/research/session-preferences.md).
+S3 construction/delivery tests are not this launch proof or proof of host obedience.
+
+**S4 workspace-trust hook obligation:** qualify Copilot (transferred C20,
+4 h), Pi, Codex and Claude Code's trusted event/identity adapters against the same `WorkspaceTrust` port.
+C20 requires actual Copilot allow, deny and error-to-deny receipts with
+observed effects; all hook/effect tests must deny outside writes, secret reads inside trust,
+link escapes and agent-shell trust administration (even a correct
+`--confirm-path`), with allowed neighbours and zero
+executor calls on denial. Pi, Codex and Claude Code each need actual normalized
+trusted-event payload receipts and observed filesystem/executor effects, including
+adapter-error-to-deny tests; an unsupported hook stays explicitly unprotected.
+These extend the existing S4 hook qualification,
+not S3's claimed enforcement. S4 task/session admission must also hold the
+shared update lifecycle lease so no activation/rollback happens mid-task.
+
+### Named S3 follow-ups
+
+- **Model-card evidence import after M1:** explicit local `--evidence DIR`,
+  matching every imported file to its declared digest. No download or claim that
+  another machine's backend/runtime/hardware qualification transfers. M3 requires
+  evidence already in the local kernel; an answer journal is not part of S3.
+- **Glossary and source-class catalog kinds:** after the glossary spike shows
+  value, each becomes reviewed, versioned per-collection manifest content rather
+  than only a kernel binding. Reuse C03's finite/structured fields and the kind
+  descriptor contract; the synthetic glossary fixture is not this delivery.
+- **Runtime auto-apply with the installer:** define released-installation layout,
+  cross-platform startup handoff, idle exclusion, retained binaries/state,
+  receipts and current-trust rollback before automatic runtime activation. S3
+  only proposes a verified runtime release and exact approved install command;
+  catalog off/propose/auto uses the existing lifecycle.
+- **Roots-based workspace detection, once a client-qualified channel exists:**
+  MCP roots arrive after initialization and there is no standard instructions-
+  changed notification. S3 uses explicit --workspace or user preferences only;
+  no per-client notification workaround is implied.
 
 ### S5 Capabilities + InnerSource → M5
 
@@ -236,6 +381,11 @@ registered before it starts, so R1 ships with that phase if S8 has not begun.
 - Inbound webhooks, the broker bridge and WebAssembly extensions until a real
   integration asks for them.
 - The structured-data (SQL) knowledge profile until a domain needs it.
+- **Notify-only update checks for owner-managed components (Qdrant, router runtime,
+  host clients, models):** propose-only after each has an approved source; never
+  apply or download those components. S3 manages only released Maestro and
+  installed catalogs/component closures. Pinned `gh` and Cargo resolution stay
+  owner/build-managed, outside that updater.
 
 ## 4. Risk register
 
