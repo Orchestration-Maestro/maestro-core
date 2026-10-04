@@ -149,7 +149,7 @@ pub(super) fn dispatch(
     effects.hygiene(&[config.bootstrap_fd, config.parser_fd])?;
     if required_profile {
         let profile = effects.profile()?;
-        if !profile.starts_with("maestro-n17-parser-bootstrap ") {
+        if !attached_profile(&profile) {
             return Err(Refusal::Unsupported);
         }
         writeln!(diagnostics, "N17_APPARMOR_ATTACHED {}", profile.trim())
@@ -165,6 +165,28 @@ pub(super) fn dispatch(
     }
     Ok(())
 }
+/// Required production profile or the exact numeric provisioned-host scope, never complain.
+fn attached_profile(profile: &str) -> bool {
+    let profile = profile.trim_end_matches('\n');
+    let Some(name) = profile
+        .strip_suffix(" (enforce)")
+        .or_else(|| profile.strip_suffix(" (unconfined)"))
+    else {
+        return false;
+    };
+    if name == "maestro-n17-parser-bootstrap" {
+        return true;
+    }
+    let Some(scope) = name.strip_prefix("maestro-n17-parser-bootstrap-") else {
+        return false;
+    };
+    let mut parts = scope.split('-');
+    let numeric = |part: Option<&str>| {
+        part.is_some_and(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
+    };
+    numeric(parts.next()) && numeric(parts.next()) && parts.next().is_none()
+}
+
 /// Stock-runner qualification of the actual Landlock/seccomp policy, with no namespaces.
 fn unprivileged(
     root: &Path,

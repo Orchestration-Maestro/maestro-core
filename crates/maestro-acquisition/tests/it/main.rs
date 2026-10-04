@@ -115,6 +115,8 @@ mod n16_stage_regressions;
 #[cfg(target_os = "linux")]
 mod n17_child_profiles;
 #[cfg(target_os = "linux")]
+mod n17_process_cleanup;
+#[cfg(target_os = "linux")]
 mod n17_qualify_linux_parser_process_containment;
 // Opt-in test code requires the dedicated delegated host, never silently skips.
 #[cfg(all(target_os = "linux", feature = "parser-containment-tests"))]

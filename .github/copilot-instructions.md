@@ -37,7 +37,8 @@ in place.
 │   │   ├── how-it-works.svg                                                             # A Markdown collection passes through import and quality, then chunking and embedding with the embedder's tokenizer
 │   │   └── maestro-core.jpg                                                             # Maestro Core: ask anything, cite everything
 │   ├── scripts/                                                                         # Maintenance scripts
-│   │   └── parser-containment-ci.sh                                                     # Reviewed N17-only administrative provisioner; application code never invokes sudo
+│   │   ├── parser-containment-ci.sh                                                     # Reviewed N17-only administrative provisioner; application code never invokes sudo
+│   │   └── test_parser_containment_ci.py                                                # Unprivileged contracts for the single administrative N17 provisioner
 │   ├── workflows/                                                                       # GitHub Actions workflows
 │   │   ├── dependabot-auto-merge.yml                                                    # Dependabot auto-merge
 │   │   ├── event-schemas.yml                                                            # Released event schema compatibility
@@ -566,6 +567,7 @@ in place.
 │   │   │       ├── n17_bootstrap_entry.rs                                               # Exercise the actual binary main, including the non-Linux refusal
 │   │   │       ├── n17_child_profiles.rs                                                # Only trusted default children transport their real LLVM exit profiles
 │   │   │       ├── n17_kernel.rs                                                        # Owner-approved real Linux effects; absence of provisioning fails this suite
+│   │   │       ├── n17_process_cleanup.rs                                               # Observe actual process retirement without treating a dead proc entry as a live task
 │   │   │       ├── n17_qualify_linux_parser_process_containment.rs                      # Real kernel qualification is opt-in, with required host setup, never a skip
 │   │   │       ├── n17_support.rs                                                       # Host-provisioned public containment fixtures and explicit synthetic envelopes
 │   │   │       ├── n30_additional_contracts.rs                                          # Typed proposal inputs, fresh CAS and scoped inheritance regressions

@@ -16,6 +16,7 @@ use std::{
     process::Command,
     sync::{Arc, atomic::AtomicBool},
     thread,
+    time::Duration,
 };
 
 /// A required env value has no fallback in a real qualification run.
@@ -139,12 +140,17 @@ pub(super) fn clean(scratch: &Path, group: &Path) {
         .to_string_lossy();
     for entry in fs::read_dir("/proc").unwrap() {
         let entry = entry.unwrap();
-        if let Ok(value) = fs::read_to_string(entry.path().join("cgroup")) {
-            assert!(
-                !value.contains(&format!("{prefix}/n17-")),
-                "owned process remains: {value}"
-            );
-        }
+        let pid = entry.file_name().to_string_lossy().into_owned();
+        super::n17_process_cleanup::reaped(
+            &pid,
+            || super::n17_process_cleanup::owned(&entry.path(), &format!("{prefix}/n17-")),
+            || {
+                // Same 5 ms polling cadence as the existing kernel-effect observer.
+                thread::park_timeout(Duration::from_millis(5));
+                Ok(())
+            },
+        )
+        .unwrap();
     }
 }
 
