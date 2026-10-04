@@ -1,7 +1,7 @@
 //! Owned Windows controls and receipts retain the shared no-follow ancestry.
 use crate::{
     windows::{Directory, hold, hold_directory, refuse_reparse_point},
-    windows_security::{
+    windows_flags::{
         FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ_WRITE,
     },
 };

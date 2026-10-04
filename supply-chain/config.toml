@@ -363,6 +363,7 @@ notes = "jsonschema 0.58.5 closure, approved under S3 D4 (C22b); not an audit"
 version = "2.5.0"
 criteria = "safe-to-deploy"
 notes = "build-dependency of lbug 802abe2 (E03 native cache); owner library decision 2026-10-02"
+
 [[exemptions.filetime]]
 version = "0.2.29"
 criteria = "safe-to-deploy"
@@ -1111,14 +1112,15 @@ criteria = "safe-to-deploy"
 version = "0.1.2"
 criteria = "safe-to-deploy"
 
-[[exemptions.tempfile]]
-version = "3.27.0"
-criteria = "safe-to-deploy"
-notes = "build-dependency of lbug 802abe2 (E03 native cache); owner library decision 2026-10-02"
 [[exemptions.tar]]
 version = "0.4.46"
 criteria = "safe-to-deploy"
 notes = "C10: owner-approved inert archive adapter, defaults disabled as measured under S3 D4/C09; not an audit"
+
+[[exemptions.tempfile]]
+version = "3.27.0"
+criteria = "safe-to-deploy"
+notes = "build-dependency of lbug 802abe2 (E03 native cache); owner library decision 2026-10-02"
 
 [[exemptions.term]]
 version = "1.2.1"

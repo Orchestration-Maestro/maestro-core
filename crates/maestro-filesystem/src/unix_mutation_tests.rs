@@ -1,7 +1,8 @@
 //! Unix boundary checks for filesystem mutation regressions.
-use crate::Directory;
 use crate::root::leaf_name;
+use crate::{Directory, unix::private_metadata};
 use maestro_test_scratch::scratch_directory;
+use rustix::process::getuid;
 use std::{
     fs::{self, File, Permissions},
     io::ErrorKind,
@@ -178,4 +179,30 @@ fn drive_mount_accepts_only_single_ascii_drive_children() {
         let directory = Directory(File::open("/").unwrap(), name.into());
         assert_eq!(directory.is_mount_root().unwrap(), expected, "{name}");
     }
+}
+
+#[test]
+fn private_metadata_checks_owner_write_and_read_independently() {
+    let root = scratch_directory().unwrap();
+    let path = root.join("preferences");
+    fs::write(&path, b"preferences").unwrap();
+    let file = File::open(&path).unwrap();
+    for mode in [0o600, 0o400, 0o640] {
+        fs::set_permissions(&path, Permissions::from_mode(mode)).unwrap();
+        private_metadata(&file).unwrap();
+    }
+    for mode in [0o620, 0o602, 0o200] {
+        fs::set_permissions(&path, Permissions::from_mode(mode)).unwrap();
+        let error = private_metadata(&file).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::Other);
+        assert_eq!(
+            error.to_string(),
+            "foreign-owned, other-writable or unreadable preferences"
+        );
+    }
+    let foreign = File::open("/").unwrap();
+    assert_ne!(foreign.metadata().unwrap().uid(), getuid().as_raw());
+    assert!(private_metadata(&foreign).is_err());
+    drop(file);
+    fs::remove_dir_all(root).unwrap();
 }
