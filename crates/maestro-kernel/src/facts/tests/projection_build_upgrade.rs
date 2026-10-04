@@ -3,7 +3,7 @@ use super::projection_schema_support::Fixture;
 use rusqlite::types::Value;
 
 /// Preserve complete rows, not a selected subset of the search lifecycle.
-fn rows(fixture: &Fixture, table: &str) -> Vec<Vec<Value>> {
+pub(super) fn rows(fixture: &Fixture, table: &str) -> Vec<Vec<Value>> {
     let mut statement = fixture
         .connection
         .prepare(&format!("SELECT * FROM {table} ORDER BY rowid"))
