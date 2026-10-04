@@ -16,7 +16,7 @@ pub(super) struct Fixture {
     pub(super) connection: Connection,
     pub(super) receipt: ProjectionReceipt,
     /// Existing runtime writer used only to submit synthetic test jobs.
-    database: Database,
+    pub(super) database: Database,
     _scratch: Scratch,
 }
 

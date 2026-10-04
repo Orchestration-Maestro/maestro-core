@@ -982,6 +982,7 @@ in place.
 │   │   │   │   │   ├── projection_guards.rs                                 # SQL and scope boundaries for durable projection input pins
 │   │   │   │   │   ├── projection_lease.rs                                  # Exact caller-clock project expiry, fencing, scope and renewal checks
 │   │   │   │   │   ├── projection_pins.rs                                   # Durable pin decoding, resolution authority and append-only migration proofs
+│   │   │   │   │   ├── projection_reservation.rs                            # Standalone 0031 typed reservation proofs; runtime registration stays off
 │   │   │   │   │   ├── projection_schema_support.rs                         # Synthetic pre-0031 authority and raw SQL helpers, never a runtime insertion API
 │   │   │   │   │   ├── resolution.rs                                        # Immutable sourced resolution snapshots and current-grant checks
 │   │   │   │   │   ├── resolution_guards.rs                                 # Frozen reviews, request coverage and rowid replacement regressions
@@ -999,6 +1000,7 @@ in place.
 │   │   │   │   ├── projection.rs                                            # Kernel-controlled verification receipts for immutable graph projections
 │   │   │   │   ├── projection_binding.rs                                    # Shared immutable projection input vocabulary and safe repair text
 │   │   │   │   ├── projection_inputs.rs                                     # Scoped authoritative preflight for explicitly pinned projection resolutions
+│   │   │   │   ├── projection_reservation.rs                                # Inert 0031 reservation authority, compiled only by standalone schema proofs
 │   │   │   │   ├── quote.rs                                                 # Verifying a claim's support from the authority: the revision is one the
 │   │   │   │   ├── read.rs                                                  # Reading a claim set: whole, or not at all when the caller's scopes do not
 │   │   │   │   ├── resolve.rs                                               # Immutable source-backed identity review snapshots over frozen claim sets
