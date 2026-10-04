@@ -2,6 +2,7 @@
 //! Activate with the complete producer/native cutover, never independently.
 use super::{
     error::Error, projection_binding::EXACT_RESOLVER_VERSION, projection_inputs::validate_inputs,
+    projection_records,
 };
 use crate::{
     artifact::Digest,
@@ -267,6 +268,10 @@ fn admit(
         &request.resolution_id,
         &request.resolver_version,
     )?;
+    if let Some(previous) = request.expected_active_build_id {
+        projection_records::by_build(transaction, scopes, request.generation_id, previous)?
+            .ok_or(Error::Unauthorized)?;
+    }
     validate_head(transaction, request)
 }
 

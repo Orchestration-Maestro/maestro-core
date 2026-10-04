@@ -10,10 +10,10 @@ use crate::{
     scope::{Scope, ScopeSet},
 };
 use serde_json::json;
-use std::{collections::BTreeSet, thread};
+use std::collections::BTreeSet;
 
 /// Frozen request from synthetic retained authority, without opening native files.
-fn request(fixture: &Fixture, previous: Option<i64>) -> Request {
+pub(super) fn request(fixture: &Fixture, previous: Option<i64>) -> Request {
     let receipt = &fixture.receipt;
     Request {
         collection_id: receipt.identity.collection_id.clone(),
@@ -28,7 +28,7 @@ fn request(fixture: &Fixture, previous: Option<i64>) -> Request {
 }
 
 /// Submit and lease the canonical attempt, using existing job timing.
-fn lease(fixture: &Fixture, request: &Request) -> Lease {
+pub(super) fn lease(fixture: &Fixture, request: &Request) -> Lease {
     let scope: Scope = format!("workspace/default/collection/{}", request.collection_id)
         .parse()
         .unwrap();
@@ -54,7 +54,11 @@ fn lease(fixture: &Fixture, request: &Request) -> Lease {
 }
 
 /// Reservation under a refreshed caller's scope ceiling.
-fn begin(fixture: &Fixture, request: &Request, lease: &Lease) -> Result<Reservation, Error> {
+pub(super) fn begin(
+    fixture: &Fixture,
+    request: &Request,
+    lease: &Lease,
+) -> Result<Reservation, Error> {
     fixture.database.write(|tx| {
         authority::begin(
             tx,
@@ -303,36 +307,6 @@ fn projection_reservation_replay_refuses_changed_head_receipt_or_state() {
             })
             .unwrap();
     }
-}
-
-#[test]
-fn projection_reservation_identical_concurrent_requests_deduplicate() {
-    let fixture = Fixture::new(false);
-    fixture.migrate();
-    let request = request(&fixture, None);
-    let lease = lease(&fixture, &request);
-    let database = &fixture.database;
-    let reserve = || {
-        database.write::<_, Error>(|tx| {
-            authority::begin(
-                tx,
-                &ScopeSet::default_workspace(),
-                &request,
-                &lease,
-                timing(7).now,
-            )
-        })
-    };
-    let (first, second) = thread::scope(|scope| {
-        let first = scope.spawn(reserve);
-        let second = scope.spawn(reserve);
-        (
-            first.join().unwrap().unwrap(),
-            second.join().unwrap().unwrap(),
-        )
-    });
-    assert_eq!(first, second);
-    assert_eq!(fixture.count("graph_projection_builds"), 1);
 }
 
 #[test]

@@ -338,3 +338,46 @@ fn projection_build_guards_reject_nonpositive_ids_and_noncanonical_covering_reso
     fixture.connection.execute_batch(&valid).unwrap();
     fixture.foreign_keys_clean();
 }
+
+#[test]
+fn projection_build_guards_admission_checks_resolver_body_with_coverage_intact() {
+    let fixture = Fixture::new(false);
+    fixture.migrate();
+    let job = fixture.job("resolver-body");
+    fixture
+        .connection
+        .execute_batch("DROP TRIGGER graph_resolutions_immutable_update")
+        .unwrap();
+    fixture
+        .connection
+        .execute(
+            "UPDATE graph_resolutions SET body = json_set(body, '$.resolver_version', 'other/1')
+         WHERE id = ?1",
+            [fixture.receipt.resolution_id.as_str()],
+        )
+        .unwrap();
+    assert!(fixture.insert_build(&job, None).is_err());
+    assert_eq!(fixture.count("graph_projection_builds"), 0);
+}
+
+#[test]
+fn projection_build_guards_publication_checks_resolver_only_body_change() {
+    let fixture = Fixture::new(false);
+    fixture.migrate();
+    let build = fixture.reserve(None);
+    fixture
+        .connection
+        .execute_batch("DROP TRIGGER graph_resolutions_immutable_update")
+        .unwrap();
+    fixture
+        .connection
+        .execute(
+            "UPDATE graph_resolutions SET body = json_set(body, '$.resolver_version', 'other/1')
+         WHERE id = ?1",
+            [fixture.receipt.resolution_id.as_str()],
+        )
+        .unwrap();
+    assert!(fixture.insert_receipt(build, "candidate.db").is_err());
+    assert_eq!(fixture.count("graph_projection_receipts"), 0);
+    assert_eq!(fixture.count("graph_projection_active"), 0);
+}

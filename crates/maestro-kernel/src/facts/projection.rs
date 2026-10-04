@@ -17,7 +17,7 @@ use serde_json::json;
 use std::{path::Path, time::SystemTime};
 
 /// Stored projection-readiness receipt columns before decoding.
-type ProjectionReceiptRow = (
+pub(super) type ProjectionReceiptRow = (
     String,
     String,
     String,
@@ -43,11 +43,11 @@ pub struct ProjectionInventory {
     pub receipt: Option<ProjectionReceipt>,
 }
 
-/// Strict version-2 pins; legacy identities have no such tuple.
-type ProjectionPins = (Digest, String, Digest, Digest);
+/// Strict version-2/3 pins; legacy identities have no such tuple.
+pub(super) type ProjectionPins = (Digest, String, Digest, Digest);
 
 /// Decode common fields before classifying the format or validating pins.
-fn decode_identity(
+pub(super) fn decode_identity(
     generation_id: i64,
     row: ProjectionReceiptRow,
 ) -> Result<(ProjectionReceiptIdentity, Option<ProjectionPins>), Error> {
@@ -65,6 +65,17 @@ fn decode_identity(
         settings,
         lock,
     ) = row;
+    if generation_id <= 0
+        || !file_name
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphanumeric)
+        || !file_name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+    {
+        return Err(Error::Conflict("invalid projection file identity".into()));
+    }
     let identity = ProjectionReceiptIdentity {
         collection_id,
         generation_id,
@@ -94,7 +105,8 @@ fn decode_identity(
         }
         return Ok((identity, None));
     }
-    if identity.schema_version != "maestro-typed-edges/2"
+    if (identity.schema_version != "maestro-typed-edges/2"
+        && identity.schema_version != "maestro-typed-edges/3")
         || resolver.as_deref() != Some(EXACT_RESOLVER_VERSION)
     {
         return Err(invalid());
@@ -113,7 +125,7 @@ fn decode_identity(
     Ok((identity, Some(pins)))
 }
 
-/// Readiness admission remains strictly version 2, even for valid legacy metadata.
+/// Readiness requires complete pins, even for valid legacy metadata.
 fn decode_receipt(
     generation_id: i64,
     row: ProjectionReceiptRow,

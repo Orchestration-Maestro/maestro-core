@@ -29,6 +29,10 @@ mod projection;
 mod projection_binding;
 mod projection_inputs;
 #[cfg(test)]
+mod projection_publication;
+#[cfg(test)]
+mod projection_records;
+#[cfg(test)]
 mod projection_reservation;
 mod quote;
 mod read;
