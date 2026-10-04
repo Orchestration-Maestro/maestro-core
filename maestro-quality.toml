@@ -326,6 +326,7 @@ words = [
   "schedul",
   "flate",
   "nd",
+  "ratatui",
 ]
 
 [[exception]]

@@ -1331,6 +1331,8 @@ in place.
 │   │   ├── 0018-rustix-on-unix-and-win32-flags-on-windows.md                # The snapshot store uses rustix on Unix and Win32 flags on Windows
 │   │   ├── 0019-reverse-engineering-is-analysis-behind-a-clean-room.md      # Reverse engineering produces knowledge only, behind a clean-room boundary
 │   │   ├── 0020-rust-libraries-with-named-dependency-exceptions.md          # Rust libraries join the stack; the duplicates they force are named exceptions
+│   │   ├── 0021-embedded-ladybug-graph-projection.md                        # Embedded LadybugDB for the graph projection
+│   │   ├── 0022-manifest-layout-v4-and-language-neutral-extensions.md       # Manifest v4 separates global, framework and team content
 │   │   └── README.md                                                        # Hard-to-reverse decisions, each with the trade-off that produced it
 │   ├── architecture/                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
 │   │   ├── 01-knowledge-pipeline.md                                         # 01 Knowledge pipeline
@@ -1368,13 +1370,35 @@ in place.
 │   │   ├── plan.md                                                          # Implementation Plan: Foundation
 │   │   ├── spec.md                                                          # Feature Specification: Foundation
 │   │   └── tasks.md                                                         # Foundation Implementation Tasks
-│   └── 001-knowledge-kernel/                                                # 001 knowledge kernel
-│       ├── checklists/                                                      # Checklists
-│       │   └── requirements.md                                              # Specification Quality Checklist: Knowledge kernel and hybrid RAG
-│       ├── plan.md                                                          # Implementation Plan: Knowledge kernel and hybrid RAG
-│       ├── research.md                                                      # Research: Knowledge kernel and hybrid RAG
-│       ├── spec.md                                                          # Feature Specification: Knowledge kernel and hybrid RAG
-│       └── tasks.md                                                         # Knowledge Kernel and Hybrid RAG Implementation Tasks
+│   ├── 001-knowledge-kernel/                                                # 001 knowledge kernel
+│   │   ├── checklists/                                                      # Checklists
+│   │   │   └── requirements.md                                              # Specification Quality Checklist: Knowledge kernel and hybrid RAG
+│   │   ├── plan.md                                                          # Implementation Plan: Knowledge kernel and hybrid RAG
+│   │   ├── research.md                                                      # Research: Knowledge kernel and hybrid RAG
+│   │   ├── spec.md                                                          # Feature Specification: Knowledge kernel and hybrid RAG
+│   │   └── tasks.md                                                         # Knowledge Kernel and Hybrid RAG Implementation Tasks
+│   ├── 002-knowledge-graph/                                                 # 002 knowledge graph
+│   │   ├── plan.md                                                          # Implementation Plan: Knowledge graph
+│   │   ├── research.md                                                      # Research: qualifying lbug (G25)
+│   │   ├── spec.md                                                          # Feature Specification: Knowledge graph
+│   │   └── tasks.md                                                         # Knowledge Graph Implementation Tasks
+│   ├── 003-catalog/                                                         # 003 catalog
+│   │   ├── research/                                                        # Research
+│   │   │   ├── dependencies.md                                              # C09 dependency measurements
+│   │   │   ├── hosts.md                                                     # Catalog host format probe (C01)
+│   │   │   ├── interface.md                                                 # Init terminal dependency measurements (C05f)
+│   │   │   ├── session-preferences.md                                       # Session preferences delivery: C05e handoff
+│   │   │   └── trust.md                                                     # C09 public attestation probe and trust measurements
+│   │   ├── plan.md                                                          # Implementation Plan: Catalog
+│   │   ├── quality-profile-fields.md                                        # Quality-profile fields (C65)
+│   │   ├── spec.md                                                          # Feature Specification: Catalog
+│   │   ├── tasks.md                                                         # Catalog Implementation Tasks
+│   │   └── traceability.json                                                # JSON data: traceability
+│   └── 006-native-acquisition/                                              # 006 native acquisition
+│       ├── plan.md                                                          # Native Acquisition Implementation Plan
+│       ├── research.md                                                      # S6 research: Rust-first, adaptive acquisition
+│       ├── spec.md                                                          # Feature Specification: Native acquisition
+│       └── tasks.md                                                         # Native Acquisition Implementation Tasks
 ├── supply-chain/                                                            # cargo-vet audits, configuration and imports
 │   ├── audits.toml                                                          # cargo-vet audits file
 │   ├── config.toml                                                          # cargo-vet config file
@@ -1434,6 +1458,9 @@ in place.
 │           ├── evals/                                                       # The collection's evaluation suites, as evals.suite names them: each <name>.jsonl is the suite <name>
 │           │   ├── baseline.json                                            # JSON data: baseline
 │           │   └── synthetic.jsonl                                          # The suite synthetic: one maestro-suite/1 question per line, French and English, each with the sections that answer it
+│           ├── graph/                                                       # Graph
+│           │   ├── defaults.json                                            # JSON data: defaults
+│           │   └── defaults.md                                              # Sample document: Lantern controller
 │           ├── .rumdl.toml                                                  # The synthetic collection is test input, not documentation: one of its documents repeats a heading under the same parent, as authors do
 │           └── collection.json                                              # The maestro-collection/1 declaration of the public collection synthetic
 ├── .editorconfig                                                            # Editor settings that survive the editor

@@ -161,6 +161,34 @@ tests fail closed; an extension is activated, receives events, survives a
 restart without loss and is deactivated without restarting the daemon; L1–L4
 suites in CI, L5 recorded as qualification cards.
 
+**Scope the owner added on 2026-10-01.** The S4 spec, plan and tasks include:
+
+1. **Client SDKs**, TypeScript and Rust first. The Rust SDK can run in process;
+   the TypeScript SDK drives Maestro over the protocol, like Pi's `RpcClient`.
+2. **An embedded stdio mode:** Maestro as a long-lived child process with JSONL
+   commands, responses and events on stdin and stdout, like Pi's `--mode rpc`.
+3. **One versioned protocol**, `maestro/1`, shared by the stdio mode, the
+   daemon's Unix-socket JSON-RPC and the SDKs.
+4. **The model router embedded in the daemon.** `maestro-model-router` is
+   already a library and a binary. Its OpenAI-compatible endpoint stays for Pi
+   and other tools, and a setting keeps the separate router as an alternative
+   adapter behind the model gateway.
+5. **llama.cpp stays a separate, managed binary**, never linked in. Setup and
+   doctor install, pin and verify the right build per machine (CUDA, Metal or
+   CPU), for crash isolation, the GPU backend matrix, independent updates and
+   build cost.
+6. **tethr is folded into Maestro.** There is one product, named Maestro.
+   - The S4 daemon owns agents, terminals, worktrees and sessions, so closing
+     a window never stops work.
+   - The desktop app (the [ADR-0016](../adr/0016-native-rust-desktop-workbench.md)
+     workbench, delivered in I4), the terminal app, the CLI, the SDKs, MCP
+     and local HTTP are screens over that one engine and protocol.
+   - [ADR-0013](../adr/0013-extensions-through-events-and-operations-out-of-process.md)
+     extensions are the only plug-in system.
+   - tethr's research, feature inventories of Herdr, Pi, oh-my-pi and Orca, is
+     required input to the S4 spec and to I4, so no capability of those tools
+     is dropped silently. None of it starts before S4.
+
 ### S5 Capabilities + InnerSource → M5
 
 Three capability slices, each with its own owner, contracts, policies and eval
@@ -195,6 +223,10 @@ parity evaluation against the provider it replaces and by the hard, quality and
 usefulness gates of [04 §10](04-intelligence-backend.md#10-quality-targets-and-gates).
 The open decisions of [04 §12](04-intelligence-backend.md#12-decisions-still-open)
 are settled before the phase that needs them.
+
+I4's workbench is Maestro's only desktop app: it also carries the folded tethr
+scope (S4, item 6 above). The S4 spec records the matching change to
+ADR-0016's scope.
 
 ### S8 Provenance and reverse engineering → M8
 
