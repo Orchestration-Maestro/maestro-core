@@ -12,6 +12,12 @@ mod loader;
 #[cfg(test)]
 mod loader_guard_tests;
 #[cfg(test)]
+mod loader_isolated_tests;
+#[cfg(test)]
+mod loader_process_tests;
+#[cfg(test)]
+mod loader_publication_tests;
+#[cfg(test)]
 mod loader_tests;
 #[cfg(all(test, unix))]
 mod native_pin_tests;

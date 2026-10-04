@@ -12,7 +12,7 @@ use maestro_knowledge::graph::projection::{
 use std::{
     env, fs,
     io::{self, BufRead as _, BufReader, Write as _},
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::{Child, ChildStdout, Command, Stdio},
     slice,
     time::{Duration, SystemTime},
@@ -151,14 +151,7 @@ fn lifecycle_process_child_owns_native_handle() {
             &scope,
         )
         .unwrap();
-        loader_process(
-            producer,
-            &snapshot,
-            &path
-                .join("graph")
-                .join(format!(".build-{}", build.lease.job)),
-            &mode,
-        );
+        loader_process(producer, &snapshot);
         return;
     }
     let claim = kernel
@@ -288,18 +281,9 @@ fn lifecycle_process_death_preserves_loader_then_explicit_resume_can_publish_and
 }
 
 /// A real child retains the native writer until the parent acknowledges publish or kills it.
-fn loader_process(
-    mut producer: ProjectionProducer<'_>,
-    snapshot: &ProjectionSnapshot,
-    staging: &Path,
-    mode: &str,
-) {
+fn loader_process(mut producer: ProjectionProducer<'_>, snapshot: &ProjectionSnapshot) {
     producer.load(snapshot).unwrap();
     let expected = producer.verify().unwrap();
-    if mode == "loader" {
-        // Simulate lost receipt after a durable commit, then kill this real process.
-        fs::remove_file(staging.join("loader/0000000001.json")).unwrap();
-    }
     acknowledge("HELD");
     let mut command = String::new();
     io::stdin().read_line(&mut command).unwrap();

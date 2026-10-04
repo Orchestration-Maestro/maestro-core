@@ -17,7 +17,7 @@ use maestro_kernel::{artifact::Digest, facts::PROJECTION_REBUILD_REPAIR};
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use std::mem;
-use std::{fmt::Display, io::Write as _, path::Path};
+use std::{cell::RefCell, collections::BTreeMap, fmt::Display, io::Write as _, path::Path};
 
 /// Same chunk size as index/batches.rs (BATCH); sets resume granularity, not a setting.
 /// Pi has no graph-batch equivalent.
@@ -165,6 +165,11 @@ pub(super) struct Journal {
     directory: Directory,
     /// Written once; never replaced.
     pub(super) manifest: Manifest,
+    /// Independently derived canonical records retained after load validation.
+    expected: RefCell<BTreeMap<u32, Vec<u8>>>,
+    /// Fail after this many successful removals.
+    #[cfg(test)]
+    pub(super) fail_cleanup_after: Option<usize>,
     /// One-shot post-install removal refusal for the native contract test.
     #[cfg(test)]
     pub(super) fail_cleanup: bool,
@@ -183,6 +188,9 @@ impl Journal {
         let journal = Self {
             directory,
             manifest,
+            expected: RefCell::new(BTreeMap::new()),
+            #[cfg(test)]
+            fail_cleanup_after: None,
             #[cfg(test)]
             fail_cleanup: false,
             #[cfg(test)]
@@ -213,6 +221,9 @@ impl Journal {
         let journal = Self {
             directory,
             manifest,
+            expected: RefCell::new(BTreeMap::new()),
+            #[cfg(test)]
+            fail_cleanup_after: None,
             #[cfg(test)]
             fail_cleanup: false,
             #[cfg(test)]
@@ -251,6 +262,19 @@ impl Journal {
         Ok(ordinal)
     }
 
+    /// Retain every authoritative expectation before any loader completion writes.
+    pub(super) fn expect(&self, snapshot: &ProjectionSnapshot) -> Result<(), ProjectionError> {
+        let mut expected = BTreeMap::new();
+        for ordinal in 1..=self.manifest.count()? {
+            expected.insert(
+                ordinal,
+                serde_json::to_vec(&checkpoint(snapshot, ordinal)?).map_err(refusal)?,
+            );
+        }
+        *self.expected.borrow_mut() = expected;
+        Ok(())
+    }
+
     /// Compare every immutable checkpoint with its independently derived frozen content.
     pub(super) fn validate_checkpoint(
         &self,
@@ -265,6 +289,7 @@ impl Journal {
         if bytes != expected {
             return Err(refusal("checkpoint IDs, digest or format differ"));
         }
+        self.expected.borrow_mut().insert(ordinal, expected);
         Ok(())
     }
 
@@ -278,30 +303,52 @@ impl Journal {
         if self.fail_record {
             return Err(refusal("injected disk full while creating checkpoint"));
         }
-        self.append(
-            &name(ordinal),
-            &serde_json::to_vec(&checkpoint(snapshot, ordinal)?).map_err(refusal)?,
-        )
+        let expected = serde_json::to_vec(&checkpoint(snapshot, ordinal)?).map_err(refusal)?;
+        self.append(&name(ordinal), &expected)?;
+        self.expected.borrow_mut().insert(ordinal, expected);
+        Ok(())
+    }
+
+    /// Recheck held expectations before installation, never adopt newly read bytes.
+    pub(super) fn revalidate(&self) -> Result<(), ProjectionError> {
+        self.compare(
+            "manifest.json",
+            &serde_json::to_vec(&self.manifest).map_err(refusal)?,
+        )?;
+        let expected = self.expected.borrow();
+        self.ordinals()?;
+        if expected.len() != self.manifest.count()? as usize {
+            return Err(refusal("checkpoint expectations incomplete"));
+        }
+        for (ordinal, bytes) in expected.iter() {
+            self.compare(&name(*ordinal), bytes)?;
+        }
+        Ok(())
+    }
+
+    /// Compare bounded bytes against authoritative canonical content.
+    fn compare(&self, name: &str, expected: &[u8]) -> Result<(), ProjectionError> {
+        let bytes = self
+            .directory
+            .read_regular_bounded(name, expected.len() as u64)
+            .map_err(refusal)?;
+        if bytes != expected {
+            return Err(refusal("loader record changed"));
+        }
+        Ok(())
     }
 
     /// Only after native install and readiness: remove known records, manifest last.
-    pub(super) fn cleanup(
-        &mut self,
-        staging: &Path,
-        max_bytes: u64,
-    ) -> Result<(), ProjectionError> {
+    pub(super) fn cleanup(&mut self, staging: &Path) -> Result<(), ProjectionError> {
         let completed = self.ordinals()?;
         for ordinal in (1..=completed).rev() {
-            let file_name = name(ordinal);
             let bytes = self
-                .directory
-                .read_regular_bounded(&file_name, max_bytes)
-                .map_err(refusal)?;
-            let record: Checkpoint = serde_json::from_slice(&bytes).map_err(refusal)?;
-            if record.schema != VERSION || record.ordinal != ordinal {
-                return Err(refusal("cleanup record changed"));
-            }
-            self.remove(&file_name, &bytes)?;
+                .expected
+                .borrow()
+                .get(&ordinal)
+                .cloned()
+                .ok_or_else(|| refusal("missing checkpoint expectation"))?;
+            self.remove(&name(ordinal), &bytes)?;
         }
         self.remove(
             "manifest.json",
@@ -318,6 +365,13 @@ impl Journal {
         #[cfg(test)]
         if mem::take(&mut self.fail_cleanup) {
             return Err(refusal("injected checkpoint removal failure"));
+        }
+        #[cfg(test)]
+        if let Some(remaining) = self.fail_cleanup_after.as_mut() {
+            if *remaining == 0 {
+                return Err(refusal("injected checkpoint removal failure"));
+            }
+            *remaining -= 1;
         }
         self.directory
             .remove_verified(name, bytes, None)
