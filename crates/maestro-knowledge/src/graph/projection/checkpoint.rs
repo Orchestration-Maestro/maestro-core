@@ -39,6 +39,7 @@ pub(super) struct Manifest {
     /// Exact reserved build, immutable predecessor and native stamp format.
     build_id: i64,
     /// Head identity against which the build was reserved.
+    #[serde(deserialize_with = "Option::deserialize")]
     expected_active_build_id: Option<i64>,
     /// Native stamp version expected by this loader.
     native_schema: String,

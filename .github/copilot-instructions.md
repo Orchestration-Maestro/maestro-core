@@ -1387,6 +1387,7 @@ in place.
 │   │   │   │   │   │   ├── cleanup_tests.rs                                 # Native files/read-only handles for the feature-independent cleanup process suite
 │   │   │   │   │   │   ├── codec_tests.rs                                   # Synthetic canonical fact-vector and malformed-byte checks
 │   │   │   │   │   │   ├── config.rs                                        # The single native translation of caller-owned frozen graph settings
+│   │   │   │   │   │   ├── cutover_active_tests.rs                          # Real successive publications, held registry readers and current health selection
 │   │   │   │   │   │   ├── cutover_resume_tests.rs                          # Reserved loader /2 recovery; legacy runtime fixtures remain step 4 work
 │   │   │   │   │   │   ├── holder_fence_tests.rs                            # Holder credentials refuse before reservation, without changing authoritative state
 │   │   │   │   │   │   ├── input_guard_tests.rs                             # Producer preflight forwards all durable pins before reserving native storage

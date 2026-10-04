@@ -106,10 +106,26 @@ fn checkpoint_build_bound_manifest_writes_two_and_preserves_legacy_refusal() {
     assert_eq!(value["native_schema"], "maestro-typed-edges/3");
     assert_eq!(value["expected_active_build_id"], 17);
     value["schema"] = json!("graph-loader/1");
+    let legacy_object = value.as_object_mut().unwrap();
+    for field in ["build_id", "expected_active_build_id", "native_schema"] {
+        legacy_object.remove(field);
+    }
     let legacy = serde_json::to_vec(&value).unwrap();
     fs::create_dir(path.join("loader")).unwrap();
     fs::write(path.join("loader/manifest.json"), &legacy).unwrap();
     assert!(Journal::open(&path, &build, Some(17), 1024 * 1024).is_err());
     assert_eq!(fs::read(path.join("loader/manifest.json")).unwrap(), legacy);
+    fs::remove_dir_all(path).unwrap();
+}
+
+#[test]
+fn checkpoint_manifest_requires_explicit_predecessor_even_for_initial_build() {
+    let (path, _, manifest) = fixture();
+    let mut value = serde_json::to_value(manifest).unwrap();
+    value
+        .as_object_mut()
+        .unwrap()
+        .remove("expected_active_build_id");
+    assert!(serde_json::from_value::<Manifest>(value).is_err());
     fs::remove_dir_all(path).unwrap();
 }
