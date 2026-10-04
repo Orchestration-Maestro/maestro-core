@@ -36,8 +36,10 @@ pub(super) mod tests {
 
     impl Scratch {
         pub(in crate::graph::projection::engine) fn new() -> Self {
-            // Native fixtures also pass paths to the no-follow loader journal.
-            let directory = fs::canonicalize(scratch_directory().unwrap()).unwrap();
+            let directory = scratch_directory().unwrap();
+            // Unix journals need resolved roots; Windows aliases need non-verbatim paths.
+            #[cfg(unix)]
+            let directory = fs::canonicalize(directory).unwrap();
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt as _;

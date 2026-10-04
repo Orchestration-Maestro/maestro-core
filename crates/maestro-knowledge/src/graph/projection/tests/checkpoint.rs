@@ -10,7 +10,10 @@ use serde_json::json;
 use std::{fs, path::PathBuf};
 
 fn fixture() -> (PathBuf, ProjectionSnapshot, Manifest) {
-    let path = fs::canonicalize(scratch_directory().unwrap()).unwrap();
+    let path = scratch_directory().unwrap();
+    // Only Unix journals need symlinked temp parents resolved.
+    #[cfg(unix)]
+    let path = fs::canonicalize(path).unwrap();
     let fact = fact();
     let rows = ProjectionSnapshot {
         scope: fact.scope.clone(),
