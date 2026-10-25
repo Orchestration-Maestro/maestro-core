@@ -6,10 +6,10 @@
 
 use super::super::{release::Release, service::Layout, tools::Tools};
 use maestro_kernel::artifact::Digest;
-use maestro_test_scratch::disk_scratch_directory;
+use maestro_test_scratch::{disk_scratch_directory, write_executable};
 use std::{
     collections::BTreeMap,
-    fs::{self, Permissions},
+    fs,
     os::unix::fs::PermissionsExt as _,
     path::{Path, PathBuf},
     process::Command,
@@ -149,8 +149,7 @@ impl Home {
             "#!/bin/sh\necho \"{name} $*\" >> '{}'\n{body}\n",
             self.log().display()
         );
-        fs::write(&path, script).unwrap();
-        fs::set_permissions(&path, Permissions::from_mode(0o700)).unwrap();
+        write_executable(&path, script.as_bytes()).unwrap();
     }
 
     /// What the fake `curl` serves.
@@ -222,6 +221,43 @@ impl Fixture {
             binary_sha256: &self.binary_sha256,
         }
     }
+}
+
+/// Writing tools while sibling tests spawn must not leave inherited writers.
+#[test]
+fn fake_tools_execute_while_other_threads_spawn() {
+    use std::{
+        sync::atomic::{AtomicBool, Ordering},
+        thread,
+    };
+
+    let home = Home::new();
+    // A large comment widens the write/fork overlap without delaying execution.
+    let body = format!("exit 0\n#{}", "x".repeat(1 << 20));
+    let stop = AtomicBool::new(false);
+    let mut failures = Vec::new();
+    thread::scope(|scope| {
+        let spawner = scope.spawn(|| {
+            // Bound cleanup even if the writer or execution assertion panics.
+            for _ in (0..10_000).take_while(|_| !stop.load(Ordering::Relaxed)) {
+                assert!(Command::new("true").status().unwrap().success());
+            }
+        });
+        for attempt in 0..300 {
+            home.script("stress-tool", &body);
+            match Command::new(home.0.join("tools/stress-tool")).status() {
+                Ok(status) => assert!(status.success()),
+                Err(error) => failures.push(format!("attempt {attempt}: {error}")),
+            }
+        }
+        stop.store(true, Ordering::Relaxed);
+        spawner.join().unwrap();
+    });
+    assert!(
+        failures.is_empty(),
+        "{} failures: {failures:?}",
+        failures.len()
+    );
 }
 
 /// The entries of the directory at `path`.
