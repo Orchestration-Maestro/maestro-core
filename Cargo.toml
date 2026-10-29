@@ -25,7 +25,7 @@ maestro-knowledge = { path = "crates/maestro-knowledge", version = "0.1.0" }
 maestro-settings = { path = "crates/maestro-settings", version = "0.1.0" }
 maestro-test-clock = { path = "crates/maestro-test-clock", version = "0.1.0" }
 maestro-test-scratch = { path = "crates/maestro-test-scratch", version = "0.1.0" }
-pulldown-cmark = { version = "=0.13.4", default-features = false }
+pulldown-cmark = { version = "=0.13.5", default-features = false }
 # Qdrant's official client, over gRPC (ADR-0003, ADR-0020): no snapshot
 # downloads, so no second reqwest; serde for JSON payloads.
 qdrant-client = { version = "1.19.0", default-features = false, features = [
@@ -35,7 +35,7 @@ qdrant-client = { version = "1.19.0", default-features = false, features = [
 # Version 1.2 adds 22 unaudited ICU 2.x crates; revisit the pin only with the
 # owner's approval.
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
-rmcp = { version = "=3.4.1", default-features = false, features = ["server"] }
+rmcp = { version = "=3.6.0", default-features = false, features = ["server"] }
 rusqlite = { version = "0.40.2", default-features = false, features = [
   "bundled",
   "hooks",
